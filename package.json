@@ -1,0 +1,26 @@
+{
+  "name": "pi-tidd-agents",
+  "version": "0.1.0",
+  "description": "A small collection of Pi subagents that makes Ticket-Driven Development a little more convenient.",
+  "keywords": [
+    "pi-package",
+    "pi-subagents",
+    "ticket-driven-development",
+    "agents",
+    "developer-tools"
+  ],
+  "license": "MIT",
+  "files": [
+    "agents",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "pi": {
+    "subagents": {
+      "agents": [
+        "./agents"
+      ]
+    }
+  }
+}
