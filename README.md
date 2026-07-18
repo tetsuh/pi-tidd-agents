@@ -48,20 +48,25 @@ pi install git:github.com/<owner>/pi-tidd-agents
 Ask Pi to delegate in ordinary language:
 
 ```text
-Use sol-reviewer to pre-review Issue #18 and append the result to the issue timeline.
-```
-
-```text
-Use terra-oracle to check Issue #18 and its pre-review for decision drift.
+Use sol-reviewer to review Issue #18 and append pre-implementation notes.
 ```
 
 ```text
 Use luna-worker to implement Issue #18 and create a pull request.
 ```
 
-```text
-Use sol-reviewer and terra-reviewer to review PR #42 in parallel and append a consolidated review comment.
-```
+For a typical Issue-to-pull-request workflow, use the following sequence.
+
+## Typical TiDD flow
+
+| Stage | Agent | Example prompt |
+| --- | --- | --- |
+| Issue pre-implementation notes | `sol-reviewer` | `Use sol-reviewer to review Issue #18 and append pre-implementation notes.` |
+| Issue pre-implementation addendum | `terra-oracle` | `Use terra-oracle to review Issue #18 and append a pre-implementation addendum.` |
+| Implementation and pull request | `luna-worker` | `Use luna-worker to implement Issue #18 and create a pull request.` |
+| Standard pull request review | `sol-reviewer` | `Use sol-reviewer to review PR #42 and append the review.` |
+| Concurrency, lifetime, and ownership review when relevant | `terra-reviewer` | `Use terra-reviewer to review PR #42 for concurrency, lifetime, and ownership issues, then append the review.` |
+| Address approved pull request findings | `luna-worker` | `Use luna-worker to address the approved findings on PR #42 and push the fixes.` |
 
 The reviewer and oracle agents remain read-only. The parent Pi session is responsible for any requested issue or pull-request comment.
 
