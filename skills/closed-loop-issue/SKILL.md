@@ -44,7 +44,9 @@ A target in **another repository** may be reviewed, but nothing may be published
 
 Record the identity of what you reviewed, so later evidence is invalidated only where it no longer applies.
 
-- `issue_spec` — a digest over the issue body plus each authoritative comment rendered as `<id>:<updatedAt>:<body>`.
+- `issue_spec` — `sha256` over the issue body followed by each authoritative comment rendered as `<id>:<updatedAt>:<body>`, ordered by comment id ascending and joined with newlines.
+
+Compute the digest with a shell command. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
 
 An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**. Every other comment is advisory context and stays out of the fingerprint.
 

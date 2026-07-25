@@ -50,12 +50,14 @@ A target in **another repository** may be reviewed in review-only mode. Autofix 
 
 Track identity per kind of evidence, so a change invalidates only what it actually affects:
 
-- `issue_spec` — digest over the body of the issue this pull request implements, plus its authoritative comments as `<id>:<updatedAt>:<body>`;
-- `pr_base` — base revision OID;
-- `pr_tree` — head tree OID;
-- `pr_diff` — digest of the effective `base...head` diff;
-- `pr_commits` — digest of the commit subject and body sequence;
+- `issue_spec` — `sha256` over the body of the issue this pull request implements, followed by its authoritative comments as `<id>:<updatedAt>:<body>`, ordered by comment id ascending;
+- `pr_base` — base revision OID reported by `gh`;
+- `pr_tree` — head tree OID from `git rev-parse <head>^{tree}`;
+- `pr_diff` — `sha256` of `git diff <base>...<head>`;
+- `pr_commits` — `sha256` of `git log --reverse --format=%s%n%b <base>..<head>`;
 - `pr_head` — exact head SHA, used only for CI and exact-head external checks.
+
+Compute every digest with a shell command. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
 
 An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**.
 
@@ -103,7 +105,7 @@ Autofix requires that the pull request's head branch is already checked out in t
 
 ### The writer (CL-D3)
 
-The default writer is `luna-worker`, because it is the only worker whose model is **not also a gate grader**; defaulting to a worker that shares a model with a reviewer would have that model grading its own fixes, and here a gate verdict is an automated exit condition rather than advice to a human.
+The default writer is `luna-worker`. Two constraints select it. `terra-worker` is excluded because its model **also grades the Terra gate**, and a gate verdict here is an automated exit condition rather than advice to a human, so a model must not grade its own fixes. `glm-worker`'s model does not grade a gate either, but choosing it would require a second model family on top of the reviewers', so `luna-worker`, the package's general-purpose worker, **keeps the closed-loop requirement inside one model family**.
 
 A run has **exactly one writer**. If the writer fails to start, stop. **Do not fall back to another worker**: a partially written tree followed by a second writer breaks the single-writer guarantee. Choosing a different worker requires an explicit owner instruction in conversation; it is not a command token.
 

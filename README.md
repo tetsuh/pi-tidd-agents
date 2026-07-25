@@ -17,9 +17,11 @@ Requirements differ between the two ways of using this package:
 | Use | Requirement |
 | --- | --- |
 | Standalone agents | À la carte. Run whichever agents resolve in your environment; an unavailable model affects only that one agent. |
-| Closed-loop workflow | All four agents below must resolve at once, because the workflow composes a fixed set. |
+| Closed-loop workflow | Composes a fixed set of four agents. The complete loop needs all four; a single command needs only the agents in its own preflight. |
 
 The closed-loop workflow uses `sol-reviewer` (`gpt-5.6-sol`), `terra-oracle` (`gpt-5.6-terra`), `terra-reviewer` (`gpt-5.6-terra`), and `luna-worker` (`gpt-5.6-luna`), which are OpenAI GPT-5.6 Sol, Terra, and Luna. `glm-worker` is not used by the closed-loop workflow and remains a standalone agent.
+
+Per command: `/tidd-issue` preflights `sol-reviewer` and `terra-oracle`; `/tidd-pr` preflights `sol-reviewer` and `terra-reviewer`, and adds `luna-worker` in `autofix` mode.
 
 The skills name agents by runtime name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `sol-reviewer`, `terra-oracle`, `terra-reviewer`, and `luna-worker`.
 
@@ -115,7 +117,7 @@ Reviews the pull request without editing files, changing git state, committing, 
 
 The exact token `autofix`, lowercase, is the only way to permit file edits. Anything else — `Autofix`, `--autofix`, an extra argument — stops with usage rather than quietly downgrading. Autofix requires the pull request's branch to be checked out already; the workflow never switches branches for you.
 
-Autofix permits file edits and nothing more. One worker writes, and it is `luna-worker` by default because it is the only worker whose model is not also grading the result.
+Autofix permits file edits and nothing more. One worker writes, and it is `luna-worker` by default: `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement.
 
 ### Publication authorization
 
