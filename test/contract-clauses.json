@@ -1,0 +1,387 @@
+{
+  "$comment": [
+    "Machine-checkable part of the closed-loop workflow contract.",
+    "Each clause names the decision it enforces, the files that must carry it, and literal",
+    "substrings that must appear in those files. Literal matching is deliberate: the prose",
+    "of the skills and prompts is the deliverable, so rewording a contract clause must fail",
+    "the build until the change is intentional.",
+    "Decision IDs are defined in https://github.com/tetsuh/pi-tidd-agents/issues/3"
+  ],
+  "issueSkill": "skills/closed-loop-issue/SKILL.md",
+  "prSkill": "skills/closed-loop-pr/SKILL.md",
+  "issuePrompt": "prompts/tidd-issue.md",
+  "prPrompt": "prompts/tidd-pr.md",
+  "clauses": [
+    {
+      "id": "CL-D1-issue",
+      "marker": "CL-D1",
+      "title": "Gate verdicts are supplied by the caller, not by agent files",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "requires": [
+        "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
+        "Do not modify any file under `agents/`",
+        "terra-oracle` has no verdict contract of its own",
+        "A missing or unparsable verdict is a tool-level failure"
+      ]
+    },
+    {
+      "id": "CL-D1-pr",
+      "marker": "CL-D1",
+      "title": "Gate verdicts are supplied by the caller, not by agent files",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
+        "Do not modify any file under `agents/`",
+        "A missing or unparsable verdict is a tool-level failure"
+      ]
+    },
+    {
+      "id": "CL-D2",
+      "title": "Every constraint is restated in the invocation payload",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "inheritSkills: false",
+        "Invocation payload",
+        "Nothing may rely on a child inheriting this skill"
+      ]
+    },
+    {
+      "id": "CL-D3",
+      "title": "Writer selection",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "luna-worker",
+        "exactly one writer",
+        "Do not fall back to another worker",
+        "not also a gate grader"
+      ]
+    },
+    {
+      "id": "CL-D4",
+      "title": "Do not use context.md / plan.md",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "Never create `context.md` or `plan.md`"
+      ]
+    },
+    {
+      "id": "CL-D5",
+      "title": "pi-subagents is a hard runtime dependency",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "pi-subagents",
+        "If `pi-subagents` is unavailable, stop and report `BLOCKED`"
+      ]
+    },
+    {
+      "id": "CL-D6-skill",
+      "marker": "CL-D6",
+      "title": "Mode token parsing is exact and fails closed",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "case-sensitive",
+        "absent or empty",
+        "stop and print usage",
+        "`Autofix`, `AUTOFIX`, `--autofix`"
+      ]
+    },
+    {
+      "id": "CL-D6-prompt",
+      "marker": "CL-D6",
+      "title": "Mode token parsing is restated in the prompt template",
+      "files": ["prompts/tidd-pr.md"],
+      "requires": [
+        "case-sensitive",
+        "stop and print usage"
+      ]
+    },
+    {
+      "id": "CL-D7",
+      "title": "Target kind is verified, never assumed",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "Verify that the resolved target is the expected kind",
+        "never inferred from the current branch"
+      ]
+    },
+    {
+      "id": "CL-D8",
+      "title": "Targets outside the current repository",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "another repository"
+      ]
+    },
+    {
+      "id": "CL-D9",
+      "title": "Authoritative comments and fingerprints",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "author_association",
+        "OWNER",
+        "MEMBER",
+        "COLLABORATOR",
+        "is not a bot",
+        "issue_spec"
+      ]
+    },
+    {
+      "id": "CL-D9-pr",
+      "marker": "CL-D9",
+      "title": "Pull-request fingerprints are evidence specific",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "pr_base",
+        "pr_tree",
+        "pr_diff",
+        "pr_commits",
+        "pr_head",
+        "metadata-only rewrite"
+      ]
+    },
+    {
+      "id": "CL-D10",
+      "title": "Worktree precondition for autofix",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "gh pr checkout",
+        "Never switch branches"
+      ]
+    },
+    {
+      "id": "CL-D11",
+      "title": "Round accounting",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "at most three",
+        "The passing round counts",
+        "do not consume a round",
+        "ROUND_LIMIT_REACHED"
+      ]
+    },
+    {
+      "id": "CL-D12",
+      "title": "Round budgets are run-scoped (known MVP limitation)",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "run-scoped",
+        "Do not create a state file"
+      ]
+    },
+    {
+      "id": "CL-D13",
+      "title": "Status block and resume",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "tidd-status",
+        "revalidate the fingerprints"
+      ]
+    },
+    {
+      "id": "CL-D14-issue",
+      "marker": "CL-D14",
+      "title": "Canonical status tokens",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "requires": [
+        "IMPLEMENTATION_READY",
+        "WAITING_FOR_OWNER",
+        "ROUND_LIMIT_REACHED",
+        "BLOCKED",
+        "ABORTED"
+      ]
+    },
+    {
+      "id": "CL-D14-pr",
+      "marker": "CL-D14",
+      "title": "Canonical status tokens",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "MERGE_READY",
+        "WAITING_EXTERNAL_REVIEW",
+        "WAITING_FOR_OWNER",
+        "ROUND_LIMIT_REACHED",
+        "BLOCKED",
+        "ABORTED"
+      ]
+    },
+    {
+      "id": "CL-D15",
+      "title": "Scratch-file boundary",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "outside the repository"
+      ]
+    },
+    {
+      "id": "CL-D16",
+      "title": "Language Profile package defaults",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "conversation",
+        "github.issue",
+        "github.pull_request",
+        "external_sites",
+        "stop and ask before the first post",
+        "never governs source code"
+      ]
+    },
+    {
+      "id": "CL-D17",
+      "title": "SonarCloud disposition in the MVP",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "SonarCloud",
+        "cannot perform provider-side status transitions",
+        "must not be declared on the basis of a transition that was never performed"
+      ]
+    },
+    {
+      "id": "CL-D18",
+      "title": "External observation is reported, not enforced",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "two-minute quiet period",
+        "fifteen-minute",
+        "must not busy-poll",
+        "not detected",
+        "WAITING_EXTERNAL_REVIEW"
+      ]
+    },
+    {
+      "id": "CL-D20-issue",
+      "marker": "CL-D20",
+      "title": "Precondition guard",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "requires": [
+        "Precondition guard",
+        "stop and print usage"
+      ]
+    },
+    {
+      "id": "CL-D20-pr",
+      "marker": "CL-D20",
+      "title": "Precondition guard",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "Precondition guard"
+      ]
+    },
+    {
+      "id": "CL-D22",
+      "title": "Closed-loop model requirements and preflight",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "Preflight",
+        "by runtime name",
+        "never by model ID",
+        "sol-reviewer"
+      ]
+    },
+    {
+      "id": "AC-GATES",
+      "title": "Sequential Sol then Terra gates",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "sol-reviewer",
+        "Never start the Terra gate before the Sol gate returns `MERGE`"
+      ]
+    },
+    {
+      "id": "AC-DISPOSITION",
+      "title": "Finding disposition ledger",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "fixed",
+        "accepted-as-designed",
+        "deferred",
+        "duplicate",
+        "not-applicable",
+        "needs-owner-decision",
+        "exactly one disposition"
+      ]
+    },
+    {
+      "id": "AC-DECISION",
+      "title": "Owner decision record",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "Decision ID",
+        "Options and trade-offs",
+        "Recommendation",
+        "Owner choice",
+        "Validity and invalidation conditions",
+        "one question at a time"
+      ]
+    },
+    {
+      "id": "AC-TDD",
+      "title": "Risk-based test-first policy and truthful provenance",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "pre-implementation behavioral RED",
+        "pre-implementation compile/contract RED",
+        "co-developed integration coverage",
+        "review-driven regression",
+        "retrospective reproduction",
+        "Never fabricate RED evidence",
+        "never rewrite history to simulate"
+      ]
+    },
+    {
+      "id": "AC-ISSUE-NO-EXTERNAL",
+      "title": "Issue readiness excludes external gates",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "requires": [
+        "are not part of issue readiness"
+      ]
+    },
+    {
+      "id": "AC-REVIEW-ONLY-skill",
+      "marker": "AC-REVIEW-ONLY",
+      "title": "Review-only prohibitions",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "Review-only is the default",
+        "do not edit any file in the repository",
+        "do not change git state",
+        "do not commit or push",
+        "do not post to GitHub",
+        "do not reply to review threads",
+        "do not mutate any external service"
+      ]
+    },
+    {
+      "id": "AC-REVIEW-ONLY-prompt",
+      "marker": "AC-REVIEW-ONLY",
+      "title": "Review-only prohibition is restated in the prompt template",
+      "files": ["prompts/tidd-pr.md"],
+      "requires": [
+        "do not edit any file in the repository"
+      ]
+    },
+    {
+      "id": "AC-AUTOFIX",
+      "title": "Autofix is file-mutation permission only",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "does not by itself authorize",
+        "smallest correction"
+      ]
+    },
+    {
+      "id": "AC-GRANT",
+      "title": "Run-scoped publication grant",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "run-scoped publication grant",
+        "non-force push",
+        "never authorizes",
+        "merge",
+        "force-push",
+        "history rewrite",
+        "ADR acceptance",
+        "expires when the run ends"
+      ]
+    }
+  ]
+}

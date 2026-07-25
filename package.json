@@ -10,8 +10,13 @@
     "developer-tools"
   ],
   "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  },
   "files": [
     "agents",
+    "skills",
+    "prompts",
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
@@ -21,6 +26,12 @@
       "agents": [
         "./agents"
       ]
-    }
+    },
+    "skills": [
+      "./skills"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
   }
 }
