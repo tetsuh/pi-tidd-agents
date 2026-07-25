@@ -182,7 +182,9 @@
         "GitHub API evidence path",
         "local Git objects are absent",
         "without fetch, checkout, or git-state mutation",
-        "Autofix still requires local objects"
+        "Autofix still requires local objects",
+        "Bracket API evidence collection",
+        "discard the evidence and retry"
       ]
     },
     {
@@ -205,7 +207,9 @@
       "requires": [
         "observation origin",
         "before the first Sol invocation",
-        "is not polling"
+        "is not polling",
+        "observation origin is part of resumable state",
+        "only a new head resets them"
       ]
     },
     {
@@ -398,7 +402,11 @@
         "Exactly one transition may change the bound set",
         "freshly recomputed `candidate_diff` equals the pasted one exactly",
         "never trust a pasted digest",
-        "Publication does not carry candidate approval forward"
+        "Publication does not carry candidate approval forward",
+        "identity alone is not content",
+        "Prove content identity before publishing",
+        "pending_publication",
+        "a new publication grant"
       ]
     },
     {
@@ -516,6 +524,16 @@
         "history rewrite",
         "ADR acceptance",
         "expires when the run ends"
+      ]
+    },
+    {
+      "id": "CL-D13-pr",
+      "marker": "CL-D13",
+      "title": "The PR status block carries resumable observation and publication state",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "external_observation:",
+        "pending_publication:"
       ]
     }
   ]

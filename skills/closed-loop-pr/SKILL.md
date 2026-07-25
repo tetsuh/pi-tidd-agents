@@ -74,6 +74,8 @@ For a foreign review-only target, and for a same-repository review-only target w
 
 Canonicalize JSON records before hashing. Both local and foreign paths hash the same raw effective diff bytes and use the same record serialization.
 
+**Bracket API evidence collection**, and every gate that consumes it, with a fresh base/head read taken before and after. Independent calls are separate requests against a moving target, so without bracketing a single collection can mix OIDs, diff, and commit sequence from different revisions. If either value changed, **discard the evidence and retry**; a discarded collection is a stale-target failure and does not consume a round.
+
 Use `printf '%s'` or an equivalent exact-byte pipeline and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute every digest. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
 
 An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**.
@@ -142,6 +144,8 @@ Autofix and publication are governed by one invariant, not by a list of phases. 
 
 Bind one **identity set** at the start of an autofix run: repository, pull-request number, head branch, PR head SHA, base OID, and the local `HEAD` OID and checked-out branch. Require the checked-out branch to equal the PR head branch and local `HEAD` to equal the PR head SHA. This local requirement is scoped to autofix and imposes no checkout on review-only or foreign targets.
 
+Once candidate evidence exists, `candidate_diff` joins the bound set, because **identity alone is not content**. Editing the worktree changes no OID, so a bound set built only from identifiers cannot notice that the bytes the gates accepted are not the bytes about to be published.
+
 Re-resolve and re-verify the whole identity set from source:
 
 - immediately before **every** gate invocation;
@@ -152,7 +156,11 @@ Any unexpected difference **stops the run without mutation**. Never clean, norma
 
 Capture candidate evidence against the **bound OIDs**, **never a moving symbolic ref**, so the bytes under review belong to the identity that was verified.
 
+**Prove content identity before publishing.** Recompute `candidate_diff` after every gate and again immediately before the authorized commit, and require it to equal the value the latest passing Sol and Terra gates actually accepted. Before the non-force push, require the commit's tree and its effective `base...head` diff to represent exactly that approved candidate. A difference at either point stops without mutation, and the gates rerun against whatever now exists rather than against what they were shown.
+
 **Exactly one transition may change the bound set**: this workflow's own publication-granted normal commit and its matching non-force push. After the commit, require local `HEAD` to be exactly that commit, its first parent to equal the bound head, the branch and base to be unchanged, and the worktree clean. After the push, require the remote head to equal it, then rebind the identity set and reset exact-head external observation and its origin. Every other difference stops without mutation.
+
+**A commit that is not yet pushed is a bound state, not a dead end.** If the authorized commit succeeds and the push does not, emit a `pending_publication` record in the status block carrying the old identity set, the new commit OID, its expected parent, tree, and effective diff, the head branch, and the clean-worktree state. A later run whose freshly resolved values match that record exactly may resume from it, and must obtain **a new publication grant** before the non-force push, because the earlier grant expired with its run; it then rebinds and reruns both gates. Without such a record a later run satisfies neither the clean-tree precondition nor the dirty-resume precondition, and the workflow would strand itself with a local commit it can neither publish nor abandon.
 
 A dirty resume is permitted only when the pasted status block matches the freshly resolved identity set in every value and a **freshly recomputed `candidate_diff` equals the pasted one exactly**. Recompute the bytes; **never trust a pasted digest**. A new autofix run with no valid pasted resume requires a clean tree under CL-D10.
 
@@ -250,6 +258,8 @@ Observation policy, which this MVP reports against rather than enforces:
 - a **fifteen-minute** maximum observation window per head, measured from that initial snapshot (a new head starts a new origin);
 - a new head resets both.
 
+The **observation origin is part of resumable state**, not a value the run may re-derive. Record the external head it belongs to, the origin timestamp, the latest external event time, and the snapshot identity in the status block. A resume against the same head restores them unchanged; **only a new head resets them**. Re-deriving the origin on resume would silently restart the window and misreport how long the head has actually been observed.
+
 The initial snapshot is not polling and does not delay internal review. This MVP has no timers and **must not busy-poll** or spend turns waiting. When required processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume; a timeout is neither success nor provider failure.
 
 Treat CodeRabbit and SonarCloud as required once detected. Process GitHub Copilot review findings when observed, but never block merely because an optional Copilot review is absent. Human `Changes requested` and required approvals are a separate repository-policy gate.
@@ -344,6 +354,8 @@ rounds: sol <used>/3, terra <used>/3
 dispositions: <counts by disposition>
 pending_decisions: <decision ids or none>
 publication_grant: <none|granted, expires with this run>
+external_observation: head <sha> origin <timestamp> latest_event <timestamp|none> snapshot <id>
+pending_publication: <none|commit <oid> parent <oid> tree <oid> diff <digest> branch <name>>
 invalidated_evidence: <what must be redone>
 next_action: <the single next permitted action>
 ```
