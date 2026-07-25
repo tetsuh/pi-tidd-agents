@@ -87,6 +87,8 @@ The reviewer and oracle agents remain read-only. The parent Pi session is respon
 
 The closed-loop workflow runs the stages above as a loop: review, disposition every finding, apply only authorized fixes, and revalidate the evidence the change invalidated. It is opt-in. Installing the package starts nothing and changes nothing.
 
+The existing Sol review gate also runs an adversarial consistency check: it treats the exact issue/PR body, current authoritative decision record/comments, and applicable Skill assertions as claims to verify against authoritative files, not as context. The separate agent's primary benefit is model-family diversity; it may also add independent context, system-prompt, and failure boundaries. This adds no gate, agent, mode, verdict, status token, round budget, prompt, package, or agent-file change.
+
 ```text
 /tidd-issue <issue-ref>
 /tidd-pr <pr-ref> [autofix]

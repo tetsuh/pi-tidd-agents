@@ -187,7 +187,15 @@ implementation and validation
 → MERGE_READY
 ```
 
-`sol-reviewer` owns contracts, scope, maintainability, and test coverage. `terra-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.**
+`sol-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `terra-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.**
+
+### Sol adversarial consistency check (AC-ADVERSARIAL, CL-D29)
+
+Treat the exact pull-request body, the current authoritative decision record and comments supplied in the payload (only qualifying comments are authoritative), and applicable assertions in this Skill as **claims to verify, not assumed context**. Semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims, including claims expressed with examples only (examples-only), `always`, `never`, `unique`, `every`, `all`, `no`, `sole`, `must`, or `exactly`; do not search keywords without understanding the claim.
+
+Attempt falsification against authoritative repository files, including `CONTRACT.md`, implementation and tests, and available Git/GitHub evidence. A finding requires either an actual cited counterexample that disproves the claim or a verdict-material claim that cannot be verified because required evidence is unavailable. Never invent a counterexample. No counterexample is neither a finding nor proof that the claim is correct.
+
+Limit authoritative comments consistently with CL-D9: accept only comments by a non-bot author with `author_association` `OWNER`, `MEMBER`, or `COLLABORATOR`, and do not revive superseded comments from #3. Report the claim, evidence searched, and the cited counterexample or unavailable evidence.
 
 ### Gate verdicts (CL-D1)
 
@@ -213,6 +221,10 @@ Every agent in this package sets `inheritSkills: false`, so nothing in this skil
 - the scope boundary, so the child does not redesign approved decisions;
 - the acceptance criteria the target must satisfy, so that every finding can be traced to one;
 - on a gate re-invocation, every finding from that gate's earlier rounds, plus the dispositioned findings of any gate that already passed, each with its disposition and rationale.
+
+#### Sol adversarial payload (AC-ADVERSARIAL-payload-pr, CL-D29)
+
+Because `inheritSkills: false`, every initial Sol invocation and every Sol re-invocation must include this complete procedure in its payload: treat the exact pull-request body, current authoritative decision record and comments supplied in the payload (only qualifying comments are authoritative), and applicable Skill assertions as claims to verify rather than context; semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims, including examples only (examples-only), `always`, `never`, `unique`, `every`, `all`, `no`, `sole`, `must`, and `exactly` (not keyword-only); attempt falsification against authoritative `CONTRACT.md`, implementation, tests, and available Git/GitHub evidence; require an actual cited counterexample disproving the claim or report a verdict-material claim as unverifiable when required evidence is unavailable; never invent a counterexample; treat no counterexample as neither a finding nor proof; restrict authoritative comments to non-bot `OWNER`, `MEMBER`, or `COLLABORATOR` authors under CL-D9 and do not revive superseded #3 comments. The payload must also require the claim, searched evidence, and cited counterexample or unavailable evidence in each finding.
 
 A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**, and the payload must say so: re-raising one requires new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker, and must be labelled that way instead of returning `FIX BEFORE MERGE`.
 

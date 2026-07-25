@@ -141,6 +141,18 @@ const SUPERSEDED = [
     reason: 'external evidence is no longer carried across runs' },
   { files: ENTRY_ARTIFACTS, pattern: /whose only inputs are repository files/i,
     reason: 'the RED classes are separated by what a test does, not by where its inputs come from' },
+  { files: [
+      'skills/closed-loop-issue/SKILL.md',
+      'skills/closed-loop-pr/SKILL.md',
+      'CONTRACT.md',
+    ], pattern: /produce (?:a )?counterexample from ground-truth files for each/i,
+    reason: 'CL-D29 requires falsification attempts and actual cited counterexamples, not one invented counterexample per claim' },
+  { files: [
+      'skills/closed-loop-issue/SKILL.md',
+      'skills/closed-loop-pr/SKILL.md',
+      'CONTRACT.md',
+    ], pattern: /survives (?:the check )?as (?:a )?finding/i,
+    reason: 'CL-D29 makes no counterexample neither a finding nor proof' },
 ];
 
 test('no entry artifact states the CL-D28 publication boundary weakly', () => {
