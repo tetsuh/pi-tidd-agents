@@ -4,13 +4,24 @@ A small collection of role-focused [Pi](https://github.com/badlogic/pi-mono) sub
 
 TiDD means **Ticket-Driven Development** here: review the ticket, preserve its decisions, implement the scoped work, and review the pull request before merging.
 
-This package is intentionally small. It does not define a TiDD standard, enforce a workflow, or automate an issue tracker. It only provides a few practical agent definitions for teams that already develop from tickets and pull requests.
+This package is intentionally small. It does not define a TiDD standard and it does not automate an issue tracker: **no workflow is forced by default**, and an opt-in closed-loop workflow is available for teams that want one. Everything else is a handful of practical agent definitions for teams that already develop from tickets and pull requests.
 
 ## Requirements
 
 - Pi
 - [pi-subagents](https://github.com/nicobailon/pi-subagents)
 - Access to the model identifiers used by the selected agents
+
+Requirements differ between the two ways of using this package:
+
+| Use | Requirement |
+| --- | --- |
+| Standalone agents | À la carte. Run whichever agents resolve in your environment; an unavailable model affects only that one agent. |
+| Closed-loop workflow | All four agents below must resolve at once, because the workflow composes a fixed set. |
+
+The closed-loop workflow uses `sol-reviewer` (`gpt-5.6-sol`), `terra-oracle` (`gpt-5.6-terra`), `terra-reviewer` (`gpt-5.6-terra`), and `luna-worker` (`gpt-5.6-luna`), which are OpenAI GPT-5.6 Sol, Terra, and Luna. `glm-worker` is not used by the closed-loop workflow and remains a standalone agent.
+
+The skills name agents by runtime name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `sol-reviewer`, `terra-oracle`, `terra-reviewer`, and `luna-worker`.
 
 Install `pi-subagents` first:
 
@@ -69,6 +80,56 @@ For a typical Issue-to-pull-request workflow, use the following sequence.
 | Address approved pull request findings | `luna-worker` | `Use luna-worker to address the approved findings on PR #42 and push the fixes.` |
 
 The reviewer and oracle agents remain read-only. The parent Pi session is responsible for any requested issue or pull-request comment.
+
+## Closed-loop workflow (opt-in)
+
+The closed-loop workflow runs the stages above as a loop: review, disposition every finding, apply only authorized fixes, and revalidate the evidence the change invalidated. It is opt-in. Installing the package starts nothing and changes nothing.
+
+```text
+/tidd-issue <issue-ref>
+/tidd-pr <pr-ref> [autofix]
+```
+
+The same workflows are available directly as skills when skill commands are enabled in your Pi settings:
+
+```text
+/skill:closed-loop-issue <issue-ref>
+/skill:closed-loop-pr <pr-ref> [autofix]
+```
+
+An explicit target is always required; the workflow never infers a pull request from the current branch.
+
+### Review-only is the default
+
+```text
+/tidd-pr 42
+```
+
+Reviews the pull request without editing files, changing git state, committing, pushing, posting to GitHub, or touching any external service. Replies and patches are drafted for you to review, not published.
+
+### Autofix
+
+```text
+/tidd-pr 42 autofix
+```
+
+The exact token `autofix`, lowercase, is the only way to permit file edits. Anything else — `Autofix`, `--autofix`, an extra argument — stops with usage rather than quietly downgrading. Autofix requires the pull request's branch to be checked out already; the workflow never switches branches for you.
+
+Autofix permits file edits and nothing more. One worker writes, and it is `luna-worker` by default because it is the only worker whose model is not also grading the result.
+
+### Publication authorization
+
+Commits, pushes, pull-request updates, review replies, and external-site updates need a separate **run-scoped** publication grant, requested once before the first external update. That grant never covers merge, force-push, history rewrite, ADR acceptance, or a different repository or branch, and it expires when the run ends.
+
+### Pause and resume
+
+When a run stops — waiting for external review, waiting for an owner decision, or at the three-round gate limit — it prints a `tidd-status` block with the target fingerprints, rounds used, dispositions, and the next permitted action. Paste that block back with the command to resume; the workflow revalidates the fingerprints before continuing.
+
+This MVP keeps no state between invocations, so the three-round gate limit is scoped to a single run. Re-running a command starts the counters again, which is why every status block reports the rounds already used.
+
+### Language routing
+
+Language is chosen by destination, not by reviewer. Conversation follows the language you are using; GitHub issue and pull-request content defaults to English; an external site with no configured language stops and asks before the first post. Source code, code comments, repository documentation, and commit messages always follow your project's own instructions.
 
 ## Worker permissions
 
