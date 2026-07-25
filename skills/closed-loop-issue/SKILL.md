@@ -36,7 +36,7 @@ A preflight failure is not a review round.
 
 Accept a full GitHub URL, `#123`, `123`, `Issue #123`, `PR #123`, or `PR123`.
 
-Resolve the reference with `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence, so a number alone does not identify the kind. If the reference resolves to a pull request, stop and tell the operator to use `/tidd-pr`. The target is **never inferred from the current branch**.
+The prompt template passes the complete raw argument vector (`$@`) to this Skill. Parse it before calling `gh`: recognize `Issue`/`PR` followed by `#123` as one two-token reference, recognize the other forms as one token, and reject any remaining token. Resolve the reference with `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence, so a number alone does not identify the kind. If the reference resolves to a pull request, stop and tell the operator to use `/tidd-pr`. The target is **never inferred from the current branch**.
 
 A target in **another repository** may be reviewed, but nothing may be published to it and no local work may be started for it. Publication authority is bound to the repository of the current checkout.
 
@@ -44,9 +44,9 @@ A target in **another repository** may be reviewed, but nothing may be published
 
 Record the identity of what you reviewed, so later evidence is invalidated only where it no longer applies.
 
-- `issue_spec` — `sha256` over the issue body followed by each authoritative comment rendered as `<id>:<updatedAt>:<body>`, ordered by comment id ascending and joined with newlines.
+- `issue_spec` — `sha256` over canonical UTF-8 bytes consisting of the issue body record followed by each authoritative comment rendered as `<id>:<updatedAt>:<body>`, ordered by comment id ascending, with records joined by one LF (`0x0a`) and no trailing separator. Normalize CRLF and CR in text fields to LF before encoding. Do not let shell locale, Git configuration, or platform newline conversion alter the bytes.
 
-Compute the digest with a shell command. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
+Use `LC_ALL=C`, `printf '%s'`, explicit UTF-8 input, and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute the digest. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
 
 An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**. Every other comment is advisory context and stays out of the fingerprint.
 
@@ -217,6 +217,7 @@ issue_spec: <digest>
 rounds: sol <used>/3, terra <used>/3
 dispositions: <counts by disposition>
 pending_decisions: <decision ids or none>
+publication_grant: not-applicable
 invalidated_evidence: <what must be redone>
 next_action: <the single next permitted action>
 ```

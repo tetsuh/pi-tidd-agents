@@ -42,9 +42,9 @@ A preflight failure is not a review round.
 
 Accept a full GitHub URL, `#123`, `123`, `Issue #123`, `PR #123`, or `PR123`.
 
-Resolve the reference with `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`. The target is **never inferred from the current branch**.
+The prompt template passes the complete raw argument vector (`$@`) to this Skill. Parse it before calling `gh`: greedily recognize `Issue`/`PR` followed by `#123` as one two-token reference, recognize the other forms as one token, and treat only a final exact `autofix` as the mode. Reject any remaining token. Resolve the reference with `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`. The target is **never inferred from the current branch**.
 
-A target in **another repository** may be reviewed in review-only mode. Autofix and every publication action refuse such a target, because publication authority is bound to the repository of the current checkout.
+A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. Autofix and every publication action refuse such a target, because publication authority is bound to the repository of the current checkout.
 
 ## Evidence fingerprints (CL-D9)
 
@@ -53,11 +53,11 @@ Track identity per kind of evidence, so a change invalidates only what it actual
 - `issue_spec` — `sha256` over the body of the issue this pull request implements, followed by its authoritative comments as `<id>:<updatedAt>:<body>`, ordered by comment id ascending;
 - `pr_base` — base revision OID reported by `gh`;
 - `pr_tree` — head tree OID from `git rev-parse <head>^{tree}`;
-- `pr_diff` — `sha256` of `git diff <base>...<head>`;
-- `pr_commits` — `sha256` of `git log --reverse --format=%s%n%b <base>..<head>`;
+- `pr_diff` — `sha256` of the effective `base...head` diff;
+- `pr_commits` — `sha256` of the ordered commit subject/body sequence;
 - `pr_head` — exact head SHA, used only for CI and exact-head external checks.
 
-Compute every digest with a shell command. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
+Every digest uses canonical UTF-8 bytes: normalize CRLF and CR to LF for textual records, order records explicitly, join records with one LF (`0x0a`), and omit a trailing separator. Binary patch bytes are hashed raw and are never newline-normalized. For a local target, use `LC_ALL=C`, `git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv` and the matching log options. For a foreign review-only target, use `gh api repos/<owner>/<repo>/pulls/<n>` for OIDs, `gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>` for the effective diff, `gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits` for the commit sequence, and `gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha` for tree values; canonicalize JSON records before hashing. Both local and foreign paths hash the same raw effective diff bytes and use the same record serialization. These paths require no checkout. Use `printf '%s'` or an equivalent exact-byte pipeline and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute every digest. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
 
 An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**.
 
@@ -115,6 +115,10 @@ Formal reviewers are read-only and never become writers. Synthesize the findings
 
 Apply only the **smallest correction** that satisfies a finding inside the approved contract. Stop before any unapproved product, API, architecture, scope, compatibility, or risk decision. After fixes, run focused validation and rerun each gate whose evidence the change invalidated.
 
+### Candidate evidence after autofix edits (CL-D9)
+
+Before any post-fix Sol or Terra invocation, capture the sole worker's exact uncommitted working-tree overlay. `candidate_diff` is a canonical byte record stream with this precise framing: each record is `<type>\t<pathByteLength>\t<byteLength>\t<path>\t<rawBytes>`, where type, decimal lengths, and path are UTF-8, lengths count UTF-8/path or raw-byte lengths, and rawBytes are never newline-normalized; records are separated by one LF byte (`0x0a`) with no trailing separator. Emit three fixed patch records in this order: `committed-base-head`, `staged`, and `unstaged` (each with an empty path), followed by one `untracked` record per non-ignored path sorted by UTF-8 path bytes. Capture it with `LC_ALL=C git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv <base>...HEAD`, the corresponding `--cached` and worktree diffs, and `git ls-files --others --exclude-standard -z` followed by raw-byte reads of each listed path. Hash the resulting record stream with `sha256sum` using the same explicit `LC_ALL=C` and no-text-conversion options. Include the exact candidate diff and its `candidate_diff` fingerprint in every post-fix review payload. `pr_tree` and `pr_diff` alone are insufficient because uncommitted edits do not change them. Do not commit, push, or otherwise mutate git state merely to calculate candidate evidence. An untracked-file overlay is part of the candidate and must not be omitted.
+
 ## Run-scoped publication grant (AC-GRANT)
 
 Before the first external update, obtain a single **run-scoped publication grant**. Ask once, and enumerate both lists.
@@ -138,6 +142,7 @@ The order is fixed and sequential:
 
 ```text
 implementation and validation
+→ one initial external-review snapshot for the current `pr_head`
 → sol-reviewer gate
 → disposition, fix, revalidate
 → Sol MERGE
@@ -193,11 +198,12 @@ Detection is limited to reviews, comments, and checks present on the current `pr
 
 Observation policy, which this MVP reports against rather than enforces:
 
+- before the first Sol invocation, take exactly one initial external-review snapshot of reviews, comments, and checks for the current `pr_head` using `gh`; this snapshot is the observation origin;
 - a **two-minute quiet period** after the latest external event;
-- a **fifteen-minute** maximum observation window per head;
+- a **fifteen-minute** maximum observation window per head, measured from that initial snapshot (a new head starts a new origin);
 - a new head resets both.
 
-This MVP has no timers and **must not busy-poll** or spend turns waiting. When required processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume; a timeout is neither success nor provider failure.
+The initial snapshot is not polling and does not delay internal review. This MVP has no timers and **must not busy-poll** or spend turns waiting. When required processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume; a timeout is neither success nor provider failure.
 
 Treat CodeRabbit and SonarCloud as required once detected. Process GitHub Copilot review findings when observed, but never block merely because an optional Copilot review is absent. Human `Changes requested` and required approvals are a separate repository-policy gate.
 
@@ -285,7 +291,7 @@ target: <owner/repo#123>
 mode: <review-only|autofix>
 state: <token>
 active_gate: <sol|terra|external|none>
-fingerprints: issue_spec <d> base <d> tree <d> diff <d> commits <d> head <sha>
+fingerprints: issue_spec <d> base <d> tree <d> diff <d> commits <d> head <sha> candidate_diff <d|none>
 rounds: sol <used>/3, terra <used>/3
 dispositions: <counts by disposition>
 pending_decisions: <decision ids or none>
