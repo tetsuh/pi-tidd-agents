@@ -53,7 +53,8 @@
         "luna-worker",
         "exactly one writer",
         "Do not fall back to another worker",
-        "not also a gate grader"
+        "also grades the Terra gate",
+        "keeps the closed-loop requirement inside one model family"
       ]
     },
     {
@@ -122,7 +123,9 @@
         "MEMBER",
         "COLLABORATOR",
         "is not a bot",
-        "issue_spec"
+        "issue_spec",
+        "sha256",
+        "Never estimate or invent a digest value"
       ]
     },
     {
