@@ -27,17 +27,21 @@ test('every file named by the clause manifest exists', () => {
 });
 
 for (const clause of manifest.clauses) {
-  const marker = clause.marker ?? clause.id;
+  // `"marker": null` opts out of the marker check, for user-facing files such as
+  // README.md where a decision ID would be noise rather than a landmark.
+  const marker = 'marker' in clause ? clause.marker : clause.id;
 
   for (const file of clause.files) {
     test(`${clause.id} — ${clause.title} — ${file}`, () => {
       assert.ok(exists(file), `contract file is missing: ${file}`);
       const text = readText(file);
 
-      assert.ok(
-        text.includes(marker),
-        `${file} does not carry the clause marker ${marker}`,
-      );
+      if (marker !== null) {
+        assert.ok(
+          text.includes(marker),
+          `${file} does not carry the clause marker ${marker}`,
+        );
+      }
 
       for (const required of clause.requires) {
         assert.ok(

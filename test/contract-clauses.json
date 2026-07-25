@@ -81,7 +81,8 @@
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
         "case-sensitive",
-        "absent or empty",
+        "final token of the raw argument vector",
+        "no token remains once the target reference is consumed",
         "stop and print usage",
         "`Autofix`, `AUTOFIX`, `--autofix`"
       ]
@@ -93,6 +94,7 @@
       "files": ["prompts/tidd-pr.md"],
       "requires": [
         "case-sensitive",
+        "final exact token",
         "stop and print usage"
       ]
     },
@@ -101,6 +103,8 @@
       "title": "Target kind is verified, never assumed",
       "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
       "requires": [
+        "complete raw argument vector",
+        "one two-token reference",
         "Verify that the resolved target is the expected kind",
         "never inferred from the current branch"
       ]
@@ -111,6 +115,17 @@
       "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
       "requires": [
         "another repository"
+      ]
+    },
+    {
+      "id": "CL-D8-foreign",
+      "marker": "CL-D8",
+      "title": "A foreign review-only target needs no checkout and refuses mutation",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "foreign review-only target",
+        "no local Git object or checkout is required",
+        "Autofix and every publication action refuse such a target"
       ]
     },
     {
@@ -125,7 +140,19 @@
         "is not a bot",
         "issue_spec",
         "sha256",
+        "canonical UTF-8 bytes",
         "Never estimate or invent a digest value"
+      ]
+    },
+    {
+      "id": "CL-D9-issue",
+      "marker": "CL-D9",
+      "title": "Issue fingerprint serialization is byte-stable",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "requires": [
+        "no trailing separator",
+        "LC_ALL=C",
+        "sha256sum"
       ]
     },
     {
@@ -139,7 +166,47 @@
         "pr_diff",
         "pr_commits",
         "pr_head",
-        "metadata-only rewrite"
+        "metadata-only rewrite",
+        "omit a trailing separator",
+        "same raw effective diff bytes",
+        "no checkout",
+        "gh api repos/<owner>/<repo>/pulls/<n>",
+        "gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>",
+        "gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits",
+        "gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha"
+      ]
+    },
+    {
+      "id": "CL-D23",
+      "title": "Candidate evidence covers the uncommitted autofix overlay",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "candidate_diff",
+        "exact uncommitted working-tree overlay",
+        "three fixed patch records in this order",
+        "one `untracked` record per non-ignored path",
+        "every post-fix review payload",
+        "Do not commit, push, or otherwise mutate git state merely to calculate candidate evidence"
+      ]
+    },
+    {
+      "id": "CL-D24",
+      "title": "External observation has an explicit origin",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "observation origin",
+        "before the first Sol invocation",
+        "is not polling"
+      ]
+    },
+    {
+      "id": "CL-D25",
+      "marker": null,
+      "title": "The validated pi-subagents minimum version is documented",
+      "files": ["README.md"],
+      "requires": [
+        "0.36.0 or newer",
+        "do not assume support for older versions"
       ]
     },
     {
@@ -178,6 +245,15 @@
       "requires": [
         "tidd-status",
         "revalidate the fingerprints"
+      ]
+    },
+    {
+      "id": "CL-D13-issue",
+      "marker": "CL-D13",
+      "title": "The issue status block marks publication as not applicable",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "requires": [
+        "publication_grant: not-applicable"
       ]
     },
     {
