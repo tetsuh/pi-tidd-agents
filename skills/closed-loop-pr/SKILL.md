@@ -32,9 +32,9 @@ A near-miss token signals intent to mutate, so it must surface as an error rathe
 ## Preflight (CL-D22, CL-D5)
 
 1. Subagent execution comes from `pi-subagents`. If `pi-subagents` is unavailable, stop and report `BLOCKED` with installation guidance. Never substitute your own execution for a formal gate, and never edit files yourself in place of a worker.
-2. Confirm that the required agents resolve: `sol-reviewer`, `terra-reviewer`, and, in autofix mode, `luna-worker`.
-3. Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided ones with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name.
-4. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path.
+2. Confirm that the required agents resolve: `sol-reviewer`, `terra-reviewer`, and, conditionally for autofix mode, `luna-worker`.
+3. Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided ones with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name through the name-level override guidance.
+4. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path. Do not begin a gate that cannot finish.
 
 A preflight failure is not a review round.
 
@@ -44,7 +44,7 @@ Accept a full GitHub URL, `#123`, `123`, `Issue #123`, `PR #123`, or `PR123`.
 
 The prompt template passes the complete raw argument vector (`$@`) to this Skill. Parse it before calling `gh`: greedily recognize `Issue`/`PR` followed by `#123` as one two-token reference, recognize the other forms as one token, and treat only a final exact `autofix` as the mode. Reject any remaining token. Resolve the reference with `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`. The target is **never inferred from the current branch**.
 
-A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. Autofix and every publication action refuse such a target, because publication authority is bound to the repository of the current checkout.
+A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. The same GitHub API evidence path is available to a same-repository review-only target when local Git objects are absent; this requires no fetch, checkout, or git-state mutation. Autofix still requires local objects, the head branch checked out, and the worktree rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 
 ## Evidence fingerprints (CL-D9)
 
@@ -65,7 +65,7 @@ Every digest uses canonical UTF-8 bytes:
 
 For a local target, use `LC_ALL=C`, `git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv` and the matching log options.
 
-For a foreign review-only target, no checkout is required:
+For a foreign review-only target, and for a same-repository review-only target whose local Git objects are absent, no checkout is required and evidence comes from the GitHub API without fetch, checkout, or git-state mutation:
 
 - `gh api repos/<owner>/<repo>/pulls/<n>` for OIDs;
 - `gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>` for the effective diff;
@@ -118,7 +118,7 @@ You may inspect, review, disposition findings locally, and draft proposed replie
 
 ### Worktree precondition (CL-D10)
 
-Autofix requires that the pull request's head branch is already checked out in the current worktree and that the tree is clean. Otherwise stop and ask the operator to run `gh pr checkout <number>` themselves. **Never switch branches**, stash, or discard work: that is a git-state change nobody authorized and it can destroy uncommitted work.
+A new autofix run with no valid pasted resume status requires that the pull request's head branch is already checked out in the current worktree and that the tree is clean. Otherwise stop and ask the operator to run `gh pr checkout <number>` themselves. A valid resume may use the dirty candidate tree only under CL-D27. **Never switch branches**, stash, or discard work: that is a git-state change nobody authorized and it can destroy uncommitted work.
 
 ### The writer (CL-D3)
 
@@ -134,7 +134,29 @@ Apply only the **smallest correction** that satisfies a finding inside the appro
 
 ### Candidate evidence after autofix edits (CL-D23, CL-D9)
 
-Before any post-fix Sol or Terra invocation, capture the sole worker's exact uncommitted working-tree overlay. `candidate_diff` is a canonical byte record stream with this precise framing: each record is `<type>\t<pathByteLength>\t<byteLength>\t<path>\t<rawBytes>`, where type, decimal lengths, and path are UTF-8, lengths count UTF-8/path or raw-byte lengths, and rawBytes are never newline-normalized; records are separated by one LF byte (`0x0a`) with no trailing separator. Emit three fixed patch records in this order: `committed-base-head`, `staged`, and `unstaged` (each with an empty path), followed by one `untracked` record per non-ignored path sorted by UTF-8 path bytes. Capture it with `LC_ALL=C git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv <base>...HEAD`, the corresponding `--cached` and worktree diffs, and `git ls-files --others --exclude-standard -z` followed by raw-byte reads of each listed path. Hash the resulting record stream with `sha256sum` using the same explicit `LC_ALL=C` and no-text-conversion options. Include the exact candidate diff and its `candidate_diff` fingerprint in every post-fix review payload. `pr_tree` and `pr_diff` alone are insufficient because uncommitted edits do not change them. Do not commit, push, or otherwise mutate git state merely to calculate candidate evidence. An untracked-file overlay is part of the candidate and must not be omitted.
+Before any post-fix Sol or Terra invocation, capture the sole worker's exact uncommitted working-tree overlay. Candidate evidence is not a gate approval for a later publication commit; after publication, the committed head must be re-fingerprinted and both Sol and Terra rerun. `candidate_diff` is a canonical byte record stream with this precise framing: each record is `<type>\t<pathByteLength>\t<byteLength>\t<path>\t<rawBytes>`, where type, decimal lengths, and path are UTF-8, lengths count UTF-8/path or raw-byte lengths, and rawBytes are never newline-normalized; records are separated by one LF byte (`0x0a`) with no trailing separator. Emit three fixed patch records in this order: `committed-base-head`, `staged`, and `unstaged` (each with an empty path), followed by one `untracked` record per non-ignored path sorted by UTF-8 path bytes. Capture the committed-base-head record with the captured immutable OIDs as `LC_ALL=C git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv <baseOID>...<headOID>`; never use a moving symbolic `HEAD` for that record. Capture the corresponding `--cached` and worktree diffs, and `git ls-files --others --exclude-standard -z` followed by raw-byte reads of each listed path. Hash the resulting record stream with `sha256sum` using the same explicit `LC_ALL=C` and no-text-conversion options. Include the exact candidate diff and its `candidate_diff` fingerprint in every post-fix review payload. `pr_tree` and `pr_diff` alone are insufficient because uncommitted edits do not change them. Do not commit, push, or otherwise mutate git state merely to calculate candidate evidence. An untracked-file overlay is part of the candidate and must not be omitted.
+
+### Autofix identity invariant (CL-D27)
+
+Autofix and publication are governed by one invariant, not by a list of phases. A list invites omission: an earlier phase enumeration here guarded the commit and the push and left pull-request body updates, review replies, external dispositions, and summaries unguarded.
+
+Bind one **identity set** at the start of an autofix run: repository, pull-request number, head branch, PR head SHA, base OID, and the local `HEAD` OID and checked-out branch. Require the checked-out branch to equal the PR head branch and local `HEAD` to equal the PR head SHA. This local requirement is scoped to autofix and imposes no checkout on review-only or foreign targets.
+
+Re-resolve and re-verify the whole identity set from source:
+
+- immediately before **every** gate invocation;
+- immediately before **every publication action, without exception** — commit, push, pull-request body update, review reply, external-site disposition, and summary alike;
+- immediately after any action expected to change it.
+
+Any unexpected difference **stops the run without mutation**. Never clean, normalize, discard, stash, or switch anything in order to make the check pass.
+
+Capture candidate evidence against the **bound OIDs**, **never a moving symbolic ref**, so the bytes under review belong to the identity that was verified.
+
+**Exactly one transition may change the bound set**: this workflow's own publication-granted normal commit and its matching non-force push. After the commit, require local `HEAD` to be exactly that commit, its first parent to equal the bound head, the branch and base to be unchanged, and the worktree clean. After the push, require the remote head to equal it, then rebind the identity set and reset exact-head external observation and its origin. Every other difference stops without mutation.
+
+A dirty resume is permitted only when the pasted status block matches the freshly resolved identity set in every value and a **freshly recomputed `candidate_diff` equals the pasted one exactly**. Recompute the bytes; **never trust a pasted digest**. A new autofix run with no valid pasted resume requires a clean tree under CL-D10.
+
+**Publication does not carry candidate approval forward.** After a successful rebind, recompute the committed-head fingerprints, capture fresh external evidence, and rerun Sol and Terra against the new exact head; those reruns count against the normal round budgets.
 
 ## Run-scoped publication grant (AC-GRANT)
 
@@ -142,12 +164,14 @@ Before the first external update, obtain a single **run-scoped publication grant
 
 It may authorize:
 
-- new normal commits;
+- new normal commits; a normal commit uses a Conventional Commits subject, includes an issue-number reference, and includes test provenance in the body when covered behavior changes;
 - **non-force push** to the current pull-request branch;
 - required pull-request body updates;
 - GitHub review-thread replies;
 - configured external-site disposition comments or status transitions;
 - validation and disposition summaries.
+
+A normal commit under this grant uses a Conventional Commits subject, includes an issue-number reference, and includes test provenance in the body when covered behaviour changes (CL-D25).
 
 It **never authorizes** merge, force-push, amend, rebase, history rewrite, ADR acceptance, authoritative issue changes, failed-gate bypass, or a different repository, pull request, or branch. Each of those needs its own explicit owner approval.
 
@@ -194,7 +218,13 @@ Every agent in this package sets `inheritSkills: false`, so nothing in this skil
 - the target, the relevant fingerprints, and the exact diff under review;
 - the applicable Language Profile entries;
 - the finding format: severity, evidence, impact, and smallest correction;
-- the scope boundary, so the child does not redesign approved decisions.
+- the scope boundary, so the child does not redesign approved decisions;
+- the acceptance criteria the target must satisfy, so that every finding can be traced to one;
+- on a gate re-invocation, every finding from that gate's earlier rounds, plus the dispositioned findings of any gate that already passed, each with its disposition and rationale.
+
+A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**, and the payload must say so: re-raising one requires new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker, and must be labelled that way instead of returning `FIX BEFORE MERGE`.
+
+Without this the loop cannot terminate. Reviewers run with fresh context and `inheritSkills: false`, so a disposition the parent recorded is invisible to the next round, and any finding not literally fixed returns indefinitely.
 
 ### Round accounting (CL-D11, CL-D12)
 
@@ -305,6 +335,7 @@ Whenever the run stops, emit a resumable block:
 ````text
 ```tidd-status
 target: <owner/repo#123>
+head_branch: <branch>
 mode: <review-only|autofix>
 state: <token>
 active_gate: <sol|terra|external|none>
@@ -318,4 +349,4 @@ next_action: <the single next permitted action>
 ```
 ````
 
-To resume, the operator pastes that block back with the command. On resume, **revalidate the fingerprints** first and refuse to continue against a changed target; recompute instead of trusting the pasted state. A pasted grant is never honoured, because the grant expired with its run.
+To resume, the operator pastes that block back with the command. On resume, **revalidate the fingerprints** first, compare the pasted `head_branch` with both the freshly resolved PR head branch and the currently checked-out branch for a dirty autofix resume, and recompute `candidate_diff` when the status contains one; a dirty resume is permitted only when the fresh candidate exactly matches the pasted candidate under CL-D27. Refuse to continue against a changed target, branch mismatch, or candidate mismatch without cleaning, normalizing, or discarding anything; the checked-out-branch comparison does not apply to foreign review-only targets. Recompute instead of trusting pasted state. After a publication commit, candidate approvals are invalid and Sol and Terra must rerun against the committed head. A pasted grant is never honoured, because the grant expired with its run.

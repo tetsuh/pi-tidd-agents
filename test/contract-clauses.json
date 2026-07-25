@@ -42,7 +42,11 @@
       "requires": [
         "inheritSkills: false",
         "Invocation payload",
-        "Nothing may rely on a child inheriting this skill"
+        "Nothing may rely on a child inheriting this skill",
+        "acceptance criteria the target must satisfy",
+        "on a gate re-invocation, every finding from that gate's earlier rounds",
+        "re-raising one requires new evidence",
+        "out-of-scope improvement rather than a blocker"
       ]
     },
     {
@@ -173,7 +177,12 @@
         "gh api repos/<owner>/<repo>/pulls/<n>",
         "gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>",
         "gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits",
-        "gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha"
+        "gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha",
+        "same-repository review-only target",
+        "GitHub API evidence path",
+        "local Git objects are absent",
+        "without fetch, checkout, or git-state mutation",
+        "Autofix still requires local objects"
       ]
     },
     {
@@ -346,14 +355,61 @@
       ]
     },
     {
-      "id": "CL-D22",
-      "title": "Closed-loop model requirements and preflight",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "id": "CL-D22-issue",
+      "marker": "CL-D22",
+      "title": "Issue closed-loop model requirements and preflight",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
       "requires": [
         "Preflight",
         "by runtime name",
         "never by model ID",
-        "sol-reviewer"
+        "sol-reviewer",
+        "terra-oracle",
+        "stop and report `BLOCKED`",
+        "name-level override guidance"
+      ]
+    },
+    {
+      "id": "CL-D22-pr",
+      "marker": "CL-D22",
+      "title": "PR closed-loop model requirements and preflight",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "Preflight",
+        "by runtime name",
+        "never by model ID",
+        "sol-reviewer",
+        "terra-reviewer",
+        "conditionally for autofix mode, `luna-worker`",
+        "stop and report `BLOCKED`",
+        "name-level override guidance"
+      ]
+    },
+    {
+      "id": "CL-D27",
+      "title": "Autofix and publication are governed by one identity invariant",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "identity set",
+        "every publication action, without exception",
+        "stops the run without mutation",
+        "bound OIDs",
+        "never a moving symbolic ref",
+        "Exactly one transition may change the bound set",
+        "freshly recomputed `candidate_diff` equals the pasted one exactly",
+        "never trust a pasted digest",
+        "Publication does not carry candidate approval forward"
+      ]
+    },
+    {
+      "id": "CL-D25-commit",
+      "marker": "CL-D25",
+      "title": "A normal commit under the publication grant follows the project convention",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "Conventional Commits subject",
+        "issue-number reference",
+        "test provenance"
       ]
     },
     {

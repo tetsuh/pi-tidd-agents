@@ -26,8 +26,8 @@ Do not infer a target, do not scan for candidate issues, and do not start any ga
 Before the first gate, confirm the runtime can actually complete the workflow.
 
 1. Subagent execution comes from `pi-subagents`. If `pi-subagents` is unavailable, stop and report `BLOCKED` with installation guidance. Never substitute your own execution for a formal gate.
-2. Confirm that both required agents resolve: `sol-reviewer` and `terra-oracle`.
-3. Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided ones with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name. Naming a model here would remove that escape hatch.
+2. Confirm that the required agents resolve: `sol-reviewer` and `terra-oracle`.
+3. Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided ones with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name through the name-level override guidance. Naming a model here would remove that escape hatch.
 4. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path. Do not begin a gate that cannot finish.
 
 A preflight failure is not a review round.
@@ -125,7 +125,13 @@ Every agent in this package sets `inheritSkills: false`, so nothing in this skil
 - the target, its `issue_spec` fingerprint, and the exact text under review;
 - the applicable Language Profile entries;
 - the finding format: severity, evidence, impact, and smallest correction;
-- the scope boundary, so the child does not redesign approved decisions.
+- the scope boundary, so the child does not redesign approved decisions;
+- the acceptance criteria the target must satisfy, so that every finding can be traced to one;
+- on a gate re-invocation, every finding from that gate's earlier rounds, plus the dispositioned findings of any gate that already passed, each with its disposition and rationale.
+
+A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**, and the payload must say so: re-raising one requires new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker, and must be labelled that way instead of returning `FIX BEFORE MERGE`.
+
+Without this the loop cannot terminate. Reviewers run with fresh context and `inheritSkills: false`, so a disposition the parent recorded is invisible to the next round, and any finding not literally fixed returns indefinitely.
 
 ### Round accounting (CL-D11, CL-D12)
 
