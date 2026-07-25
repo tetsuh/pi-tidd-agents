@@ -21,11 +21,11 @@ Do not infer a target and do not start any gate. Report `BLOCKED` and end the ru
 
 ## Mode parsing (CL-D6)
 
-The mode token is the argument immediately after the target reference. Parsing is exact and fails closed:
+The mode token is the final token of the raw argument vector, evaluated once the target reference has been recognized. A target reference may itself be two tokens, such as `Issue #123` or `PR #123`, so a fixed argument position does not identify the mode. Parsing is exact and fails closed:
 
-- exactly `autofix`, **case-sensitive** → autofix mode;
-- **absent or empty** → review-only mode;
-- anything else, including `Autofix`, `AUTOFIX`, `--autofix`, or any extra argument beyond that position → **stop and print usage**.
+- the final token is exactly `autofix`, **case-sensitive** → autofix mode;
+- no token remains once the target reference is consumed → review-only mode;
+- anything else, including `Autofix`, `AUTOFIX`, `--autofix`, or any token still left over after the reference and an optional final `autofix` → **stop and print usage**.
 
 A near-miss token signals intent to mutate, so it must surface as an error rather than quietly downgrade to review-only.
 
@@ -57,7 +57,24 @@ Track identity per kind of evidence, so a change invalidates only what it actual
 - `pr_commits` — `sha256` of the ordered commit subject/body sequence;
 - `pr_head` — exact head SHA, used only for CI and exact-head external checks.
 
-Every digest uses canonical UTF-8 bytes: normalize CRLF and CR to LF for textual records, order records explicitly, join records with one LF (`0x0a`), and omit a trailing separator. Binary patch bytes are hashed raw and are never newline-normalized. For a local target, use `LC_ALL=C`, `git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv` and the matching log options. For a foreign review-only target, use `gh api repos/<owner>/<repo>/pulls/<n>` for OIDs, `gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>` for the effective diff, `gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits` for the commit sequence, and `gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha` for tree values; canonicalize JSON records before hashing. Both local and foreign paths hash the same raw effective diff bytes and use the same record serialization. These paths require no checkout. Use `printf '%s'` or an equivalent exact-byte pipeline and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute every digest. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
+Every digest uses canonical UTF-8 bytes:
+
+- normalize CRLF and CR to LF in textual records;
+- order records explicitly, join records with one LF (`0x0a`), and omit a trailing separator;
+- hash binary patch bytes raw; they are never newline-normalized.
+
+For a local target, use `LC_ALL=C`, `git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv` and the matching log options.
+
+For a foreign review-only target, no checkout is required:
+
+- `gh api repos/<owner>/<repo>/pulls/<n>` for OIDs;
+- `gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>` for the effective diff;
+- `gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits` for the commit sequence;
+- `gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha` for tree values.
+
+Canonicalize JSON records before hashing. Both local and foreign paths hash the same raw effective diff bytes and use the same record serialization.
+
+Use `printf '%s'` or an equivalent exact-byte pipeline and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute every digest. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
 
 An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**.
 
@@ -115,7 +132,7 @@ Formal reviewers are read-only and never become writers. Synthesize the findings
 
 Apply only the **smallest correction** that satisfies a finding inside the approved contract. Stop before any unapproved product, API, architecture, scope, compatibility, or risk decision. After fixes, run focused validation and rerun each gate whose evidence the change invalidated.
 
-### Candidate evidence after autofix edits (CL-D9)
+### Candidate evidence after autofix edits (CL-D23, CL-D9)
 
 Before any post-fix Sol or Terra invocation, capture the sole worker's exact uncommitted working-tree overlay. `candidate_diff` is a canonical byte record stream with this precise framing: each record is `<type>\t<pathByteLength>\t<byteLength>\t<path>\t<rawBytes>`, where type, decimal lengths, and path are UTF-8, lengths count UTF-8/path or raw-byte lengths, and rawBytes are never newline-normalized; records are separated by one LF byte (`0x0a`) with no trailing separator. Emit three fixed patch records in this order: `committed-base-head`, `staged`, and `unstaged` (each with an empty path), followed by one `untracked` record per non-ignored path sorted by UTF-8 path bytes. Capture it with `LC_ALL=C git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv <base>...HEAD`, the corresponding `--cached` and worktree diffs, and `git ls-files --others --exclude-standard -z` followed by raw-byte reads of each listed path. Hash the resulting record stream with `sha256sum` using the same explicit `LC_ALL=C` and no-text-conversion options. Include the exact candidate diff and its `candidate_diff` fingerprint in every post-fix review payload. `pr_tree` and `pr_diff` alone are insufficient because uncommitted edits do not change them. Do not commit, push, or otherwise mutate git state merely to calculate candidate evidence. An untracked-file overlay is part of the candidate and must not be omitted.
 
@@ -190,7 +207,7 @@ Every agent in this package sets `inheritSkills: false`, so nothing in this skil
 
 Round budgets are **run-scoped**. This MVP keeps no state between invocations, so re-running the command resets every counter. Report rounds used per gate in every status block. **Do not create a state file** to work around this; persistent workflow state is a later stage.
 
-## External review (CL-D18, CL-D17)
+## External review (CL-D18, CL-D24, CL-D17)
 
 External gates apply only to pull-request readiness, and only through what is observable on the pull request with `gh`.
 
