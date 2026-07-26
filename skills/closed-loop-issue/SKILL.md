@@ -223,7 +223,7 @@ state: <token>
 active_gate: <sol|terra|none>
 issue_spec: <digest>
 rounds: sol <used>/3, terra <used>/3
-dispositions: <counts by disposition>
+findings: <internal finding id: disposition, one per line>
 pending_decisions: <decision ids or none>
 publication_grant: not-applicable
 invalidated_evidence: <what must be redone>
