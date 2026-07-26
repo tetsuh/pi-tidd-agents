@@ -242,7 +242,9 @@ Observation policy, which this MVP reports against rather than enforces:
 - a **fifteen-minute** maximum observation window per head, measured from that initial snapshot (a new head starts a new origin);
 - a new head resets both.
 
-The **observation origin is part of resumable state**, not a value the run may re-derive. Record the external head it belongs to and the origin timestamp in the status block. A resume against the same head restores them unchanged; **only a new head resets them**. Re-deriving the origin on resume would silently restart the window and misreport how long the head has actually been observed. This MVP reports the window rather than enforcing it, so the origin needs no digest of its own.
+The **observation origin is part of resumable state**, not a value the run may re-derive. Record the external head it belongs to and the origin timestamp in the status block. A resume against the same head restores them unchanged; **only a new head resets them**. Re-deriving the origin on resume would silently restart the window and misreport how long the head has actually been observed.
+
+Carry **the latest external event time** with it, so a resumed run reports the quiet period against what was actually observed instead of restarting it. Carry a `snapshot` digest of the observed event records as well: an edited comment keeps its identifier, so without a digest a resume cannot **detect that the observed set changed** underneath it. Compute it as `sha256` under the CL-D9 serialization rules. Like `candidate_diff`, this digest serves change detection across a resume on one machine rather than cross-machine proof, so the discipline CL-D9 already defines is enough.
 
 The initial snapshot is not polling and does not delay internal review. This MVP has no timers and **must not busy-poll** or spend turns waiting. When required processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume; a timeout is neither success nor provider failure.
 
@@ -340,7 +342,7 @@ rounds: sol <used>/3, terra <used>/3
 dispositions: <counts by disposition>
 pending_decisions: <decision ids or none>
 publication_grant: not-applicable (this MVP does not publish)
-external_observation: head <sha> origin <timestamp>
+external_observation: head <sha> origin <timestamp> latest_event <timestamp|none> snapshot <digest|none>
 operator_actions: <what the operator must do to publish, or none>
 invalidated_evidence: <what must be redone>
 next_action: <the single next permitted action>
