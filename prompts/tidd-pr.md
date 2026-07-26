@@ -11,4 +11,4 @@ Load the `closed-loop-pr` skill and follow it as the authoritative contract for 
 
 Mode parsing is case-sensitive: only the final exact token `autofix` selects autofix; absent mode is review-only, and any near-miss or extra argument must stop and print usage. Review-only is the default (AC-REVIEW-ONLY). Unless the exact mode token `autofix` was selected: do not edit any file in the repository, do not change git state, do not commit or push, do not post to GitHub, and do not mutate any external service.
 
-`autofix` permits file edits only. Commits, pushes, review replies, and external updates still require the separate run-scoped publication grant defined in the skill.
+`autofix` permits repository file edits only. This MVP **does not publish**: it never commits, pushes, replies, or changes an external service, and it never asks for authority to. Everything else is drafted and handed to the operator (CL-D28).

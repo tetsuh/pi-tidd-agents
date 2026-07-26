@@ -291,7 +291,7 @@ Rationale
 Validity and invalidation conditions
 ```
 
-Long-lived contract, waiver, and risk decisions belong on the pull request in the configured language, posted only after explicit approval. While a decision is pending the state is `WAITING_FOR_OWNER`.
+Long-lived contract, waiver, and risk decisions belong on the pull request in the configured language. Draft them and hand them to the operator to post. While a decision is pending the state is `WAITING_FOR_OWNER`.
 
 ## Test provenance (AC-TDD)
 
