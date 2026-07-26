@@ -267,7 +267,7 @@ not-applicable
 needs-owner-decision
 ```
 
-For each finding record the source and its stable identity, severity, the fingerprint it was raised against, evidence, impact, the disposition, the rationale, the corrective commit when fixed, validation evidence, and the reply or status URL when published.
+For each finding record the source and its stable identity, severity, the fingerprint it was raised against, evidence, impact, the disposition, the rationale, the corrective change when the disposition is `fixed`, validation evidence that the change resolves the finding, and the reply or status URL once the operator has published. This MVP does not commit, so the corrective artifact is the working-tree change; the commit carrying it is recorded on the later run that reviews the published result.
 
 Judge findings individually. A reviewer score, severity label, or provider recommendation is never by itself a decision to change code. Record the rationale for anything intentionally left unchanged, and give each unfixed finding its own drafted reply. Draft it; never post it.
 

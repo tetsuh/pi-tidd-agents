@@ -433,7 +433,33 @@
         "needs-owner-decision",
         "exactly one disposition",
         "validation evidence",
-        "reply or status URL"
+        "reply or status URL",
+        "severity",
+        "evidence",
+        "impact",
+        "rationale"
+      ]
+    },
+    {
+      "id": "AC-DISPOSITION-issue",
+      "marker": "AC-DISPOSITION",
+      "title": "The issue finding record names every field",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "requires": [
+        "source gate",
+        "`issue_spec` it was raised against",
+        "revised passage when the disposition is `fixed`"
+      ]
+    },
+    {
+      "id": "AC-DISPOSITION-pr",
+      "marker": "AC-DISPOSITION",
+      "title": "The pull-request finding record names every field",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "source and its stable identity",
+        "the fingerprint it was raised against",
+        "corrective change when the disposition is `fixed`"
       ]
     },
     {
@@ -446,7 +472,11 @@
         "Recommendation",
         "Owner choice",
         "Validity and invalidation conditions",
-        "one question at a time"
+        "one question at a time",
+        "\nKind\n",
+        "\nTarget and revision\n",
+        "\nQuestion\n",
+        "\nRationale\n"
       ]
     },
     {
