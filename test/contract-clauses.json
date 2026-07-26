@@ -475,8 +475,9 @@
         "retrospective reproduction",
         "Never fabricate RED evidence",
         "never rewrite history to simulate",
-        "whose only inputs are repository files",
-        "Assertion polarity is irrelevant"
+        "Assertion polarity is irrelevant",
+        "inspects an artifact's content or structure",
+        "executes the thing being specified and observes what it does"
       ]
     },
     {
