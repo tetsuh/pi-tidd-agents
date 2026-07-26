@@ -155,6 +155,14 @@ test('the packed tarball contains the closed-loop resources', () => {
   }
 });
 
+test('the packed tarball excludes the authoritative development record', () => {
+  const files = packFileList();
+  assert.ok(
+    !files.includes('CONTRACT.md'),
+    `CONTRACT.md is a development record and must not be package payload: ${files.join(', ')}`,
+  );
+});
+
 test('the packed tarball ships no executable code and no tests', () => {
   const files = packFileList();
   const code = files.filter((file) => /\.(ts|js|mjs|cjs)$/.test(file));

@@ -144,6 +144,35 @@ function assertCanonicalRecordLines(normalized) {
   const decisionLike = /(?:CL-D|AC-|DEC-)[A-Za-z0-9-]+/;
   const canonicalHeading = /^## [A-Z][A-Z0-9-]* — (?:\S(?:.*\S)?)$/;
   const canonicalMetadata = /^\*\*Clauses:\*\* \S(?:.*\S)?$/;
+  const entity = /&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);/i;
+  const rawHtmlHeadingTag = /<\/?h[1-6]\b[^>]*>/i;
+  const rawHtmlStrongTag = /<\/?(?:strong|b)\b[^>]*>/i;
+  const decodeEntities = (value) => value
+    .replace(/&(?:nbsp|ensp|emsp|thinsp|hairsp|numsp|puncsp|mediumspace|tab|newline);/gi, (name) => ({
+      nbsp: '\u00a0',
+      ensp: '\u2002',
+      emsp: '\u2003',
+      thinsp: '\u2009',
+      hairsp: '\u200a',
+      numsp: '\u2007',
+      puncsp: '\u2008',
+      mediumspace: '\u205f',
+      tab: '\t',
+      newline: '\n',
+    })[name.slice(1, -1).toLowerCase()])
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&colon;/gi, ':');
+
+  // Check the complete record before line processing so tags split across
+  // newlines cannot evade the raw-HTML boundary.
+  if (rawHtmlHeadingTag.test(normalized)) {
+    assert.fail('raw HTML heading tag is not canonical');
+  }
+  if (rawHtmlStrongTag.test(normalized)) {
+    assert.fail('raw HTML strong/b tag is not canonical');
+  }
+
   const lines = normalized.split('\n');
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -152,6 +181,24 @@ function assertCanonicalRecordLines(normalized) {
     const setextText = index > 0 ? lines[index - 1].trim() : '';
     if (underline && decisionLike.test(setextText)) {
       assert.fail(`non-canonical Setext decision heading: ${setextText}`);
+    }
+
+    // Entity references can make a non-matching raw line render as a heading or
+    // ownership declaration. H2-shaped and bold-metadata-shaped lines must use
+    // the canonical raw grammar regardless of their visible words.
+    if (entity.test(line) && /^\s*##(?!#)/.test(line)) {
+      assert.fail(`HTML entity in H2 line is not canonical: ${line}`);
+    }
+    if (entity.test(line) && /^\s*\*\*/.test(line)) {
+      assert.fail(`HTML entity in bold metadata line is not canonical: ${line}`);
+    }
+
+    // Underscore strong is valid ordinary prose, but it is not a canonical
+    // ownership record. Decode only the small entity subset needed to detect
+    // equivalent rendered `__Clauses:__` spellings.
+    const decodedLine = decodeEntities(line);
+    if (/^\s*__\s*clauses\s*:\s*__\s+\S(?:.*\S)?$/i.test(decodedLine)) {
+      assert.fail(`non-canonical Clauses metadata: ${line}`);
     }
 
     // Only H2-shaped lines are considered here; ordinary H2 prose such as
@@ -378,10 +425,51 @@ test('Setext decision-like headings and metadata mutations are rejected', () => 
   );
 });
 
+test('rendered HTML and entity grammar mutations are rejected', () => {
+  for (const mutation of [
+    '<h2>CL-D1 — competing owner</h2>\n<strong>Clauses:</strong> CL-D1-issue',
+    '<H2 class="decision"> CL-D1 — competing owner </H2>\n<B data-kind="clauses"> Clauses: </B> CL-D1-issue',
+    '<h2>\nCL-D1 — competing owner\n</h2>\n<strong>\nClauses: CL-D1-issue\n</strong>',
+    '<h2\n>CL-D1 — competing owner</h2\n>\n<strong\n>Clauses: CL-D1-issue</strong\n>',
+    '<h2\nclass="decision">CL-D1 — competing owner</h2\n>\n<strong\ndata-kind="clauses">Clauses: CL-D1-issue</strong\n>',
+    '<h2><span>CL&#45;D1</span> — competing owner</h2>\n<strong>Cl&#97;uses:</strong> CL-D1-issue',
+    'prefix </h4> suffix\ntext </b> suffix',
+    '## C&#76;-D1 — competing owner\n**Claus&#101;s:** CL-D1-issue',
+    '## CL-D1 &#8212; competing owner\n**Clauses&#58;** CL-D1-issue',
+  ]) {
+    assert.throws(
+      () => validateRecord(`${recordText()}\n${mutation}`),
+      /raw HTML|HTML entity/,
+      mutation,
+    );
+  }
+});
+
+test('alternate underscore ownership metadata is rejected', () => {
+  for (const mutation of [
+    '__Clauses:__ CL-D28',
+    '__clauses : __ CL-D28',
+    '__CL&#97;uses&#58;__ CL&#45;D28',
+    '__CLAUSES:\u00a0__ CL-D28',
+    '__Clauses&nbsp;:__ CL-D28',
+    '__Clauses:&nbsp;__ CL-D28',
+    '__Clauses:__&nbsp;CL-D28',
+    '__cLaUsEs&nbsp;:__ CL-D28',
+  ]) {
+    assert.throws(
+      () => validateRecord(`${recordText()}\n${mutation}`),
+      /non-canonical Clauses metadata/,
+      mutation,
+    );
+  }
+});
+
 test('ordinary horizontal rules and nondecision Setext headings remain valid', () => {
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n## Notes\nNotes\n---\n`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\nRelease notes\n===\n`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n## Notes\nThe prose mentions **Clauses:** inline.`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n<p>ordinary HTML prose</p>`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\nThe __important__ prose remains ordinary.`));
 });
 
 test('adding a clause under an existing marker without recording it fails', () => {

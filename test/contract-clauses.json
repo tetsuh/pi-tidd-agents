@@ -5,7 +5,7 @@
     "substrings that must appear in those files. Literal matching is deliberate: the prose",
     "of the skills and prompts is the deliverable, so rewording a contract clause must fail",
     "the build until the change is intentional.",
-    "Decision IDs are defined in https://github.com/tetsuh/pi-tidd-agents/issues/3",
+    "CONTRACT.md is authoritative for decision IDs and clause ownership; Issue #3 is historical context for the decisions.",
     "A clause without a \"section\" is matched against the whole file, which is weaker than it looks: a literal deleted from one place can still match an unrelated mention elsewhere. Record formats are pinned whole and scoped to a section for that reason."
   ],
   "issueSkill": "skills/closed-loop-issue/SKILL.md",
