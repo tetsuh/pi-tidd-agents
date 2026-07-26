@@ -315,6 +315,9 @@ Require a meaningful behavioral RED for deterministic bug fixes and behavior exe
 
 **Never fabricate RED evidence**, and **never rewrite history to simulate** a test-first chronology. Merging without required deterministic coverage needs explicit owner approval.
 
+The boundary between the two pre-implementation classes is decidable, not a judgement call: a test **whose only inputs are repository files** is compile/contract RED, and behavioural RED requires the test to execute the thing being specified and observe what it does. **Assertion polarity is irrelevant** — `doesNotMatch` against a Markdown file is no more behavioural than `match` against one. This is written down because it was got wrong three times, twice by omission and once with a confident wrong justification.
+
+
 ## Outcome and status block (CL-D13, CL-D14)
 
 Use these tokens exactly:

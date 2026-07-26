@@ -196,7 +196,10 @@ retrospective reproduction
 
 Require a meaningful behavioral RED for deterministic bug fixes and for behavior exercisable through an existing test seam. Permit truthful co-development for integration scaffolding, new module bootstrapping, platform-only packaging checks, and review-driven regression coverage when a pre-implementation behavioral RED is impractical.
 
-**Never fabricate RED evidence**, and **never rewrite history to simulate** a test-first chronology. Policy precedence is project instructions, then authoritative issue requirements that do not weaken them, then this package default. A recorded owner exception is a narrow override of a named rule and must state its scope, rationale, and invalidation conditions.
+**Never fabricate RED evidence**, and **never rewrite history to simulate** a test-first chronology. Policy precedence is project instructions, then authoritative issue requirements that do not weaken them, then this package default.
+
+The boundary between the two pre-implementation classes is decidable, not a judgement call: a test **whose only inputs are repository files** is compile/contract RED, and behavioural RED requires the test to execute the thing being specified and observe what it does. **Assertion polarity is irrelevant** — `doesNotMatch` against a Markdown file is no more behavioural than `match` against one. This is written down because it was got wrong three times, twice by omission and once with a confident wrong justification.
+ A recorded owner exception is a narrow override of a named rule and must state its scope, rationale, and invalidation conditions.
 
 ## Outcome and status block (CL-D13, CL-D14)
 

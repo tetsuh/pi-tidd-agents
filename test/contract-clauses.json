@@ -474,7 +474,9 @@
         "review-driven regression",
         "retrospective reproduction",
         "Never fabricate RED evidence",
-        "never rewrite history to simulate"
+        "never rewrite history to simulate",
+        "whose only inputs are repository files",
+        "Assertion polarity is irrelevant"
       ]
     },
     {
