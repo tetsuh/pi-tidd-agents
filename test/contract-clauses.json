@@ -210,8 +210,9 @@
         "is not polling",
         "observation origin is part of resumable state",
         "only a new head resets them",
-        "the latest external event time",
-        "detect that the observed set changed"
+        "discard the external evidence and fetch it again",
+        "stable identity",
+        "orphaned"
       ]
     },
     {
@@ -542,7 +543,7 @@
       "title": "The PR status block carries resumable observation and publication state",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "external_observation: head <sha> origin <timestamp> latest_event <timestamp|none> snapshot <digest|none>",
+        "external_observation: head <sha> origin <timestamp>",
         "operator_actions:"
       ],
       "section": "## Outcome and status block (CL-D13, CL-D14)"

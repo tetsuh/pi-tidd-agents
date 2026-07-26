@@ -244,7 +244,11 @@ Observation policy, which this MVP reports against rather than enforces:
 
 The **observation origin is part of resumable state**, not a value the run may re-derive. Record the external head it belongs to and the origin timestamp in the status block. A resume against the same head restores them unchanged; **only a new head resets them**. Re-deriving the origin on resume would silently restart the window and misreport how long the head has actually been observed.
 
-Carry **the latest external event time** with it, so a resumed run reports the quiet period against what was actually observed instead of restarting it. Carry a `snapshot` digest of the observed event records as well: an edited comment keeps its identifier, so without a digest a resume cannot **detect that the observed set changed** underneath it. Compute it as `sha256` under the CL-D9 serialization rules. Like `candidate_diff`, this digest serves change detection across a resume on one machine rather than cross-machine proof, so the discipline CL-D9 already defines is enough.
+The origin is the only value a resume cannot re-derive, so it is the only one carried. On resume, **discard the external evidence and fetch it again**, then reprocess the current set against the preserved origin. Everything else — the latest event time, each event's content — is a property of live data and comes back with the fetch.
+
+This deliberately carries no digest of the observed events (`DEC-EXT-SNAPSHOT-001`). A digest would need a canonical serialization of reviews, review comments and check runs, which CL-D9 does not define — it defines a record shape for issue comments only. Specifying one is the complexity CL-D28 moved to #4. A resume that re-fetches does not need to detect that an event changed, because it never relies on the stale copy: an edited comment is simply read in its current form.
+
+Compare instead by **stable identity**. A dispositioned finding whose identity is still present is reprocessed against the current content; one whose identity has disappeared is reported as **orphaned** rather than silently carried; an identity not seen before is a new finding. Identifiers are already required by the finding record, and they give the practical part of what a byte comparison would have given, with no serialization to specify.
 
 The initial snapshot is not polling and does not delay internal review. This MVP has no timers and **must not busy-poll** or spend turns waiting. When required processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume; a timeout is neither success nor provider failure.
 
@@ -342,7 +346,7 @@ rounds: sol <used>/3, terra <used>/3
 dispositions: <counts by disposition>
 pending_decisions: <decision ids or none>
 publication_grant: not-applicable (this MVP does not publish)
-external_observation: head <sha> origin <timestamp> latest_event <timestamp|none> snapshot <digest|none>
+external_observation: head <sha> origin <timestamp>
 operator_actions: <what the operator must do to publish, or none>
 invalidated_evidence: <what must be redone>
 next_action: <the single next permitted action>
