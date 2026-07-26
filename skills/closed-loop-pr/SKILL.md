@@ -250,7 +250,7 @@ Treat CodeRabbit and SonarCloud as required once detected. Process GitHub Copilo
 
 ### SonarCloud (CL-D17)
 
-This MVP has no SonarCloud credentials or API integration, so it **cannot perform provider-side status transitions**. Disposition each Sonar finding, draft the Accepted rationale in the configured SonarCloud language, and, when publication is granted, post the summary to the pull request in the pull-request language. Performing the provider-side transition stays with the owner.
+This MVP has no SonarCloud credentials or API integration, so it **cannot perform provider-side status transitions**. Disposition each Sonar finding and draft the Accepted rationale in the configured SonarCloud language, plus a summary in the pull-request language. Hand both to the operator; posting the summary and performing the provider-side transition are theirs.
 
 `MERGE_READY` **must not be declared on the basis of a transition that was never performed**. Report the remaining owner actions instead.
 
@@ -269,7 +269,7 @@ needs-owner-decision
 
 For each finding record the source and its stable identity, severity, the fingerprint it was raised against, evidence, impact, the disposition, the rationale, the corrective commit when fixed, validation evidence, and the reply or status URL when published.
 
-Judge findings individually. A reviewer score, severity label, or provider recommendation is never by itself a decision to change code. Record the rationale for anything intentionally left unchanged; in review-only mode draft that reply without posting it, and when publication is granted give each unfixed GitHub finding its own reply.
+Judge findings individually. A reviewer score, severity label, or provider recommendation is never by itself a decision to change code. Record the rationale for anything intentionally left unchanged, and give each unfixed finding its own drafted reply. Draft it; never post it.
 
 Group the report into blockers, fixes worth making now, optional improvements, pre-existing findings, and findings intentionally declined.
 
