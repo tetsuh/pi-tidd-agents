@@ -156,7 +156,7 @@ not-applicable
 needs-owner-decision
 ```
 
-For each finding record the source gate, severity, the `issue_spec` it was raised against, evidence, impact, the disposition, and the rationale. Judge findings individually; a severity label is never by itself a decision to change the specification. Record the rationale for anything intentionally left unchanged.
+For each finding record the source gate, severity, the `issue_spec` it was raised against, evidence, impact, the disposition, the rationale, the revised passage when the disposition is `fixed`, validation evidence that the revision actually resolves the finding, and the reply or status URL once the operator has posted it. The last two are recorded on the later run that reviews the published revision, since this MVP does not publish and the URL does not exist until the operator acts. Judge findings individually; a severity label is never by itself a decision to change the specification. Record the rationale for anything intentionally left unchanged.
 
 Group the report into blockers, changes worth making now, optional improvements, pre-existing conditions, and findings intentionally declined.
 

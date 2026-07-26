@@ -431,7 +431,9 @@
         "duplicate",
         "not-applicable",
         "needs-owner-decision",
-        "exactly one disposition"
+        "exactly one disposition",
+        "validation evidence",
+        "reply or status URL"
       ]
     },
     {
