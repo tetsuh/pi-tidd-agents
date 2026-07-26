@@ -118,27 +118,39 @@ const ENTRY_ARTIFACTS = [
   'prompts/tidd-pr.md',
 ];
 
-const PERMISSION_GATED_PUBLICATION = [
-  /after explicit approval/i,
-  /without explicit approval/i,
-  /when publication is (granted|authorized)/i,
-  /require the separate run-scoped publication grant/i,
+// Superseded rules must not survive beside their replacements. Three times a
+// contradiction reached review because the clause literal was satisfied by the
+// stale half of the document: the mode grammar stated twice, publication offered
+// after its removal, and external resume restored after it was withdrawn. A
+// clause proves a rule is present; nothing proves an obsolete rule is gone
+// unless it is named. Retired phrasings go here.
+const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
+
+const SUPERSEDED = [
+  { files: ENTRY_ARTIFACTS, pattern: /after explicit approval/i,
+    reason: 'CL-D28 removed publication, so no approval unlocks it' },
+  { files: ENTRY_ARTIFACTS, pattern: /without explicit approval/i,
+    reason: 'CL-D28 removed publication, so no approval unlocks it' },
+  { files: ENTRY_ARTIFACTS, pattern: /when publication is (granted|authorized)/i,
+    reason: 'CL-D28 removed publication, so no grant unlocks it' },
+  { files: ENTRY_ARTIFACTS, pattern: /require the separate run-scoped publication grant/i,
+    reason: 'CL-D28 removed publication, so no grant unlocks it' },
+  { files: [PR_SKILL], pattern: /observation origin is part of resumable state/i,
+    reason: 'external evidence is no longer carried across runs' },
+  { files: [PR_SKILL], pattern: /a resume against the same head restores/i,
+    reason: 'external evidence is no longer carried across runs' },
 ];
 
-test('no entry artifact offers publication in exchange for permission', () => {
+test('no entry artifact states the CL-D28 publication boundary weakly', () => {
   for (const file of ENTRY_ARTIFACTS) {
-    const text = readText(file);
-    assert.match(
-      text,
-      /does not publish/,
-      `${file} does not state the CL-D28 boundary`,
-    );
-    for (const pattern of PERMISSION_GATED_PUBLICATION) {
-      assert.doesNotMatch(
-        text,
-        pattern,
-        `${file} still offers publication once someone approves it; CL-D28 removed publication entirely`,
-      );
+    assert.match(readText(file), /does not publish/, `${file} does not state the CL-D28 boundary`);
+  }
+});
+
+test('no superseded rule survives beside its replacement', () => {
+  for (const { files, pattern, reason } of SUPERSEDED) {
+    for (const file of files) {
+      assert.doesNotMatch(readText(file), pattern, `${file} still carries a retired rule: ${reason}`);
     }
   }
 });
