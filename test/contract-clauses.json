@@ -5,7 +5,8 @@
     "substrings that must appear in those files. Literal matching is deliberate: the prose",
     "of the skills and prompts is the deliverable, so rewording a contract clause must fail",
     "the build until the change is intentional.",
-    "Decision IDs are defined in https://github.com/tetsuh/pi-tidd-agents/issues/3"
+    "Decision IDs are defined in https://github.com/tetsuh/pi-tidd-agents/issues/3",
+    "A clause without a \"section\" is matched against the whole file, which is weaker than it looks: a literal deleted from one place can still match an unrelated mention elsewhere. Record formats are pinned whole and scoped to a section for that reason."
   ],
   "issueSkill": "skills/closed-loop-issue/SKILL.md",
   "prSkill": "skills/closed-loop-pr/SKILL.md",
@@ -422,61 +423,42 @@
     },
     {
       "id": "AC-DISPOSITION",
-      "title": "Finding disposition ledger",
+      "title": "Finding disposition values",
+      "section": "## Finding dispositions (AC-DISPOSITION)",
       "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "fixed",
-        "accepted-as-designed",
-        "deferred",
-        "duplicate",
-        "not-applicable",
-        "needs-owner-decision",
-        "exactly one disposition",
-        "validation evidence",
-        "reply or status URL",
-        "severity",
-        "evidence",
-        "impact",
-        "rationale"
+        "fixed\naccepted-as-designed\ndeferred\nduplicate\nnot-applicable\nneeds-owner-decision",
+        "exactly one disposition"
       ]
     },
     {
       "id": "AC-DISPOSITION-issue",
       "marker": "AC-DISPOSITION",
       "title": "The issue finding record names every field",
+      "section": "## Finding dispositions (AC-DISPOSITION)",
       "files": ["skills/closed-loop-issue/SKILL.md"],
       "requires": [
-        "source gate",
-        "`issue_spec` it was raised against",
-        "revised passage when the disposition is `fixed`"
+        "For each finding record the source gate, severity, the `issue_spec` it was raised against, evidence, impact, the disposition, the rationale, the revised passage when the disposition is `fixed`, validation evidence that the revision actually resolves the finding, and the reply or status URL once the operator has posted it."
       ]
     },
     {
       "id": "AC-DISPOSITION-pr",
       "marker": "AC-DISPOSITION",
       "title": "The pull-request finding record names every field",
+      "section": "## Finding dispositions (AC-DISPOSITION)",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "source and its stable identity",
-        "the fingerprint it was raised against",
-        "corrective change when the disposition is `fixed`"
+        "For each finding record the source and its stable identity, severity, the fingerprint it was raised against, evidence, impact, the disposition, the rationale, the corrective change when the disposition is `fixed`, validation evidence that the change resolves the finding, and the reply or status URL once the operator has published."
       ]
     },
     {
       "id": "AC-DECISION",
-      "title": "Owner decision record",
+      "title": "Owner decision record names every field",
+      "section": "## Owner decisions (AC-DECISION)",
       "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "Decision ID",
-        "Options and trade-offs",
-        "Recommendation",
-        "Owner choice",
-        "Validity and invalidation conditions",
-        "one question at a time",
-        "\nKind\n",
-        "\nTarget and revision\n",
-        "\nQuestion\n",
-        "\nRationale\n"
+        "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions",
+        "one question at a time"
       ]
     },
     {

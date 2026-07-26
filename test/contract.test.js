@@ -7,6 +7,24 @@ const { readText, readJson, exists } = require('./helpers');
 
 const manifest = readJson('test/contract-clauses.json');
 
+/**
+ * Returns the lines from `heading` up to the next heading of the same or
+ * shallower depth, or null when the heading is absent.
+ */
+function sectionOf(text, heading) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) return null;
+  const depth = heading.match(/^#+/)[0].length;
+  let end = start + 1;
+  while (end < lines.length) {
+    const match = lines[end].match(/^(#+)\s/);
+    if (match && match[1].length <= depth) break;
+    end += 1;
+  }
+  return lines.slice(start, end).join('\n');
+}
+
 test('the clause manifest is non-empty and internally consistent', () => {
   assert.ok(manifest.clauses.length > 0, 'manifest declares no clauses');
   const seen = new Set();
@@ -43,10 +61,23 @@ for (const clause of manifest.clauses) {
         );
       }
 
+      // A clause with a `section` is searched inside that heading's section only.
+      // Without it the search is file-wide, which proves far less than it looks:
+      // a field name deleted from one enumeration still matches an unrelated
+      // mention elsewhere in the same file.
+      let haystack = text;
+      if (clause.section) {
+        haystack = sectionOf(text, clause.section);
+        assert.ok(
+          haystack !== null,
+          `${file} has no section headed ${JSON.stringify(clause.section)}, required by ${clause.id}`,
+        );
+      }
+
       for (const required of clause.requires) {
         assert.ok(
-          text.includes(required),
-          `${file} is missing required contract text for ${clause.id}: ${JSON.stringify(required)}`,
+          haystack.includes(required),
+          `${file} is missing required contract text for ${clause.id}${clause.section ? ` in section ${JSON.stringify(clause.section)}` : ''}: ${JSON.stringify(required)}`,
         );
       }
     });
