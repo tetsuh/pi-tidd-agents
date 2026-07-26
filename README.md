@@ -119,9 +119,11 @@ The exact token `autofix`, lowercase, is the only way to permit file edits. Anyt
 
 Autofix permits file edits and nothing more. One worker writes, and it is `luna-worker` by default: `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement.
 
-### Publication authorization
+### Publication is yours
 
-Commits, pushes, pull-request updates, review replies, and external-site updates need a separate **run-scoped** publication grant, requested once before the first external update. That grant never covers merge, force-push, history rewrite, ADR acceptance, or a different repository or branch, and it expires when the run ends.
+This version **does not publish**. It never commits, pushes, updates a pull-request body, replies to a review thread, or touches an external service, and it will not ask for permission to. A run ends by reporting what it found and what it changed in your working tree, with the commit message and replies drafted for you. You decide what to publish and you publish it.
+
+The **run-scoped** publication grant is documented in the skill as the contract for the later stage that will perform publication: bounded to one repository, pull request, branch and run, expiring when the run ends, and never covering merge, force-push, history rewrite, or ADR acceptance.
 
 ### Pause and resume
 
