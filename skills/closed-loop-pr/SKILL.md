@@ -315,7 +315,9 @@ Require a meaningful behavioral RED for deterministic bug fixes and behavior exe
 
 **Never fabricate RED evidence**, and **never rewrite history to simulate** a test-first chronology. Merging without required deterministic coverage needs explicit owner approval.
 
-The boundary between the two pre-implementation classes is decidable, not a judgement call: a test **whose only inputs are repository files** is compile/contract RED, and behavioural RED requires the test to execute the thing being specified and observe what it does. **Assertion polarity is irrelevant** — `doesNotMatch` against a Markdown file is no more behavioural than `match` against one. This is written down because it was got wrong three times, twice by omission and once with a confident wrong justification.
+The two pre-implementation classes are separated by what the test does, not by where its inputs come from. A test that **inspects an artifact's content or structure** — reading a file and checking for required or forbidden text, parsing frontmatter, listing what a package would publish — is compile/contract RED. A test that **executes the thing being specified and observes what it does** is behavioural RED, and it stays behavioural when the thing it executes lives in this repository. **Assertion polarity is irrelevant**: `doesNotMatch` against a Markdown file is no more behavioural than `match` against one.
+
+In this repository the line currently falls between the `npm pack` assertions, which run the packaging tool and observe what it actually publishes, and every other test, which reads files. That is where the line happens to sit here, not what defines it.
 
 
 ## Outcome and status block (CL-D13, CL-D14)
