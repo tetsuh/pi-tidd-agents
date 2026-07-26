@@ -202,17 +202,15 @@
     },
     {
       "id": "CL-D24",
-      "title": "External observation has an explicit origin",
+      "title": "External observation is per-run and never carried forward",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
         "observation origin",
         "before the first Sol invocation",
         "is not polling",
-        "observation origin is part of resumable state",
-        "only a new head resets them",
-        "discard the external evidence and fetch it again",
-        "stable identity",
-        "orphaned"
+        "External evidence is never carried across runs",
+        "provider-native finding identity",
+        "unknown, not complete"
       ]
     },
     {
@@ -269,7 +267,8 @@
       "title": "The issue status block marks publication as not applicable",
       "files": ["skills/closed-loop-issue/SKILL.md"],
       "requires": [
-        "publication_grant: not-applicable"
+        "publication_grant: not-applicable",
+        "findings: <internal finding id: disposition, one per line>"
       ]
     },
     {
@@ -543,7 +542,8 @@
       "title": "The PR status block carries resumable observation and publication state",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "external_observation: head <sha> origin <timestamp>",
+        "external_observation: head <sha> observed_from <timestamp>, this run only",
+        "findings: <internal finding id: disposition, one per line>",
         "operator_actions:"
       ],
       "section": "## Outcome and status block (CL-D13, CL-D14)"

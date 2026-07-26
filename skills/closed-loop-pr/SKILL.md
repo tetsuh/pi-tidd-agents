@@ -244,11 +244,13 @@ Observation policy, which this MVP reports against rather than enforces:
 
 The **observation origin is part of resumable state**, not a value the run may re-derive. Record the external head it belongs to and the origin timestamp in the status block. A resume against the same head restores them unchanged; **only a new head resets them**. Re-deriving the origin on resume would silently restart the window and misreport how long the head has actually been observed.
 
-The origin is the only value a resume cannot re-derive, so it is the only one carried. On resume, **discard the external evidence and fetch it again**, then reprocess the current set against the preserved origin. Everything else — the latest event time, each event's content — is a property of live data and comes back with the fetch.
+**External evidence is never carried across runs.** A resumed or later run takes its own snapshot and reprocesses what it sees; nothing external is read from a pasted status block. The window and quiet period are therefore reported for the current run's observation only, and the report says so rather than implying a longer continuous watch.
 
-This deliberately carries no digest of the observed events (`DEC-EXT-SNAPSHOT-001`). A digest would need a canonical serialization of reviews, review comments and check runs, which CL-D9 does not define — it defines a record shape for issue comments only. Specifying one is the complexity CL-D28 moved to #4. A resume that re-fetches does not need to detect that an event changed, because it never relies on the stale copy: an edited comment is simply read in its current form.
+This is a narrowing of `DEC-EXT-SNAPSHOT-001`, which kept the origin and compared findings by stable identity. Making that work needs a **provider-native finding identity** for reviews, inline review comments, issue comments, check runs and commit statuses, plus edit timestamps and head association per source. That is provider correlation logic, and it belongs to the external-review integration issue rather than to this MVP's prose — the same boundary CL-D28 drew for publication.
 
-Compare instead by **stable identity**. A dispositioned finding whose identity is still present is reprocessed against the current content; one whose identity has disappeared is reported as **orphaned** rather than silently carried; an identity not seen before is a new finding. Identifiers are already required by the finding record, and they give the practical part of what a byte comparison would have given, with no serialization to specify.
+When an external state cannot be determined — a provider that exposes no usable identity, a missing timestamp, a record with no head association — report it as **unknown, not complete**, and stay `WAITING_EXTERNAL_REVIEW`. An undetermined provider is never a passing one.
+
+Findings the workflow raises itself do carry across runs: Sol and Terra findings have identities this workflow assigns, so the status block lists each with its disposition. That is where disposition continuity actually matters, and it costs nothing to define.
 
 The initial snapshot is not polling and does not delay internal review. This MVP has no timers and **must not busy-poll** or spend turns waiting. When required processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume; a timeout is neither success nor provider failure.
 
@@ -343,10 +345,10 @@ state: <token>
 active_gate: <sol|terra|external|none>
 fingerprints: issue_spec <d> base <d> tree <d> diff <d> commits <d> head <sha> candidate_diff <d|none>
 rounds: sol <used>/3, terra <used>/3
-dispositions: <counts by disposition>
+findings: <internal finding id: disposition, one per line>
 pending_decisions: <decision ids or none>
 publication_grant: not-applicable (this MVP does not publish)
-external_observation: head <sha> origin <timestamp>
+external_observation: head <sha> observed_from <timestamp>, this run only
 operator_actions: <what the operator must do to publish, or none>
 invalidated_evidence: <what must be redone>
 next_action: <the single next permitted action>
