@@ -136,54 +136,38 @@ Apply only the **smallest correction** that satisfies a finding inside the appro
 
 ### Candidate evidence after autofix edits (CL-D23, CL-D9)
 
-Before any post-fix Sol or Terra invocation, capture the sole worker's exact uncommitted working-tree overlay. Candidate evidence is not a gate approval for a later publication commit; after publication, the committed head must be re-fingerprinted and both Sol and Terra rerun. `candidate_diff` is a canonical byte record stream with this precise framing: each record is `<type>\t<pathByteLength>\t<byteLength>\t<path>\t<rawBytes>`, where type, decimal lengths, and path are UTF-8, lengths count UTF-8/path or raw-byte lengths, and rawBytes are never newline-normalized; records are separated by one LF byte (`0x0a`) with no trailing separator. Emit three fixed patch records in this order: `committed-base-head`, `staged`, and `unstaged` (each with an empty path), followed by one `untracked` record per non-ignored path sorted by UTF-8 path bytes. Capture the committed-base-head record with the captured immutable OIDs as `LC_ALL=C git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv <baseOID>...<headOID>`; never use a moving symbolic `HEAD` for that record. Capture the corresponding `--cached` and worktree diffs, and `git ls-files --others --exclude-standard -z` followed by raw-byte reads of each listed path. Hash the resulting record stream with `sha256sum` using the same explicit `LC_ALL=C` and no-text-conversion options. Include the exact candidate diff and its `candidate_diff` fingerprint in every post-fix review payload. `pr_tree` and `pr_diff` alone are insufficient because uncommitted edits do not change them. Do not commit, push, or otherwise mutate git state merely to calculate candidate evidence. An untracked-file overlay is part of the candidate and must not be omitted.
+Before any post-fix Sol or Terra invocation, give the gate the exact changes the worker made: the effective working-tree diff **including untracked files**, since a newly created file does not appear in `git diff`. `pr_tree` and `pr_diff` alone are insufficient, because uncommitted edits do not change them.
 
-### Autofix identity invariant (CL-D27)
+Record `candidate_diff` as a `sha256` over that change set, serialized under the CL-D9 rules: order records explicitly, join them with one LF, and omit a trailing separator.
 
-Autofix and publication are governed by one invariant, not by a list of phases. A list invites omission: an earlier phase enumeration here guarded the commit and the push and left pull-request body updates, review replies, external dispositions, and summaries unguarded.
+This digest exists for **change detection within a single run**. It tells you whether the tree moved between one gate and the next, and nothing more. It is not proof of anything across machines or sessions, and nothing compares it against a commit, because **this MVP does not create commits**. **Do not commit, push, or otherwise mutate git state** to compute it.
 
-Bind one **identity set** at the start of an autofix run: repository, pull-request number, head branch, PR head SHA, base OID, and the local `HEAD` OID and checked-out branch. Require the checked-out branch to equal the PR head branch and local `HEAD` to equal the PR head SHA. This local requirement is scoped to autofix and imposes no checkout on review-only or foreign targets.
+### Target stability during a run (CL-D27)
 
-Once candidate evidence exists, `candidate_diff` joins the bound set, because **identity alone is not content**. Editing the worktree changes no OID, so a bound set built only from identifiers cannot notice that the bytes the gates accepted are not the bytes about to be published.
+Autofix edits files while the target may be moving. Re-resolve the target identity — repository, pull-request number, head branch, PR head SHA, base OID — immediately before **every** gate invocation, and require it to be unchanged.
 
-Re-resolve and re-verify the whole identity set from source:
+If anything changed, **stop rather than continue against a moved target**. Never clean, normalize, discard, stash, or switch anything in order to make the check pass; report what moved and let the operator decide.
 
-- immediately before **every** gate invocation;
-- immediately before **every publication action, without exception** — commit, push, pull-request body update, review reply, external-site disposition, and summary alike;
-- immediately after any action expected to change it.
+That is the whole rule, and it is short because **this MVP performs no publication**. With no commit and no push of its own there is no window in which the workflow could race the target, and no committed artifact whose content would have to be proven identical to what a gate approved.
 
-Any unexpected difference **stops the run without mutation**. Never clean, normalize, discard, stash, or switch anything in order to make the check pass.
+## Publication (AC-GRANT)
 
-Capture candidate evidence against the **bound OIDs**, **never a moving symbolic ref**, so the bytes under review belong to the identity that was verified.
+**This MVP does not publish.** It has no authority to commit, push, update a pull-request body, reply to a review thread, or change an external service, and it must not ask for that authority. A run ends by reporting what it found and what it changed in the working tree, and **the operator performs any publication**.
 
-**Prove content identity before publishing.** Recompute `candidate_diff` after every gate and again immediately before the authorized commit, and require it to equal the value the latest passing Sol and Terra gates actually accepted. Before the non-force push, require the commit's tree and its effective `base...head` diff to represent exactly that approved candidate. A difference at either point stops without mutation, and the gates rerun against whatever now exists rather than against what they were shown.
+When a run has prepared something worth publishing, draft the material and hand it over: the proposed commit message, the proposed replies, and the disposition summary. **Drafting is not publishing.**
 
-**Exactly one transition may change the bound set**: this workflow's own publication-granted normal commit and its matching non-force push. After the commit, require local `HEAD` to be exactly that commit, its first parent to equal the bound head, the branch and base to be unchanged, and the worktree clean. After the push, require the remote head to equal it, then rebind the identity set and reset exact-head external observation and its origin. Every other difference stops without mutation.
+The **run-scoped publication grant** remains the contract for the later stage that will perform publication, and is recorded here so it is not redesigned from scratch. It may authorize:
 
-**A commit that is not yet pushed is a bound state, not a dead end.** If the authorized commit succeeds and the push does not, emit a `pending_publication` record in the status block carrying the old identity set, the new commit OID, its expected parent, tree, and effective diff, the head branch, and the clean-worktree state. A later run whose freshly resolved values match that record exactly may resume from it, and must obtain **a new publication grant** before the non-force push, because the earlier grant expired with its run; it then rebinds and reruns both gates. Without such a record a later run satisfies neither the clean-tree precondition nor the dirty-resume precondition, and the workflow would strand itself with a local commit it can neither publish nor abandon.
-
-A dirty resume is permitted only when the pasted status block matches the freshly resolved identity set in every value and a **freshly recomputed `candidate_diff` equals the pasted one exactly**. Recompute the bytes; **never trust a pasted digest**. A new autofix run with no valid pasted resume requires a clean tree under CL-D10.
-
-**Publication does not carry candidate approval forward.** After a successful rebind, recompute the committed-head fingerprints, capture fresh external evidence, and rerun Sol and Terra against the new exact head; those reruns count against the normal round budgets.
-
-## Run-scoped publication grant (AC-GRANT)
-
-Before the first external update, obtain a single **run-scoped publication grant**. Ask once, and enumerate both lists.
-
-It may authorize:
-
-- new normal commits; a normal commit uses a Conventional Commits subject, includes an issue-number reference, and includes test provenance in the body when covered behavior changes;
+- new normal commits;
 - **non-force push** to the current pull-request branch;
 - required pull-request body updates;
 - GitHub review-thread replies;
 - configured external-site disposition comments or status transitions;
 - validation and disposition summaries.
 
-A normal commit under this grant uses a Conventional Commits subject, includes an issue-number reference, and includes test provenance in the body when covered behaviour changes (CL-D25).
+It **never authorizes** merge, force-push, amend, rebase, history rewrite, ADR acceptance, authoritative issue changes, failed-gate bypass, or a different repository, pull request, or branch. Each of those needs its own explicit owner approval. A grant is bound to one repository, pull request, branch, and run, and **expires when the run ends**, is aborted, or changes target.
 
-It **never authorizes** merge, force-push, amend, rebase, history rewrite, ADR acceptance, authoritative issue changes, failed-gate bypass, or a different repository, pull request, or branch. Each of those needs its own explicit owner approval.
-
-The grant is bound to this repository, pull request, branch, and run, and **expires when the run ends**, is aborted, or changes target.
+A commit the operator makes from a drafted message follows the project convention: a Conventional Commits subject, an issue-number reference, and test provenance in the body when covered behaviour changes (CL-D25).
 
 ## Gate loop (AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 
@@ -258,7 +242,7 @@ Observation policy, which this MVP reports against rather than enforces:
 - a **fifteen-minute** maximum observation window per head, measured from that initial snapshot (a new head starts a new origin);
 - a new head resets both.
 
-The **observation origin is part of resumable state**, not a value the run may re-derive. Record the external head it belongs to, the origin timestamp, the latest external event time, and the snapshot identity in the status block. A resume against the same head restores them unchanged; **only a new head resets them**. Re-deriving the origin on resume would silently restart the window and misreport how long the head has actually been observed.
+The **observation origin is part of resumable state**, not a value the run may re-derive. Record the external head it belongs to and the origin timestamp in the status block. A resume against the same head restores them unchanged; **only a new head resets them**. Re-deriving the origin on resume would silently restart the window and misreport how long the head has actually been observed. This MVP reports the window rather than enforcing it, so the origin needs no digest of its own.
 
 The initial snapshot is not polling and does not delay internal review. This MVP has no timers and **must not busy-poll** or spend turns waiting. When required processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume; a timeout is neither success nor provider failure.
 
@@ -353,12 +337,12 @@ fingerprints: issue_spec <d> base <d> tree <d> diff <d> commits <d> head <sha> c
 rounds: sol <used>/3, terra <used>/3
 dispositions: <counts by disposition>
 pending_decisions: <decision ids or none>
-publication_grant: <none|granted, expires with this run>
-external_observation: head <sha> origin <timestamp> latest_event <timestamp|none> snapshot <id>
-pending_publication: <none|commit <oid> parent <oid> tree <oid> diff <digest> branch <name>>
+publication_grant: not-applicable (this MVP does not publish)
+external_observation: head <sha> origin <timestamp>
+operator_actions: <what the operator must do to publish, or none>
 invalidated_evidence: <what must be redone>
 next_action: <the single next permitted action>
 ```
 ````
 
-To resume, the operator pastes that block back with the command. On resume, **revalidate the fingerprints** first, compare the pasted `head_branch` with both the freshly resolved PR head branch and the currently checked-out branch for a dirty autofix resume, and recompute `candidate_diff` when the status contains one; a dirty resume is permitted only when the fresh candidate exactly matches the pasted candidate under CL-D27. Refuse to continue against a changed target, branch mismatch, or candidate mismatch without cleaning, normalizing, or discarding anything; the checked-out-branch comparison does not apply to foreign review-only targets. Recompute instead of trusting pasted state. After a publication commit, candidate approvals are invalid and Sol and Terra must rerun against the committed head. A pasted grant is never honoured, because the grant expired with its run.
+To resume, the operator pastes that block back with the command. On resume, **revalidate the fingerprints** first and recompute `candidate_diff` when the status contains one. Refuse to continue against a changed target without cleaning, normalizing, or discarding anything, and report what moved instead. Recompute rather than trusting pasted state: a pasted digest is a claim, not evidence.

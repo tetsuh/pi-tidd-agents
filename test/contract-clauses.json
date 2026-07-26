@@ -193,11 +193,10 @@
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
         "candidate_diff",
-        "exact uncommitted working-tree overlay",
-        "three fixed patch records in this order",
-        "one `untracked` record per non-ignored path",
-        "every post-fix review payload",
-        "Do not commit, push, or otherwise mutate git state merely to calculate candidate evidence"
+        "including untracked files",
+        "change detection within a single run",
+        "this MVP does not create commits",
+        "Do not commit, push, or otherwise mutate git state"
       ]
     },
     {
@@ -394,19 +393,9 @@
       "title": "Autofix and publication are governed by one identity invariant",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "identity set",
-        "every publication action, without exception",
-        "stops the run without mutation",
-        "bound OIDs",
-        "never a moving symbolic ref",
-        "Exactly one transition may change the bound set",
-        "freshly recomputed `candidate_diff` equals the pasted one exactly",
-        "never trust a pasted digest",
-        "Publication does not carry candidate approval forward",
-        "identity alone is not content",
-        "Prove content identity before publishing",
-        "pending_publication",
-        "a new publication grant"
+        "Target stability",
+        "stop rather than continue against a moved target",
+        "this MVP performs no publication"
       ]
     },
     {
@@ -516,6 +505,9 @@
       "title": "Run-scoped publication grant",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
+        "This MVP does not publish",
+        "the operator performs any publication",
+        "Drafting is not publishing",
         "run-scoped publication grant",
         "non-force push",
         "never authorizes",
@@ -533,7 +525,7 @@
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
         "external_observation:",
-        "pending_publication:"
+        "operator_actions:"
       ]
     }
   ]
