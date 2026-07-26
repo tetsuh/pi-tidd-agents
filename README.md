@@ -123,17 +123,19 @@ Autofix permits file edits and nothing more. One worker writes, and it is `luna-
 
 This version **does not publish**. It never commits, pushes, updates a pull-request body, replies to a review thread, or touches an external service, and it will not ask for permission to. A run ends by reporting what it found and what it changed in your working tree, with the commit message and replies drafted for you. You decide what to publish and you publish it.
 
+A run that produced changes therefore never reports the target as ready. The gates approved what is in your working tree, not what is published, and claiming readiness for content nobody else can see would be false. It stops, hands you the drafts, and tells you what to publish; run it again afterwards against the published result.
+
 The **run-scoped** publication grant is documented in the skill as the contract for the later stage that will perform publication: bounded to one repository, pull request, branch and run, expiring when the run ends, and never covering merge, force-push, history rewrite, or ADR acceptance.
 
 ### Pause and resume
 
-When a run stops — waiting for external review, waiting for an owner decision, or at the three-round gate limit — it prints a `tidd-status` block with the target fingerprints, rounds used, dispositions, and the next permitted action. Paste that block back with the command to resume; the workflow revalidates the fingerprints before continuing.
+When a run stops — waiting for external review, waiting for a decision or an action from you, or at the three-round gate limit — it prints a `tidd-status` block with the target fingerprints, rounds used, dispositions, and the next permitted action. Paste that block back with the command to resume; the workflow revalidates the fingerprints before continuing.
 
 This MVP keeps no state between invocations, so the three-round gate limit is scoped to a single run. Re-running a command starts the counters again, which is why every status block reports the rounds already used.
 
 ### Language routing
 
-Language is chosen by destination, not by reviewer. Conversation follows the language you are using; GitHub issue and pull-request content defaults to English; an external site with no configured language stops and asks before the first post. Source code, code comments, repository documentation, and commit messages always follow your project's own instructions.
+Language is chosen by destination, not by reviewer. Conversation follows the language you are using; GitHub issue and pull-request content defaults to English; an external site with no configured language stops and asks before anything is drafted for it. Source code, code comments, repository documentation, and commit messages always follow your project's own instructions.
 
 ## Worker permissions
 

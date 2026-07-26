@@ -278,7 +278,8 @@
         "WAITING_FOR_OWNER",
         "ROUND_LIMIT_REACHED",
         "BLOCKED",
-        "ABORTED"
+        "ABORTED",
+        "the approved specification is the published specification"
       ]
     },
     {
@@ -292,7 +293,8 @@
         "WAITING_FOR_OWNER",
         "ROUND_LIMIT_REACHED",
         "BLOCKED",
-        "ABORTED"
+        "ABORTED",
+        "Never declare `MERGE_READY` while the candidate is unpublished"
       ]
     },
     {
@@ -312,7 +314,7 @@
         "github.issue",
         "github.pull_request",
         "external_sites",
-        "stop and ask before the first post",
+        "stop and ask before drafting content for that destination",
         "never governs source code"
       ]
     },

@@ -68,7 +68,7 @@ languages:
 - Converse in `conversation`.
 - Write issue titles, bodies, comments, decisions, and waivers in `github.issue`.
 - Use `github.pull_request` for pull-request destinations.
-- For any destination under `external_sites` that has no configured language, **stop and ask before the first post** rather than guessing.
+- For any destination under `external_sites` that has no configured language, **stop and ask before drafting content for that destination** rather than guessing. The trigger is drafting, not posting: this MVP never posts, so a trigger tied to the first post would never fire.
 - This profile **never governs source code**, code comments, repository documentation, or commit messages. Those follow project instructions.
 
 Quote source text verbatim when quoting is needed.
@@ -180,7 +180,7 @@ Validity and invalidation conditions
 
 Long-lived contract, waiver, and risk decisions belong on the issue in the configured issue language. Draft them and hand them to the operator to post. Operational permissions for a single run stay in the session.
 
-While a decision is pending the state is `WAITING_FOR_OWNER`.
+While an owner decision or an owner action is pending, the state is `WAITING_FOR_OWNER`.
 
 ## Specification quality bar (AC-TDD)
 
@@ -210,7 +210,9 @@ BLOCKED
 ABORTED
 ```
 
-Declare `IMPLEMENTATION_READY` only when both gates returned `MERGE` against the current `issue_spec`, every finding has a disposition, and no owner decision is pending.
+Declare `IMPLEMENTATION_READY` only when both gates returned `MERGE` against the current `issue_spec`, every finding has a disposition, no owner decision is pending, and **the approved specification is the published specification**.
+
+This MVP does not publish, so a run that drafted an issue revision or a durable decision ends at `WAITING_FOR_OWNER` with that draft, never at readiness: the gates approved text the issue does not yet contain, and `issue_spec` still fingerprints the text it does. After the operator posts it, recompute `issue_spec` and rerun both gates against that exact authoritative text.
 
 Whenever the run stops without reaching readiness, emit a resumable block:
 
