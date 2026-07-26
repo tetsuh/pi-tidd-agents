@@ -98,7 +98,7 @@ languages:
 - Converse in `conversation`.
 - Write pull-request titles, bodies, summaries, and review replies in `github.pull_request`. Replies posted on the pull request use the pull-request language regardless of which service raised the finding.
 - Use `github.issue` for issue destinations.
-- For any destination under `external_sites` that has no configured language, **stop and ask before the first post** rather than guessing.
+- For any destination under `external_sites` that has no configured language, **stop and ask before drafting content for that destination** rather than guessing. The trigger is drafting, not posting: this MVP never posts, so a trigger tied to the first post would never fire.
 - This profile **never governs source code**, code comments, repository documentation, or commit messages. Those follow project instructions.
 
 ## Review-only is the default (AC-REVIEW-ONLY, CL-D15)
@@ -291,7 +291,7 @@ Rationale
 Validity and invalidation conditions
 ```
 
-Long-lived contract, waiver, and risk decisions belong on the pull request in the configured language. Draft them and hand them to the operator to post. While a decision is pending the state is `WAITING_FOR_OWNER`.
+Long-lived contract, waiver, and risk decisions belong on the pull request in the configured language. Draft them and hand them to the operator to post. While an owner decision or an owner action is pending, the state is `WAITING_FOR_OWNER`.
 
 ## Test provenance (AC-TDD)
 
@@ -321,6 +321,8 @@ ROUND_LIMIT_REACHED
 BLOCKED
 ABORTED
 ```
+
+**Never declare `MERGE_READY` while the candidate is unpublished.** If `candidate_diff` is anything but `none`, or any drafted operator action is still outstanding, the gates approved a local candidate that the remote head does not contain, and readiness would describe content nobody else can see. Report that plainly, hand over the proposed commit message, replies, dispositions and validation, and end at `WAITING_FOR_OWNER`. Once the operator has committed and pushed, a fresh run against the new remote head reruns Sol, Terra, external state, and the exact-head checks.
 
 Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself.
 
