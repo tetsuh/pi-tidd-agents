@@ -139,6 +139,8 @@ const SUPERSEDED = [
     reason: 'external evidence is no longer carried across runs' },
   { files: [PR_SKILL], pattern: /a resume against the same head restores/i,
     reason: 'external evidence is no longer carried across runs' },
+  { files: ENTRY_ARTIFACTS, pattern: /whose only inputs are repository files/i,
+    reason: 'the RED classes are separated by what a test does, not by where its inputs come from' },
 ];
 
 test('no entry artifact states the CL-D28 publication boundary weakly', () => {

@@ -315,9 +315,9 @@ Require a meaningful behavioral RED for deterministic bug fixes and behavior exe
 
 **Never fabricate RED evidence**, and **never rewrite history to simulate** a test-first chronology. Merging without required deterministic coverage needs explicit owner approval.
 
-The two pre-implementation classes are separated by what the test does, not by where its inputs come from. A test that **inspects an artifact's content or structure** — reading a file and checking for required or forbidden text, parsing frontmatter, listing what a package would publish — is compile/contract RED. A test that **executes the thing being specified and observes what it does** is behavioural RED, and it stays behavioural when the thing it executes lives in this repository. **Assertion polarity is irrelevant**: `doesNotMatch` against a Markdown file is no more behavioural than `match` against one.
+The two pre-implementation classes are separated by what the test does, not by where its inputs come from. A test that **inspects an artifact's content or structure** — reading a file and checking for required or forbidden text, parsing frontmatter — is compile/contract RED. A test that **executes the thing being specified and observes what it does** is behavioural RED, and it stays behavioural when the thing it executes lives in this repository. **Assertion polarity is irrelevant**: `doesNotMatch` against a Markdown file is no more behavioural than `match` against one.
 
-In this repository the line currently falls between the `npm pack` assertions, which run the packaging tool and observe what it actually publishes, and every other test, which reads files. That is where the line happens to sit here, not what defines it.
+Applying that here gives three groups, not two. The `npm pack` assertions **execute the packaging tool and observe** what it actually publishes, which no amount of reading `package.json` would establish, so they are behavioural. The clause and artifact assertions read files and check text, so they are compile/contract. The reference fixtures execute a specification written inside the test itself rather than the artifact under review, so they are neither: they pin intended semantics and cannot verify prose. This is the criterion applied here, not the criterion.
 
 
 ## Outcome and status block (CL-D13, CL-D14)
