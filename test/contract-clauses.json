@@ -541,6 +541,18 @@
       ]
     },
     {
+      "id": "CL-D28",
+      "marker": "CL-D28",
+      "title": "The MVP publication boundary is explicit",
+      "section": "## Publication (AC-GRANT, CL-D28)",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "This MVP does not publish",
+        "must not ask for that authority",
+        "Drafting is not publishing"
+      ]
+    },
+    {
       "id": "CL-D13-pr",
       "marker": "CL-D13",
       "title": "The PR status block carries resumable observation and publication state",

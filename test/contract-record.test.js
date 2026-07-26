@@ -4,10 +4,9 @@
 // implements, and test/contract-clauses.json is how those decisions are enforced
 // against the shipped prose. The two must stay in step.
 //
-// Three contract changes reached main without a decision record while the record
-// lived in a GitHub comment, because nothing could check a comment. A clause whose
-// decision is undocumented, or a decision that quietly loses the clauses that
-// enforce it, now fails the build instead.
+// The linkage is deliberately per clause rather than per marker. A marker is a
+// required landmark in an implementation file; it is not ownership metadata for
+// this record.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -15,75 +14,416 @@ const assert = require('node:assert/strict');
 const { readText, readJson, exists } = require('./helpers');
 
 const RECORD = 'CONTRACT.md';
-const STRUCTURAL = '**Clauses:** none — structural';
+const STRUCTURAL_VALUE = 'none — structural';
+const STRUCTURAL_DECISIONS = new Set([
+  'CL-D19',
+  'CL-D21',
+  'CL-D26',
+  'DEC-EXT-SNAPSHOT-001',
+]);
 
-const manifest = readJson('test/contract-clauses.json');
+// JSON.parse accepts duplicate object keys by keeping only the last value. The
+// manifest is contract input, so scan its raw syntax first and reject duplicate
+// keys before parsing can hide an undocumented mutation.
+function assertUniqueJsonKeys(source) {
+  assert.equal(typeof source, 'string', 'manifest source must be text');
+  let index = 0;
 
-// The decision a clause enforces is not the same thing as the marker it looks for
-// in a file. `"marker": null` opts out of the in-file landmark for user-facing
-// files such as README.md; it does not mean the clause enforces no decision. An
-// earlier version conflated the two, so a clause could escape this check entirely
-// by opting out of the marker — which a mutation check caught and review would not
-// have, since the manifest and the record would both have looked complete.
+  const fail = (message) => assert.fail(`invalid manifest JSON: ${message} at byte ${index}`);
+  const whitespace = () => {
+    while (/\s/.test(source[index] || '')) index += 1;
+  };
+  const string = () => {
+    if (source[index] !== '"') fail('expected string');
+    const start = index;
+    index += 1;
+    while (index < source.length) {
+      const char = source[index++];
+      if (char === '"') return JSON.parse(source.slice(start, index));
+      if (char === '\\') {
+        if (index >= source.length) fail('unterminated escape');
+        index += 1;
+      } else if (char < ' ') {
+        fail('unescaped control character');
+      }
+    }
+    fail('unterminated string');
+  };
+  const value = () => {
+    whitespace();
+    if (source[index] === '{') return object();
+    if (source[index] === '[') return array();
+    if (source[index] === '"') return string();
+    const start = index;
+    while (index < source.length && !/[\s,}\]]/.test(source[index])) index += 1;
+    const token = source.slice(start, index);
+    if (!token || !['true', 'false', 'null'].includes(token)) {
+      try {
+        JSON.parse(token);
+      } catch {
+        fail(`invalid value ${JSON.stringify(token)}`);
+      }
+    }
+    return token;
+  };
+  const array = () => {
+    index += 1;
+    whitespace();
+    if (source[index] === ']') {
+      index += 1;
+      return;
+    }
+    while (true) {
+      value();
+      whitespace();
+      if (source[index] === ']') {
+        index += 1;
+        return;
+      }
+      if (source[index++] !== ',') fail('expected comma or closing array bracket');
+    }
+  };
+  const object = () => {
+    index += 1;
+    const keys = new Set();
+    whitespace();
+    if (source[index] === '}') {
+      index += 1;
+      return;
+    }
+    while (true) {
+      whitespace();
+      const key = string();
+      if (keys.has(key)) assert.fail(`duplicate JSON object key: ${key}`);
+      keys.add(key);
+      whitespace();
+      if (source[index++] !== ':') fail('expected colon after object key');
+      value();
+      whitespace();
+      if (source[index] === '}') {
+        index += 1;
+        return;
+      }
+      if (source[index++] !== ',') fail('expected comma or closing object brace');
+    }
+  };
+
+  value();
+  whitespace();
+  assert.equal(index, source.length, 'manifest JSON has trailing data');
+}
+
+const manifestSource = readText('test/contract-clauses.json');
+assertUniqueJsonKeys(manifestSource);
+const manifest = JSON.parse(manifestSource);
+
+// A null marker opts out of the in-file landmark for user-facing files such as
+// README.md. It still owns the concrete clause ID in CONTRACT.md.
 const decisionOf = (clause) =>
   'marker' in clause && clause.marker !== null ? clause.marker : clause.id;
 
-const markers = new Set(manifest.clauses.map(decisionOf));
-
-function decisions(text) {
-  const found = new Map();
-  const pattern = /^## ([A-Z][A-Z0-9-]*) — .+$/gm;
-  const lines = text.replace(/\r\n/g, '\n');
-  let match;
-  while ((match = pattern.exec(lines)) !== null) {
-    const start = match.index;
-    const next = lines.indexOf('\n## ', start + 1);
-    found.set(match[1], lines.slice(start, next === -1 ? undefined : next));
+function manifestClauseIds(value) {
+  assert.ok(value && Array.isArray(value.clauses), 'manifest declares no clauses array');
+  const ids = new Set();
+  for (const clause of value.clauses) {
+    assert.equal(typeof clause.id, 'string', 'every clause id must be a string');
+    assert.ok(clause.id.trim(), 'every clause id must be non-empty');
+    assert.equal(clause.id, clause.id.trim(), `clause id has surrounding whitespace: ${clause.id}`);
+    assert.ok(!ids.has(clause.id), `duplicate clause id: ${clause.id}`);
+    ids.add(clause.id);
+    if ('marker' in clause && clause.marker !== null) {
+      assert.equal(typeof clause.marker, 'string', `${clause.id} marker must be a string or null`);
+      assert.ok(clause.marker.trim(), `${clause.id} marker must be non-empty when non-null`);
+      assert.equal(clause.marker, clause.marker.trim(), `${clause.id} marker has surrounding whitespace`);
+    }
   }
-  return found;
+  return ids;
 }
 
-test('the authoritative contract record exists', () => {
+function assertCanonicalRecordLines(normalized) {
+  const decisionLike = /(?:CL-D|AC-|DEC-)[A-Za-z0-9-]+/;
+  const canonicalHeading = /^## [A-Z][A-Z0-9-]* — (?:\S(?:.*\S)?)$/;
+  const canonicalMetadata = /^\*\*Clauses:\*\* \S(?:.*\S)?$/;
+  const lines = normalized.split('\n');
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const underline = /^\s*[-=]{3,}\s*$/.test(line);
+    const setextText = index > 0 ? lines[index - 1].trim() : '';
+    if (underline && decisionLike.test(setextText)) {
+      assert.fail(`non-canonical Setext decision heading: ${setextText}`);
+    }
+
+    // Only H2-shaped lines are considered here; ordinary H2 prose such as
+    // `## Notes` remains valid and is not part of the decision inventory.
+    if (/^\s*##(?!#)/.test(line) && decisionLike.test(line)) {
+      assert.match(line, canonicalHeading, `non-canonical decision heading: ${line}`);
+    }
+    // A line beginning with the metadata token is metadata-like even when its
+    // spacing is malformed. Inline prose mentions are deliberately ignored.
+    if (/^\s*\*\*Clauses:\*\*/.test(line)) {
+      assert.match(line, canonicalMetadata, `non-canonical Clauses metadata: ${line}`);
+    }
+  }
+}
+
+function parseRecord(text) {
+  assert.equal(typeof text, 'string', 'contract record must be text');
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  assertCanonicalRecordLines(normalized);
+  const headingPattern = /^## ([A-Z][A-Z0-9-]*) — (?:\S(?:.*\S)?)$/gm;
+  const headings = [...normalized.matchAll(headingPattern)];
+  assert.ok(headings.length > 0, 'contract record has no decision sections');
+  const lines = normalized.split('\n');
+  const headingLines = new Set(
+    headings.map((heading) => normalized.slice(0, heading.index).split('\n').length - 1),
+  );
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    if (/^\*\*Clauses:\*\*/.test(lines[lineIndex])) {
+      assert.ok(
+        headingLines.has(lineIndex - 1),
+        `Clauses metadata must immediately follow one parsed canonical decision H2 (line ${lineIndex + 1})`,
+      );
+    }
+  }
+  const sections = new Map();
+
+  headings.forEach((heading, index) => {
+    const id = heading[1];
+    assert.ok(!sections.has(id), `duplicate decision heading: ${id}`);
+    const start = heading.index;
+    const end = index + 1 < headings.length ? headings[index + 1].index : normalized.length;
+    const lines = normalized.slice(start, end).split('\n');
+    const metadata = lines.filter((line) => /^\*\*Clauses:\*\* /.test(line));
+    assert.equal(metadata.length, 1, `${id} must contain exactly one dedicated **Clauses:** line`);
+    assert.match(lines[1] || '', /^\*\*Clauses:\*\* /, `${id} metadata must immediately follow its heading`);
+
+    const value = metadata[0].slice('**Clauses:** '.length);
+    if (value === STRUCTURAL_VALUE) {
+      sections.set(id, { id, structural: true, clauses: [] });
+      return;
+    }
+
+    assert.ok(value.trim(), `${id} has empty clause ownership metadata`);
+    const clauses = value.split(',').map((clauseId) => clauseId.trim());
+    assert.ok(clauses.every(Boolean), `${id} has empty clause ownership entry`);
+    assert.ok(!clauses.includes(STRUCTURAL_VALUE), `${id} mixes structural and concrete ownership`);
+    assert.equal(new Set(clauses).size, clauses.length, `${id} claims a clause more than once`);
+    for (const clauseId of clauses) {
+      assert.match(clauseId, /^[A-Za-z][A-Za-z0-9-]*$/, `${id} has malformed clause ID: ${clauseId}`);
+    }
+    sections.set(id, { id, structural: false, clauses });
+  });
+  return sections;
+}
+
+function validateRecord(recordText, value = manifest) {
+  const clauseIds = manifestClauseIds(value);
+  const sections = parseRecord(recordText);
+
+  for (const structuralId of STRUCTURAL_DECISIONS) {
+    assert.ok(sections.has(structuralId), `expected structural decision is missing: ${structuralId}`);
+    assert.ok(sections.get(structuralId).structural, `${structuralId} must be structural`);
+  }
+
+  // Ownership is semantic: a concrete marker names the decision section it
+  // belongs to, while a null marker falls back to the clause's own ID. Exact
+  // coverage alone must not permit a clause to be assigned arbitrarily.
+  for (const clause of value.clauses) {
+    const intendedOwner = decisionOf(clause);
+    assert.ok(sections.has(intendedOwner), `${clause.id} has no intended decision section: ${intendedOwner}`);
+    const section = sections.get(intendedOwner);
+    assert.ok(!section.structural, `${clause.id} maps to structural decision ${intendedOwner}`);
+    assert.ok(section.clauses.includes(clause.id), `${clause.id} is not owned by intended decision ${intendedOwner}`);
+  }
+
+  const ownedBy = new Map();
+  for (const section of sections.values()) {
+    if (section.structural) {
+      assert.ok(
+        STRUCTURAL_DECISIONS.has(section.id),
+        `${section.id} is not an approved structural decision`,
+      );
+      continue;
+    }
+    assert.ok(section.clauses.length > 0, `${section.id} must own at least one clause`);
+    for (const clauseId of section.clauses) {
+      assert.ok(clauseIds.has(clauseId), `${section.id} claims stale or unknown clause: ${clauseId}`);
+      assert.ok(!ownedBy.has(clauseId), `clause ${clauseId} is claimed by ${ownedBy.get(clauseId)} and ${section.id}`);
+      ownedBy.set(clauseId, section.id);
+    }
+  }
+
+  assert.deepEqual(
+    [...ownedBy.keys()].sort(),
+    [...clauseIds].sort(),
+    'every manifest clause must have exactly one recorded owner',
+  );
+  return { sections, ownedBy };
+}
+
+function sectionOf(text, id) {
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const pattern = new RegExp(`^## ${id.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')} — .+$`, 'm');
+  const start = normalized.search(pattern);
+  assert.notEqual(start, -1, `missing section ${id}`);
+  const next = normalized.indexOf('\n## ', start + 1);
+  return normalized.slice(start, next === -1 ? undefined : next);
+}
+
+function removeSection(text, id) {
+  const section = sectionOf(text, id);
+  return text.replace(`${section}\n`, '');
+}
+
+const recordText = () => readText(RECORD);
+
+test('the authoritative contract record exists and validates bidirectionally', () => {
   assert.ok(exists(RECORD), `${RECORD} is missing; CL-D26 makes it the authoritative record`);
+  validateRecord(recordText());
 });
 
-test('a clause that opts out of the in-file marker still enforces a decision', () => {
+// Provenance: the ownership and parser mutation cases are review-driven regression
+// coverage for the Sol findings. The null-marker assertion specifically reproduces
+// the mutation-discovered gap and is therefore retrospective reproduction, not RED.
+test('a null marker maps directly to its clause ID and recorded ownership', () => {
+  const parsed = validateRecord(recordText());
   const optedOut = manifest.clauses.filter((clause) => 'marker' in clause && clause.marker === null);
   assert.ok(optedOut.length > 0, 'no clause exercises the null-marker path any more; drop this test or keep one');
   for (const clause of optedOut) {
-    assert.ok(
-      markers.has(decisionOf(clause)),
-      `${clause.id} opts out of the marker check and would escape the decision check too`,
+    assert.equal(decisionOf(clause), clause.id);
+    assert.ok(parsed.ownedBy.has(clause.id), `${clause.id} has no direct recorded owner`);
+    assert.ok(parsed.sections.get(parsed.ownedBy.get(clause.id)).clauses.includes(clause.id));
+  }
+});
+
+test('the raw manifest has no duplicate object keys', () => {
+  assert.doesNotThrow(() => assertUniqueJsonKeys(manifestSource));
+});
+
+test('duplicate manifest id and marker keys fail before JSON.parse', () => {
+  const duplicateId = manifestSource.replace(
+    '"id": "CL-D1-issue"',
+    '"id": "CL-D1-issue", "id": "shadow-id"',
+  );
+  assert.throws(() => assertUniqueJsonKeys(duplicateId), /duplicate JSON object key: id/);
+
+  const duplicateMarker = manifestSource.replace(
+    '"marker": "CL-D1"',
+    '"marker": "CL-D1", "marker": "shadow-marker"',
+  );
+  assert.throws(() => assertUniqueJsonKeys(duplicateMarker), /duplicate JSON object key: marker/);
+});
+
+test('marker ownership cannot be reassigned to an arbitrary decision', () => {
+  const mutated = recordText()
+    .replace('## CL-D28 — The MVP does not publish\n**Clauses:** CL-D28', '## CL-D28 — The MVP does not publish\n**Clauses:** AC-GRANT')
+    .replace('## AC-GRANT — Run-scoped publication grant\n**Clauses:** AC-GRANT', '## AC-GRANT — Run-scoped publication grant\n**Clauses:** CL-D28');
+  assert.throws(() => validateRecord(mutated), /not owned by intended decision/);
+});
+
+test('duplicate decision headings fail instead of being silently overwritten', () => {
+  assert.throws(
+    () => validateRecord(`${recordText()}\n## CL-D1 — duplicate\n**Clauses:** CL-D1-issue`),
+    /duplicate decision heading: CL-D1/,
+  );
+});
+
+test('decision-like H2 whitespace and empty-title mutations are rejected', () => {
+  for (const heading of [
+    '##  CL-D1 — duplicate',
+    '  ## CL-D1 — duplicate',
+    '## CL-D1 —',
+    '## CL-D1 —   ',
+    '## CL-D1  — duplicate',
+  ]) {
+    assert.throws(
+      () => validateRecord(`${recordText()}\n${heading}\n**Clauses:** CL-D1-issue`),
+      /non-canonical decision heading/,
+      heading,
     );
   }
 });
 
-test('every clause marker resolves to a decision in the record', () => {
-  const documented = decisions(readText(RECORD));
-  const orphans = [...markers].filter((marker) => !documented.has(marker));
-  assert.deepEqual(
-    orphans,
-    [],
-    `these clauses enforce decisions that ${RECORD} does not document: ${orphans.join(', ')}`,
+test('metadata-like whitespace and duplicate-line mutations are rejected', () => {
+  for (const metadata of [
+    '**Clauses:**CL-D28',
+    ' **Clauses:** CL-D28',
+    '**Clauses:**  CL-D28',
+  ]) {
+    assert.throws(
+      () => validateRecord(recordText().replace('**Clauses:** CL-D28\n\n', `**Clauses:** CL-D28\n${metadata}\n\n`)),
+      /non-canonical Clauses metadata/,
+      metadata,
+    );
+  }
+});
+
+test('Setext decision-like headings and metadata mutations are rejected', () => {
+  const mutation = [
+    'CL-D1 — duplicate rendered setext H2',
+    '-----------------------------------',
+    '**Clauses:** CL-D28',
+    recordText(),
+  ].join('\n');
+  assert.throws(() => validateRecord(mutation), /non-canonical Setext decision heading/);
+
+  assert.throws(
+    () => validateRecord(`**Clauses:** CL-D28\n${recordText()}`),
+    /Clauses metadata must immediately follow/,
+  );
+  assert.throws(
+    () => validateRecord(`${recordText()}\n**Clauses:** CL-D28`),
+    /Clauses metadata must immediately follow/,
   );
 });
 
-test('every decision owns a clause or is annotated structural', () => {
-  const documented = decisions(readText(RECORD));
-  const unenforced = [...documented]
-    .filter(([id, section]) => !markers.has(id) && !section.includes(STRUCTURAL))
-    .map(([id]) => id);
-  assert.deepEqual(
-    unenforced,
-    [],
-    `these decisions have no clause enforcing them and are not annotated ${JSON.stringify(STRUCTURAL)}: ${unenforced.join(', ')}`,
+test('ordinary horizontal rules and nondecision Setext headings remain valid', () => {
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n## Notes\nNotes\n---\n`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\nRelease notes\n===\n`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n## Notes\nThe prose mentions **Clauses:** inline.`));
+});
+
+test('adding a clause under an existing marker without recording it fails', () => {
+  const mutated = structuredClone(manifest);
+  mutated.clauses.push({
+    id: 'CL-D2-added',
+    marker: 'CL-D2',
+    title: 'mutation',
+    files: ['skills/closed-loop-pr/SKILL.md'],
+    requires: ['mutation'],
+  });
+  assert.throws(() => validateRecord(recordText(), mutated), /not owned by intended decision CL-D2|exactly one recorded owner/);
+});
+
+test('stale ownership fails', () => {
+  const mutated = recordText().replace('**Clauses:** CL-D1-issue, CL-D1-pr', '**Clauses:** CL-D1-stale, CL-D1-pr');
+  assert.throws(() => validateRecord(mutated), /not owned by intended decision CL-D1|stale or unknown clause: CL-D1-stale/);
+});
+
+test('removing an expected structural section fails', () => {
+  assert.throws(() => validateRecord(removeSection(recordText(), 'CL-D21')), /expected structural decision is missing: CL-D21/);
+});
+
+test('structural-looking prose cannot bypass concrete ownership', () => {
+  const mutated = recordText().replace(
+    '**Clauses:** CL-D28\n\n',
+    '**Clauses:** none — structural\n\nThis sentence says structural, but the decision remains enforceable.\n\n',
+  );
+  assert.throws(() => validateRecord(mutated), /CL-D28 maps to structural decision|CL-D28 is not an approved structural decision|exactly one recorded owner/);
+});
+
+test('malformed and duplicate ownership metadata fails', () => {
+  assert.throws(() => validateRecord(recordText().replace('**Clauses:** CL-D2', '**Clauses:**')), /non-canonical Clauses metadata|exactly one dedicated/);
+  assert.throws(
+    () => validateRecord(recordText().replace('**Clauses:** CL-D2', '**Clauses:** CL-D2, CL-D2')),
+    /claims a clause more than once/,
   );
 });
 
 test('the record is not shipped in the package', () => {
   const pkg = readJson('package.json');
-  assert.ok(
-    !pkg.files.includes(RECORD),
-    `${RECORD} is a development record, not package payload; CL-D26 keeps it out of files`,
-  );
+  assert.ok(!pkg.files.includes(RECORD), `${RECORD} is a development record, not package payload; CL-D26 keeps it out of files`);
 });
+
+module.exports = { decisionOf, manifestClauseIds, parseRecord, validateRecord };

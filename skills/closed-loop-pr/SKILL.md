@@ -150,7 +150,7 @@ If anything changed, **stop rather than continue against a moved target**. Never
 
 That is the whole rule, and it is short because **this MVP performs no publication**. With no commit and no push of its own there is no window in which the workflow could race the target, and no committed artifact whose content would have to be proven identical to what a gate approved.
 
-## Publication (AC-GRANT)
+## Publication (AC-GRANT, CL-D28)
 
 **This MVP does not publish.** It has no authority to commit, push, update a pull-request body, reply to a review thread, or change an external service, and it must not ask for that authority. A run ends by reporting what it found and what it changed in the working tree, and **the operator performs any publication**.
 
