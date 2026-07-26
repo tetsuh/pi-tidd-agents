@@ -79,9 +79,9 @@ This skill has no autofix mode. For the whole run:
 
 - do not edit any file in the repository, tracked or untracked;
 - do not change git state;
-- do not post, edit, or close anything on GitHub without explicit approval for that specific action.
+- do not post, edit, or close anything on GitHub.
 
-Draft the revised specification in the configured issue language and show it to the operator. Publishing it is a separate, explicitly approved action.
+Draft the revised specification in the configured issue language and show it to the operator. This MVP **does not publish**; the operator posts it (CL-D28).
 
 Working notes, the disposition ledger, and drafts belong in a temporary directory **outside the repository**.
 
@@ -178,7 +178,7 @@ Rationale
 Validity and invalidation conditions
 ```
 
-Long-lived contract, waiver, and risk decisions belong on the issue in the configured issue language, posted only after explicit approval. Operational permissions for a single run stay in the session.
+Long-lived contract, waiver, and risk decisions belong on the issue in the configured issue language. Draft them and hand them to the operator to post. Operational permissions for a single run stay in the session.
 
 While a decision is pending the state is `WAITING_FOR_OWNER`.
 

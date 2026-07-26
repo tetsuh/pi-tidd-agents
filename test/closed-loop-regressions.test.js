@@ -107,61 +107,38 @@ test('fixture: text fingerprint serialization is newline-stable and delimiter-st
   );
 });
 
-function candidateRecord(type, path, bytes) {
-  const pathBytes = Buffer.from(path, 'utf8');
-  const raw = Buffer.from(bytes);
-  return Buffer.concat([
-    Buffer.from(`${type}\t${pathBytes.length}\t${raw.length}\t${path}\t`, 'utf8'),
-    raw,
-  ]);
-}
+// CL-D28 removed publication from this MVP. Prose obligations live in the clause
+// manifest, but "no phrasing anywhere still offers publication in exchange for
+// permission" is a negative assertion the manifest cannot express, and an earlier
+// removal pass missed three of these four files.
+const ENTRY_ARTIFACTS = [
+  'skills/closed-loop-issue/SKILL.md',
+  'skills/closed-loop-pr/SKILL.md',
+  'prompts/tidd-issue.md',
+  'prompts/tidd-pr.md',
+];
 
-function candidateStream(records) {
-  return Buffer.concat(records.flatMap((record, index) => (index === 0 ? [record] : [Buffer.from('\n'), record])));
-}
+const PERMISSION_GATED_PUBLICATION = [
+  /after explicit approval/i,
+  /without explicit approval/i,
+  /when publication is (granted|authorized)/i,
+  /require the separate run-scoped publication grant/i,
+];
 
-test('fixture: candidate_diff framing produces a stable reference digest', () => {
-  const records = [
-    ['committed-base-head', '', Buffer.from('base patch\n', 'utf8')],
-    ['staged', '', Buffer.from('staged patch\r\n', 'utf8')],
-    ['unstaged', '', Buffer.from([0x75, 0x6e, 0x73, 0x74, 0x61, 0x67, 0x65, 0x64])],
-    ...[
-      ['z.txt', Buffer.from([0x00, 0xff, 0x0a])],
-      ['a.txt', Buffer.from('a\r\nb', 'utf8')],
-    ]
-      .sort((a, b) => Buffer.compare(Buffer.from(a[0], 'utf8'), Buffer.from(b[0], 'utf8')))
-      .map(([path, bytes]) => ['untracked', path, bytes]),
-  ].map(([type, path, bytes]) => candidateRecord(type, path, bytes));
-
-  const stream = candidateStream(records);
-
-  // Reference vector. An implementation of the CL-D23 framing that produces a
-  // different digest for this input has diverged from the specification.
-  assert.equal(
-    crypto.createHash('sha256').update(stream).digest('hex'),
-    '5ef65fe9f1e225cf4d12fdec4efc6e10fe3b9585f41134c6cb57081dc9470d40',
-  );
-
-  // Binary bytes in an untracked record are never newline-normalized.
-  assert.equal(records[3].toString('utf8', 0, 20), 'untracked\t5\t4\ta.txt\t');
-  assert.deepEqual(
-    records.slice(3).map((record) => record.toString('utf8').split('\t')[3]),
-    ['a.txt', 'z.txt'],
-    'untracked records sort by UTF-8 path bytes',
-  );
-
-  // Every record must contribute to the digest.
-  for (let index = 0; index < records.length; index += 1) {
-    const changed = records.slice();
-    changed[index] = candidateRecord(
-      `changed-${index}`,
-      index >= 3 ? (index === 3 ? 'a.txt' : 'z.txt') : '',
-      records[index].subarray(records[index].lastIndexOf(0x09) + 1),
+test('no entry artifact offers publication in exchange for permission', () => {
+  for (const file of ENTRY_ARTIFACTS) {
+    const text = readText(file);
+    assert.match(
+      text,
+      /does not publish/,
+      `${file} does not state the CL-D28 boundary`,
     );
-    assert.notEqual(
-      crypto.createHash('sha256').update(candidateStream(changed)).digest('hex'),
-      crypto.createHash('sha256').update(stream).digest('hex'),
-      `record ${index} must affect candidate_diff`,
-    );
+    for (const pattern of PERMISSION_GATED_PUBLICATION) {
+      assert.doesNotMatch(
+        text,
+        pattern,
+        `${file} still offers publication once someone approves it; CL-D28 removed publication entirely`,
+      );
+    }
   }
 });
