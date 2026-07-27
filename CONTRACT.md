@@ -22,7 +22,7 @@ These decisions were made during [#3](https://github.com/tetsuh/pi-tidd-agents/i
 
 All agents set `inheritSkills: false`, so skill content never reaches a subagent. Each invocation restates the verdict format, authority, target and fingerprints, language profile, finding format, scope boundary, the acceptance criteria, and — on a re-invocation — the prior rounds' findings with their dispositions.
 
-Without that last part the gate loop cannot terminate. Reviewers run with fresh context, so a disposition the parent recorded is invisible to the next round and any finding not literally fixed returns indefinitely, which leaves fixing everything as the only exit. Five Sol rounds on #6 demonstrated it: the gate returned `MERGE` at round 3, a Terra blocker reopened it, and later rounds kept finding gaps in text written to answer the rounds before them.
+Without that last part the gate loop cannot terminate. Reviewers run with fresh context, so a disposition the parent recorded is invisible to the next round and any finding not literally fixed returns indefinitely, which leaves fixing everything as the only exit. A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is settled: it requires materially new evidence to reopen, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker. Five Sol rounds on #6 demonstrated it: the gate returned `MERGE` at round 3, a Terra blocker reopened it, and later rounds kept finding gaps in text written to answer the rounds before them.
 
 ## CL-D3 — Writer selection
 **Clauses:** CL-D3
@@ -74,7 +74,7 @@ Autofix requires the head branch already checked out and a clean tree. The workf
 ## CL-D11 — Round accounting
 **Clauses:** CL-D11
 
-A round is one completed gate invocation returning a parsable verdict, and the passing round counts. Tool, provider, startup, stale-target and unparsable-verdict failures do not consume one. A later gate forcing a change to something an earlier gate approved reruns the earlier gate against its own budget.
+A round is one completed gate invocation returning a parsable verdict. There are a maximum of three completed invocations per gate, per target, per run, and the passing round counts. A gate rerun caused by a fix consumes a round from that gate's budget; a later gate forcing a change to something an earlier gate approved reruns the earlier gate against its own budget. Tool, provider, startup, stale-target and unparsable-verdict failures do not consume one. On exhaustion, report `ROUND_LIMIT_REACHED` and request an owner decision before continuing.
 
 ## CL-D12 — Round budgets are run-scoped
 **Clauses:** CL-D12

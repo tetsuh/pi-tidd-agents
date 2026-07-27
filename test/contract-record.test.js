@@ -21,6 +21,7 @@ const STRUCTURAL_DECISIONS = new Set([
   'CL-D26',
   'DEC-EXT-SNAPSHOT-001',
 ]);
+const CODE_MASK = '\u0000';
 const AC_DECISION_FIELDS = [
   'Decision ID',
   'Kind',
@@ -151,7 +152,120 @@ function manifestClauseIds(value) {
   return ids;
 }
 
-function assertCanonicalRecordLines(normalized) {
+// Project Markdown block-code contexts without changing line offsets. The
+// structural checks below intentionally operate on this projection rather than
+// trying to become a general Markdown parser: fenced blocks and bounded
+// indented-code lines are the only contexts that need to be invisible to the
+// record inventory. `codeLines` is separate from the masked text because a
+// zero-character blank code line cannot be recognized from its projection.
+// `structuralSource` removes every code line while retaining non-code lines and
+// their literal blank lines, so masked code never becomes an empty paragraph.
+function projectMarkdownCodeContext(source) {
+  const masked = source.split('');
+  const lineStarts = [];
+  const lineEnds = [];
+  for (let start = 0; start <= source.length;) {
+    const end = source.indexOf('\n', start);
+    lineStarts.push(start);
+    lineEnds.push(end === -1 ? source.length : end);
+    if (end === -1) break;
+    start = end + 1;
+  }
+  const codeLines = new Uint8Array(lineStarts.length);
+  const maskLine = (lineIndex) => {
+    codeLines[lineIndex] = 1;
+    for (let index = lineStarts[lineIndex]; index < lineEnds[lineIndex]; index += 1) {
+      // NUL is a non-structural sentinel that marks masked code while preserving
+      // the original UTF-16 length and line boundaries.
+      masked[index] = CODE_MASK;
+    }
+  };
+  const fenceOpenerAt = (lineIndex) => {
+    const start = lineStarts[lineIndex];
+    const end = lineEnds[lineIndex];
+    let index = start;
+    let indent = 0;
+    while (index < end && source[index] === ' ' && indent < 4) {
+      index += 1;
+      indent += 1;
+    }
+    if (indent > 3 || index >= end || (source[index] !== '`' && source[index] !== '~')) return null;
+    const marker = source[index];
+    const runStart = index;
+    while (index < end && source[index] === marker) index += 1;
+    if (index - runStart < 3) return null;
+    // CommonMark does not allow a backtick in a backtick fence's info string.
+    if (marker === '`' && source.slice(index, end).includes('`')) return null;
+    return { marker, length: index - runStart };
+  };
+  const fenceCloserAt = (lineIndex, opener) => {
+    const start = lineStarts[lineIndex];
+    const end = lineEnds[lineIndex];
+    let index = start;
+    let indent = 0;
+    while (index < end && source[index] === ' ' && indent < 4) {
+      index += 1;
+      indent += 1;
+    }
+    if (indent > 3 || index >= end || source[index] !== opener.marker) return false;
+    const runStart = index;
+    while (index < end && source[index] === opener.marker) index += 1;
+    if (index - runStart < opener.length) return false;
+    for (; index < end; index += 1) {
+      if (source[index] !== ' ' && source[index] !== '\t') return false;
+    }
+    return true;
+  };
+
+  // Claim each line once. A four-space/tab line is deliberately bounded to its
+  // own line; this prevents hiding 0-3-space structural records below it.
+  // Whitespace-only lines between indented code lines belong to that block too.
+  let lineIndex = 0;
+  let inIndentedCode = false;
+  const isBlankLine = (index) => {
+    for (let character = lineStarts[index]; character < lineEnds[index]; character += 1) {
+      if (source[character] !== ' ' && source[character] !== '\t') return false;
+    }
+    return true;
+  };
+  while (lineIndex < lineStarts.length) {
+    const opener = fenceOpenerAt(lineIndex);
+    if (opener) {
+      inIndentedCode = false;
+      maskLine(lineIndex);
+      lineIndex += 1;
+      while (lineIndex < lineStarts.length) {
+        const closer = fenceCloserAt(lineIndex, opener);
+        maskLine(lineIndex);
+        lineIndex += 1;
+        if (closer) break;
+      }
+      continue;
+    }
+    const start = lineStarts[lineIndex];
+    const indented = source[start] === '\t' || source.startsWith('    ', start);
+    if (indented) {
+      maskLine(lineIndex);
+      inIndentedCode = true;
+    } else if (inIndentedCode && isBlankLine(lineIndex)) {
+      maskLine(lineIndex);
+    } else {
+      inIndentedCode = false;
+    }
+    lineIndex += 1;
+  }
+
+  const maskedSource = masked.join('');
+  const structuralLines = [];
+  for (let index = 0; index < lineStarts.length; index += 1) {
+    if (!codeLines[index]) structuralLines.push(maskedSource.slice(lineStarts[index], lineEnds[index]));
+  }
+  const structuralSource = structuralLines.join('\n');
+  const lineIndexByStart = new Map(lineStarts.map((start, index) => [start, index]));
+  return { masked: maskedSource, structuralSource, codeLines, lineStarts, lineEnds, lineIndexByStart };
+}
+
+function assertCanonicalRecordLines(normalized, projection = projectMarkdownCodeContext(normalized)) {
   const decisionLike = /(?:CL-D|AC-|DEC-)[A-Za-z0-9-]+/;
   const canonicalHeading = /^## [A-Z][A-Z0-9-]* — (?:\S(?:.*\S)?)$/;
   const canonicalMetadata = /^\*\*Clauses:\*\* \S(?:.*\S)?$/;
@@ -171,8 +285,6 @@ function assertCanonicalRecordLines(normalized) {
     const strippedBody = match[1].replace(entityGlobal, '');
     return normalizeReserved(decodedBody) || normalizeReserved(strippedBody);
   };
-  const rawHtmlHeadingTag = /<\/?h[1-6]\b[^>]*>/i;
-  const rawHtmlStrongTag = /<\/?(?:strong|b)\b[^>]*>/i;
   const decodeNumericReference = (full, digits, radix) => {
     const codePoint = Number.parseInt(digits, radix);
     if (!Number.isFinite(codePoint) || !Number.isInteger(codePoint) ||
@@ -215,17 +327,326 @@ function assertCanonicalRecordLines(normalized) {
       restoreEscapedPunctuation(decoded),
     ])];
   };
+  const isDecisionHeading = (value) => /^\s*##(?!#)/.test(value) && decisionLike.test(value);
+  const isClausesMetadata = (value) => /^\s*\*\*Clauses:\*\*\s+\S/.test(value);
+  const normalizedFieldLabel = (value) => value.replace(/\s+/g, '').toLowerCase();
+  const isDECFieldLabel = (value) => AC_DECISION_FIELDS.some((field) =>
+    normalizedFieldLabel(value) === `${normalizedFieldLabel(field)}:`,
+  );
+  const isTripleClausesOwnership = (value) =>
+    /^\s*(?:\*\*\*|___)Clauses:(?:\*\*\*|___)\s+\S/.test(value);
+  const escapedFieldLabels = AC_DECISION_FIELDS.map((field) =>
+    field.replace(/[.*+?^${}()|[\]\\\\]/g, '\\\\$&'),
+  );
+  const isSingleDECFieldAlternative = (value) => new RegExp(
+    `^\\s*_(?:${escapedFieldLabels.join('|')}):_\\s+\\S`,
+  ).test(value);
+  const targetTagNames = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em', 'i']);
+  const isTagNameCharacter = (code) =>
+    (code >= 0x41 && code <= 0x5a) || (code >= 0x61 && code <= 0x7a) ||
+    (code >= 0x30 && code <= 0x39) || code === 0x2d || code === 0x3a;
 
-  // Check the complete record before line processing so tags split across
-  // newlines cannot evade the raw-HTML boundary.
-  if (rawHtmlHeadingTag.test(normalized)) {
-    assert.fail('raw HTML heading tag is not canonical');
-  }
-  if (rawHtmlStrongTag.test(normalized)) {
-    assert.fail('raw HTML strong/b tag is not canonical');
-  }
+  // Quote-aware monotonic tokenizer shared by the rendered scanner and inline
+  // candidate normalization. Invalid `<...` input is consumed through either
+  // its next nested unquoted `<` (which may restart a valid candidate) or EOF.
+  const readHtmlTag = (source, start) => {
+    if (source[start] !== '<') return { valid: false, restart: start + 1 };
+    let index = start + 1;
+    let closing = false;
+    if (source[index] === '/') {
+      closing = true;
+      index += 1;
+    }
+    const nameStart = index;
+    if (!/[A-Za-z]/.test(source[index] || '')) return { valid: false, restart: start + 1 };
+    while (index < source.length && isTagNameCharacter(source.charCodeAt(index))) index += 1;
+    const name = source.slice(nameStart, index).toLowerCase();
+    let quote = '';
+    while (index < source.length) {
+      const character = source[index++];
+      if (quote) {
+        if (character === quote) quote = '';
+      } else if (character === '"' || character === "'") {
+        quote = character;
+      } else if (character === '<') {
+        return { valid: false, restart: index - 1 };
+      } else if (character === '>') {
+        return { valid: true, end: index, name, closing };
+      }
+    }
+    return { valid: false, restart: source.length };
+  };
+  const tokenizeHtml = (source, { onText, onTag }) => {
+    let textStart = 0;
+    let index = 0;
+    const emitText = (end) => {
+      if (end > textStart) onText(source.slice(textStart, end), textStart, end);
+    };
+    while (index < source.length) {
+      if (source[index] !== '<') {
+        index += 1;
+        continue;
+      }
+      const token = readHtmlTag(source, index);
+      if (!token.valid) {
+        index = token.restart;
+        continue;
+      }
+      emitText(index);
+      onTag(token, index, token.end);
+      index = token.end;
+      textStart = index;
+    }
+    emitText(source.length);
+  };
+  const paragraphAt = (source) => {
+    const result = new Int32Array(source.length + 1);
+    let paragraph = 0;
+    let whitespaceLine = true;
+    for (let index = 0; index < source.length; index += 1) {
+      result[index] = paragraph;
+      if (source[index] === '\n') {
+        if (whitespaceLine) paragraph += 1;
+        whitespaceLine = true;
+      } else if (source[index] !== CODE_MASK && !/\s/.test(source[index])) {
+        whitespaceLine = false;
+      }
+    }
+    result[source.length] = paragraph;
+    return result;
+  };
+  const stripBoundedInlineHtml = (value) => {
+    const pieces = [];
+    tokenizeHtml(value, {
+      onText: (text) => pieces.push(text),
+      onTag: (tag) => {
+        if (tag.name === 'em' || tag.name === 'i') pieces.push('_');
+      },
+    });
+    return pieces.join('');
+  };
 
-  const lines = normalized.split('\n');
+  // Inspect bounded HTML alternatives with one quote-aware scan. Frame bodies
+  // refer to the shared compact rendered stream; no close operation slices or
+  // re-renders a nested body. Prefix checks are capped at a fixed size.
+  const assertRenderedHtmlAlternatives = (source) => {
+    const paragraphs = paragraphAt(source);
+    const compact = [];
+    const frames = [];
+    const pendingPayloads = [];
+    let pendingIndex = 0;
+    let currentParagraph = paragraphs[0];
+    let lineVisible = false;
+    let hasTargetTag = false;
+    let hasDanglingClosingTag = false;
+    const prefixLimit = 128;
+    const compactStartsWith = (start, expected) => {
+      if (compact.length - start < expected.length) return false;
+      for (let offset = 0; offset < expected.length; offset += 1) {
+        if (compact[start + offset].toLowerCase() !== expected[offset]) return false;
+      }
+      return true;
+    };
+    const compactPrefix = (start, end) => {
+      const stop = Math.min(end, start + prefixLimit);
+      let value = '';
+      for (let index = start; index < stop; index += 1) value += compact[index];
+      return value;
+    };
+    const fieldLabelAt = (start, end) => {
+      const length = end - start;
+      return AC_DECISION_FIELDS.some((field) => {
+        const normalized = normalizedFieldLabel(field) + ':';
+        return length === normalized.length && compactStartsWith(start, normalized);
+      });
+    };
+    const failPending = (paragraph) => {
+      while (pendingIndex < pendingPayloads.length && pendingPayloads[pendingIndex].paragraph < paragraph) {
+        const pending = pendingPayloads[pendingIndex++];
+        if (compact.length > pending.payloadStart) {
+          assert.fail(`raw HTML rendered ${pending.kind} is not canonical`);
+        }
+      }
+    };
+    const advanceParagraph = (position) => {
+      const paragraph = paragraphs[position];
+      if (paragraph > currentParagraph) {
+        failPending(paragraph);
+        currentParagraph = paragraph;
+      }
+    };
+    const appendText = (value) => {
+      // Decode each literal-source-line segment separately. A decoded newline
+      // entity is whitespace in the source text, not a physical source-line
+      // boundary; only a literal newline resets line visibility.
+      const segments = value.split('\n');
+      for (let segmentIndex = 0; segmentIndex < segments.length; segmentIndex += 1) {
+        const decoded = decodeEntities(segments[segmentIndex]);
+        for (let index = 0; index < decoded.length; index += 1) {
+          if (decoded[index] === CODE_MASK) continue;
+          if (!/\s/.test(decoded[index])) lineVisible = true;
+          if (!/\s/.test(decoded[index])) compact.push(decoded[index]);
+        }
+        if (segmentIndex + 1 < segments.length) lineVisible = false;
+      }
+    };
+
+    const processTag = (tag, start, end) => {
+      advanceParagraph(start);
+      if (!targetTagNames.has(tag.name)) {
+        advanceParagraph(end);
+        return;
+      }
+      hasTargetTag = true;
+      if (!tag.closing) {
+        frames.push({
+          name: tag.name,
+          compactStart: compact.length,
+          lineStart: !lineVisible,
+        });
+      } else {
+        const frame = frames.at(-1);
+        if (!frame || frame.name !== tag.name) {
+          hasDanglingClosingTag = true;
+        } else {
+          frames.pop();
+          const bodyStart = frame.compactStart;
+          const bodyEnd = compact.length;
+          // Classify from the bounded rendered range. `compact` has already
+          // removed rendered whitespace and decoded entities, so the prefix
+          // starts at the first visible character even after arbitrary source
+          // whitespace. Escape restoration is deliberately bounded to this
+          // fixed prefix rather than to the raw wrapper body.
+          const bodyPrefix = compactPrefix(bodyStart, bodyEnd);
+          const bodyVariants = structuralVariants(bodyPrefix);
+          const decisionBody = bodyVariants.some((variant) => decisionLike.test(`## ${variant}`));
+          const renderedBodyVariants = bodyVariants.map((variant) =>
+            normalizedFieldLabel(restoreEscapedPunctuation(variant)),
+          );
+          const clausesExactBody = renderedBodyVariants.some((variant) => variant === 'clauses:');
+          const clausesPayloadBody = renderedBodyVariants.some((variant) =>
+            variant.startsWith('clauses:') && variant !== 'clauses:',
+          );
+          const fieldBody = renderedBodyVariants.some((variant) => isDECFieldLabel(variant));
+          const fieldPayloadBody = renderedBodyVariants.some((variant) =>
+            AC_DECISION_FIELDS.some((field) => {
+              const label = normalizedFieldLabel(field) + ':';
+              return variant.startsWith(label) && variant !== label;
+            }),
+          );
+          if (frame.name.startsWith('h') && frame.lineStart && (decisionLike.test(bodyPrefix) || decisionBody)) {
+            assert.fail('raw HTML rendered decision heading is not canonical');
+          }
+          if ((frame.name === 'strong' || frame.name === 'b') && frame.lineStart && clausesPayloadBody) {
+            assert.fail('raw HTML rendered Clauses metadata is not canonical');
+          }
+          if ((frame.name === 'em' || frame.name === 'i') && frame.lineStart && fieldPayloadBody) {
+            assert.fail('raw HTML rendered DEC field is not canonical');
+          }
+          if ((frame.name === 'em' || frame.name === 'i') && frame.lineStart &&
+            (fieldBody || fieldLabelAt(bodyStart, bodyEnd))) {
+            pendingPayloads.push({ paragraph: paragraphs[end], payloadStart: compact.length, kind: 'DEC field' });
+          } else if ((frame.name === 'strong' || frame.name === 'b') && frame.lineStart && clausesExactBody) {
+            pendingPayloads.push({ paragraph: paragraphs[end], payloadStart: compact.length, kind: 'Clauses metadata' });
+          }
+        }
+      }
+      advanceParagraph(end);
+    };
+    const processText = (value, start, end) => {
+      advanceParagraph(start);
+      let textStart = start;
+      while (textStart < end) {
+        let boundary = textStart + 1;
+        while (boundary < end && paragraphs[boundary] === currentParagraph) boundary += 1;
+        appendText(source.slice(textStart, boundary));
+        textStart = boundary;
+        advanceParagraph(textStart);
+      }
+    };
+    tokenizeHtml(source, { onText: processText, onTag: processTag });
+    failPending(Number.MAX_SAFE_INTEGER);
+    if (hasTargetTag && (hasDanglingClosingTag || frames.length > 0)) {
+      assert.fail('raw HTML structural tag is not canonical');
+    }
+  };
+
+  // Parse paragraph-start emphasis candidates into an emphasized body and a
+  // payload. This avoids a generated alternation per mutation and keeps each
+  // structural variant linear with a suffix payload check.
+  const assertParagraphEmphasisAlternatives = (source) => {
+    const paragraphs = source.split(/\n[ \t]*\n/);
+    const fieldLabels = AC_DECISION_FIELDS.map((field) => normalizedFieldLabel(field) + ':');
+    const emphasisScanLimit = 256;
+    const bodyClass = (body) => {
+      const compact = normalizedFieldLabel(body);
+      if (fieldLabels.some((label) => compact === label || compact.startsWith(label))) return 'DEC field';
+      if (compact === 'clauses:' || compact.startsWith('clauses:')) return 'Clauses metadata';
+      return null;
+    };
+    const findBoundedDelimiter = (text, start, opener) => {
+      const end = Math.min(text.length, start + emphasisScanLimit);
+      for (let index = start + opener.length; index < end; index += 1) {
+        if (text.startsWith(opener, index)) return index;
+      }
+      return -1;
+    };
+    const parseCandidate = (text, start, hasPayload) => {
+      let opener = '';
+      if (text.startsWith('***', start) || text.startsWith('___', start)) opener = text.slice(start, start + 3);
+      else if (text[start] === '_') opener = '_';
+      else return false;
+      const close = findBoundedDelimiter(text, start, opener);
+      if (close === -1) return false;
+      const kind = bodyClass(text.slice(start + opener.length, close));
+      if (!kind) return false;
+      const bodyCompact = normalizedFieldLabel(text.slice(start + opener.length, close));
+      const label = kind === 'Clauses metadata'
+        ? 'clauses:'
+        : fieldLabels.find((field) => bodyCompact.startsWith(field));
+      if (bodyCompact !== label && bodyCompact.startsWith(label)) return true;
+      return hasPayload(close + opener.length) ? kind : false;
+    };
+    const paragraphStructuralVariants = (value) => {
+      // Keep literal source newlines as line boundaries, while decoded newline
+      // references remain whitespace inside the same source line.
+      const decodeLine = (line) => decodeEntities(line).replace(/\n/g, ' ');
+      const decodeBySourceLine = (text) => text.split('\n').map(decodeLine).join('\n');
+      const restored = restoreEscapedPunctuation(value);
+      const decoded = decodeBySourceLine(value);
+      return [...new Set([
+        decoded,
+        decodeBySourceLine(restored),
+        restoreEscapedPunctuation(decoded),
+      ])];
+    };
+    for (const paragraph of paragraphs) {
+      const candidate = stripBoundedInlineHtml(paragraph);
+      for (const variant of paragraphStructuralVariants(candidate)) {
+        const suffix = new Uint8Array(variant.length + 1);
+        for (let index = variant.length - 1; index >= 0; index -= 1) {
+          suffix[index] = suffix[index + 1] ||
+            (variant[index] !== CODE_MASK && /\S/.test(variant[index]) ? 1 : 0);
+        }
+        const hasPayload = (from) => suffix[from] === 1;
+        for (let lineStart = 0; lineStart < variant.length;) {
+          const lineEnd = variant.indexOf('\n', lineStart);
+          const end = lineEnd === -1 ? variant.length : lineEnd;
+          let start = lineStart;
+          while (start < end && /[ \t]/.test(variant[start])) start += 1;
+          const result = parseCandidate(variant, start, hasPayload);
+          if (result) assert.fail(`paragraph-bounded rendered ${result} is not canonical`);
+          lineStart = lineEnd === -1 ? variant.length : lineEnd + 1;
+        }
+      }
+    }
+  };
+
+  const { structuralSource } = projection;
+  assertRenderedHtmlAlternatives(structuralSource);
+  assertParagraphEmphasisAlternatives(structuralSource);
+
+  const lines = structuralSource.split('\n');
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = lines[index];
@@ -241,14 +662,20 @@ function assertCanonicalRecordLines(normalized) {
       }
     }
 
-    // Entity references can make a non-matching raw line render as a heading or
-    // ownership declaration. H2-shaped and bold-metadata-shaped lines must use
-    // the canonical raw grammar regardless of their visible words.
-    if (entity.test(line) && /^\s*##(?!#)/.test(line)) {
-      assert.fail(`HTML entity in H2 line is not canonical: ${line}`);
-    }
-    if (entity.test(line) && /^\s*\*\*/.test(line)) {
-      assert.fail(`HTML entity in bold metadata line is not canonical: ${line}`);
+    // Entity references are rejected only when their bounded rendering is a
+    // reserved heading, Clauses metadata, or DEC field. Ordinary entity prose
+    // such as `## R&D &amp; governance` remains valid.
+    if (entity.test(line)) {
+      const decodedLine = decodeEntities(line);
+      if (isDecisionHeading(decodedLine)) {
+        assert.fail(`HTML entity in decision H2 is not canonical: ${line}`);
+      }
+      if (isClausesMetadata(decodedLine)) {
+        assert.fail(`HTML entity in Clauses metadata is not canonical: ${line}`);
+      }
+      if (reservedDECField(decodedLine)) {
+        assert.fail(`composed DEC field is not canonical: ${line}`);
+      }
     }
 
     // Underscore strong is valid ordinary prose, but it is not a canonical
@@ -275,15 +702,24 @@ function assertCanonicalRecordLines(normalized) {
     // none of its changed variants matches reserved structure.
     const variants = structuralVariants(line);
     for (const variant of variants.slice(1)) {
-      if (/^\s*##(?!#)/.test(variant) && decisionLike.test(variant)) {
+      if (isDecisionHeading(variant)) {
         assert.fail(`escaped decision heading is not canonical: ${line}`);
       }
-      if (/^\s*\*\*Clauses:\*\*/.test(variant) || isReservedOwnership(variant)) {
+      if (isClausesMetadata(variant) || isReservedOwnership(variant) || isTripleClausesOwnership(variant)) {
         assert.fail(`escaped Clauses metadata is not canonical: ${line}`);
+      }
+      if (isSingleDECFieldAlternative(variant)) {
+        assert.fail(`escaped DEC field is not canonical: ${line}`);
       }
       if (reservedDECField(variant)) {
         assert.fail(`escaped DEC field or entity-composed DEC field is not canonical: ${line}`);
       }
+    }
+
+    // These emphasis forms render reserved ownership/DEC-field alternatives,
+    // but only when the complete line is the bounded record-shaped form.
+    if (isSingleDECFieldAlternative(line) || isTripleClausesOwnership(line)) {
+      assert.fail(`rendered reserved alternative is not canonical: ${line}`);
     }
   }
 }
@@ -291,16 +727,19 @@ function assertCanonicalRecordLines(normalized) {
 function parseRecord(text) {
   assert.equal(typeof text, 'string', 'contract record must be text');
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-  assertCanonicalRecordLines(normalized);
+  const projection = projectMarkdownCodeContext(normalized);
+  const { masked, codeLines, lineIndexByStart } = projection;
+  assertCanonicalRecordLines(normalized, projection);
   const headingPattern = /^## ([A-Z][A-Z0-9-]*) — (?:\S(?:.*\S)?)$/gm;
-  const headings = [...normalized.matchAll(headingPattern)];
+  const headings = [...masked.matchAll(headingPattern)];
   assert.ok(headings.length > 0, 'contract record has no decision sections');
-  const lines = normalized.split('\n');
+  const recordLines = normalized.split('\n');
+  const maskedLines = masked.split('\n');
   const headingLines = new Set(
-    headings.map((heading) => normalized.slice(0, heading.index).split('\n').length - 1),
+    headings.map((heading) => lineIndexByStart.get(heading.index)),
   );
-  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
-    if (/^\*\*Clauses:\*\*/.test(lines[lineIndex])) {
+  for (let lineIndex = 0; lineIndex < recordLines.length; lineIndex += 1) {
+    if (!codeLines[lineIndex] && /^\*\*Clauses:\*\*/.test(maskedLines[lineIndex])) {
       assert.ok(
         headingLines.has(lineIndex - 1),
         `Clauses metadata must immediately follow one parsed canonical decision H2 (line ${lineIndex + 1})`,
@@ -314,10 +753,25 @@ function parseRecord(text) {
     assert.ok(!sections.has(id), `duplicate decision heading: ${id}`);
     const start = heading.index;
     const end = index + 1 < headings.length ? headings[index + 1].index : normalized.length;
-    const lines = normalized.slice(start, end).split('\n');
-    const metadata = lines.filter((line) => /^\*\*Clauses:\*\* /.test(line));
+    const startLine = lineIndexByStart.get(start);
+    const endLine = index + 1 < headings.length
+      ? lineIndexByStart.get(end)
+      : recordLines.length;
+    const visibleLines = [];
+    const visibleMaskedLines = [];
+    for (let lineIndex = startLine; lineIndex < endLine; lineIndex += 1) {
+      if (!codeLines[lineIndex]) {
+        visibleLines.push(recordLines[lineIndex]);
+        visibleMaskedLines.push(maskedLines[lineIndex]);
+      }
+    }
+    const metadata = visibleLines.filter((line, lineIndex) =>
+      /^\*\*Clauses:\*\* /.test(visibleMaskedLines[lineIndex]),
+    );
+    const lines = visibleLines;
+    const structuralLines = visibleMaskedLines;
     assert.equal(metadata.length, 1, `${id} must contain exactly one dedicated **Clauses:** line`);
-    assert.match(lines[1] || '', /^\*\*Clauses:\*\* /, `${id} metadata must immediately follow its heading`);
+    assert.match(structuralLines[1] || '', /^\*\*Clauses:\*\* /, `${id} metadata must immediately follow its heading`);
     if (id.startsWith('DEC-')) {
       assert.equal(lines.length >= AC_DECISION_FIELDS.length + 2, true, `${id} is missing canonical AC-DECISION fields`);
       for (const [offset, field] of AC_DECISION_FIELDS.entries()) {
@@ -328,7 +782,7 @@ function parseRecord(text) {
           `${id} field is missing or out of canonical order: ${field}`,
         );
         const escapedField = field.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
-        const occurrences = lines.filter((candidate) =>
+        const occurrences = structuralLines.filter((candidate) =>
           new RegExp(`^[ ]{0,3}\\*${escapedField}:\\*[ \\t]+\\S`).test(candidate),
         );
         assert.equal(
@@ -423,6 +877,21 @@ const recordText = () => readText(RECORD);
 test('the authoritative contract record exists and validates bidirectionally', () => {
   assert.ok(exists(RECORD), `${RECORD} is missing; CL-D26 makes it the authoritative record`);
   validateRecord(recordText());
+});
+
+test('CL-D2 section preserves settled findings and scope rules', () => {
+  const section = sectionOf(recordText(), 'CL-D2');
+  assert.match(section, /accepted-as-designed.*deferred.*not-applicable.*settled/s);
+  assert.match(section, /requires materially new evidence to reopen/);
+  assert.match(section, /out-of-scope improvement rather than a blocker/);
+});
+
+test('CL-D11 section preserves bounded per-gate round accounting', () => {
+  const section = sectionOf(recordText(), 'CL-D11');
+  assert.match(section, /maximum of three completed invocations per gate, per target, per run/);
+  assert.match(section, /passing round counts/);
+  assert.match(section, /rerun caused by a fix consumes a round from that gate's budget/);
+  assert.match(section, /ROUND_LIMIT_REACHED.*owner decision/s);
 });
 
 // Provenance: the ownership and parser mutation cases are review-driven regression
@@ -628,11 +1097,54 @@ test('ownership candidate rejection remains linear for long nonmatching spaces',
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n${nonmatching}`));
 });
 
+test('emphasis delimiter scans stay bounded across long nonmatching paragraphs', () => {
+  const lines = Array.from({ length: 4096 }, (_, index) =>
+    index % 2 === 0 ? `_${'x'.repeat(32)}` : `***${'y'.repeat(32)}`,
+  ).join('\n');
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n${lines}`));
+});
+
+test('HTML tokenizer remains monotonic across malformed candidates and finds later tags', () => {
+  const malformed = '<a'.repeat(4096);
+  assert.throws(
+    () => validateRecord(`${recordText()}\n${malformed}\n<strong>Clauses:</strong> CL-D28`),
+    /raw HTML rendered Clauses metadata/,
+  );
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n${malformed}\n<span><b>ordinary</b></span>`));
+});
+
+test('nested recognized HTML uses bounded shared rendering state', () => {
+  const depth = 2048;
+  const nested = `${'<em>'.repeat(depth)}ordinary nested prose${'</em>'.repeat(depth)}`;
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n${nested}`));
+});
+
 test('rendered HTML and entity grammar mutations are rejected', () => {
   for (const mutation of [
     '<h2>CL-D1 — competing owner</h2>\n<strong>Clauses:</strong> CL-D1-issue',
     '<H2 class="decision"> CL-D1 — competing owner </H2>\n<B data-kind="clauses"> Clauses: </B> CL-D1-issue',
+    '<strong title=">">Clauses:</strong> CL-D28',
+    '<strong>Clauses:</strong> CL-D28',
+    '<strong>\nClauses: CL-D1-issue\n</strong>',
+    '<strong>Claus&#101;s\\:</strong>\nCL-D28',
+    '<span><strong>Clauses:</strong></span> CL-D28',
+    '<span><b>Clauses:</b></span> CL-D28',
+    '<span>\n<strong>Clauses:</strong></span> CL-D28',
+    '<span>\n<em>Owner choice:</em></span> duplicate',
+    '<span>\n<i>Rationale:</i></span> duplicate',
+    '<span><h2>CL-D1 — competing owner</h2></span>',
+    '<span data-x=">"><strong title=">">Clauses:</strong></span> CL-D28',
+    '<span><em>Owner choice:</em></span> duplicate',
+    '<span><i>Rationale:</i></span> duplicate',
+    '<em title=">">Owner choice:</em> duplicate',
+    '<em>Owner choice:</em>\nduplicate',
+    '<em title=">">Rationale:</em> duplicate',
+    '<em>Rationale:</em>\nduplicate',
+    '<em>Owner choic&#101;\\:</em> duplicate',
+    '<h2>CL\\-D1 — competing owner</h2>',
     '<h2>\nCL-D1 — competing owner\n</h2>\n<strong>\nClauses: CL-D1-issue\n</strong>',
+    '<h2>\nCL-D1 — competing owner\n</h2>',
+    '<strong>\nClauses: CL-D1-issue\n</strong>',
     '<h2\n>CL-D1 — competing owner</h2\n>\n<strong\n>Clauses: CL-D1-issue</strong\n>',
     '<h2\nclass="decision">CL-D1 — competing owner</h2\n>\n<strong\ndata-kind="clauses">Clauses: CL-D1-issue</strong\n>',
     '<h2><span>CL&#45;D1</span> — competing owner</h2>\n<strong>Cl&#97;uses:</strong> CL-D1-issue',
@@ -645,6 +1157,231 @@ test('rendered HTML and entity grammar mutations are rejected', () => {
       /raw HTML|HTML entity/,
       mutation,
     );
+  }
+});
+
+test('exact raw strong and b Clauses labels defer payload rejection', () => {
+  const exact = [
+    '<strong>Clauses:</strong>',
+    '<b>Clauses:</b>',
+    '<strong> Clauses: </strong>',
+    '<b title=">"> Clauses: </b>',
+    '<strong data-kind="clauses"><span>Clauses:</span></strong>',
+    '<span><strong>Clauses:</strong></span>',
+    '<span><b>Clauses:</b></span>',
+    'ordinary <strong>Clauses:</strong> boundary',
+    'ordinary <b>Clauses:</b> boundary',
+    '<strong>Claus&#101;s\\:</strong>',
+    '<b>Clau&#115;es&#58;</b>',
+  ];
+  for (const wrapper of exact) {
+    assert.doesNotThrow(() => validateRecord(`${recordText()}\n${wrapper}`), wrapper);
+  }
+
+  for (const boundary of [
+    '<strong>Clauses:</strong> CL-D28',
+    '<b>Clauses:</b> CL-D28',
+    '<strong>Clauses:</strong>\nCL-D28',
+    '<b>Clauses:</b>\nCL-D28',
+    '<span><strong>Clauses:</strong></span> CL-D28',
+    '<span><b>Clauses:</b></span>\nCL-D28',
+    '<strong>Claus&#101;s\\:</strong> CL-D28',
+    '<b>Clau&#115;es&#58;</b>\nCL-D28',
+  ]) {
+    assert.throws(
+      () => validateRecord(`${recordText()}\n${boundary}`),
+      /raw HTML rendered Clauses metadata/,
+      boundary,
+    );
+  }
+});
+
+test('rendered wrapper prefixes stay bounded by visible whitespace, not raw source length', () => {
+  const counts = [127, 128, 129, 4096];
+  const whitespace = (count, kind) => {
+    if (kind === 'entity') return '&nbsp;'.repeat(count);
+    if (kind === 'numeric') return '&#32;'.repeat(count);
+    return ' '.repeat(count);
+  };
+  for (const count of counts) {
+    for (const kind of ['literal', 'entity', 'numeric']) {
+      const gap = whitespace(count, kind);
+      for (const tag of ['strong', 'b']) {
+        for (const label of ['Clauses:', 'Claus&#101;s\\:']) {
+          const exact = `<${tag}>${gap}${label}</${tag}>`;
+          assert.doesNotThrow(() => validateRecord(`${recordText()}\n${exact}`), `${tag}/${count}/${kind}/${label}`);
+          assert.throws(
+            () => validateRecord(`${recordText()}\n${exact} CL-D28`),
+            /raw HTML rendered Clauses metadata/,
+            `${tag}/${count}/${kind}/${label} external payload`,
+          );
+          assert.throws(
+            () => validateRecord(`${recordText()}\n<${tag}>${gap}${label} CL-D28</${tag}>`),
+            /raw HTML rendered Clauses metadata|paragraph-bounded rendered/,
+            `${tag}/${count}/${kind}/${label} body payload`,
+          );
+          assert.throws(
+            () => validateRecord(`${recordText()}\n<${tag}><span>${gap}${label}</span></${tag}> CL-D28`),
+            /raw HTML rendered Clauses metadata/,
+            `${tag}/${count}/${kind}/${label} nested external payload`,
+          );
+        }
+      }
+    }
+  }
+});
+
+test('rendered DEC wrappers and headings classify all labels after long whitespace', () => {
+  const counts = [127, 128, 129, 4096];
+  const gaps = (count) => [' '.repeat(count), '&nbsp;'.repeat(count), '&#32;'.repeat(count)];
+  for (const field of AC_DECISION_FIELDS) {
+    for (const count of counts) {
+      for (const gap of gaps(count)) {
+        for (const tag of ['em', 'i']) {
+          const exact = `<${tag}>${gap}${field}:</${tag}>`;
+          assert.doesNotThrow(() => validateRecord(`${recordText()}\n${exact}`), `${tag}/${field}/${count}`);
+          assert.throws(
+            () => validateRecord(`${recordText()}\n${exact} duplicate`),
+            /raw HTML rendered DEC field/,
+            `${tag}/${field}/${count} external payload`,
+          );
+          assert.throws(
+            () => validateRecord(`${recordText()}\n<${tag}><span>${gap}${field}: duplicate</span></${tag}>`),
+            /raw HTML rendered DEC field|paragraph-bounded rendered/,
+            `${tag}/${field}/${count} body payload`,
+          );
+        }
+      }
+    }
+  }
+  for (const count of counts) {
+    for (const gap of gaps(count)) {
+      for (const tag of ['h2', 'h3']) {
+        assert.throws(
+          () => validateRecord(`${recordText()}\n<${tag}>${gap}CL-D1 — competing owner</${tag}>`),
+          /raw HTML rendered decision heading/,
+          `${tag}/${count}`,
+        );
+      }
+    }
+  }
+});
+
+test('bounded emphasis alternatives remain reserved while ordinary prose remains valid', () => {
+  const section = sectionOf(recordText(), 'DEC-EXT-SNAPSHOT-001');
+  const validityField = '*Validity and invalidation conditions:* Holds while the MVP reports rather than enforces the observation window and takes a fresh snapshot on every run. If #4 enforces timing or needs to distinguish edits from re-fetches, revisit this decision with code.';
+  for (const alternative of [
+    '_Owner choice:_ duplicate',
+    '_Owner choice:_\nduplicate',
+    '_<span>Owner choice:</span>_ duplicate',
+    '_<span>Owner choic&#101;\\:</span>_\nduplicate',
+    '<em>Owner choice:</em> duplicate',
+    '<i>Owner choice:</i> duplicate',
+    '_Rationale:_ duplicate',
+    '_Rationale:_\nduplicate',
+    '_<span>Rationale:</span>_ duplicate',
+    '_<span>Rational&#101;\\:</span>_\nduplicate',
+    '<em>Rationale:</em> duplicate',
+    '<i>Rationale:</i> duplicate',
+    '<em>Owner choice: duplicate</em>',
+    '_Owner choice: duplicate_',
+    '<em>Rationale: duplicate</em>',
+    '_Rationale: duplicate_',
+  ]) {
+    assert.throws(
+      () => validateRecord(recordText().replace(section, section.replace(validityField, `${validityField}\n${alternative}`))),
+      /rendered reserved alternative|raw HTML rendered DEC field|paragraph-bounded rendered/,
+      alternative,
+    );
+  }
+  for (const alternative of [
+    '***Clauses:*** CL-D28',
+    '***Clauses:***\nCL-D28',
+    '___Clauses:___ CL-D28',
+    '___Clauses:___\nCL-D28',
+    '***Claus&#101;s\\:***\nCL-D28',
+    '***Clauses: CL-D28***',
+    '___Clauses: CL-D28___',
+  ]) {
+    assert.throws(
+      () => validateRecord(recordText().replace('**Clauses:** CL-D28\n', `**Clauses:** CL-D28\n${alternative}\n`)),
+      /rendered reserved alternative|paragraph-bounded rendered/,
+      alternative,
+    );
+  }
+
+  for (const prose of [
+    `${recordText()}\nThe _Owner choice:_ remains ordinary prose.`,
+    `${recordText()}\nThe _Owner choice:_\nremains ordinary prose.`,
+    `${recordText()}\nThe <em>Owner choice:</em> remains ordinary prose.`,
+    `${recordText()}\nThe <em>Owner choice:</em>\nremains ordinary prose.`,
+    `${recordText()}\nThe <i>Owner choice:</i> remains ordinary prose.`,
+    `${recordText()}\nThe <b title=">">important</b> prose remains ordinary.`,
+    `${recordText()}\n<span>prefix <strong>Clauses:</strong></span> CL-D28`,
+    `${recordText()}\n<span>prefix<strong\n title=">">Clauses:</strong></span> CL-D28`,
+    `${recordText()}\nprefix&NewLine;<span><strong>Clauses:</strong></span> CL-D28`,
+    `${recordText()}\n<span>prefix<em\n title=">">Owner choice:</em></span> duplicate`,
+    `${recordText()}\nprefix&NewLine;<span><em>Owner choice:</em></span> duplicate`,
+    `${recordText()}\n<span>prefix<i\n title=">">Rationale:</i></span> duplicate`,
+    `${recordText()}\nprefix&NewLine;<span><i>Rationale:</i></span> duplicate`,
+    `${recordText()}\n<span><strong>important</strong></span>`,
+    `${recordText()}\n<span data-x=">"><em>important</em></span>`,
+    `${recordText()}\nThe <b>important</b>\nprose remains ordinary.`,
+    `${recordText()}\nThe <em title=">">Rationale:</em> remains ordinary prose.`,
+    `${recordText()}\nThe <em>Rational&#101;\\:</em> remains ordinary wrapper prose.`,
+    `${recordText()}\nThe _Rationale:_ remains ordinary prose.`,
+    `${recordText()}\nThe <em>Rationale:</em> remains ordinary prose.`,
+    `${recordText()}\nThe <i>Rationale:</i> remains ordinary prose.`,
+    `${recordText()}\nThe <em>Owner choice: duplicate</em> remains ordinary prose.`,
+    `${recordText()}\nThe _Owner choice: duplicate_ remains ordinary prose.`,
+    `${recordText()}\nThe ***Clauses: CL-D28*** remains ordinary prose.`,
+    `${recordText()}\nThe ___Clauses: CL-D28___ remains ordinary prose.`,
+    `${recordText()}\n_Owner choice:_\n\nordinary paragraph after a blank line.`,
+    `${recordText()}\n_Owner choice:_&NewLine;`,
+    `${recordText()}\nThe ***Clauses:*** phrase remains ordinary prose.`,
+    `${recordText()}\nThe ___Clauses:___ phrase remains ordinary prose.`,
+  ]) {
+    assert.doesNotThrow(() => validateRecord(prose), prose);
+  }
+});
+
+test('all DEC labels and Clauses compositions remain bounded reserved alternatives', () => {
+  const section = sectionOf(recordText(), 'DEC-EXT-SNAPSHOT-001');
+  const validityField = '*Validity and invalidation conditions:* Holds while the MVP reports rather than enforces the observation window and takes a fresh snapshot on every run. If #4 enforces timing or needs to distinguish edits from re-fetches, revisit this decision with code.';
+  for (const field of AC_DECISION_FIELDS) {
+    const split = Math.max(1, Math.floor(field.length / 2));
+    const first = field.slice(0, split);
+    const rest = field.slice(split);
+    const entityFirst = `&#${field.charCodeAt(0)};`;
+    for (const alternative of [
+      `_${first}\n${rest}:_ duplicate`,
+      `_<span>${first}</span>&NewLine;${rest}\\:_ duplicate`,
+      `_<span>${entityFirst}${first.slice(1)}${rest}</span>&NewLine;\\:_ duplicate`,
+    ]) {
+      assert.throws(
+        () => validateRecord(recordText().replace(section, section.replace(validityField, `${validityField}\n${alternative}`))),
+        /paragraph-bounded rendered|raw HTML rendered DEC field|rendered reserved alternative/,
+        `${field}: ${alternative}`,
+      );
+    }
+  }
+  for (const alternative of [
+    '***Clau\nses:*** CL-D28',
+    '___Clau&NewLine;ses\\:___ CL-D28',
+    '***<span>Clau</span>&NewLine;ses\\:*** CL-D28',
+    '___Cla&#117;ses\\:___ CL-D28',
+  ]) {
+    assert.throws(
+      () => validateRecord(recordText().replace('**Clauses:** CL-D28\n', `**Clauses:** CL-D28\n${alternative}\n`)),
+      /paragraph-bounded rendered|rendered reserved alternative/,
+      alternative,
+    );
+  }
+  for (const prose of [
+    `${recordText()}\nThe _Decision\nID:_ remains ordinary prose.`,
+    `${recordText()}\nThe ***Clau\nses:*** phrase remains ordinary prose.`,
+  ]) {
+    assert.doesNotThrow(() => validateRecord(prose), prose);
   }
 });
 
@@ -729,9 +1466,143 @@ test('ordinary horizontal rules and nondecision Setext headings remain valid', (
   assert.doesNotThrow(() => validateRecord(`${recordText()}\nRelease notes\n===\n`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n## Notes\nThe prose mentions **Clauses:** inline.`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n<p>ordinary HTML prose</p>`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n## R&D &amp; governance`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n## R&D &#38; governance`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n**Copyright &copy; 2026**`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n**Copyright &#169; 2026**`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\nThe <b>important</b> prose remains ordinary.`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\nThe <b>\nimportant\n</b> prose remains ordinary.`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\nThe __important__ prose remains ordinary.`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n__Copyright: &copy;__ remains ordinary prose.`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n__The clauses &amp; conditions__ remain ordinary prose.`));
+});
+
+test('line-start backtick delimiters leave enclosed reserved forms ordinary', () => {
+  for (const source of [
+    `${recordText()}\n\`<strong>Clauses:</strong> CL-D28\``,
+    `${recordText()}\n\`\`<strong>Clauses:</strong> CL-D28\`\``,
+    `${recordText()}\n\`\`\`<strong>Clauses:</strong> CL-D28\`\`\``,
+    `${recordText()}\n\`## CL-D1 — literal\``,
+    `${recordText()}\n\`\`## CL-D1 — literal\`\``,
+    `${recordText()}\n\`\`\`## CL-D1 — literal\`\`\``,
+    `${recordText()}\n\`**Clauses:** CL-D28\``,
+    `${recordText()}\n\`\`**Clauses:** CL-D28\`\``,
+  ]) {
+    assert.doesNotThrow(() => validateRecord(source), JSON.stringify(source.slice(-160)));
+  }
+});
+
+test('fenced and indented code masks all structural record scanners', () => {
+  const code = [
+    '```markdown',
+    '<strong>Clauses:</strong> CL-D28',
+    '<em>Owner choice:</em> duplicate',
+    '__Clauses:__ CL-D28',
+    '## CL-D1 — literal decision',
+    '**Clauses:** CL-D1-issue',
+    'CL-D1 — literal Setext',
+    '----------------------',
+    '\\#\\# CL\\-D1 — escaped decision',
+    '\\*\\*Clauses:\\*\\* CL-D1-issue',
+    '_Owner choice:_ duplicate',
+    '*Owner choice:* duplicate',
+    '```',
+    '~~~',
+    '## CL-D2 — tilde literal',
+    '**Clauses:** CL-D2',
+    '~~',
+    '```',
+    '~~~',
+  ].join('\n');
+  for (const source of [
+    `${recordText()}\n${code}`,
+    `${recordText()}\n${code}\n` + '```' + '\n## CL-D3 — unterminated literal',
+    `${recordText()}\n${code}`.replace(/\n/g, '\r\n'),
+    `${recordText()}\n    **Clauses:** CL-D28`,
+    `${recordText()}\n    <em>Owner choice:</em> duplicate\n\n    <em>Rationale:</em> duplicate`,
+    `${recordText()}\n\t<em>Owner choice:</em> duplicate`,
+  ]) {
+    assert.doesNotThrow(() => validateRecord(source), JSON.stringify(source.slice(-160)));
+  }
+
+  for (const outside of [
+    '##  CL-D1 — malformed immediately after fence',
+    '<strong>Clauses:</strong> CL-D28',
+  ]) {
+    const closed = `${recordText()}\n${outside}\n~~~\nliteral\n~~~`;
+    assert.throws(() => validateRecord(closed), /non-canonical decision heading|raw HTML rendered Clauses metadata/);
+    const after = `${recordText()}\n~~~\nliteral\n~~~\n${outside}`;
+    assert.throws(() => validateRecord(after), /non-canonical decision heading|raw HTML rendered Clauses metadata/);
+  }
+
+  // TERRA-R2-001: a pending exact rendered label cannot cross a closed fence
+  // merely because the masked code lines look blank. Code-only lines are absent
+  // from structural paragraphs; only a real non-code blank line is a boundary.
+  const pendingLabels = [
+    ['<strong>Clauses:</strong>', 'CL-D28', /raw HTML rendered Clauses metadata/],
+    ['<b>Clauses:</b>', 'CL-D28', /raw HTML rendered Clauses metadata/],
+    ['_Owner choice:_', 'duplicate', /paragraph-bounded rendered DEC field/],
+    ['***Clauses:***', 'CL-D28', /paragraph-bounded rendered Clauses metadata/],
+  ];
+  for (const lineEnding of ['\n', '\r\n']) {
+    const toLineEnding = (source) => lineEnding === '\r\n' ? source.replace(/\n/g, '\r\n') : source;
+    for (const marker of ['```', '~~~']) {
+      const cases = [
+        `${marker}\n${marker}`, // empty fence
+        `${marker}\nliteral\n${marker}`, // nonempty fence
+        `${marker}\n\n\n${marker}`, // blank code lines
+        `${marker}\nliteral\n${marker}${marker}`, // longer valid closer
+      ];
+      for (const [label, payload, expected] of pendingLabels) {
+        for (const fence of cases) {
+          const source = toLineEnding(`${recordText()}\n${label}\n${fence}\n${payload}`);
+          assert.throws(() => validateRecord(source), expected, `${label} ${marker} ${JSON.stringify(fence)}`);
+        }
+        const boundary = toLineEnding(`${recordText()}\n${label}\n\n${payload}`);
+        assert.doesNotThrow(
+          () => validateRecord(boundary),
+          `ordinary blank line must remain a paragraph boundary: ${label}`,
+        );
+
+        const fenced = toLineEnding(`${recordText()}\n${marker}\n${label} ${payload}\n${marker}`);
+        assert.doesNotThrow(() => validateRecord(fenced), `fully fenced: ${label} ${marker}`);
+        const unterminated = toLineEnding(`${recordText()}\n${marker}\n${label} ${payload}\n\n`);
+        assert.doesNotThrow(() => validateRecord(unterminated), `unterminated: ${label} ${marker}`);
+        const afterClosed = toLineEnding(`${recordText()}\n${marker}\nliteral\n${marker}\n${label} ${payload}`);
+        assert.throws(() => validateRecord(afterClosed), expected, `after closed fence: ${label} ${marker}`);
+      }
+    }
+  }
+
+  // Setext inventory follows the same code-line-removed source: a candidate
+  // immediately followed by a rule across a fence is still one structural pair.
+  for (const lineEnding of ['\n', '\r\n']) {
+    const toLineEnding = (source) => lineEnding === '\r\n' ? source.replace(/\n/g, '\r\n') : source;
+    const source = toLineEnding(`${recordText()}\nCL-D1 — competing owner\n` +
+      '```\nliteral\n```\n---');
+    assert.throws(() => validateRecord(source), /non-canonical Setext decision heading/);
+  }
+
+  // DEC parsing removes code by explicit line membership, not by inspecting
+  // masked characters: blank fenced lines have no characters to mask.
+  const decSection = sectionOf(recordText(), 'DEC-EXT-SNAPSHOT-001');
+  const metadata = '**Clauses:** none — structural\n';
+  for (const lineEnding of ['\n', '\r\n']) {
+    for (const marker of ['```', '~~~']) {
+      const toLineEnding = (source) => lineEnding === '\r\n' ? source.replace(/\n/g, '\r\n') : source;
+      const closed = decSection.replace(
+        metadata,
+        `${metadata}${marker}markdown\n*Owner choice:* duplicate\n\n\n${marker}\n`,
+      );
+      assert.doesNotThrow(() => parseRecord(toLineEnding(closed)), `${marker} closed ${lineEnding}`);
+
+      const unterminated = `${decSection}${marker}\n*Owner choice:* duplicate\n\n\n`;
+      assert.doesNotThrow(
+        () => parseRecord(toLineEnding(unterminated)),
+        `${marker} unterminated ${lineEnding}`,
+      );
+    }
+  }
 });
 
 test('DEC decision fields reject duplicates, mismatched IDs, and reordering', () => {
@@ -758,6 +1629,17 @@ test('DEC decision fields reject duplicates, mismatched IDs, and reordering', ()
   assert.throws(
     () => validateRecord(recordText().replace(section, reordered)),
     /field is missing or out of canonical order: Question/,
+  );
+
+  // A blank line outside code remains structural and therefore still shifts the
+  // strict positional DEC field order.
+  const blankOutsideCode = section.replace(
+    '*Question:* CL-D24 and CL-D13 required a digest of observed external events so a resume could detect edits, while CL-D28 removed that byte-exact specification from this MVP.\n*Options and trade-offs:*',
+    '*Question:* CL-D24 and CL-D13 required a digest of observed external events so a resume could detect edits, while CL-D28 removed that byte-exact specification from this MVP.\n\n*Options and trade-offs:*',
+  );
+  assert.throws(
+    () => validateRecord(recordText().replace(section, blankOutsideCode)),
+    /field is missing or out of canonical order: Options and trade-offs/,
   );
 });
 
