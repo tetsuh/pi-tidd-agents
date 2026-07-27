@@ -21,6 +21,17 @@ const STRUCTURAL_DECISIONS = new Set([
   'CL-D26',
   'DEC-EXT-SNAPSHOT-001',
 ]);
+const AC_DECISION_FIELDS = [
+  'Decision ID',
+  'Kind',
+  'Target and revision',
+  'Question',
+  'Options and trade-offs',
+  'Recommendation',
+  'Owner choice',
+  'Rationale',
+  'Validity and invalidation conditions',
+];
 
 // JSON.parse accepts duplicate object keys by keeping only the last value. The
 // manifest is contract input, so scan its raw syntax first and reject duplicate
@@ -145,10 +156,14 @@ function assertCanonicalRecordLines(normalized) {
   const canonicalHeading = /^## [A-Z][A-Z0-9-]* — (?:\S(?:.*\S)?)$/;
   const canonicalMetadata = /^\*\*Clauses:\*\* \S(?:.*\S)?$/;
   const entity = /&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);/i;
+  const entityGlobal = /&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);/gi;
   const rawHtmlHeadingTag = /<\/?h[1-6]\b[^>]*>/i;
   const rawHtmlStrongTag = /<\/?(?:strong|b)\b[^>]*>/i;
   const decodeEntities = (value) => value
-    .replace(/&(?:nbsp|ensp|emsp|thinsp|hairsp|numsp|puncsp|mediumspace|tab|newline);/gi, (name) => ({
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&colon;/gi, ':')
+    .replace(/&(?:nbsp|ensp|emsp|thinsp|hairsp|numsp|puncsp|mediumspace|tab|newline|zerowidthspace|verythinspace|negativethinspace);/gi, (name) => ({
       nbsp: '\u00a0',
       ensp: '\u2002',
       emsp: '\u2003',
@@ -159,10 +174,11 @@ function assertCanonicalRecordLines(normalized) {
       mediumspace: '\u205f',
       tab: '\t',
       newline: '\n',
+      zerowidthspace: '',
+      verythinspace: '',
+      negativethinspace: '',
     })[name.slice(1, -1).toLowerCase()])
-    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
-    .replace(/&colon;/gi, ':');
+    .replace(/[\u200a-\u200d\ufeff]/g, '');
 
   // Check the complete record before line processing so tags split across
   // newlines cannot evade the raw-HTML boundary.
@@ -194,11 +210,21 @@ function assertCanonicalRecordLines(normalized) {
     }
 
     // Underscore strong is valid ordinary prose, but it is not a canonical
-    // ownership record. Decode only the small entity subset needed to detect
-    // equivalent rendered `__Clauses:__` spellings.
-    const decodedLine = decodeEntities(line);
-    if (/^\s*__\s*clauses\s*:\s*__\s+\S(?:.*\S)?$/i.test(decodedLine)) {
-      assert.fail(`non-canonical Clauses metadata: ${line}`);
+    // ownership record. Parse only a full-line `__body__<separator><payload>`
+    // shape. The reserved body is recognized after bounded decoding, or after
+    // removing entity tokens solely to expose an obfuscated `Clauses:` body.
+    const ownershipMatch = line.match(/^\s*__([^_\n]*)__((?:(?:\s+)|(?:&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);))+)(\S(?:.*\S)?)\s*$/i);
+    if (ownershipMatch) {
+      const [, underscoreBody, separator] = ownershipMatch;
+      const decodedBody = decodeEntities(underscoreBody);
+      const strippedBody = underscoreBody.replace(entityGlobal, '');
+      const normalizeReserved = (value) => value.replace(/\s+/g, '').toLowerCase() === 'clauses:';
+      if (normalizeReserved(decodedBody) || normalizeReserved(strippedBody)) {
+        assert.fail(`non-canonical Clauses metadata: ${line}`);
+      }
+      // Keep the separator binding explicit so entity payloads cannot turn
+      // arbitrary underscore prose into a candidate.
+      void separator;
     }
 
     // Only H2-shaped lines are considered here; ordinary H2 prose such as
@@ -244,6 +270,27 @@ function parseRecord(text) {
     const metadata = lines.filter((line) => /^\*\*Clauses:\*\* /.test(line));
     assert.equal(metadata.length, 1, `${id} must contain exactly one dedicated **Clauses:** line`);
     assert.match(lines[1] || '', /^\*\*Clauses:\*\* /, `${id} metadata must immediately follow its heading`);
+    if (id.startsWith('DEC-')) {
+      assert.equal(lines.length >= AC_DECISION_FIELDS.length + 2, true, `${id} is missing canonical AC-DECISION fields`);
+      for (const [offset, field] of AC_DECISION_FIELDS.entries()) {
+        const line = lines[offset + 2] || '';
+        assert.match(
+          line,
+          new RegExp(`^\\*${field}:\\* \\S`),
+          `${id} field is missing or out of canonical order: ${field}`,
+        );
+        const escapedField = field.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&');
+        const occurrences = lines.filter((candidate) =>
+          new RegExp(`^[ ]{0,3}\\*${escapedField}:\\*[ \\t]+\\S`).test(candidate),
+        );
+        assert.equal(
+          occurrences.length,
+          1,
+          `${id} must contain exactly one canonical ${field} field`,
+        );
+      }
+      assert.equal(lines[2], `*Decision ID:* ${id}`, `${id} Decision ID must match its heading exactly`);
+    }
 
     const value = metadata[0].slice('**Clauses:** '.length);
     if (value === STRUCTURAL_VALUE) {
@@ -455,6 +502,18 @@ test('alternate underscore ownership metadata is rejected', () => {
     '__Clauses:&nbsp;__ CL-D28',
     '__Clauses:__&nbsp;CL-D28',
     '__cLaUsEs&nbsp;:__ CL-D28',
+    '__Clauses&ZeroWidthSpace;:__ CL-D28',
+    '__Clauses&VeryThinSpace;:__ CL-D28',
+    '__Clauses&NegativeThinSpace;:__ CL-D28',
+    '__Clauses:__&nbsp;CL-D28',
+    '__Clauses:__&ensp;CL-D28',
+    '__Clauses:__&emsp;CL-D28',
+    '__Clauses:__&#32;CL-D28',
+    '__Clauses:__&#x20;CL-D28',
+    '__Clau&ZeroWidthSpace;ses&copy;:__ CL-D28',
+    '__Clau&ZeroWidthSpace;ses&colon;__ CL-D28',
+    '__Clau&NegativeThinSpace;ses&colon;__ CL-D28',
+    '__Clau&#8203;ses&#58;__ CL-D28',
   ]) {
     assert.throws(
       () => validateRecord(`${recordText()}\n${mutation}`),
@@ -464,12 +523,83 @@ test('alternate underscore ownership metadata is rejected', () => {
   }
 });
 
+test('every DEC decision preserves the complete AC-DECISION field record', () => {
+  const fields = [
+    'Decision ID',
+    'Kind',
+    'Target and revision',
+    'Question',
+    'Options and trade-offs',
+    'Recommendation',
+    'Owner choice',
+    'Rationale',
+    'Validity and invalidation conditions',
+  ];
+  const section = sectionOf(recordText(), 'DEC-EXT-SNAPSHOT-001');
+  for (const field of fields) {
+    const mutation = section.replace(new RegExp(`^\\*${field}:\\* .*\\n?`, 'm'), '');
+    assert.throws(
+      () => validateRecord(recordText().replace(section, mutation)),
+      new RegExp(`DEC-EXT-SNAPSHOT-001 field is missing or out of canonical order: ${field}`),
+      field,
+    );
+  }
+});
+
+test('DEC duplicate field mutations reject indentation and tabs across line endings', () => {
+  const canonical = '*Owner choice:* Withdraw the digest and re-fetch; external evidence is current-run-only and never carried across runs.';
+  for (const duplicate of [
+    '*Owner choice:*\tduplicate',
+    '*Owner choice:*  duplicate',
+    ' *Owner choice:* duplicate',
+  ]) {
+    for (const source of [recordText(), recordText().replace(/\r?\n/g, '\r\n')]) {
+      const lineBreak = source.includes('\r\n') ? '\r\n' : '\n';
+      const mutated = source.replace(canonical, `${canonical}${lineBreak}${duplicate}`);
+      assert.throws(
+        () => validateRecord(mutated),
+        /must contain exactly one canonical Owner choice field/,
+        `${JSON.stringify(duplicate)} with ${source.includes('\r\n') ? 'CRLF' : 'LF'}`,
+      );
+    }
+  }
+});
+
 test('ordinary horizontal rules and nondecision Setext headings remain valid', () => {
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n## Notes\nNotes\n---\n`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\nRelease notes\n===\n`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n## Notes\nThe prose mentions **Clauses:** inline.`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\n<p>ordinary HTML prose</p>`));
   assert.doesNotThrow(() => validateRecord(`${recordText()}\nThe __important__ prose remains ordinary.`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n__Copyright: &copy;__ remains ordinary prose.`));
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n__The clauses &amp; conditions__ remain ordinary prose.`));
+});
+
+test('DEC decision fields reject duplicates, mismatched IDs, and reordering', () => {
+  const section = sectionOf(recordText(), 'DEC-EXT-SNAPSHOT-001');
+  const duplicate = section.replace(
+    '*Owner choice:* Withdraw the digest and re-fetch; external evidence is current-run-only and never carried across runs.\n',
+    '*Owner choice:* Withdraw the digest and re-fetch; external evidence is current-run-only and never carried across runs.\n*Owner choice:* duplicate\n',
+  );
+  assert.throws(
+    () => validateRecord(recordText().replace(section, duplicate)),
+    /must contain exactly one canonical Owner choice field/,
+  );
+
+  const mismatch = section.replace('*Decision ID:* DEC-EXT-SNAPSHOT-001', '*Decision ID:* DEC-OTHER');
+  assert.throws(
+    () => validateRecord(recordText().replace(section, mismatch)),
+    /Decision ID must match its heading exactly/,
+  );
+
+  const reordered = section.replace(
+    '*Question:* CL-D24 and CL-D13 required a digest of observed external events so a resume could detect edits, while CL-D28 removed that byte-exact specification from this MVP.\n*Options and trade-offs:*',
+    '*Options and trade-offs:* Define a canonical event serialization in the Skill; withdraw the digest and re-fetch on resume; or defer external resume until #4. Defining serialization repeats the under-specified prose machinery rejected by CL-D28, while deferring resume loses honest observation continuity.\n*Question:*',
+  );
+  assert.throws(
+    () => validateRecord(recordText().replace(section, reordered)),
+    /field is missing or out of canonical order: Question/,
+  );
 });
 
 test('adding a clause under an existing marker without recording it fails', () => {
