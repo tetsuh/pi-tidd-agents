@@ -155,13 +155,35 @@ function assertCanonicalRecordLines(normalized) {
   const decisionLike = /(?:CL-D|AC-|DEC-)[A-Za-z0-9-]+/;
   const canonicalHeading = /^## [A-Z][A-Z0-9-]* — (?:\S(?:.*\S)?)$/;
   const canonicalMetadata = /^\*\*Clauses:\*\* \S(?:.*\S)?$/;
-  const entity = /&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);/i;
-  const entityGlobal = /&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);/gi;
+  const entityToken = '&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);';
+  const entity = new RegExp(entityToken, 'i');
+  const entityGlobal = new RegExp(entityToken, 'gi');
+  const asciiPunctuation = new Set([...`!\"#$%&'()*+,-./:;<=>?@[\\]^_\u0060{|}~`]);
+  const restoreEscapedPunctuation = (value) => value.replace(/\\(.)/g, (match, character) =>
+    asciiPunctuation.has(character) ? character : match,
+  );
+  const ownershipPattern = /^\s*__([^_\n]*)__((?:[^\S\r\n]|&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);)+)(\S.*)$/i;
+  const normalizeReserved = (value) => value.replace(/\s+/g, '').toLowerCase() === 'clauses:';
+  const isReservedOwnership = (candidate) => {
+    const match = candidate.match(ownershipPattern);
+    if (!match) return false;
+    const decodedBody = decodeEntities(match[1]);
+    const strippedBody = match[1].replace(entityGlobal, '');
+    return normalizeReserved(decodedBody) || normalizeReserved(strippedBody);
+  };
   const rawHtmlHeadingTag = /<\/?h[1-6]\b[^>]*>/i;
   const rawHtmlStrongTag = /<\/?(?:strong|b)\b[^>]*>/i;
+  const decodeNumericReference = (full, digits, radix) => {
+    const codePoint = Number.parseInt(digits, radix);
+    if (!Number.isFinite(codePoint) || !Number.isInteger(codePoint) ||
+      codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+      return full;
+    }
+    return String.fromCodePoint(codePoint);
+  };
   const decodeEntities = (value) => value
-    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&#(\d+);/g, (full, code) => decodeNumericReference(full, code, 10))
+    .replace(/&#x([0-9a-f]+);/gi, (full, code) => decodeNumericReference(full, code, 16))
     .replace(/&colon;/gi, ':')
     .replace(/&(?:nbsp|ensp|emsp|thinsp|hairsp|numsp|puncsp|mediumspace|tab|newline|zerowidthspace|verythinspace|negativethinspace);/gi, (name) => ({
       nbsp: '\u00a0',
@@ -179,6 +201,20 @@ function assertCanonicalRecordLines(normalized) {
       negativethinspace: '',
     })[name.slice(1, -1).toLowerCase()])
     .replace(/[\u200a-\u200d\ufeff]/g, '');
+  const reservedDECField = (value) => AC_DECISION_FIELDS.some((field) =>
+    new RegExp(`^[ ]{0,3}\\*${field.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}:\\*\\s+\\S`).test(value),
+  );
+  const structuralVariants = (value) => {
+    const restored = restoreEscapedPunctuation(value);
+    const decoded = decodeEntities(value);
+    return [...new Set([
+      value,
+      restored,
+      decoded,
+      decodeEntities(restored),
+      restoreEscapedPunctuation(decoded),
+    ])];
+  };
 
   // Check the complete record before line processing so tags split across
   // newlines cannot evade the raw-HTML boundary.
@@ -195,8 +231,14 @@ function assertCanonicalRecordLines(normalized) {
     const line = lines[index];
     const underline = /^\s*[-=]{3,}\s*$/.test(line);
     const setextText = index > 0 ? lines[index - 1].trim() : '';
+    const setextVariants = structuralVariants(setextText);
     if (underline && decisionLike.test(setextText)) {
       assert.fail(`non-canonical Setext decision heading: ${setextText}`);
+    }
+    for (const variant of setextVariants.slice(1)) {
+      if (underline && decisionLike.test(variant)) {
+        assert.fail(`escaped Setext decision heading is not canonical: ${setextText}`);
+      }
     }
 
     // Entity references can make a non-matching raw line render as a heading or
@@ -213,18 +255,8 @@ function assertCanonicalRecordLines(normalized) {
     // ownership record. Parse only a full-line `__body__<separator><payload>`
     // shape. The reserved body is recognized after bounded decoding, or after
     // removing entity tokens solely to expose an obfuscated `Clauses:` body.
-    const ownershipMatch = line.match(/^\s*__([^_\n]*)__((?:(?:\s+)|(?:&(?:#[0-9]+|#x[0-9a-f]+|[a-z][a-z0-9]+);))+)(\S(?:.*\S)?)\s*$/i);
-    if (ownershipMatch) {
-      const [, underscoreBody, separator] = ownershipMatch;
-      const decodedBody = decodeEntities(underscoreBody);
-      const strippedBody = underscoreBody.replace(entityGlobal, '');
-      const normalizeReserved = (value) => value.replace(/\s+/g, '').toLowerCase() === 'clauses:';
-      if (normalizeReserved(decodedBody) || normalizeReserved(strippedBody)) {
-        assert.fail(`non-canonical Clauses metadata: ${line}`);
-      }
-      // Keep the separator binding explicit so entity payloads cannot turn
-      // arbitrary underscore prose into a candidate.
-      void separator;
+    if (isReservedOwnership(line)) {
+      assert.fail(`non-canonical Clauses metadata: ${line}`);
     }
 
     // Only H2-shaped lines are considered here; ordinary H2 prose such as
@@ -236,6 +268,22 @@ function assertCanonicalRecordLines(normalized) {
     // spacing is malformed. Inline prose mentions are deliberately ignored.
     if (/^\s*\*\*Clauses:\*\*/.test(line)) {
       assert.match(line, canonicalMetadata, `non-canonical Clauses metadata: ${line}`);
+    }
+
+    // CommonMark permits backslash escapes for ASCII punctuation. Apply one
+    // bounded composition set to every line; ordinary prose remains valid when
+    // none of its changed variants matches reserved structure.
+    const variants = structuralVariants(line);
+    for (const variant of variants.slice(1)) {
+      if (/^\s*##(?!#)/.test(variant) && decisionLike.test(variant)) {
+        assert.fail(`escaped decision heading is not canonical: ${line}`);
+      }
+      if (/^\s*\*\*Clauses:\*\*/.test(variant) || isReservedOwnership(variant)) {
+        assert.fail(`escaped Clauses metadata is not canonical: ${line}`);
+      }
+      if (reservedDECField(variant)) {
+        assert.fail(`escaped DEC field or entity-composed DEC field is not canonical: ${line}`);
+      }
     }
   }
 }
@@ -472,6 +520,114 @@ test('Setext decision-like headings and metadata mutations are rejected', () => 
   );
 });
 
+test('escaped reserved Markdown grammar is rejected while ordinary prose remains valid', () => {
+  const escapedDecision = '## CL\\-D1 — competing owner\n**Clauses\\:** CL-D1-issue';
+  assert.throws(
+    () => validateRecord(`${recordText()}\n${escapedDecision}`),
+    /escaped decision heading|escaped Clauses metadata/,
+  );
+  assert.throws(
+    () => validateRecord(`${recordText()}\n\\#\\# CL&#45;D1 — competing owner`),
+    /escaped decision heading/,
+  );
+  assert.throws(
+    () => validateRecord(`${recordText()}\n\\*\\*Claus&#101;s\\:\\*\\* CL-D1-issue`),
+    /escaped Clauses metadata/,
+  );
+
+  const escapedSetext = 'CL\\-D1 — competing owner\n----------------------------';
+  assert.throws(
+    () => validateRecord(`${recordText()}\n${escapedSetext}`),
+    /Setext decision heading/,
+  );
+
+  assert.throws(
+    () => validateRecord(`${recordText()}\n__Clauses\\:__ CL-D28`),
+    /escaped Clauses metadata/,
+  );
+  assert.throws(
+    () => validateRecord(`${recordText()}\n\\*\\*Clauses:\\*\\* CL-D1-issue`),
+    /escaped Clauses metadata/,
+  );
+
+  const section = sectionOf(recordText(), 'DEC-EXT-SNAPSHOT-001');
+  const canonicalField = '*Owner choice:* Withdraw the digest and re-fetch; external evidence is current-run-only and never carried across runs.';
+  const escapedField = section.replace(
+    canonicalField,
+    `*Owner choice\\:* duplicate\n${canonicalField}`,
+  );
+  assert.throws(
+    () => validateRecord(recordText().replace(section, escapedField)),
+    /escaped DEC field/,
+  );
+  const escapedFieldDelimiters = section.replace(
+    canonicalField,
+    `\\*Owner choice:\\* duplicate\n${canonicalField}`,
+  );
+  assert.throws(
+    () => validateRecord(recordText().replace(section, escapedFieldDelimiters)),
+    /escaped DEC field/,
+  );
+
+  const validityField = '*Validity and invalidation conditions:* Holds while the MVP reports rather than enforces the observation window and takes a fresh snapshot on every run. If #4 enforces timing or needs to distinguish edits from re-fetches, revisit this decision with code.';
+  const entityAfterFields = section.replace(
+    validityField,
+    `${validityField}\n*Owner choic&#101;\\:* duplicate`,
+  );
+  assert.throws(
+    () => validateRecord(recordText().replace(section, entityAfterFields)),
+    /composed DEC field/,
+  );
+  const entityOnlyField = section.replace(
+    validityField,
+    `${validityField}\n*Owner choic&#101;:* duplicate`,
+  );
+  assert.throws(
+    () => validateRecord(recordText().replace(section, entityOnlyField)),
+    /composed DEC field/,
+  );
+  const reverseCompositionField = section.replace(
+    validityField,
+    `${validityField}\n*Owner choic\\&#101;:* duplicate`,
+  );
+  assert.throws(
+    () => validateRecord(recordText().replace(section, reverseCompositionField)),
+    /composed DEC field/,
+  );
+
+  for (const prose of [
+    `${recordText()}\nThis is \\*ordinary\\* prose with \\[escaped punctuation\\].`,
+    `${recordText()}\nThe prose says DEC\\-ision and CL\\-example without reserved structure.`,
+    `${recordText()}\nThe literal text \\*Owner choice\\:* is not a field here.`,
+    `${recordText()}\nThis \\*literal &copy;\\* remains ordinary prose.`,
+    `${recordText()}\nThe prose \\#\\# CL&#45;example remains ordinary.`,
+    `${recordText()}\nThe prose \\*\\*Claus&#101;s\\:\\*\\* remains ordinary.`,
+  ]) {
+    assert.doesNotThrow(() => validateRecord(prose), prose);
+  }
+});
+
+test('invalid numeric entities remain unchanged in ordinary prose', () => {
+  for (const entityReference of [
+    '&#1114112;',
+    '&#999999999999999999999999999999999999999999;',
+    '&#x110000;',
+    '&#xD800;',
+    '&#xDC00;',
+    '&#55296;',
+  ]) {
+    assert.doesNotThrow(
+      () => validateRecord(`${recordText()}\nThe prose keeps ${entityReference} unchanged.`),
+      entityReference,
+    );
+  }
+});
+
+test('ownership candidate rejection remains linear for long nonmatching spaces', () => {
+  const nonmatching = `____${' '.repeat(4096)}`;
+  assert.doesNotThrow(() => validateRecord(`${recordText()}\n${nonmatching}`));
+});
+
 test('rendered HTML and entity grammar mutations are rejected', () => {
   for (const mutation of [
     '<h2>CL-D1 — competing owner</h2>\n<strong>Clauses:</strong> CL-D1-issue',
@@ -506,6 +662,9 @@ test('alternate underscore ownership metadata is rejected', () => {
     '__Clauses&VeryThinSpace;:__ CL-D28',
     '__Clauses&NegativeThinSpace;:__ CL-D28',
     '__Clauses:__&nbsp;CL-D28',
+    '__Clauses:__\u00a0CL-D28',
+    '__Clauses:__\u2003CL-D28',
+    '__Clauses:__\u202fCL-D28',
     '__Clauses:__&ensp;CL-D28',
     '__Clauses:__&emsp;CL-D28',
     '__Clauses:__&#32;CL-D28',
