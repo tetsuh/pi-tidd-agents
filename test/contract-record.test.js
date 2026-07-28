@@ -15,6 +15,10 @@ const { readText, readJson, exists } = require('./helpers');
 
 const RECORD = 'CONTRACT.md';
 const STRUCTURAL_VALUE = 'none — structural';
+
+function normalizeLf(text) {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
 const STRUCTURAL_DECISIONS = new Set([
   'CL-D19',
   'CL-D21',
@@ -859,7 +863,7 @@ function validateRecord(recordText, value = manifest) {
 }
 
 function sectionOf(text, id) {
-  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const normalized = normalizeLf(text);
   const pattern = new RegExp(`^## ${id.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')} — .+$`, 'm');
   const start = normalized.search(pattern);
   assert.notEqual(start, -1, `missing section ${id}`);
@@ -872,7 +876,7 @@ function removeSection(text, id) {
   return text.replace(`${section}\n`, '');
 }
 
-const recordText = () => readText(RECORD);
+const recordText = () => normalizeLf(readText(RECORD));
 
 test('the authoritative contract record exists and validates bidirectionally', () => {
   assert.ok(exists(RECORD), `${RECORD} is missing; CL-D26 makes it the authoritative record`);
@@ -931,6 +935,17 @@ test('marker ownership cannot be reassigned to an arbitrary decision', () => {
     .replace('## CL-D28 — The MVP does not publish\n**Clauses:** CL-D28', '## CL-D28 — The MVP does not publish\n**Clauses:** AC-GRANT')
     .replace('## AC-GRANT — Run-scoped publication grant\n**Clauses:** AC-GRANT', '## AC-GRANT — Run-scoped publication grant\n**Clauses:** CL-D28');
   assert.throws(() => validateRecord(mutated), /not owned by intended decision/);
+
+  // Retrospective reproduction of the Windows checkout failure: a synthetic
+  // CRLF fixture must normalize before LF mutation anchors are applied.
+  const syntheticFixture = ['before', 'mutation anchor', 'after'].join('\r\n');
+  const normalized = normalizeLf(syntheticFixture);
+  assert.equal(normalized, 'before\nmutation anchor\nafter');
+  assert.equal(
+    normalized.replace('mutation anchor\n', 'mutated\n'),
+    'before\nmutated\nafter',
+  );
+  assert.doesNotMatch(recordText(), /\r/, 'record fixture must be normalized to LF at read time');
 });
 
 test('duplicate decision headings fail instead of being silently overwritten', () => {
