@@ -183,6 +183,15 @@ The capability was removed rather than the specification refined. The byte-exact
 
 Enforced by `AC-GRANT` and by the superseded-rule guard in `test/closed-loop-regressions.test.js`, which names the retired publication wordings.
 
+## CL-D29 — Sol attempts adversarial falsification of absolute claims
+**Clauses:** AC-ADVERSARIAL, AC-ADVERSARIAL-payload-issue, AC-ADVERSARIAL-payload-pr
+
+Sol treats the exact issue or pull-request body, the current authoritative decision record and qualifying comments supplied in its payload, and applicable Skill assertions as claims to verify rather than assumed context. It semantically enumerates universal, exclusive, exhaustive, otherwise absolute, and other absolute claims, including examples only (examples-only), `always`, `never`, `unique`, `every`, `all`, `no`, `sole`, `must`, and `exactly`; keyword presence alone is not enumeration. It attempts falsification against authoritative repository files, including `CONTRACT.md`, implementation and tests, and available Git/GitHub evidence.
+
+A finding requires an actual cited counterexample disproving the claim, or a verdict-material claim that cannot be verified because required evidence is unavailable. Sol never invents a counterexample: no counterexample is neither a finding nor proof. Authoritative comments are restricted consistently with CL-D9 to non-bot authors with `author_association` `OWNER`, `MEMBER`, or `COLLABORATOR`; superseded comments from #3 are not revived.
+
+Both Skills bind the full procedure to every initial and re-invocation Sol payload because `inheritSkills: false`. The separate agent's primary benefit is model-family diversity; it may also add independent context, system-prompt, and failure boundaries. This is an existing Sol gate only: CL-D29 adds no gate, agent, mode, verdict, status token, round budget, prompt, package, or agent-file change.
+
 ## DEC-EXT-SNAPSHOT-001 — External observation resumes by re-fetching
 **Clauses:** none — structural
 *Decision ID:* DEC-EXT-SNAPSHOT-001

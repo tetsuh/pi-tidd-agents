@@ -563,6 +563,60 @@
         "operator_actions:"
       ],
       "section": "## Outcome and status block (CL-D13, CL-D14)"
+    },
+    {
+      "id": "AC-ADVERSARIAL",
+      "marker": "CL-D29",
+      "title": "Sol attempts adversarial falsification of absolute claims",
+      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "section": "### Sol adversarial consistency check (AC-ADVERSARIAL, CL-D29)",
+      "requires": [
+        "claims to verify, not assumed context",
+        "universal, exclusive, exhaustive, otherwise absolute, and other absolute claims",
+        "examples only (examples-only)",
+        "keyword",
+        "actual cited counterexample",
+        "verdict-material claim that cannot be verified",
+        "No counterexample is neither a finding nor proof",
+        "authoritative repository files",
+        "do not revive superseded comments from #3"
+      ]
+    },
+    {
+      "id": "AC-ADVERSARIAL-payload-issue",
+      "marker": "CL-D29",
+      "title": "Every issue Sol payload carries the full adversarial procedure",
+      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "section": "#### Sol adversarial payload (AC-ADVERSARIAL-payload-issue, CL-D29)",
+      "requires": [
+        "every initial Sol invocation and every Sol re-invocation",
+        "exact issue body",
+        "current authoritative decision record",
+        "semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims",
+        "examples only (examples-only)",
+        "attempt falsification against authoritative `CONTRACT.md`, implementation, tests, and available Git/GitHub evidence",
+        "require an actual cited counterexample disproving the claim",
+        "never invent a counterexample",
+        "restrict authoritative comments to non-bot `OWNER`, `MEMBER`, or `COLLABORATOR` authors under CL-D9"
+      ]
+    },
+    {
+      "id": "AC-ADVERSARIAL-payload-pr",
+      "marker": "CL-D29",
+      "title": "Every PR Sol payload carries the full adversarial procedure",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "section": "#### Sol adversarial payload (AC-ADVERSARIAL-payload-pr, CL-D29)",
+      "requires": [
+        "every initial Sol invocation and every Sol re-invocation",
+        "exact pull-request body",
+        "current authoritative decision record",
+        "semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims",
+        "examples only (examples-only)",
+        "attempt falsification against authoritative `CONTRACT.md`, implementation, tests, and available Git/GitHub evidence",
+        "require an actual cited counterexample disproving the claim",
+        "never invent a counterexample",
+        "restrict authoritative comments to non-bot `OWNER`, `MEMBER`, or `COLLABORATOR` authors under CL-D9"
+      ]
     }
   ]
 }
