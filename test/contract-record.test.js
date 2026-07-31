@@ -890,12 +890,13 @@ test('CL-D2 section preserves settled findings and scope rules', () => {
   assert.match(section, /out-of-scope improvement rather than a blocker/);
 });
 
-test('CL-D11 section preserves bounded per-gate round accounting', () => {
-  const section = sectionOf(recordText(), 'CL-D11');
-  assert.match(section, /maximum of three completed invocations per gate, per target, per run/);
-  assert.match(section, /passing round counts/);
-  assert.match(section, /rerun caused by a fix consumes a round from that gate's budget/);
-  assert.match(section, /ROUND_LIMIT_REACHED.*owner decision/s);
+test('CL-D30 section owns the exact PR autofix supersession', () => {
+  const section = sectionOf(recordText(), 'CL-D30');
+  assert.match(section, /exact PR `autofix`/);
+  assert.match(section, /bounded public-head loop/);
+  assert.match(section, /one normal commit/);
+  assert.match(section, /15\/5\/third-observation circuit breakers/);
+  assert.match(section, /later command is a fresh run/);
 });
 
 // Provenance: the ownership and parser mutation cases are review-driven regression
@@ -932,8 +933,8 @@ test('duplicate manifest id and marker keys fail before JSON.parse', () => {
 
 test('marker ownership cannot be reassigned to an arbitrary decision', () => {
   const mutated = recordText()
-    .replace('## CL-D28 — The MVP does not publish\n**Clauses:** CL-D28', '## CL-D28 — The MVP does not publish\n**Clauses:** AC-GRANT')
-    .replace('## AC-GRANT — Run-scoped publication grant\n**Clauses:** AC-GRANT', '## AC-GRANT — Run-scoped publication grant\n**Clauses:** CL-D28');
+    .replace('## CL-D28 — Mode-scoped publication boundary (historical no-publication rule)\n**Clauses:** CL-D28', '## CL-D28 — Mode-scoped publication boundary (historical no-publication rule)\n**Clauses:** AC-GRANT')
+    .replace('## AC-GRANT — Run-scoped bounded publication grant\n**Clauses:** AC-GRANT', '## AC-GRANT — Run-scoped bounded publication grant\n**Clauses:** CL-D28');
   assert.throws(() => validateRecord(mutated), /not owned by intended decision/);
 
   // Retrospective reproduction of the Windows checkout failure: a synthetic
