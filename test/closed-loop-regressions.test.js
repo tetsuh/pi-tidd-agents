@@ -126,6 +126,20 @@ const ENTRY_ARTIFACTS = [
 // unless it is named. Retired phrasings go here.
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 
+function artifactSection(text, heading) {
+  const lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
+  const start = lines.findIndex((line) => line.trim() === heading);
+  if (start === -1) return null;
+  const depth = heading.match(/^#+/)[0].length;
+  let end = start + 1;
+  while (end < lines.length) {
+    const match = lines[end].match(/^(#+)\s/);
+    if (match && match[1].length <= depth) break;
+    end += 1;
+  }
+  return lines.slice(start, end).join('\n');
+}
+
 const SUPERSEDED = [
   { files: ENTRY_ARTIFACTS, pattern: /after explicit approval/i,
     reason: 'only exact PR autofix token grants bounded CL-D30 publication' },
@@ -189,6 +203,28 @@ test('no superseded rule survives beside its replacement', () => {
     for (const file of files) {
       assert.doesNotMatch(readText(file), pattern, `${file} still carries a retired rule: ${reason}`);
     }
+  }
+});
+
+test('exact-autofix Luna ownership is protected within its authored sections', () => {
+  const skill = readText(PR_SKILL);
+  const writer = artifactSection(skill, '### The writer (CL-D3)');
+  const addendum = artifactSection(skill, '## Exact PR `autofix` addendum (CL-D30)');
+  const exactOwner = artifactSection(skill, '### Exact owner and safety boundary (CL-D30)');
+  const contract = artifactSection(readText('CONTRACT.md'), '## CL-D3 — Writer selection');
+  const readmeAutofix = artifactSection(readText('README.md'), '### Autofix');
+  for (const [name, section] of [['Skill writer', writer], ['Skill addendum', addendum], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
+    assert.ok(section, `${name} section must exist for scoped protection`);
+  }
+  assert.match(writer, /For exact `\/tidd-pr \.\.\. autofix`, `luna-worker` is mandatory/);
+  assert.match(writer, /sole correction writer and publisher/);
+  assert.match(exactOwner, /exact-autofix writer is not replaceable/);
+  assert.match(exactOwner, /always `luna-worker`/);
+  assert.match(exactOwner, /ends there and has no resume/);
+  assert.match(contract, /For exact PR `autofix`, `luna-worker` is the mandatory and sole correction writer\/publisher/);
+  assert.match(readmeAutofix, /`luna-worker` is always the mandatory sole writer\/publisher/);
+  for (const [name, section] of [['Skill writer', writer], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
+    assert.doesNotMatch(section, /default writer|default autofix writer|`luna-worker` by default|Choosing a different worker requires an explicit owner instruction|Selecting an alternate worker requires an explicit owner instruction/i, `${name} restores replaceable exact-autofix wording`);
   }
 });
 

@@ -124,11 +124,11 @@ Before the first gate or any mutation, exact PR `autofix` requires the target PR
 
 ### The writer (CL-D3)
 
-The default writer is `luna-worker`. Two constraints select it. `terra-worker` is excluded because its model **also grades the Terra gate**, and a gate verdict here is an automated exit condition rather than advice to a human, so a model must not grade its own fixes. `glm-worker`'s model does not grade a gate either, but choosing it would require a second model family on top of the reviewers', so `luna-worker`, the package's general-purpose worker, **keeps the closed-loop requirement inside one model family**.
+For exact `/tidd-pr ... autofix`, `luna-worker` is mandatory: it is the sole correction writer and publisher, never merely a default. `terra-worker` is excluded because its model **also grades the Terra gate**, and a gate verdict here is an automated exit condition rather than advice to a human, so a model must not grade its own fixes. `glm-worker`'s model does not grade a gate either, but choosing it would require a second model family on top of the reviewers', so `luna-worker`, the package's general-purpose worker, **keeps the closed-loop requirement inside one model family**.
 
-A run has **exactly one writer**. If the writer fails to start, stop. **Do not fall back to another worker**: a partially written tree followed by a second writer breaks the single-writer guarantee. Choosing a different worker requires an explicit owner instruction in conversation; it is not a command token.
+A run has **exactly one writer**. If Luna fails to start, stop. **Do not fall back to another worker**: a partially written tree followed by a second writer breaks the single-writer guarantee. An owner request or selection of any other worker is a CL-D30 contract change: stop before mutation, end the exact-autofix run, and do not resume it. Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow may select another worker under its separate permissions, but it receives no CL-D30 authority and cannot make the exact-autofix writer replaceable.
 
-Formal reviewers are read-only and never become writers. Synthesize the findings yourself, then hand the worker one bounded instruction set.
+Formal reviewers are read-only and never become writers. Synthesize the findings yourself, then hand Luna one bounded instruction set.
 
 **Never create `context.md` or `plan.md`** to brief the worker. Pass everything inline in the invocation payload. If files with those names already exist they belong to the project and are read-only inputs.
 
@@ -362,6 +362,8 @@ PR review-only may resume when the operator pastes that block back with the comm
 This addendum is selected only when the recognized target is a pull request and the final raw argument token is exactly `autofix`. It is not applied to Issue workflow or PR review-only mode. Review-only retains the preceding FIX handoff/draft path, one malformed-verdict retry, per-gate three-round accounting, external observation/reporting, and resumable `tidd-status` behavior. The exact-autofix supersession is limited to CL-D28/AC-AUTOFIX/AC-GRANT publication, CL-D11 round accounting, CL-D1 malformed-verdict retry, CL-D13 resume, CL-D17/18/24 quiet/provider/carried observation behavior, and publication-dependent CL-D23/27 prose as specified here.
 
 ### Exact owner and safety boundary (CL-D30)
+
+The exact-autofix writer is not replaceable: it is always `luna-worker`, and an owner request or selection of another worker stops the run before mutation because it would change the CL-D30 contract. The exact-autofix run ends there and has no resume. Standalone explicit worker delegation outside this workflow remains separate, receives no CL-D30 authority, and does not alter this rule.
 
 Before any exact-autofix edit, unclear, conflicting, scope-changing, architectural, compatibility, security/risk, or contract-changing finding always stops at `WAITING_FOR_OWNER(reason=owner_decision_required)`. A security or risk finding cannot be delegated merely because its mechanical patch appears obvious. The run ends at that boundary with no resume.
 

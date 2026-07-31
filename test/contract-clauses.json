@@ -60,13 +60,21 @@
     {
       "id": "CL-D3",
       "title": "Writer selection",
+      "section": "### The writer (CL-D3)",
       "files": [
         "skills/closed-loop-pr/SKILL.md"
       ],
       "requires": [
-        "luna-worker",
+        "For exact `/tidd-pr ... autofix`, `luna-worker` is mandatory",
+        "sole correction writer and publisher",
+        "never merely a default",
         "exactly one writer",
         "Do not fall back to another worker",
+        "owner request or selection of any other worker is a CL-D30 contract change",
+        "stop before mutation",
+        "Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow",
+        "no CL-D30 authority",
+        "cannot make the exact-autofix writer replaceable",
         "also grades the Terra gate",
         "keeps the closed-loop requirement inside one model family"
       ]
