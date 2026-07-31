@@ -119,21 +119,15 @@ Reviews the pull request without editing files, changing git state, committing, 
 
 The exact token `autofix`, lowercase, is the only way to permit file edits. Anything else — `Autofix`, `--autofix`, an extra argument — stops with usage rather than quietly downgrading. Autofix requires the pull request's branch to be checked out already; the workflow never switches branches for you.
 
-Autofix permits file edits and nothing more. One worker writes, and it is `luna-worker` by default: `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement.
+Autofix selects the bounded public-head loop in the Skill. `luna-worker` is always the mandatory sole writer/publisher: it performs at most one correction batch per reviewed public head, one normal commit, and one non-force push. A request for any other worker stops before mutation, ends the exact-autofix run, and has no resume because it would change the CL-D30 contract. Every push restarts at Sol. Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow remains separate and receives no CL-D30 authority. `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement. Exact identity guards, immutable run-local records, finding replies, circuit breakers, and fail-stop behavior are defined only by the Skill.
 
-### Publication is yours
+### Bounded publication
 
-This version **does not publish**. It never commits, pushes, updates a pull-request body, replies to a review thread, or touches an external service, and it will not ask for permission to. A run ends by reporting what it found and what it changed in your working tree, with the commit message and replies drafted for you. You decide what to publish and you publish it.
+In exact `autofix` mode, `luna-worker` is the sole writer/publisher for one bounded normal correction commit and one non-force push per reviewed public head. Every successful push invalidates prior approvals and restarts at Sol. The parent is the only GitHub comment actor and may post only confirmed, source-bound finding replies; the aggregate final summary remains a separate owner-approved one-shot action. All publication authority is run-scoped. Exact autofix owns complete identity guards, staged manifests, deterministic circuit breakers, immutable run-local records, and fail-stop/no-retry/no-resume behavior. Review-only mode and Issue behavior remain unchanged.
 
-A run that produced changes therefore never reports the target as ready. The gates approved what is in your working tree, not what is published, and claiming readiness for content nobody else can see would be false. It stops, hands you the drafts, and tells you what to publish; run it again afterwards against the published result.
+### Stop, status, and fresh runs (CL-D30)
 
-The **run-scoped** publication grant is documented in the skill as the contract for the later stage that will perform publication: bounded to one repository, pull request, branch and run, expiring when the run ends, and never covering merge, force-push, history rewrite, or ADR acceptance.
-
-### Pause and resume
-
-When a run stops — waiting for external review, waiting for a decision or an action from you, or at the three-round gate limit — it prints a `tidd-status` block with the target fingerprints, rounds used, dispositions, and the next permitted action. Paste that block back with the command to resume; the workflow revalidates the fingerprints before continuing.
-
-This MVP keeps no state between invocations, so the three-round gate limit is scoped to a single run. Re-running a command starts the counters again, which is why every status block reports the rounds already used.
+PR review-only retains the legacy resumable `tidd-status`, one malformed-verdict retry, and per-gate three-round accounting; it may report a next action and resume after fingerprint revalidation. Exact PR `autofix` ends on interruption, failure, owner decision, or limit: it has no retry, resume, outbox, scheduler, quiet-period polling, or durable workflow artifact. Any later exact-autofix command is a fresh run with fresh counters and reconciliation. Issue behavior remains governed by the Issue Skill.
 
 ### Language routing
 

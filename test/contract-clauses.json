@@ -17,7 +17,9 @@
       "id": "CL-D1-issue",
       "marker": "CL-D1",
       "title": "Gate verdicts are supplied by the caller, not by agent files",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "requires": [
         "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
         "Do not modify any file under `agents/`",
@@ -29,7 +31,9 @@
       "id": "CL-D1-pr",
       "marker": "CL-D1",
       "title": "Gate verdicts are supplied by the caller, not by agent files",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
         "Do not modify any file under `agents/`",
@@ -39,7 +43,10 @@
     {
       "id": "CL-D2",
       "title": "Every constraint is restated in the invocation payload",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "inheritSkills: false",
         "Invocation payload",
@@ -53,11 +60,21 @@
     {
       "id": "CL-D3",
       "title": "Writer selection",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "section": "### The writer (CL-D3)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "luna-worker",
+        "For exact `/tidd-pr ... autofix`, `luna-worker` is mandatory",
+        "sole correction writer and publisher",
+        "never merely a default",
         "exactly one writer",
         "Do not fall back to another worker",
+        "owner request or selection of any other worker is a CL-D30 contract change",
+        "stop before mutation",
+        "Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow",
+        "no CL-D30 authority",
+        "cannot make the exact-autofix writer replaceable",
         "also grades the Terra gate",
         "keeps the closed-loop requirement inside one model family"
       ]
@@ -65,7 +82,9 @@
     {
       "id": "CL-D4",
       "title": "Do not use context.md / plan.md",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "Never create `context.md` or `plan.md`"
       ]
@@ -73,7 +92,10 @@
     {
       "id": "CL-D5",
       "title": "pi-subagents is a hard runtime dependency",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "pi-subagents",
         "If `pi-subagents` is unavailable, stop and report `BLOCKED`"
@@ -83,7 +105,9 @@
       "id": "CL-D6-skill",
       "marker": "CL-D6",
       "title": "Mode token parsing is exact and fails closed",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "case-sensitive",
         "final token of the raw argument vector",
@@ -96,7 +120,9 @@
       "id": "CL-D6-prompt",
       "marker": "CL-D6",
       "title": "Mode token parsing is restated in the prompt template",
-      "files": ["prompts/tidd-pr.md"],
+      "files": [
+        "prompts/tidd-pr.md"
+      ],
       "requires": [
         "case-sensitive",
         "final exact token",
@@ -106,7 +132,10 @@
     {
       "id": "CL-D7",
       "title": "Target kind is verified, never assumed",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "complete raw argument vector",
         "one two-token reference",
@@ -117,7 +146,10 @@
     {
       "id": "CL-D8",
       "title": "Targets outside the current repository",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "another repository"
       ]
@@ -126,7 +158,9 @@
       "id": "CL-D8-foreign",
       "marker": "CL-D8",
       "title": "A foreign review-only target needs no checkout and refuses mutation",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "foreign review-only target",
         "no local Git object or checkout is required",
@@ -136,7 +170,10 @@
     {
       "id": "CL-D9",
       "title": "Authoritative comments and fingerprints",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "author_association",
         "OWNER",
@@ -153,7 +190,9 @@
       "id": "CL-D9-issue",
       "marker": "CL-D9",
       "title": "Issue fingerprint serialization is byte-stable",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "requires": [
         "no trailing separator",
         "LC_ALL=C",
@@ -164,7 +203,9 @@
       "id": "CL-D9-pr",
       "marker": "CL-D9",
       "title": "Pull-request fingerprints are evidence specific",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "pr_base",
         "pr_tree",
@@ -190,34 +231,42 @@
     },
     {
       "id": "CL-D23",
-      "title": "Candidate evidence covers the uncommitted autofix overlay",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "title": "Candidate evidence is mode-scoped and exact autofix uses the published head",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "candidate_diff",
-        "including untracked files",
-        "change detection within a single run",
-        "this MVP does not create commits",
-        "Do not commit, push, or otherwise mutate git state"
-      ]
+        "Review-only never edits any repository file",
+        "outside the repository",
+        "no post-fix formal gate consumes an uncommitted overlay",
+        "published public-head OID",
+        "legacy `candidate_diff` field is not an exact-autofix identity"
+      ],
+      "section": "### Candidate evidence boundary (CL-D23, CL-D9)"
     },
     {
       "id": "CL-D24",
       "title": "External observation is per-run and never carried forward",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "observation origin",
         "before the first Sol invocation",
-        "is not polling",
+        "not polling",
         "External evidence is never carried across runs",
         "provider-native finding identity",
-        "unknown, not complete"
+        "unknown, not complete",
+        "current-process snapshots"
       ]
     },
     {
       "id": "CL-D25",
       "marker": null,
       "title": "The validated pi-subagents minimum version is documented",
-      "files": ["README.md"],
+      "files": [
+        "README.md"
+      ],
       "requires": [
         "0.36.0 or newer",
         "do not assume support for older versions"
@@ -226,7 +275,9 @@
     {
       "id": "CL-D10",
       "title": "Worktree precondition for autofix",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "gh pr checkout",
         "Never switch branches"
@@ -235,7 +286,10 @@
     {
       "id": "CL-D11",
       "title": "Round accounting",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "at most three",
         "The passing round counts",
@@ -246,7 +300,10 @@
     {
       "id": "CL-D12",
       "title": "Round budgets are run-scoped (known MVP limitation)",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "run-scoped",
         "Do not create a state file"
@@ -255,7 +312,10 @@
     {
       "id": "CL-D13",
       "title": "Status block and resume",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "tidd-status",
         "revalidate the fingerprints"
@@ -265,7 +325,9 @@
       "id": "CL-D13-issue",
       "marker": "CL-D13",
       "title": "The issue status block marks publication as not applicable",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "requires": [
         "publication_grant: not-applicable",
         "findings: <internal finding id: disposition, one per line>"
@@ -275,7 +337,9 @@
       "id": "CL-D14-issue",
       "marker": "CL-D14",
       "title": "Canonical status tokens",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "requires": [
         "IMPLEMENTATION_READY",
         "WAITING_FOR_OWNER",
@@ -289,7 +353,9 @@
       "id": "CL-D14-pr",
       "marker": "CL-D14",
       "title": "Canonical status tokens",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "MERGE_READY",
         "WAITING_EXTERNAL_REVIEW",
@@ -297,13 +363,16 @@
         "ROUND_LIMIT_REACHED",
         "BLOCKED",
         "ABORTED",
-        "Never declare `MERGE_READY` while the candidate is unpublished"
+        "In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**"
       ]
     },
     {
       "id": "CL-D15",
       "title": "Scratch-file boundary",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "outside the repository"
       ]
@@ -311,7 +380,10 @@
     {
       "id": "CL-D16",
       "title": "Language Profile package defaults",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "conversation",
         "github.issue",
@@ -324,7 +396,9 @@
     {
       "id": "CL-D17",
       "title": "SonarCloud disposition in the MVP",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "SonarCloud",
         "cannot perform provider-side status transitions",
@@ -334,7 +408,9 @@
     {
       "id": "CL-D18",
       "title": "External observation is reported, not enforced",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "two-minute quiet period",
         "fifteen-minute",
@@ -347,7 +423,9 @@
       "id": "CL-D20-issue",
       "marker": "CL-D20",
       "title": "Precondition guard",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "requires": [
         "Precondition guard",
         "stop and print usage"
@@ -357,7 +435,9 @@
       "id": "CL-D20-pr",
       "marker": "CL-D20",
       "title": "Precondition guard",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "Precondition guard"
       ]
@@ -366,7 +446,9 @@
       "id": "CL-D22-issue",
       "marker": "CL-D22",
       "title": "Issue closed-loop model requirements and preflight",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "requires": [
         "Preflight",
         "by runtime name",
@@ -381,7 +463,9 @@
       "id": "CL-D22-pr",
       "marker": "CL-D22",
       "title": "PR closed-loop model requirements and preflight",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "Preflight",
         "by runtime name",
@@ -396,28 +480,37 @@
     {
       "id": "CL-D27",
       "title": "Autofix and publication are governed by one identity invariant",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "Target stability",
         "stop rather than continue against a moved target",
-        "this MVP performs no publication"
+        "public head OID",
+        "Before every allowed reply attempt"
       ]
     },
     {
       "id": "CL-D25-commit",
       "marker": "CL-D25",
       "title": "A normal commit under the publication grant follows the project convention",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "Conventional Commits subject",
         "issue-number reference",
-        "test provenance"
+        "test provenance",
+        "git commit -F"
       ]
     },
     {
       "id": "AC-GATES",
       "title": "Sequential Sol then Terra gates",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "sol-reviewer",
         "Never start the Terra gate before the Sol gate returns `MERGE`"
@@ -427,10 +520,13 @@
       "id": "AC-DISPOSITION",
       "title": "Finding disposition values",
       "section": "## Finding dispositions (AC-DISPOSITION)",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "fixed\naccepted-as-designed\ndeferred\nduplicate\nnot-applicable\nneeds-owner-decision",
-        "exactly one disposition"
+        "Give every actionable finding **exactly one disposition**:\n\n```text\nfixed\naccepted-as-designed\ndeferred\nduplicate\nnot-applicable\nneeds-owner-decision\n```",
+        "For each finding record"
       ]
     },
     {
@@ -438,7 +534,9 @@
       "marker": "AC-DISPOSITION",
       "title": "The issue finding record names every field",
       "section": "## Finding dispositions (AC-DISPOSITION)",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "requires": [
         "For each finding record the source gate, severity, the `issue_spec` it was raised against, evidence, impact, the disposition, the rationale, the revised passage when the disposition is `fixed`, validation evidence that the revision actually resolves the finding, and the reply or status URL once the operator has posted it."
       ]
@@ -448,25 +546,34 @@
       "marker": "AC-DISPOSITION",
       "title": "The pull-request finding record names every field",
       "section": "## Finding dispositions (AC-DISPOSITION)",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "For each finding record the source and its stable identity, severity, the fingerprint it was raised against, evidence, impact, the disposition, the rationale, the corrective change when the disposition is `fixed`, validation evidence that the change resolves the finding, and the reply or status URL once the operator has published."
+        "For each finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published.",
+        "complete stable source identity when available"
       ]
     },
     {
       "id": "AC-DECISION",
       "title": "Owner decision record names every field",
       "section": "## Owner decisions (AC-DECISION)",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions",
-        "one question at a time"
+        "Ask **one question at a time**, with options and a recommendation.",
+        "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions"
       ]
     },
     {
       "id": "AC-TDD",
       "title": "Risk-based test-first policy and truthful provenance",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "pre-implementation behavioral RED",
         "pre-implementation compile/contract RED",
@@ -484,7 +591,9 @@
     {
       "id": "AC-ISSUE-NO-EXTERNAL",
       "title": "Issue readiness excludes external gates",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "requires": [
         "are not part of issue readiness"
       ]
@@ -493,7 +602,9 @@
       "id": "AC-REVIEW-ONLY-skill",
       "marker": "AC-REVIEW-ONLY",
       "title": "Review-only prohibitions",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "Review-only is the default",
         "do not edit any file in the repository",
@@ -508,47 +619,66 @@
       "id": "AC-REVIEW-ONLY-prompt",
       "marker": "AC-REVIEW-ONLY",
       "title": "Review-only prohibition is restated in the prompt template",
-      "files": ["prompts/tidd-pr.md"],
+      "files": [
+        "prompts/tidd-pr.md"
+      ],
       "requires": [
         "do not edit any file in the repository"
       ]
     },
     {
       "id": "AC-AUTOFIX",
-      "title": "Autofix is file-mutation permission only",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "title": "Autofix token grants only bounded CL-D30 actions",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "does not by itself authorize",
-        "smallest correction"
-      ]
+        "The exact PR `autofix` token itself selects and approves only the bounded CL-D30 actions",
+        "one normal commit",
+        "one non-force push",
+        "confirmed source-finding replies",
+        "Everything else remains forbidden",
+        "does not authorize merge",
+        "aggregate-summary posting"
+      ],
+      "section": "## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)"
     },
     {
       "id": "AC-GRANT",
-      "title": "Run-scoped publication grant",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "title": "Run-scoped bounded publication grant",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "This MVP does not publish",
-        "the operator performs any publication",
-        "Drafting is not publishing",
-        "run-scoped publication grant",
-        "non-force push",
+        "Only the exact PR `autofix` mode token supplies a run-scoped publication grant",
+        "For each validated correction batch against one reviewed public head/gate result",
+        "The run-wide cap is five successful correction pushes",
+        "Issue and PR review-only have no publication grant",
         "never authorizes",
         "merge",
         "force-push",
         "history rewrite",
-        "ADR acceptance",
-        "expires when the run ends"
-      ]
+        "source-finding replies",
+        "aggregate summary posting"
+      ],
+      "section": "## Publication (AC-GRANT, CL-D28, CL-D30)"
     },
     {
       "id": "CL-D28",
       "marker": "CL-D28",
-      "title": "The MVP publication boundary is explicit",
-      "section": "## Publication (AC-GRANT, CL-D28)",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "title": "Mode-scoped publication boundary (historical no-publication rule)",
+      "section": "## Publication (AC-GRANT, CL-D28, CL-D30)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "This MVP does not publish",
-        "must not ask for that authority",
+        "Issue workflow has no publication grant",
+        "PR review-only retains the existing no-publication boundary",
+        "Only the exact PR `autofix` mode token supplies a run-scoped publication grant",
+        "For each validated correction batch against one reviewed public head/gate result",
+        "parent-owned confirmed source-finding replies",
+        "It never authorizes merge",
+        "aggregate summary posting",
         "Drafting is not publishing"
       ]
     },
@@ -556,19 +686,26 @@
       "id": "CL-D13-pr",
       "marker": "CL-D13",
       "title": "The PR status block carries resumable observation and publication state",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "external_observation: head <sha> observed_from <timestamp>, this run only",
         "findings: <internal finding id: disposition, one per line>",
-        "operator_actions:"
+        "operator_actions:",
+        "review-only",
+        "fresh run"
       ],
-      "section": "## Outcome and status block (CL-D13, CL-D14)"
+      "section": "## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)"
     },
     {
       "id": "AC-ADVERSARIAL",
       "marker": "CL-D29",
       "title": "Sol attempts adversarial falsification of absolute claims",
-      "files": ["skills/closed-loop-issue/SKILL.md", "skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "section": "### Sol adversarial consistency check (AC-ADVERSARIAL, CL-D29)",
       "requires": [
         "claims to verify, not assumed context",
@@ -586,7 +723,9 @@
       "id": "AC-ADVERSARIAL-payload-issue",
       "marker": "CL-D29",
       "title": "Every issue Sol payload carries the full adversarial procedure",
-      "files": ["skills/closed-loop-issue/SKILL.md"],
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
       "section": "#### Sol adversarial payload (AC-ADVERSARIAL-payload-issue, CL-D29)",
       "requires": [
         "every initial Sol invocation and every Sol re-invocation",
@@ -604,7 +743,9 @@
       "id": "AC-ADVERSARIAL-payload-pr",
       "marker": "CL-D29",
       "title": "Every PR Sol payload carries the full adversarial procedure",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "section": "#### Sol adversarial payload (AC-ADVERSARIAL-payload-pr, CL-D29)",
       "requires": [
         "every initial Sol invocation and every Sol re-invocation",
@@ -616,6 +757,365 @@
         "require an actual cited counterexample disproving the claim",
         "never invent a counterexample",
         "restrict authoritative comments to non-bot `OWNER`, `MEMBER`, or `COLLABORATOR` authors under CL-D9"
+      ]
+    },
+    {
+      "id": "CL-D30-loop",
+      "marker": "CL-D30",
+      "title": "Exact PR autofix public-head loop",
+      "section": "## Exact PR `autofix` addendum (CL-D30)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "This addendum is selected only when",
+        "Review-only retains the preceding",
+        "Every successful push invalidates all earlier Sol and Terra approvals",
+        "at most one correction batch"
+      ]
+    },
+    {
+      "id": "CL-D30-publication",
+      "marker": "CL-D30",
+      "title": "Exact Luna identity and publication phases",
+      "section": "### Exact identity and Luna publication phases",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Before its first edit and immediately before commit",
+        "Immediately before commit",
+        "The index is intentionally not clean",
+        "sole parent `P`",
+        "verify that the public head became `C`",
+        "git log -1 --format=%B",
+        "stored commit message bytes/content",
+        "expected approved message",
+        "no encoded backslash-n sequence",
+        "unexpected worktree or index mutation",
+        "whether the changed path is authorized",
+        "stop without cleanup"
+      ]
+    },
+    {
+      "id": "CL-D30-circuit",
+      "marker": "CL-D30",
+      "title": "Exact autofix circuit breakers and precedence",
+      "section": "### Findings, no-progress, and deterministic status",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result",
+        "Apply this deterministic action order and primary status precedence",
+        "There are maximum 15 gate invocations",
+        "Exact autofix malformed or unparsable verdict stops on first failure"
+      ]
+    },
+    {
+      "id": "CL-D30-replies",
+      "marker": "CL-D30",
+      "title": "Exact source-finding replies and final readiness",
+      "section": "### Source-finding replies and final readiness",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "A reply marker is bound to source identity",
+        "visibly re-fetch the source/destination",
+        "wait until all included findings are finally confirmed",
+        "Exclude only verified workflow-authored replies",
+        "Every reply body states the confirmed disposition",
+        "never claims that the whole PR is ready unless final readiness has independently been reached",
+        "parent must create and report the proposed aggregate final-summary body/draft",
+        "The draft is not workflow state",
+        "declining or not posting it never blocks readiness"
+      ]
+    },
+    {
+      "id": "AC-DECISION-pr",
+      "marker": "AC-DECISION",
+      "title": "The pull-request owner decision record is whole and section-scoped",
+      "section": "## Owner decisions (AC-DECISION)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions"
+      ]
+    },
+    {
+      "id": "CL-D11-review-only",
+      "marker": "CL-D11",
+      "title": "Review-only retains per-gate three-round accounting",
+      "section": "### Round accounting (CL-D11, PR review-only baseline)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Each gate allows **at most three** rounds. **The passing round counts.**",
+        "unparsable-verdict failures **do not consume a round**",
+        "At the limit, stop and report `ROUND_LIMIT_REACHED`"
+      ]
+    },
+    {
+      "id": "CL-D30-clean-boundaries",
+      "marker": "CL-D30",
+      "title": "Exact autofix clean boundary at every gate and reply phase",
+      "section": "### Public-head loop and evidence",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "At every exact-autofix boundary",
+        "fully clean at the exact published public head",
+        "concurrent local edit",
+        "cannot enter a gate, reply, final classification, or summary mutation"
+      ]
+    },
+    {
+      "id": "CL-D30-readme-mode",
+      "marker": "CL-D30",
+      "title": "README separates review-only resume from exact autofix fresh runs",
+      "section": "### Stop, status, and fresh runs (CL-D30)",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "PR review-only retains the legacy resumable `tidd-status`",
+        "Exact PR `autofix` ends",
+        "Any later exact-autofix command is a fresh run"
+      ]
+    },
+    {
+      "id": "CL-D30-mode-safety",
+      "marker": "CL-D30",
+      "title": "Exact autofix is mode-gated against review-only and Issue",
+      "section": "## Exact PR `autofix` addendum (CL-D30)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "It is not applied to Issue workflow or PR review-only mode.",
+        "The exact-autofix supersession is limited",
+        "Before any exact-autofix edit",
+        "unclear, conflicting, scope-changing, architectural, compatibility, security/risk, or contract-changing finding",
+        "always stops at `WAITING_FOR_OWNER(reason=owner_decision_required)`",
+        "A security or risk finding cannot be delegated",
+        "The run ends at that boundary with no resume"
+      ]
+    },
+    {
+      "id": "CL-D30-language-boundary",
+      "marker": "CL-D30",
+      "title": "Posting boundary is mode-scoped and provider-safe",
+      "section": "## Language Profile (CL-D16)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Review-only never posts.",
+        "neither mode posts to `external_sites` or calls provider-specific mutation APIs."
+      ]
+    },
+    {
+      "id": "CL-D30-precondition",
+      "marker": "CL-D30",
+      "title": "Exact autofix starts only at clean published head",
+      "section": "### Worktree precondition (CL-D10)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Before the first gate or any mutation, exact PR `autofix` requires",
+        "exactly matching the published public head",
+        "Exact autofix has no resume"
+      ]
+    },
+    {
+      "id": "CL-D30-readiness",
+      "marker": "CL-D30",
+      "title": "Exact autofix readiness is not blocked by aggregate draft",
+      "section": "## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Exact PR `autofix` has no uncommitted candidate",
+        "optional aggregate-summary draft never blocks readiness",
+        "Exact PR `autofix` never resumes"
+      ]
+    },
+    {
+      "id": "CL-D30-gate-correlation",
+      "marker": "CL-D30",
+      "title": "Exact gates inherit shared verdict/payload/adversarial contract and full correlation",
+      "section": "### Exact gate contract and correlation (CL-D1, CL-D2, CL-D29)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "shared CL-D1 exact verdict vocabulary",
+        "CL-D2 invocation-payload duties",
+        "CL-D29 adversarial duties",
+        "fresh independent Sol/Terra roles",
+        "Every exact Sol/Terra gate payload and verdict-bearing result",
+        "repository, PR number, base OID",
+        "open/non-draft lifecycle state",
+        "run-wide invocation number",
+        "review-evidence snapshot fingerprint",
+        "Missing, malformed, stale, duplicated, or mismatched correlation stops"
+      ]
+    },
+    {
+      "id": "CL-D30-preconditions",
+      "marker": "CL-D30",
+      "title": "Exact autofix preconditions include lifecycle and non-force writability",
+      "section": "### Worktree precondition (CL-D10)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "target PR to be open and non-draft",
+        "head branch to be verified writable by a normal actor-authorized non-force push",
+        "writability result to be unambiguous",
+        "fails closed before review or mutation",
+        "normal actor-authorized non-force push without branch-protection or ruleset bypass",
+        "A branch is not considered writable when success depends on the actor's bypass permission",
+        "bypass-dependent branch/ruleset write preflight fails closed"
+      ]
+    },
+    {
+      "id": "CL-D30-luna-authorization",
+      "marker": "CL-D30",
+      "title": "Luna payload and complete identity guards are explicit",
+      "section": "### Exact identity and Luna publication phases",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "The parent Luna payload must contain",
+        "finding IDs and authorized corrections",
+        "permitted scope and paths",
+        "validation requirements",
+        "maximum one commit and one push",
+        "every forbidden action",
+        "immediately before commit",
+        "Immediately after commit and before push",
+        "complete target identity again",
+        "Before its first edit and immediately before commit",
+        "local `HEAD` is public parent `P`",
+        "Immediately after commit and before push",
+        "local `HEAD` is verified commit `C`",
+        "After the non-force push, verify that the public head became `C`",
+        "all three local dimensions",
+        "the tracked worktree",
+        "the index",
+        "the untracked state",
+        "pre-existing tracked unstaged edit is rejected"
+      ]
+    },
+    {
+      "id": "CL-D30-manifest",
+      "marker": "CL-D30",
+      "title": "Run-local staged manifest binds parent/tree/inventory/blob identities",
+      "section": "### Exact identity and Luna publication phases",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "run-local staged manifest is complete and immutable",
+        "parent OID, staged tree OID",
+        "exact path/status/mode inventory",
+        "staged blob identities",
+        "manifest must still match the index exactly",
+        "commit tree/inventory/blob identities to equal the manifest"
+      ]
+    },
+    {
+      "id": "CL-D30-source-schema",
+      "marker": "CL-D30",
+      "title": "Source identity and owner confirmation assignment are complete",
+      "section": "## Finding dispositions (AC-DISPOSITION)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "complete stable source identity",
+        "source kind, source ID, source URL",
+        "author identity and author type",
+        "body digest",
+        "created and updated timestamps",
+        "review-commit association",
+        "path and line association"
+      ]
+    },
+    {
+      "id": "CL-D30-snapshot-routing",
+      "marker": "CL-D30",
+      "title": "Snapshot evidence routes new findings to Sol and allows confirmed finding replies",
+      "section": "### Public-head loop and evidence",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "before Terra",
+        "before replies",
+        "post-reply snapshot",
+        "routes to Sol on the same public head",
+        "reply-eligible immediately",
+        "do not wait for whole-PR `MERGE`"
+      ]
+    },
+    {
+      "id": "CL-D30-reply-safety",
+      "marker": "CL-D30",
+      "title": "Reply batches preflight destinations and bind deterministic evidence",
+      "section": "### Source-finding replies and final readiness",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "preflight every planned destination and source",
+        "Order the batch deterministically by source identity",
+        "Every reply body states the confirmed disposition",
+        "corrective commit if any",
+        "confirming gate and exact head",
+        "bounded validation evidence"
+      ]
+    },
+    {
+      "id": "CL-D30-summary-safety",
+      "marker": "CL-D30",
+      "title": "Aggregate summary approval is complete and fail-stop",
+      "section": "### Source-finding replies and final readiness",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "destination language",
+        "exact body bytes",
+        "body length",
+        "body digest",
+        "exactly one comment action",
+        "Immediately before posting, revalidate every bound field",
+        "any movement expires approval",
+        "Failure, rejection, timeout, permission error, or ambiguous result stops with no retry"
+      ]
+    },
+    {
+      "id": "CL-D30-breaker-boundaries",
+      "marker": "CL-D30",
+      "title": "Circuit breaker wording prevents only sixteenth gate and sixth push",
+      "section": "### Findings, no-progress, and deterministic status",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "completed gate counter is already 15",
+        "successful-push counter is already 5",
+        "guards prevent only the 16th invocation and sixth push",
+        "15th invocation and fifth successful push may complete"
       ]
     }
   ]

@@ -27,7 +27,7 @@ Without that last part the gate loop cannot terminate. Reviewers run with fresh 
 ## CL-D3 — Writer selection
 **Clauses:** CL-D3
 
-The default autofix writer is `luna-worker`. A run has **exactly one writer**; if that writer fails to start, stop and **Do not fall back to another worker**. Selecting an alternate worker requires an explicit owner instruction in conversation.
+For exact PR `autofix`, `luna-worker` is the mandatory and sole correction writer/publisher. A run has **exactly one writer**; if Luna fails to start, stop and **Do not fall back to another worker**. An owner request for any other worker is a CL-D30 contract change: stop before mutation, end the exact-autofix run, and do not resume it. Alternate-worker wording applies only to standalone explicit worker delegation outside the `/tidd-pr ... autofix` workflow; that delegation receives no CL-D30 authority and does not make the exact-autofix writer replaceable.
  `terra-worker` is excluded because its model also grades the Terra gate, and a gate verdict here is an automated exit condition rather than advice to a human. `glm-worker`'s model does not grade a gate either, so the self-grading argument alone does not separate it; it is excluded because choosing it would require a second model family on top of the reviewers'.
 
 The originally published rationale claimed `luna-worker` was the only worker whose model is not a gate grader. That was false, and the contract test had literal-matched the false wording, so the suite held the error in place.
@@ -72,7 +72,7 @@ An authoritative comment is one whose `author_association` is `OWNER`, `MEMBER` 
 Autofix requires the head branch already checked out and a clean tree. The workflow never switches branches, stashes, or discards: that is a git-state change nobody authorised and it can destroy uncommitted work.
 
 ## CL-D11 — Round accounting
-**Clauses:** CL-D11
+**Clauses:** CL-D11, CL-D11-review-only
 
 A round is one completed gate invocation returning a parsable verdict. There are a maximum of three completed invocations per gate, per target, per run, and the passing round counts. A gate rerun caused by a fix consumes a round from that gate's budget; a later gate forcing a change to something an earlier gate approved reruns the earlier gate against its own budget. Tool, provider, startup, stale-target and unparsable-verdict failures do not consume one. On exhaustion, report `ROUND_LIMIT_REACHED` and request an owner decision before continuing.
 
@@ -101,7 +101,7 @@ Review-only forbids modifying anything inside the repository working tree and an
 ## CL-D16 — Language Profile package defaults
 **Clauses:** CL-D16
 
-Conversation follows the operator's language; `github.issue` and `github.pull_request` default to English; external sites are unset and the workflow stops to ask before drafting content for one. The trigger is drafting rather than posting, because this MVP never posts and a trigger tied to the first post would never fire. The profile never governs source code, comments, documentation or commit messages.
+Conversation follows the operator's language; `github.issue` and `github.pull_request` default to English; external sites are unset and the workflow stops to ask before drafting content for one. Issue workflow and PR review-only never post. Exact PR `autofix` may post only CL-D30's bounded confirmed GitHub source-finding replies; it never posts to `external_sites` or calls provider APIs, and Issue/review-only likewise never post to `external_sites` or call provider APIs. The trigger remains drafting rather than posting: when an external destination has no configured language, the workflow stops before drafting rather than guessing, so no posting capability is required to enforce the language boundary. The profile never governs source code, comments, documentation or commit messages.
 
 ## CL-D17 — SonarCloud disposition
 **Clauses:** CL-D17
@@ -139,10 +139,10 @@ The closed loop composes this exact runtime set: `sol-reviewer` → `gpt-5.6-sol
 
 The closed loop composes a fixed agent set, unlike à la carte standalone use. Skills name agents by runtime name and never by model ID, so an operator without those models can supply their own definitions under the same names. Each skill preflights the agents its own command needs, and a missing agent stops the run rather than failing mid-gate.
 
-## CL-D23 — Candidate evidence after autofix edits
+## CL-D23 — Candidate evidence boundary by mode
 **Clauses:** CL-D23
 
-Post-fix gates receive the exact working-tree change including untracked files, since `pr_tree` and `pr_diff` do not move for uncommitted edits. `candidate_diff` is a `sha256` over that change set, and its job is change detection within a single run — not proof across machines or sessions, and never compared against a commit, because this MVP creates none.
+Review-only never edits the repository and has no formal post-fix working-tree candidate; proposed patches and drafts stay outside the repository. Exact PR `autofix` uses only the published public-head OID after Luna's normal commit and verified non-force push. `candidate_diff` is not an exact-autofix identity and is not used to authorize a gate, resume, or publication.
 
 ## CL-D24 — External observation is per-run and never carried forward
 **Clauses:** CL-D24
@@ -170,18 +170,18 @@ Enforced by `test/contract-record.test.js`, which is this decision.
 
 The target identity is re-resolved before every gate invocation and must be unchanged; anything else stops the run without mutation, and nothing is cleaned or switched to make the check pass.
 
-The rule is short because this MVP performs no publication. An earlier version enumerated phases — before the commit, after the commit, before the push, after the push — and review found the enumeration covered commit and push while leaving body updates, replies, dispositions and summaries unguarded. Enumeration invites omission; adding the missing phase only moves it.
+The rule was short while the review-only MVP performed no publication. CL-D30 exact PR `autofix` now supplies explicit edit, commit, push, reply, final-classification, and summary-approval phases; every phase is bound by complete target identity and stale-target safety.
 
-## CL-D28 — The MVP does not publish
+## CL-D28 — Mode-scoped publication boundary (historical no-publication rule)
 **Clauses:** CL-D28
 
-The workflow never commits, pushes, updates a body, replies to a thread, or changes an external service, and must not ask for that authority. A run reports what it found and what it changed in the working tree, with commit messages and replies drafted. The operator publishes.
+Issue workflow and PR review-only remain no-publication modes: they never commit, push, update a body, reply to a thread, or change an external service, and must not ask for that authority. Exact PR `autofix` is the sole scoped exception: the exact `autofix` token is the run-scoped approval only for CL-D30's bounded per-reviewed-public-head correction commit/non-force push and confirmed source-finding replies. All other publication, merge, force-push, history rewrite, provider mutation, approval, thread-resolution, authoritative Issue change, and aggregate-summary actions remain prohibited.
 
 Three consecutive reviews each returned four valid findings of one shape: a comparison or digest specified without a byte-exact serialisation, whose fix introduced the next one. Closing the class meant writing Git's tree-hashing algorithm and a canonical serialisation of GitHub's event streams in Markdown, for a model to execute at runtime. The decisive objection is not the size of that work but that the clause suite can only verify that prose is present, never that a model executes it — so a more elaborate specification buys review approval without buying correctness.
 
-The capability was removed rather than the specification refined. The byte-exact machinery belongs to #4 and #5, where it is code: a tree hash is a library call, fixtures are real files, and tests exercise behaviour instead of asserting that a paragraph exists.
+Historical rationale: the original review-only MVP capability was removed rather than the specification refined. The byte-exact machinery belongs to #4 and #5, where it is code: a tree hash is a library call, fixtures are real files, and tests exercise behaviour instead of asserting that a paragraph exists. CL-D30 is the later, deliberately narrower decision and does not reopen this rule for Issue or review-only.
 
-Enforced by `AC-GRANT` and by the superseded-rule guard in `test/closed-loop-regressions.test.js`, which names the retired publication wordings.
+The current mode-scoped boundary is enforced by `AC-GRANT` and by the scoped/negative contract assertions in `test/closed-loop-regressions.test.js`.
 
 ## CL-D29 — Sol attempts adversarial falsification of absolute claims
 **Clauses:** AC-ADVERSARIAL, AC-ADVERSARIAL-payload-issue, AC-ADVERSARIAL-payload-pr
@@ -191,6 +191,19 @@ Sol treats the exact issue or pull-request body, the current authoritative decis
 A finding requires an actual cited counterexample disproving the claim, or a verdict-material claim that cannot be verified because required evidence is unavailable. Sol never invents a counterexample: no counterexample is neither a finding nor proof. Authoritative comments are restricted consistently with CL-D9 to non-bot authors with `author_association` `OWNER`, `MEMBER`, or `COLLABORATOR`; superseded comments from #3 are not revived.
 
 Both Skills bind the full procedure to every initial and re-invocation Sol payload because `inheritSkills: false`. The separate agent's primary benefit is model-family diversity; it may also add independent context, system-prompt, and failure boundaries. This is an existing Sol gate only: CL-D29 adds no gate, agent, mode, verdict, status token, round budget, prompt, package, or agent-file change.
+
+## CL-D30 — Exact PR autofix publishes one bounded correction per public head
+**Clauses:** CL-D30-loop, CL-D30-publication, CL-D30-circuit, CL-D30-replies, CL-D30-clean-boundaries, CL-D30-readme-mode, CL-D30-mode-safety, CL-D30-language-boundary, CL-D30-precondition, CL-D30-readiness, CL-D30-gate-correlation, CL-D30-preconditions, CL-D30-luna-authorization, CL-D30-manifest, CL-D30-source-schema, CL-D30-snapshot-routing, CL-D30-reply-safety, CL-D30-summary-safety, CL-D30-breaker-boundaries
+
+*Decision ID:* CL-D30
+*Kind:* contract
+*Target and revision:* exact `/tidd-pr <pr-ref> autofix` on the published Issue #10 contract
+*Question:* How may exact PR autofix correct and publish a reviewed public head while preserving review-only and Issue behavior?
+*Options and trade-offs:* Keep the CL-D28 no-publication MVP; add unrestricted publication; or authorize one bounded Luna normal commit/non-force push loop with immutable identity and fail-stop guards. Keeping no publication cannot implement the approved public-head loop; unrestricted publication violates the safety boundary; the bounded loop permits only the settled correction and reply actions.
+*Recommendation:* Adopt the bounded public-head loop specified by Issue #10.
+*Owner choice:* Adopt exact PR `autofix` only; Sol first, Terra second, mandatory `luna-worker` as the sole correction writer/publisher for correction/validation/one normal commit/one non-force push, restart at Sol after every push, and parent-only confirmed source-finding replies. A request for another worker stops before mutation and ends the exact-autofix run with no resume.
+*Rationale:* The exact public head OID is the candidate identity. Complete target guards, clean-baseline and staged-manifest checks, immutable run-local blocker/confirmation records, 15/5/third-observation circuit breakers, and fail-stop behavior constrain publication without adding an extension, runtime state machine, durable workflow state, retry, resume, outbox, scheduler, or provider adapter. Review-only and Issue behavior remain unchanged, and aggregate summaries remain owner-approved actions outside the run.
+*Validity and invalidation conditions:* Applies only to exact PR `autofix`, the current repository/PR/base/head identity, and the published Issue #10 scope. Any identity movement, ambiguity, failed guard, malformed verdict/record, validation or publication failure, owner decision, interruption, or limit ends the run; a later command is a fresh run, never resume. CL-D28/AC-AUTOFIX/AC-GRANT are superseded only for this bounded commit, non-force push, and source-finding replies. CL-D11, CL-D1, CL-D13, CL-D17/18/24, and publication-dependent CL-D23/27 prose are superseded only as explicitly scoped in the Skill.
 
 ## DEC-EXT-SNAPSHOT-001 — External observation resumes by re-fetching
 **Clauses:** none — structural
@@ -208,13 +221,13 @@ Its outcome is enforced by `CL-D24`. Renovating the record preserves the final a
 
 ---
 
-## AC-AUTOFIX — Autofix is file-mutation permission only
+## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions
 **Clauses:** AC-AUTOFIX
 
-It does not by itself authorise commits, pushes, comments, external changes, history rewriting or merge, and only the smallest correction inside the approved contract is applied.
+Without the exact PR `autofix` token, Issue and PR review-only remain file-mutation-free and publication-free. The exact token itself is the run-scoped approval only for the smallest CL-D30 correction batch per reviewed public head: one normal commit, one non-force push, and confirmed source-finding replies. It does not authorize merge, force-push, amend, rebase, history rewriting, provider mutation, approval, thread resolution, authoritative Issue changes, aggregate-summary posting, or any different target.
 
 ## AC-DECISION — Owner decision record
-**Clauses:** AC-DECISION
+**Clauses:** AC-DECISION, AC-DECISION-pr
 
 Nine fields: Decision ID, Kind, Target and revision, Question, Options and trade-offs, Recommendation, Owner choice, Rationale, Validity and invalidation conditions. Questions are asked one at a time.
 
@@ -228,10 +241,10 @@ Every actionable finding gets exactly one of `fixed`, `accepted-as-designed`, `d
 
 The Terra gate never starts before the Sol gate returns `MERGE`.
 
-## AC-GRANT — Run-scoped publication grant
+## AC-GRANT — Run-scoped bounded publication grant
 **Clauses:** AC-GRANT
 
-Documented as the contract for the stage that will perform publication, so it is not redesigned from scratch. It never authorises merge, force-push, amend, rebase, history rewrite, ADR acceptance, authoritative issue changes, failed-gate bypass, or a different target, and it expires when its run ends. This MVP does not exercise it (CL-D28).
+Historical rationale: this grant was originally documented for a later publication stage rather than exercised by the review-only MVP. Current rule: the exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30's bounded one-normal-commit/non-force-push correction batch per reviewed public head and confirmed source-finding replies. The grant never authorizes merge, force-push, amend, rebase, history rewrite, ADR acceptance, authoritative Issue changes, failed-gate bypass, provider mutation, aggregate-summary posting, or a different target, and it expires when its run ends. Issue and PR review-only have no publication grant.
 
 ## AC-ISSUE-NO-EXTERNAL — Issue readiness excludes external gates
 **Clauses:** AC-ISSUE-NO-EXTERNAL
