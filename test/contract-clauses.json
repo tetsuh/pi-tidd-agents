@@ -850,6 +850,7 @@
         "wait until all included findings are finally confirmed",
         "Exclude only verified workflow-authored replies",
         "Every reply body states the confirmed disposition",
+        "Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state except for the sole provider-mutation exception: posting the exact confirmed CL-D30 GitHub source-finding reply.",
         "never claims that the whole PR is ready unless final readiness has independently been reached",
         "parent must create and report the proposed aggregate final-summary body/draft",
         "The draft is not workflow state",

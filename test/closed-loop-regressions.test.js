@@ -216,11 +216,15 @@ test('provider mutation exceptions remain scoped in PR Skills and prompt', () =>
   const language = artifactSection(readText(PR_SKILL), '## Language Profile (CL-D16)');
   const autofix = artifactSection(readText(PR_SKILL), '## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)');
   const publication = artifactSection(readText(PR_SKILL), '## Publication (AC-GRANT, CL-D28, CL-D30)');
+  const replies = artifactSection(readText(PR_SKILL), '### Source-finding replies and final readiness');
   for (const [name, section] of [['Language Profile', language], ['Autofix', autofix], ['Publication', publication]]) {
     assert.ok(section, `${name} section must exist for provider-mutation protection`);
     assert.match(section, new RegExp(exception, 'i'));
     assert.doesNotMatch(section, /(?:neither mode|does not authorize|never authorizes)[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s, `${name} restores an unqualified provider-mutation prohibition`);
   }
+  assert.ok(replies, 'Source-finding replies section must exist for provider-mutation protection');
+  assert.match(replies, /Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state except for the sole provider-mutation exception: posting the exact confirmed CL-D30 GitHub source-finding reply\./);
+  assert.doesNotMatch(replies, /Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state\./);
   const prompt = readText('prompts/tidd-pr.md');
   assert.match(prompt, new RegExp(exception, 'i'));
   assert.doesNotMatch(prompt, /never authorizes[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s);
