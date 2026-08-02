@@ -28,9 +28,9 @@ const PROMPTS = {
   'prompts/tidd-pr.md': { hint: '<pr-ref> [autofix]', skill: 'closed-loop-pr' },
 };
 
-let packedFiles = null;
-function packFileList() {
-  if (packedFiles) return packedFiles;
+let packedEntries = null;
+function packEntryList() {
+  if (packedEntries) return packedEntries;
   const stdout = execSync('npm pack --dry-run --json', {
     cwd: repoRoot,
     encoding: 'utf8',
@@ -40,8 +40,11 @@ function packFileList() {
   const end = stdout.lastIndexOf(']');
   assert.ok(start !== -1 && end > start, `could not parse npm pack output:\n${stdout}`);
   const report = JSON.parse(stdout.slice(start, end + 1));
-  packedFiles = report[0].files.map((entry) => entry.path.replace(/\\/g, '/'));
-  return packedFiles;
+  packedEntries = report[0].files.map((entry) => ({ ...entry, path: entry.path.replace(/\\/g, '/') }));
+  return packedEntries;
+}
+function packFileList() {
+  return packEntryList().map((entry) => entry.path);
 }
 
 test('the existing subagent registration is preserved', () => {
@@ -56,6 +59,7 @@ test('the package registers the closed-loop skills and prompts', () => {
 test('the MVP introduces no extension', () => {
   assert.equal(manifest.pi.extensions, undefined, 'pi.extensions must be absent in the MVP');
   assert.equal(manifest.main, undefined, 'the package must not declare a JavaScript entry point');
+  assert.equal(manifest.bin, undefined, 'the package must not declare an executable controller');
 });
 
 test('the published file set carries every closed-loop resource', () => {
@@ -134,6 +138,21 @@ test('no skill or prompt hard-codes a model ID', () => {
       /gpt-5\.6-|glm-5\.2/,
       `${file} hard-codes a model ID, which would defeat name-level agent overrides (CL-D22)`,
     );
+  }
+});
+
+// CL-D31 packaging: the legacy package ships prose only and no executable controller.
+test('Issue #13 CL-D31 legacy artifacts are packaged without a controller', () => {
+  const entries = packEntryList();
+  const files = entries.map((entry) => entry.path);
+  for (const entry of ['skills/closed-loop-issue/SKILL.md', 'prompts/tidd-issue.md', 'README.md']) {
+    assert.ok(files.includes(entry), `Issue 13 artifact missing from packed tarball: ${entry}`);
+  }
+  assert.ok(!files.some((file) => /(?:controller|extension)/i.test(file)));
+  const allowed = /^(?:LICENSE|README\.md|THIRD_PARTY_NOTICES\.md|package\.json|(?:agents|skills|prompts)\/[A-Za-z0-9._/-]+\.md)$/;
+  for (const entry of entries) {
+    assert.match(entry.path, allowed, `unexpected non-prose package payload: ${entry.path}`);
+    assert.equal(Number(entry.mode) & 0o111, 0, `packed entry must not be executable: ${entry.path}`);
   }
 });
 

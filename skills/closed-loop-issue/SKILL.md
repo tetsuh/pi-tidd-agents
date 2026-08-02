@@ -50,7 +50,7 @@ Use `LC_ALL=C`, `printf '%s'`, explicit UTF-8 input, and `sha256sum` (or an equi
 
 An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**. Every other comment is advisory context and stays out of the fingerprint.
 
-Recompute `issue_spec` before declaring readiness. If it changed since a gate passed, that gate's result is stale and the gate must run again.
+Outside the CL-D31 candidate-publication phase, recompute `issue_spec` before declaring readiness; if it changed since a gate passed, that gate is stale and must run again. During CL-D31, gates are bound to the base `issue_spec` and exact frozen candidate; the separately computed snapshot-C final `issue_spec` may establish readiness without duplicate gates only through the byte/content-identity proof below.
 
 ## Language Profile (CL-D16)
 
@@ -68,37 +68,31 @@ languages:
 - Converse in `conversation`.
 - Write issue titles, bodies, comments, decisions, and waivers in `github.issue`.
 - Use `github.pull_request` for pull-request destinations.
-- For any destination under `external_sites` that has no configured language, **stop and ask before drafting content for that destination** rather than guessing. The trigger is drafting, not posting: this MVP never posts, so a trigger tied to the first post would never fire.
+- For any destination under `external_sites` that has no configured language, **stop and ask before drafting content for that destination** rather than guessing. The trigger is drafting, not posting: the CL-D31 exception only permits its exact GitHub Issue actions; external destinations without a configured language still stop before drafting.
 - This profile **never governs source code**, code comments, repository documentation, or commit messages. Those follow project instructions.
 
 Quote source text verbatim when quoting is needed.
 
-## Mutation boundary (CL-D15)
+## Mutation boundary (CL-D15, CL-D28, CL-D31)
 
-This skill has no autofix mode. For the whole run:
+The default remains review-and-draft only. Before candidate construction and outside the candidate-publication phase:
 
 - do not edit any file in the repository, tracked or untracked;
 - do not change git state;
-- do not post, edit, or close anything on GitHub.
+- do not post, edit, or close anything on GitHub;
+- do not mutate a provider-side review service or any external service.
 
-Draft the revised specification in the configured issue language and show it to the operator. This MVP **does not publish**; the operator posts it (CL-D28).
-
-Working notes, the disposition ledger, and drafts belong in a temporary directory **outside the repository**.
+Working notes, the disposition ledger, and drafts belong in a temporary directory **outside the repository**. The only exception is the exact CL-D31 workflow below. It does not add an executable controller or extension and never grants authority to PR commands, other aliases, foreign repositories, standalone workers, or unlisted actions.
 
 ## Gate loop (AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 
-The order is fixed and sequential:
+The order is fixed and sequential for legacy review, and the CL-D31 candidate path is a bounded extension:
 
 ```text
-specification
-→ sol-reviewer gate
-→ disposition and revision
-→ Sol MERGE
-→ terra-oracle gate
-→ disposition and revision
-→ Terra MERGE
-→ IMPLEMENTATION_READY
+specification → sol-reviewer gate → disposition/revision → Sol MERGE → terra-oracle gate → disposition/revision → Terra MERGE
 ```
+
+Before candidate construction, legacy review-and-draft status/resume remains available. Once CL-D31 candidate construction begins, the candidate phase is non-resumable and the exact preview/publication rules in the CL-D31 section apply.
 
 `sol-reviewer` owns requirements, contracts, scope, acceptance, feasibility, and the bounded adversarial check below. `terra-oracle` then checks the revised specification against inherited decisions for contradiction and drift. **Never start the Terra gate before the Sol gate returns `MERGE`.**
 
@@ -151,9 +145,61 @@ Without this the loop cannot terminate. Reviewers run with fresh context and `in
 - Each gate allows **at most three** rounds. **The passing round counts.**
 - Tool, provider, startup, stale-target, and unparsable-verdict failures **do not consume a round**.
 - If a Terra finding forces a change to something Sol already approved, the Sol gate must run again and consumes one of its own rounds.
-- At the limit, stop and report `ROUND_LIMIT_REACHED` and ask the owner whether to grant more rounds.
+- At the limit, ask the owner whether to grant more rounds. Before candidate construction and outside the candidate-publication phase, report `ROUND_LIMIT_REACHED` through the legacy status path. During CL-D31, pause only as a live same-session owner question without emitting resumable state; an individually granted extension remains bound to the same frozen candidate and session. A decline, session end, later command, or ungranted limit terminates the phase and discards candidate authority.
 
 Round budgets are **run-scoped**. This MVP keeps no state between invocations, so re-running the command resets every counter. Report rounds used per gate in every status block so the owner can carry them forward. **Do not create a state file** to work around this; persistent workflow state is a later stage.
+
+## Owner-gated Issue candidate publication (CL-D31)
+
+This legacy Skill/prompt package remains prose orchestration with no executable controller or extension. The bounded authority is one optional body PATCH and one exact ledger POST. The fixed review order is Sol-before-Terra. After both gates return MERGE, the parent shows an exact same-session owner preview; readiness retains the disclosed observational residual risk.
+
+This section is the authoritative implementation of published Issue #13 and applies identically to the two equivalent entrypoints `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>`. The legacy Skill/prompt package remains the orchestrating runtime; this is a Skill/prompt-only orchestration contract: it is normative prose plus test-local reference fixtures, not an executable controller. A foreign-repository Issue remains review-and-draft-only and never receives an exact preview or mutation authority.
+
+### Candidate phase and immutable bundle
+
+The candidate-publication phase begins when the complete candidate bundle and its candidate identity are constructed, before the first counted Sol invocation. Construct one repository-external `tidd-issue-candidate-v1` bundle for one complete current Issue snapshot. The bundle contains the checkout and target repository identity, Issue number and URL, base `issue_spec`, canonical base and proposed body bytes/digests, complete unified body diff bytes/digest, every authoritative comment identity and body, exactly one complete English finding/disposition ledger comment, separate complete AC-DISPOSITION records, complete DEC-I13 owner decisions, and the complete authoritative-comment identity set. Every finding record carries source gate, severity, reviewed base/candidate identity, evidence, impact, exactly one disposition, rationale, revised passage when fixed, validation evidence, and source/reply/status URL or an explicit snapshot-C assignment.
+
+Freeze that complete bundle as one immutable same-session object; this is the frozen complete bundle used by every gate and preview. The exact canonical UTF-8/LF diff bytes, including labels, context, and hunks, are frozen even though the diff is not in the candidate-v1 identity stream. Every gate launch identity maps to this object; both gates and the owner preview reuse its exact bytes without regeneration. A diff-only substitution that leaves candidate-v1 unchanged invalidates the affected evidence and restarts at Sol. The bundle is never restored from pasted status or another session.
+
+Candidate identity is the lowercase hexadecimal SHA-256 digest over the complete `tidd-issue-candidate-v1` byte stream, from the domain header through the final newline of `ledger.comment`. Candidate-v1 uses the exact ASCII domain header `tidd-issue-candidate-v1\n` and this exact fixed ordered field sequence: `repository`, `issue.number`, `issue.url`, `base.issue_spec.sha256`, `base.body`, `base.comments.count`, then for each authoritative comment in ascending numeric comment-ID order `base.comments.<index>.id`, `base.comments.<index>.updated_at`, `base.comments.<index>.body`, followed by `proposed.body`, and `ledger.comment`. Comment indices are zero-based, contiguous, and numeric; the count is the complete count. Every field is `<field-name> <decimal-utf8-byte-length>\n<raw-bytes>\n`; names are exactly ASCII `[a-z0-9._-]+`, decimal lengths are ASCII digits with no leading zero except `0`, and byte lengths count normalized raw UTF-8 payload bytes. Text normalizes CRLF and CR to LF before encoding. `repository` is the GitHub API `repository.full_name` ASCII; Issue number, comment count, index, and IDs are leading-zero-free ASCII decimals; URL is exactly `https://github.com/<repository>/issues/<issue.number>`; timestamps are strict UTC `YYYY-MM-DDTHH:mm:ssZ`; and SHA-256 values are lowercase 64-hex ASCII. The derived display diff never replaces either body field. Any schema, field, order, framing, scalar, or canonicalization change requires a new serialization version and exact domain header even when sample bytes happen to match.
+
+### Checkout identity and complete stable snapshots
+
+Resolve the current checkout repository without changing Git state. If the current branch has one configured upstream remote other than `.`, select it; otherwise select every configured remote. For each selected remote independently obtain the complete effective fetch and push sets using Git's own `git remote get-url --all <remote>` and `git remote get-url --push --all <remote>` behavior. Never inspect only the first URL, synthesize push from fetch, or infer either set from raw configuration. Effective `insteadOf`, `pushInsteadOf`, explicit push URLs, and fallback semantics must be included.
+
+Continue only when every selected remote has non-empty effective fetch and push sets. Recognized inputs are exactly `https://github.com/<owner>/<repo>[.git]`, `ssh://git@github.com/<owner>/<repo>[.git]`, and `git@github.com:<owner>/<repo>[.git]`, with no query or fragment. Every parsed identity must resolve through the GitHub API to one canonical `repository.full_name`. Missing, local-only, malformed, non-GitHub, ambiguous, conflicting fetch/push, fork/upstream, moved, or multiple-repository identity fails closed. The resolved checkout repository must exactly equal the candidate repository and target API repository. Re-resolve before preview, snapshot A, PATCH, and POST. A foreign target is always review-and-draft-only.
+
+Every initial candidate snapshot and publication snapshot A, B, and C uses complete terminal pagination and the same fixed bracket `R0 → C1 → R1 → C2 → R2 → C3`. Each complete paginated comment capture follows every page until explicit terminal pagination; an empty terminal page/set is valid only when the provider-reported total is zero; reject page failure, missing/repeated cursor or page, duplicate IDs, truncation, missing terminal indication, ordering ambiguity, and provider total mismatch. Retain all comments and filter CL-D9 authoritative comments only after complete retrieval; retain the complete authoritative subset for evidence. Accept only identical R identity/body bytes and identical complete ordered C tuples (id, updatedAt, canonical body, author type, author_association), including the complete all-comment component set before filtering. Compute each accepted snapshot's `issue_spec` specifically from the canonical body at R2 followed by the authoritative subset from final C3. This is a fixed observational stability check, not a provider lock and makes no claim about unobserved interleavings. Do not retry inside one publication attempt. Do not compensate, overwrite, delete, or resume after any failure; the publication attempt is no-resume and no-compensation; no compensation is ever attempted.
+
+### Gate correlation and sequential review
+
+At every fresh run generate one unpredictable fresh 128-bit run nonce as exactly 32 lowercase hexadecimal characters. Keep a leading-zero-free physical-attempt sequence beginning at 1. Before every physical Sol or Terra launch—including provider/startup/tool failures and the one allowed missing/unparsable-verdict retry—allocate a new `tidd-issue-gate-v1:<run_nonce>:<attempt_seq>` identity. A retry keeps its counted round but receives a new physical identity. Each request and accepted result must echo and match separate tuple fields for target, base `issue_spec`, candidate identity, gate, and proposed counted round, together with nonce, attempt sequence, and invocation identity. The parent in-session map binds the exact invocation identity to the frozen bundle object; there is no additional or undefined echoed frozen-bundle identity field. Consume each identity exactly once and reject missing, malformed, duplicated, reused, stale, cross-run, wrong-attempt, or mismatched results.
+
+The order is fixed: construct/freeze the bundle, Sol reviews the complete unchanged object, then after Sol `MERGE` Terra reviews that same object. A candidate-changing finding or Terra correction creates a new candidate identity and restarts at Sol. Only matching Sol and Terra `MERGE` results for one unchanged frozen object authorize the preview. Existing per-gate three-round accounting, verdict vocabulary, finding dispositions, owner decisions, adversarial Sol duty, and acceptance criteria remain in force. A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is settled and cannot be reopened without new evidence.
+
+### Exact same-session owner preview and approval
+
+After both gates merge the same frozen object, stop at `WAITING_FOR_OWNER` and show one exact-preview: show exactly one unique pending preview: target/base `issue_spec`, candidate identity, all body/ledger/diff digests, the complete untruncated unified diff, full ledger text, actions in order, no-retry/partial-failure behavior, and the exact candidate object authorized. Ask one binary question. The current session operator may answer `approve` or `承認`; the answer is internally bound to the displayed target and frozen object, so no digest retyping is required. An explicit decline or cancel clears authority and ends `ABORTED`; any other response grants no authority and remains waiting only while the exact interactive preview is current.
+
+Candidate regeneration, bundle-byte substitution, session end, later command, observed authoritative input change, resolver movement, identity movement, provider/capture failure, uncertainty, or any terminal outcome expires the preview and approval. During the candidate phase do not emit or accept a resumable `tidd-status`. A plain audit summary must mark candidate, approval, and gate evidence unusable and name a fresh `/tidd-issue <ref>` or `/skill:closed-loop-issue <ref>` command. Pasting it never restores authority. Legacy Issue status/resume remains available before candidate construction and outside the phase; PR status/resume and all PR behavior remain unchanged.
+
+### One bounded no-retry publication attempt
+
+Before any publication attempt, including a no-body-change attempt that omits PATCH, re-resolve identity and capture stable snapshot A. Require A to match repository, Issue number/URL, base `issue_spec`, canonical base body, authoritative count, and every ordered authoritative comment identity/body. Any observed stable mismatch before the first mutation ends `WAITING_FOR_OWNER` and requires a fresh equivalent run. Provider, tool, capture, malformed identity, or resolver failure before mutation ends `BLOCKED` and requires a fresh run. When the body diff is empty, snapshot B is still required before the first POST.
+
+With exact approval and matching A, consume approval at the first mutation. If the body diff is non-empty, perform at most one approved body PATCH. Refetch stable snapshot B and require the expected body and no unexpected authoritative input. Re-resolve immediately before one exact ledger POST and then refetch stable snapshot C. Do not edit/delete comments, close/reopen, labels, milestones, linked issues, review services, or any other provider state. Never retry, compensate, perform a compensating overwrite after failure, delete, resume, or start a second attempt.
+
+PATCH and POST are not atomic. After the first mutation, any HTTP/provider/tool/capture/identity failure, timeout, uncertain outcome, response mismatch, unexpected authoritative input, unstable snapshot, or postcondition mismatch terminates the attempt at `WAITING_FOR_OWNER` with non-reusable authority. Report observed partial state and require a fresh run. A provider outcome that is unknown is never treated as success.
+
+### Snapshot-C proof and external invalidation
+
+Readiness requires the final published issue_spec and snapshot C to observe the exact approved proposed body, exactly one newly created ledger comment with exact approved bytes and recorded transport identity, CL-D9 eligibility as non-bot `OWNER`, `MEMBER`, or `COLLABORATOR`, no unexpected authoritative input across the fixed bracket, and complete semantic equality with the reviewed bundle. Record C's final published `issue_spec` as the observational readiness linearization point and allow `IMPLEMENTATION_READY` without duplicate Sol/Terra gates only for this byte/content-identical candidate. This proof is limited to observed R2/C3 state and cannot exclude later races, a post-R2/C3 edit, or an overwritten interleaving.
+
+A later observed authoritative body edit or qualifying comment addition/edit/deletion/reclassification invalidates the candidate and readiness and requires a fresh equivalent run. Bot and other advisory comments remain outside `issue_spec`. Author metadata establishes eligibility, not human agency. The only publication actions are the optional current-repository body PATCH and one exact ledger POST; all other mutation remains forbidden.
+
+### Issue 13 validation and fixture boundary
+
+Artifact assertions inspect the shipped Skill, prompt, README, contract, and package output. Reference fixtures cover candidate framing/scalars/Unicode/CRLF/delimiters/version boundaries/diff substitution; effective fetch/push resolver sets and canonical identities; complete pagination and every snapshot adjacency/failure class; nonce, attempts, result rejection, rounds/order/restarts; complete finding/decision records; preview/decline/non-affirmative/expiry; candidate-phase status rules and legacy resume preservation; snapshots A/B/C; bounded mutation failures and no retry; final CL-D9 membership/readiness and later invalidation. Every test-local fixture is labeled `fixture:` and pins intended semantics only; it cannot prove LLM execution, provider locking, or orchestration runtime behavior.
 
 ## Finding dispositions (AC-DISPOSITION)
 
@@ -168,7 +214,7 @@ not-applicable
 needs-owner-decision
 ```
 
-For each finding record the source gate, severity, the `issue_spec` it was raised against, evidence, impact, the disposition, the rationale, the revised passage when the disposition is `fixed`, validation evidence that the revision actually resolves the finding, and the reply or status URL once the operator has posted it. The last two are recorded on the later run that reviews the published revision, since this MVP does not publish and the URL does not exist until the operator acts. Judge findings individually; a severity label is never by itself a decision to change the specification. Record the rationale for anything intentionally left unchanged.
+For each finding record the source gate, severity, the `issue_spec` it was raised against, candidate identity, evidence, impact, exactly one disposition, rationale, revised passage when the disposition is `fixed`, validation evidence that the revision resolves it, and the reply/status URL or explicit snapshot-C assignment. Before candidate construction and outside CL-D31, an operator-post URL may remain pending; during CL-D31 the frozen English ledger owns the complete record and snapshot-C transport assignment. Judge findings individually; a severity label is never by itself a decision to change the specification. Record the rationale for anything intentionally left unchanged.
 
 Group the report into blockers, changes worth making now, optional improvements, pre-existing conditions, and findings intentionally declined.
 
@@ -190,7 +236,7 @@ Rationale
 Validity and invalidation conditions
 ```
 
-Long-lived contract, waiver, and risk decisions belong on the issue in the configured issue language. Draft them and hand them to the operator to post. Operational permissions for a single run stay in the session.
+Long-lived contract, waiver, and risk decisions belong on the issue in the configured issue language. Before candidate construction and outside CL-D31, draft them and hand them to the operator to post. During CL-D31, the frozen English ledger owns the complete decision record and snapshot-C URL assignment; the operator action is only the exact same-session preview answer.
 
 While an owner decision or an owner action is pending, the state is `WAITING_FOR_OWNER`.
 
@@ -227,11 +273,11 @@ BLOCKED
 ABORTED
 ```
 
-Declare `IMPLEMENTATION_READY` only when both gates returned `MERGE` against the current `issue_spec`, every finding has a disposition, no owner decision is pending, and **the approved specification is the published specification**.
+Outside CL-D31, declare `IMPLEMENTATION_READY` only when both gates returned `MERGE` against the current `issue_spec`, every finding has a disposition, no owner decision is pending, and **the approved specification is the published specification**. During CL-D31, the gates instead match the base `issue_spec` and exact frozen candidate; readiness requires every finding dispositioned, no decision pending, and the complete snapshot-C proof of the final published `issue_spec`, exact body, and exact new ledger comment, without duplicate gates.
 
-This MVP does not publish, so a run that drafted an issue revision or a durable decision ends at `WAITING_FOR_OWNER` with that draft, never at readiness: the gates approved text the issue does not yet contain, and `issue_spec` still fingerprints the text it does. After the operator posts it, recompute `issue_spec` and rerun both gates against that exact authoritative text.
+A run that drafts a revision before CL-D31 candidate construction ends at `WAITING_FOR_OWNER`; the legacy review-only gate approved text the Issue does not yet contain. During CL-D31, only the post-gate/pre-attempt `WAITING_FOR_OWNER` state carries the active exact same-session preview and may proceed through the bounded attempt. A pre-mutation mismatch or any post-first-mutation failure also reports `WAITING_FOR_OWNER`, but it is audit-only with expired, non-reusable authority and a fresh equivalent command as the only next action. After any operator-posted revision outside that attempt, recompute `issue_spec` and rerun both gates against the exact authoritative text.
 
-Whenever the run stops without reaching readiness, emit a resumable block:
+Before candidate construction and otherwise outside the CL-D31 candidate-publication phase, whenever the run stops without reaching readiness, emit the legacy resumable block below. Its `publication_grant: not-applicable` field describes only that legacy state.
 
 ````text
 ```tidd-status
@@ -248,4 +294,6 @@ next_action: <the single next permitted action>
 ```
 ````
 
-To resume, the operator pastes that block back with the command. On resume, **revalidate the fingerprints** first and refuse to continue against a changed target; recompute instead of trusting the pasted state.
+During candidate construction and the entire candidate-publication phase, never emit or accept that resumable `tidd-status`. A live same-session owner-decision or round-extension question may pause and continue without resumable state while the exact frozen candidate remains active. If the phase ends at an ungranted round limit or owner-decision terminal outcome, or through interruption, session end, later command, failure, uncertainty, invalidation, provider/capture error, or completion, discard candidate, approval, and gate authority. Emit only a non-restoring audit summary naming the exact unusable candidate and the fresh `/tidd-issue <ref>` or `/skill:closed-loop-issue <ref>` command that is the single next action. A pasted audit summary never restores state.
+
+Legacy resume means pasting the legacy status block back; revalidate the fingerprints first and refuse changed targets. Candidate phase has no resume or retry; any extra round requires a live same-session owner grant.

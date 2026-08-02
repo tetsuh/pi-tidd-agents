@@ -1,0 +1,56 @@
+{
+  "vectors": [
+    {
+      "version": "tidd-issue-candidate-v1",
+      "fields": [
+        [
+          "repository",
+          "acme/widgets"
+        ],
+        [
+          "issue.number",
+          "7"
+        ],
+        [
+          "issue.url",
+          "https://github.com/acme/widgets/issues/7"
+        ],
+        [
+          "base.issue_spec.sha256",
+          "0000000000000000000000000000000000000000000000000000000000000000"
+        ],
+        [
+          "base.body",
+          "line1\nλ"
+        ],
+        [
+          "base.comments.count",
+          "1"
+        ],
+        [
+          "base.comments.0.id",
+          "42"
+        ],
+        [
+          "base.comments.0.updated_at",
+          "2026-01-01T00:00:00Z"
+        ],
+        [
+          "base.comments.0.body",
+          "comment\n--boundary--"
+        ],
+        [
+          "proposed.body",
+          "line1\nλ\nnew"
+        ],
+        [
+          "ledger.comment",
+          "## Ledger\nfixed"
+        ]
+      ],
+      "stream": "tidd-issue-candidate-v1\nrepository 12\nacme/widgets\nissue.number 1\n7\nissue.url 40\nhttps://github.com/acme/widgets/issues/7\nbase.issue_spec.sha256 64\n0000000000000000000000000000000000000000000000000000000000000000\nbase.body 8\nline1\nλ\nbase.comments.count 1\n1\nbase.comments.0.id 2\n42\nbase.comments.0.updated_at 20\n2026-01-01T00:00:00Z\nbase.comments.0.body 20\ncomment\n--boundary--\nproposed.body 12\nline1\nλ\nnew\nledger.comment 15\n## Ledger\nfixed\n",
+      "sha256": "81cf2fc4666dfcf68e5713ae37b2feae170c79238150584a348918afce107198",
+      "bytes": 442
+    }
+  ]
+}

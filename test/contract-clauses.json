@@ -538,7 +538,7 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "For each finding record the source gate, severity, the `issue_spec` it was raised against, evidence, impact, the disposition, the rationale, the revised passage when the disposition is `fixed`, validation evidence that the revision actually resolves the finding, and the reply or status URL once the operator has posted it."
+        "For each finding record the source gate, severity, the `issue_spec` it was raised against, candidate identity, evidence, impact, exactly one disposition, rationale, revised passage when the disposition is `fixed`, validation evidence that the revision resolves it, and the reply/status URL or explicit snapshot-C assignment."
       ]
     },
     {
@@ -553,6 +553,30 @@
         "For each finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published.",
         "complete stable source identity when available"
       ]
+    },
+    {
+      "id": "SOL-PR14-CONTRACT-001-autofix",
+      "marker": "AC-AUTOFIX",
+      "title": "Provider-mutation exceptions remain exact in the AC-AUTOFIX contract section",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST"
+      ],
+      "section": "## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions"
+    },
+    {
+      "id": "SOL-PR14-CONTRACT-001-grant",
+      "marker": "AC-GRANT",
+      "title": "Provider-mutation exceptions remain exact in the AC-GRANT contract section",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST"
+      ],
+      "section": "## AC-GRANT — Run-scoped bounded publication grant"
     },
     {
       "id": "AC-DECISION",
@@ -826,6 +850,7 @@
         "wait until all included findings are finally confirmed",
         "Exclude only verified workflow-authored replies",
         "Every reply body states the confirmed disposition",
+        "Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state except for the sole provider-mutation exception: posting the exact confirmed CL-D30 GitHub source-finding reply.",
         "never claims that the whole PR is ready unless final readiness has independently been reached",
         "parent must create and report the proposed aggregate final-summary body/draft",
         "The draft is not workflow state",
@@ -915,7 +940,7 @@
       ],
       "requires": [
         "Review-only never posts.",
-        "neither mode posts to `external_sites` or calls provider-specific mutation APIs."
+        "Exact PR `autofix` posts only its authorized GitHub source-finding replies; exact confirmed CL-D30 GitHub source-finding replies are the sole provider-mutation exception, and all other provider, external, and review-service mutations remain forbidden."
       ]
     },
     {
@@ -1117,6 +1142,296 @@
         "guards prevent only the 16th invocation and sixth push",
         "15th invocation and fifth successful push may complete"
       ]
+    },
+    {
+      "id": "CL-D31-architecture-contract",
+      "marker": "CL-D31",
+      "title": "Issue 13 remains prose orchestration",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "legacy Skill/prompt package",
+        "no executable controller or extension"
+      ],
+      "section": "## CL-D31 — Owner-gated Issue candidate publication"
+    },
+    {
+      "id": "CL-D31-architecture-skill",
+      "marker": "CL-D31",
+      "title": "Issue 13 remains prose orchestration",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "legacy Skill/prompt package",
+        "no executable controller or extension"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-authority-contract",
+      "marker": "CL-D31",
+      "title": "Equivalent Issue entrypoints and bounded authority",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "/tidd-issue <ref>",
+        "/skill:closed-loop-issue <ref>",
+        "one optional body PATCH",
+        "one exact ledger POST"
+      ],
+      "section": "## CL-D31 — Owner-gated Issue candidate publication"
+    },
+    {
+      "id": "CL-D31-authority-skill",
+      "marker": "CL-D31",
+      "title": "Equivalent Issue entrypoints and bounded authority",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "/tidd-issue <ref>",
+        "/skill:closed-loop-issue <ref>",
+        "one optional body PATCH",
+        "one exact ledger POST"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-candidate-skill",
+      "marker": "CL-D31",
+      "title": "Versioned immutable candidate bundle",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "Candidate identity is the lowercase hexadecimal SHA-256 digest over the complete `tidd-issue-candidate-v1` byte stream",
+        "immutable same-session",
+        "frozen complete bundle"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-resolver-skill",
+      "marker": "CL-D31",
+      "title": "Checkout repository resolver",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "git remote get-url --all",
+        "git remote get-url --push --all",
+        "insteadOf",
+        "pushInsteadOf"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-snapshot-skill",
+      "marker": "CL-D31",
+      "title": "Stable complete snapshots",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "R0 → C1 → R1 → C2 → R2 → C3",
+        "terminal pagination",
+        "complete authoritative subset"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-correlation-skill",
+      "marker": "CL-D31",
+      "title": "Gate correlation and order",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "fresh 128-bit run nonce",
+        "physical-attempt sequence",
+        "Sol-before-Terra"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-preview-skill",
+      "marker": "CL-D31",
+      "title": "Exact owner preview",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "exact same-session owner preview",
+        "承認",
+        "approve"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-publication-skill",
+      "marker": "CL-D31",
+      "title": "Bounded fail-stop attempt",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "snapshot A",
+        "snapshot B",
+        "snapshot C",
+        "Do not retry"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-readiness-skill",
+      "marker": "CL-D31",
+      "title": "Observed publication proof",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "final published issue_spec",
+        "IMPLEMENTATION_READY",
+        "observational residual risk"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-status-skill",
+      "marker": "CL-D31",
+      "title": "Candidate phase status boundary",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "candidate-publication phase",
+        "do not emit or accept a resumable `tidd-status`",
+        "fresh `/tidd-issue <ref>`"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-language-skill",
+      "marker": "CL-D31",
+      "title": "Issue ledger language",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "complete English finding/disposition ledger comment"
+      ],
+      "section": "## Owner-gated Issue candidate publication (CL-D31)"
+    },
+    {
+      "id": "CL-D31-pr-boundary-pr",
+      "marker": "CL-D31",
+      "title": "Preserve PR behavior",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Issue workflow has no publication grant",
+        "PR review-only retains"
+      ],
+      "section": "## Publication (AC-GRANT, CL-D28, CL-D30)"
+    },
+    {
+      "id": "CL-D31-prompt",
+      "marker": "CL-D31",
+      "title": "Equivalent Issue prompt delegates bounded authority",
+      "files": [
+        "prompts/tidd-issue.md"
+      ],
+      "requires": [
+        "equivalent entrypoints",
+        "exact same-session owner-gated candidate publication preview",
+        "no-retry boundaries",
+        "foreign-repository rules belong to the Skill"
+      ]
+    },
+    {
+      "id": "CL-D31-readme",
+      "marker": "CL-D31",
+      "title": "README documents bounded Issue publication",
+      "files": [
+        "README.md"
+      ],
+      "section": "### Owner-gated Issue candidate publication",
+      "requires": [
+        "equivalent `/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` entrypoints",
+        "one exact frozen preview",
+        "at most one optional body update",
+        "one ledger comment",
+        "There is no retry or compensating overwrite after failure; deletion, cross-session resume, and a second attempt remain prohibited.",
+        "PR review-only and exact PR `autofix` behavior"
+      ]
+    },
+    {
+      "id": "CL-D31-fixtures",
+      "marker": "CL-D31",
+      "title": "Reference fixtures are non-authoritative and inventoried",
+      "files": [
+        "test/issue-candidate-publication.test.js"
+      ],
+      "requires": [
+        "cannot prove that a model executes the prose correctly",
+        "REQUIRED_COVERAGE",
+        "assert.deepEqual([...executedCoverage].sort(), [...REQUIRED_COVERAGE].sort())"
+      ]
+    },
+    {
+      "id": "CL-D31-packaging",
+      "marker": "CL-D31",
+      "title": "Legacy Issue artifacts ship without executable runtime code",
+      "files": [
+        "test/package.test.js"
+      ],
+      "requires": [
+        "Issue #13 CL-D31 legacy artifacts are packaged without a controller",
+        "npm pack --dry-run --json",
+        "no executable controller"
+      ]
+    },
+    {
+      "id": "DEC-I13-ownership",
+      "marker": "DEC-I13-ENTRYPOINT-029",
+      "title": "Durable owner decision identity",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "*Decision ID:* DEC-I13-ENTRYPOINT-029"
+      ],
+      "section": "## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints"
+    },
+    {
+      "id": "DEC-I13-decision",
+      "marker": "DEC-I13-ENTRYPOINT-029",
+      "title": "Durable owner decision fields",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "*Owner choice:* Equivalent entrypoints"
+      ],
+      "section": "## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints"
+    },
+    {
+      "id": "DEC-I13-publication",
+      "marker": "DEC-I13-ENTRYPOINT-029",
+      "title": "Durable owner decision scope",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "two named Issue entrypoints",
+        "Issue #13 bounded exception",
+        "It remains valid until a later explicit owner-approved contract decision separates the entrypoints or changes their shared Skill architecture"
+      ],
+      "section": "## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints"
     }
   ]
 }
