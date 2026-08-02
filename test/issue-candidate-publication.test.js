@@ -94,7 +94,8 @@ test('README documents the bounded Issue publication workflow', () => {
   assert.match(section, /exact frozen preview/);
   assert.match(section, /optional body update/);
   assert.match(section, /one ledger comment/);
-  assert.match(section, /no retry/i);
+  assert.match(section, /There is no retry or compensating overwrite after failure; deletion, cross-session resume, and a second attempt remain prohibited\./);
+  assert.doesNotMatch(section, /There is no retry, compensation, overwrite, deletion, cross-session resume, or second attempt\./);
 });
 
 // fixture: SOL13-BUNDLE-026 and SOL13-CONTRACT-027 are settled dispositions.

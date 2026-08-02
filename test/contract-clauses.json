@@ -1364,7 +1364,7 @@
         "one exact frozen preview",
         "at most one optional body update",
         "one ledger comment",
-        "There is no retry, compensation, overwrite, deletion, cross-session resume, or second attempt",
+        "There is no retry or compensating overwrite after failure; deletion, cross-session resume, and a second attempt remain prohibited.",
         "PR review-only and exact PR `autofix` behavior"
       ]
     },
