@@ -64,6 +64,14 @@ test('Issue Skill owns the candidate-publication phase', () => {
   assert.match(section, /exact-preview/);
 });
 
+test('Issue publication qualifies only failure-scoped compensating overwrite', () => {
+  const skill = readText('skills/closed-loop-issue/SKILL.md');
+  const section = sectionOf(skill, '### One bounded no-retry publication attempt');
+  assert.ok(section, 'Issue Skill has no bounded publication-attempt section');
+  assert.match(section, /Never retry, compensate, perform a compensating overwrite after failure, delete, resume, or start a second attempt\./);
+  assert.doesNotMatch(section, /Never retry, compensate, delete, overwrite, resume, or start a second attempt\./);
+});
+
 test('artifact: Issue 13 safety boundaries are explicit and PR behavior stays separate', () => {
   const skill = readText('skills/closed-loop-issue/SKILL.md');
   for (const required of [

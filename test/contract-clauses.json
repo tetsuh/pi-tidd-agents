@@ -939,7 +939,7 @@
       ],
       "requires": [
         "Review-only never posts.",
-        "neither mode posts to `external_sites` or calls provider-specific mutation APIs."
+        "Exact PR `autofix` posts only its authorized GitHub source-finding replies; exact confirmed CL-D30 GitHub source-finding replies are the sole provider-mutation exception, and all other provider, external, and review-service mutations remain forbidden."
       ]
     },
     {

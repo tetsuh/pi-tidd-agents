@@ -211,6 +211,22 @@ test('contract scopes the exact provider-mutation exceptions', () => {
   }
 });
 
+test('provider mutation exceptions remain scoped in PR Skills and prompt', () => {
+  const exception = 'exact confirmed CL-D30 GitHub source-finding replies are the sole provider-mutation exception';
+  const language = artifactSection(readText(PR_SKILL), '## Language Profile (CL-D16)');
+  const autofix = artifactSection(readText(PR_SKILL), '## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)');
+  const publication = artifactSection(readText(PR_SKILL), '## Publication (AC-GRANT, CL-D28, CL-D30)');
+  for (const [name, section] of [['Language Profile', language], ['Autofix', autofix], ['Publication', publication]]) {
+    assert.ok(section, `${name} section must exist for provider-mutation protection`);
+    assert.match(section, new RegExp(exception, 'i'));
+    assert.doesNotMatch(section, /(?:neither mode|does not authorize|never authorizes)[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s, `${name} restores an unqualified provider-mutation prohibition`);
+  }
+  const prompt = readText('prompts/tidd-pr.md');
+  assert.match(prompt, new RegExp(exception, 'i'));
+  assert.doesNotMatch(prompt, /never authorizes[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s);
+  assert.match(prompt, /Issue mutation/);
+});
+
 test('no superseded rule survives beside its replacement', () => {
   for (const { files, pattern, reason } of SUPERSEDED) {
     for (const file of files) {
