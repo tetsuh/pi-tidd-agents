@@ -84,7 +84,7 @@ This MVP keeps no state between invocations, so re-running resets every counter 
 ## CL-D13 — Status block and resume
 **Clauses:** CL-D13, CL-D13-issue, CL-D13-pr
 
-A run that stops emits a `tidd-status` block carrying the target, fingerprints, state, active gate, rounds, internal findings with dispositions, pending decisions, and the next permitted action. Resuming means pasting it back; fingerprints are revalidated and recomputed rather than trusted.
+Outside the CL-D31 candidate-publication phase, a legacy review run that stops emits a `tidd-status` block carrying the target, fingerprints, state, active gate, rounds, internal findings with dispositions, pending decisions, and the next permitted action. Resuming means pasting it back; fingerprints are revalidated and recomputed rather than trusted. During candidate construction and afterward in that phase, CL-D31 supersedes this status/resume rule: no resumable block is emitted or accepted.
 
 ## CL-D14 — Canonical status tokens
 **Clauses:** CL-D14-issue, CL-D14-pr
@@ -101,7 +101,7 @@ Review-only forbids modifying anything inside the repository working tree and an
 ## CL-D16 — Language Profile package defaults
 **Clauses:** CL-D16
 
-Conversation follows the operator's language; `github.issue` and `github.pull_request` default to English; external sites are unset and the workflow stops to ask before drafting content for one. Issue workflow and PR review-only never post. Exact PR `autofix` may post only CL-D30's bounded confirmed GitHub source-finding replies; it never posts to `external_sites` or calls provider APIs, and Issue/review-only likewise never post to `external_sites` or call provider APIs. The trigger remains drafting rather than posting: when an external destination has no configured language, the workflow stops before drafting rather than guessing, so no posting capability is required to enforce the language boundary. The profile never governs source code, comments, documentation or commit messages.
+Conversation follows the operator's language; `github.issue` and `github.pull_request` default to English; external sites are unset and the workflow stops to ask before drafting content for one. Before candidate construction and outside the CL-D31 phase, Issue workflow and PR review-only never post. During CL-D31 only, the exact approved GitHub Issue body PATCH and ledger POST are allowed; external sites, provider-side review-service mutation, and every other provider API mutation remain forbidden. Exact PR `autofix` may post only CL-D30's bounded confirmed GitHub source-finding replies, and no Issue authority originates from PR mode. The trigger remains drafting rather than posting: when an external destination has no configured language, the workflow stops before drafting rather than guessing, so no posting capability is required to enforce the language boundary. The profile never governs source code, comments, documentation or commit messages.
 
 ## CL-D17 — SonarCloud disposition
 **Clauses:** CL-D17
@@ -175,13 +175,13 @@ The rule was short while the review-only MVP performed no publication. CL-D30 ex
 ## CL-D28 — Mode-scoped publication boundary (historical no-publication rule)
 **Clauses:** CL-D28
 
-Issue workflow and PR review-only remain no-publication modes: they never commit, push, update a body, reply to a thread, or change an external service, and must not ask for that authority. Exact PR `autofix` is the sole scoped exception: the exact `autofix` token is the run-scoped approval only for CL-D30's bounded per-reviewed-public-head correction commit/non-force push and confirmed source-finding replies. All other publication, merge, force-push, history rewrite, provider mutation, approval, thread-resolution, authoritative Issue change, and aggregate-summary actions remain prohibited.
+Before CL-D31, Issue workflow and PR review-only were no-publication modes, and exact PR `autofix` was the sole scoped exception. Current rule: PR review-only still never commits, pushes, posts, replies, or changes external state; exact PR `autofix` retains only CL-D30's bounded correction and source-reply actions. Issue workflow remains no-publication before candidate construction and outside the CL-D31 candidate-publication phase. During CL-D31 only, exact same-session approval authorizes at most one optional current-repository Issue body PATCH followed by one exact ledger POST. All other publication, merge, force-push, history rewrite, provider mutation, approval, thread-resolution, authoritative Issue change, aggregate-summary action, Git mutation, and repository-file mutation remain prohibited.
 
 Three consecutive reviews each returned four valid findings of one shape: a comparison or digest specified without a byte-exact serialisation, whose fix introduced the next one. Closing the class meant writing Git's tree-hashing algorithm and a canonical serialisation of GitHub's event streams in Markdown, for a model to execute at runtime. The decisive objection is not the size of that work but that the clause suite can only verify that prose is present, never that a model executes it — so a more elaborate specification buys review approval without buying correctness.
 
-Historical rationale: the original review-only MVP capability was removed rather than the specification refined. The byte-exact machinery belongs to #4 and #5, where it is code: a tree hash is a library call, fixtures are real files, and tests exercise behaviour instead of asserting that a paragraph exists. CL-D30 is the later, deliberately narrower decision and does not reopen this rule for Issue or review-only.
+Historical rationale: the original review-only MVP capability was removed rather than the specification refined. The byte-exact machinery was expected to belong to #4 and #5, where code could enforce it. CL-D30 later reopened only exact PR `autofix`; CL-D31 later and separately adopted the owner-approved legacy Issue Skill/prompt exception while explicitly retaining the limitation that prose and fixtures cannot prove orchestration behavior.
 
-The current mode-scoped boundary is enforced by `AC-GRANT` and by the scoped/negative contract assertions in `test/closed-loop-regressions.test.js`.
+The current mode-scoped boundary is enforced by `AC-GRANT`, CL-D30, CL-D31, and the scoped/negative contract assertions in `test/closed-loop-regressions.test.js`.
 
 ## CL-D29 — Sol attempts adversarial falsification of absolute claims
 **Clauses:** AC-ADVERSARIAL, AC-ADVERSARIAL-payload-issue, AC-ADVERSARIAL-payload-pr
@@ -205,6 +205,32 @@ Both Skills bind the full procedure to every initial and re-invocation Sol paylo
 *Rationale:* The exact public head OID is the candidate identity. Complete target guards, clean-baseline and staged-manifest checks, immutable run-local blocker/confirmation records, 15/5/third-observation circuit breakers, and fail-stop behavior constrain publication without adding an extension, runtime state machine, durable workflow state, retry, resume, outbox, scheduler, or provider adapter. Review-only and Issue behavior remain unchanged, and aggregate summaries remain owner-approved actions outside the run.
 *Validity and invalidation conditions:* Applies only to exact PR `autofix`, the current repository/PR/base/head identity, and the published Issue #10 scope. Any identity movement, ambiguity, failed guard, malformed verdict/record, validation or publication failure, owner decision, interruption, or limit ends the run; a later command is a fresh run, never resume. CL-D28/AC-AUTOFIX/AC-GRANT are superseded only for this bounded commit, non-force push, and source-finding replies. CL-D11, CL-D1, CL-D13, CL-D17/18/24, and publication-dependent CL-D23/27 prose are superseded only as explicitly scoped in the Skill.
 
+## CL-D31 — Owner-gated Issue candidate publication
+**Clauses:** CL-D31-architecture-contract, CL-D31-architecture-skill, CL-D31-authority-contract, CL-D31-authority-skill, CL-D31-candidate-skill, CL-D31-resolver-skill, CL-D31-snapshot-skill, CL-D31-correlation-skill, CL-D31-preview-skill, CL-D31-publication-skill, CL-D31-readiness-skill, CL-D31-status-skill, CL-D31-language-skill, CL-D31-pr-boundary-pr, CL-D31-prompt, CL-D31-readme, CL-D31-fixtures, CL-D31-packaging
+*Decision ID:* CL-D31
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#13` at the proposed revision based on published base `issue_spec` `7f527af828599860c4dcf2651c0bd329bca09e67c0c565dcf7e1616a2d5af0b7`
+*Question:* How may the legacy Issue Skill/prompt workflow add owner-gated candidate publication while preserving review-only, PR, and all unlisted mutation boundaries?
+*Options and trade-offs:* Keep the Issue workflow review-and-draft-only and require a later manual publication; add unrestricted Issue publication; or authorize one immutable, fully reviewed candidate with one exact same-session preview and one bounded no-retry attempt. Manual publication preserves the old boundary but spends duplicate gates; unrestricted publication violates safety; the bounded exception removes duplicate posting while retaining fail-closed identity, snapshot, and approval guards.
+*Recommendation:* Adopt the bounded Issue-only candidate-publication workflow specified by published Issue #13.
+*Owner choice:* Adopt CL-D31 only for `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>` as equivalent entrypoints: Sol first, Terra second, one frozen complete `tidd-issue-candidate-v1` bundle, one exact same-session owner preview, at most one optional body PATCH followed by one exact ledger POST to the current repository, no retry/resume/compensation, and observational snapshot-C proof. Preserve all PR/CL-D30, foreign-repository, provider, Git, file, and unlisted mutation prohibitions.
+*Rationale:* The legacy Skill/prompt package can prepare and review a complete candidate without introducing executable runtime code; it has no executable controller or extension. Immutable bytes, independent resolver checks, complete stable captures, exact gate correlation, and same-session approval constrain the narrow publication exception while preserving the old no-mutation behavior before candidate construction and outside the candidate phase.
+*Validity and invalidation conditions:* Applies only to the two named Issue entrypoints and this bounded Issue #13 exception. It remains valid until a later explicit owner-approved contract decision separates the entrypoints or changes the shared Skill architecture. It grants no authority to PR commands, other aliases, foreign repositories, provider review services, Git state, repository files, or any unlisted action.
+
+The exception supersedes CL-D13, CL-D13-issue, CL-D16, CL-D28, AC-AUTOFIX, AC-GRANT, and AC-REVIEW-ONLY only for these two Issue entrypoints and only for the bounded actions and candidate-phase rules above. PR review-only, exact PR `autofix`, CL-D30, foreign-repository review-and-draft-only behavior, and all unlisted prohibitions remain unchanged.
+
+## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints
+**Clauses:** DEC-I13-ownership, DEC-I13-decision, DEC-I13-publication
+*Decision ID:* DEC-I13-ENTRYPOINT-029
+*Kind:* public command contract and publication-authority boundary
+*Target and revision:* `tetsuh/pi-tidd-agents#13` at the proposed revision based on published base `issue_spec` `7f527af828599860c4dcf2651c0bd329bca09e67c0c565dcf7e1616a2d5af0b7`
+*Question:* Should direct `/skill:closed-loop-issue <ref>` invocation receive the same bounded publication authority as `/tidd-issue <ref>`?
+*Options and trade-offs:* Treat the two entrypoints as equivalent and preserve one shared Skill contract, or keep direct Skill invocation review-only with a separate reliable fail-closed dispatcher. Equivalence preserves documented same-workflow behavior; divergence requires a new authority discriminator and separate documentation and tests.
+*Recommendation:* Treat both spellings as equivalent Issue entrypoints with the same bounded authority and fresh-run semantics.
+*Owner choice:* Equivalent entrypoints; authorize the same bounded Issue publication and recovery semantics through `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>` only.
+*Rationale:* Both commands load the same authoritative Skill and are documented as the same workflow. Equivalence is the smallest consistent authority boundary and does not grant publication to PR commands, other aliases, foreign repositories, or unlisted actions.
+*Validity and invalidation conditions:* This decision applies only to the two named Issue entrypoints and the Issue #13 bounded exception. It remains valid until a later explicit owner-approved contract decision separates the entrypoints or changes their shared Skill architecture.
+
 ## DEC-EXT-SNAPSHOT-001 — External observation resumes by re-fetching
 **Clauses:** none — structural
 *Decision ID:* DEC-EXT-SNAPSHOT-001
@@ -224,7 +250,7 @@ Its outcome is enforced by `CL-D24`. Renovating the record preserves the final a
 ## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions
 **Clauses:** AC-AUTOFIX
 
-Without the exact PR `autofix` token, Issue and PR review-only remain file-mutation-free and publication-free. The exact token itself is the run-scoped approval only for the smallest CL-D30 correction batch per reviewed public head: one normal commit, one non-force push, and confirmed source-finding replies. It does not authorize merge, force-push, amend, rebase, history rewriting, provider mutation, approval, thread resolution, authoritative Issue changes, aggregate-summary posting, or any different target.
+Without the exact PR `autofix` token, Issue and PR review-only remain file-mutation-free and publication-free before candidate construction and outside CL-D31. During CL-D31, its named same-session approval is the only Issue grant. The exact PR token itself is the run-scoped approval only for the smallest CL-D30 correction batch per reviewed public head: one normal commit, one non-force push, and confirmed source-finding replies. It does not authorize merge, force-push, amend, rebase, history rewriting, provider mutation, approval, thread resolution, authoritative Issue changes, aggregate-summary posting, or any different target.
 
 ## AC-DECISION — Owner decision record
 **Clauses:** AC-DECISION, AC-DECISION-pr
@@ -244,7 +270,7 @@ The Terra gate never starts before the Sol gate returns `MERGE`.
 ## AC-GRANT — Run-scoped bounded publication grant
 **Clauses:** AC-GRANT
 
-Historical rationale: this grant was originally documented for a later publication stage rather than exercised by the review-only MVP. Current rule: the exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30's bounded one-normal-commit/non-force-push correction batch per reviewed public head and confirmed source-finding replies. The grant never authorizes merge, force-push, amend, rebase, history rewrite, ADR acceptance, authoritative Issue changes, failed-gate bypass, provider mutation, aggregate-summary posting, or a different target, and it expires when its run ends. Issue and PR review-only have no publication grant.
+Historical rationale: this grant was originally documented for a later publication stage rather than exercised by the review-only MVP. Current rule: the exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30's bounded one-normal-commit/non-force-push correction batch per reviewed public head and confirmed source-finding replies. Separately, CL-D31 supplies a same-session Issue grant only for its exact preview, optional body PATCH, and one ledger POST. Neither grant authorizes merge, force-push, amend, rebase, history rewrite, ADR acceptance, failed-gate bypass, provider mutation, aggregate-summary posting, or a different target; each expires at its scoped terminal boundary.
 
 ## AC-ISSUE-NO-EXTERNAL — Issue readiness excludes external gates
 **Clauses:** AC-ISSUE-NO-EXTERNAL
@@ -254,7 +280,7 @@ External review services, static-analysis sites and pull-request checks are not 
 ## AC-REVIEW-ONLY — Review-only is the default
 **Clauses:** AC-REVIEW-ONLY-skill, AC-REVIEW-ONLY-prompt
 
-Without the exact `autofix` token: no file edits, no git-state changes, no commits or pushes, no posting to GitHub, no replies to review threads, no external mutation.
+Without the exact `autofix` token, and before candidate construction or outside CL-D31, no file edits, no git-state changes, no commits or pushes, no posting to GitHub, no replies to review threads, and no external mutation. CL-D31 is the sole named Issue exception and does not alter PR review-only.
 
 ## AC-TDD — Risk-based test-first policy and truthful provenance
 **Clauses:** AC-TDD

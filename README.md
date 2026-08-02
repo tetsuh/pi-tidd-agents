@@ -103,6 +103,12 @@ The same workflows are available directly as skills when skill commands are enab
 
 An explicit target is always required; the workflow never infers a pull request from the current branch.
 
+### Owner-gated Issue candidate publication
+
+Issue readiness remains opt-in and is exposed through the equivalent `/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` entrypoints. After a complete candidate is reviewed by Sol then Terra, the Skill shows one exact frozen preview containing the full body diff and English disposition ledger. Only the current session operator's `approve` or `承認` answer can authorize the bounded attempt. It may perform at most one optional body update in the current checkout repository followed by one ledger comment, in that order.
+
+There is no retry, compensation, overwrite, deletion, cross-session resume, or second attempt. A failure after the first mutation reports the observed partial state and requires a fresh run. Foreign-repository Issues remain review-and-draft-only. Snapshot-C byte/content identity may establish readiness without duplicate gates, but the proof is observational and cannot exclude every provider race. This is legacy Skill/prompt orchestration, not an executable controller or extension. PR review-only and exact PR `autofix` behavior, including Luna ownership and their separate boundaries, remain unchanged.
+
 ### Review-only is the default
 
 ```text
@@ -127,7 +133,7 @@ In exact `autofix` mode, `luna-worker` is the sole writer/publisher for one boun
 
 ### Stop, status, and fresh runs (CL-D30)
 
-PR review-only retains the legacy resumable `tidd-status`, one malformed-verdict retry, and per-gate three-round accounting; it may report a next action and resume after fingerprint revalidation. Exact PR `autofix` ends on interruption, failure, owner decision, or limit: it has no retry, resume, outbox, scheduler, quiet-period polling, or durable workflow artifact. Any later exact-autofix command is a fresh run with fresh counters and reconciliation. Issue behavior remains governed by the Issue Skill.
+PR review-only retains the legacy resumable `tidd-status`, one malformed-verdict retry, and per-gate three-round accounting; it may report a next action and resume after fingerprint revalidation. Exact PR `autofix` ends on interruption, failure, owner decision, or limit: it has no retry, resume, outbox, scheduler, quiet-period polling, or durable workflow artifact. Any later exact-autofix command is a fresh run with fresh counters and reconciliation. Issue behavior is governed by the Issue Skill: its CL-D31 exception is limited to the two equivalent Issue entrypoints and does not change PR behavior.
 
 ### Language routing
 

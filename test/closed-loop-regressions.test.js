@@ -184,10 +184,11 @@ test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   assert.doesNotMatch(skill, /autofix.*does not by itself authorize/s);
   const contract = readText('CONTRACT.md');
   assert.match(contract, /## CL-D28 — Mode-scoped publication boundary/);
-  assert.match(contract, /the exact `autofix` token is the run-scoped approval only for CL-D30/);
+  assert.match(contract, /exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30/);
   assert.match(contract, /## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions/);
   assert.match(contract, /## AC-GRANT — Run-scoped bounded publication grant/);
-  assert.match(contract, /Issue workflow and PR review-only never post/);
+  assert.match(contract, /PR review-only still never commits, pushes, posts/);
+  assert.match(contract, /During CL-D31 only, exact same-session approval authorizes at most one optional current-repository Issue body PATCH followed by one exact ledger POST/);
   assert.match(contract, /Exact PR `autofix` may post only CL-D30's bounded confirmed GitHub source-finding replies/);
   assert.doesNotMatch(contract, /this MVP never posts/i);
   assert.doesNotMatch(contract, /## CL-D28 — The MVP does not publish/);
@@ -451,4 +452,28 @@ test('shared baseline disposition and decision records remain protected in both 
     assert.ok(text.includes(enumBlock.replaceAll('\\n', '\n')));
     assert.ok(text.includes(decisionBlock.replaceAll('\\n', '\n')));
   }
+});
+
+
+test('Issue 13 negative guards reject stale unqualified publication/resume prose while preserving scoped legacy rules', () => {
+  const issue = readText('skills/closed-loop-issue/SKILL.md');
+  assert.doesNotMatch(issue, /This MVP never posts|this MVP does not publish|all revisions.*operator.*post/i);
+  assert.doesNotMatch(issue, /Whenever the run stops without reaching readiness, emit a resumable block/);
+  assert.match(issue, /Before candidate construction and otherwise outside the CL-D31 candidate-publication phase/);
+  assert.match(issue, /During candidate construction and the entire candidate-publication phase, never emit or accept/);
+  assert.match(issue, /frozen English ledger owns the complete decision record/);
+  const readme = readText('README.md');
+  assert.doesNotMatch(readme, /Issue behavior remains unchanged\.?$/m);
+  assert.match(readme, /CL-D31 exception/);
+  const contract = readText('CONTRACT.md');
+  const cld28 = artifactSection(contract, '## CL-D28 — Mode-scoped publication boundary (historical no-publication rule)');
+  const cld16 = artifactSection(contract, '## CL-D16 — Language Profile package defaults');
+  const entrypointDecision = artifactSection(contract, '## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints');
+  assert.ok(cld28); assert.ok(cld16); assert.ok(entrypointDecision);
+  assert.doesNotMatch(cld28, /Issue workflow and PR review-only remain no-publication modes/);
+  assert.match(cld28, /During CL-D31 only, exact same-session approval authorizes/);
+  assert.match(cld16, /exact approved GitHub Issue body PATCH and ledger POST are allowed/);
+  assert.match(cld16, /every other provider API mutation remain forbidden/);
+  assert.match(contract, /The exception supersedes CL-D13, CL-D13-issue, CL-D16, CL-D28, AC-AUTOFIX, AC-GRANT, and AC-REVIEW-ONLY/);
+  assert.match(entrypointDecision, /It remains valid until a later explicit owner-approved contract decision separates the entrypoints or changes their shared Skill architecture/);
 });
