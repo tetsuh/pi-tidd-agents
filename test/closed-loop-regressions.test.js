@@ -199,6 +199,18 @@ test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   assert.match(readme, /Exact PR `autofix` ends/);
 });
 
+test('contract scopes the exact provider-mutation exceptions', () => {
+  const contract = readText('CONTRACT.md');
+  const autofix = artifactSection(contract, '## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions');
+  const grant = artifactSection(contract, '## AC-GRANT — Run-scoped bounded publication grant');
+  const exceptions = 'provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST';
+  for (const [name, section] of [['AC-AUTOFIX', autofix], ['AC-GRANT', grant]]) {
+    assert.ok(section, `${name} section must exist for provider-mutation protection`);
+    assert.ok(section.includes(exceptions), `${name} must preserve only the exact scoped provider-mutation exceptions`);
+    assert.doesNotMatch(section, /does not authorize[^.]*provider mutation\./s, `${name} must not restore an unqualified provider-mutation prohibition`);
+  }
+});
+
 test('no superseded rule survives beside its replacement', () => {
   for (const { files, pattern, reason } of SUPERSEDED) {
     for (const file of files) {

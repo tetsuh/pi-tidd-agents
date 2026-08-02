@@ -555,6 +555,30 @@
       ]
     },
     {
+      "id": "SOL-PR14-CONTRACT-001-autofix",
+      "marker": "AC-AUTOFIX",
+      "title": "Provider-mutation exceptions remain exact in the AC-AUTOFIX contract section",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST"
+      ],
+      "section": "## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions"
+    },
+    {
+      "id": "SOL-PR14-CONTRACT-001-grant",
+      "marker": "AC-GRANT",
+      "title": "Provider-mutation exceptions remain exact in the AC-GRANT contract section",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST"
+      ],
+      "section": "## AC-GRANT — Run-scoped bounded publication grant"
+    },
+    {
       "id": "AC-DECISION",
       "title": "Owner decision record names every field",
       "section": "## Owner decisions (AC-DECISION)",

@@ -248,9 +248,9 @@ Its outcome is enforced by `CL-D24`. Renovating the record preserves the final a
 ---
 
 ## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions
-**Clauses:** AC-AUTOFIX
+**Clauses:** AC-AUTOFIX, SOL-PR14-CONTRACT-001-autofix
 
-Without the exact PR `autofix` token, Issue and PR review-only remain file-mutation-free and publication-free before candidate construction and outside CL-D31. During CL-D31, its named same-session approval is the only Issue grant. The exact PR token itself is the run-scoped approval only for the smallest CL-D30 correction batch per reviewed public head: one normal commit, one non-force push, and confirmed source-finding replies. It does not authorize merge, force-push, amend, rebase, history rewriting, provider mutation, approval, thread resolution, authoritative Issue changes, aggregate-summary posting, or any different target.
+Without the exact PR `autofix` token, Issue and PR review-only remain file-mutation-free and publication-free before candidate construction and outside CL-D31. During CL-D31, its named same-session approval is the only Issue grant. The exact PR token itself is the run-scoped approval only for the smallest CL-D30 correction batch per reviewed public head: one normal commit, one non-force push, and confirmed source-finding replies. It does not authorize merge, force-push, amend, rebase, history rewriting, or provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST; it does not authorize approval, thread resolution, authoritative Issue changes, aggregate-summary posting, or any different target.
 
 ## AC-DECISION — Owner decision record
 **Clauses:** AC-DECISION, AC-DECISION-pr
@@ -268,9 +268,9 @@ Every actionable finding gets exactly one of `fixed`, `accepted-as-designed`, `d
 The Terra gate never starts before the Sol gate returns `MERGE`.
 
 ## AC-GRANT — Run-scoped bounded publication grant
-**Clauses:** AC-GRANT
+**Clauses:** AC-GRANT, SOL-PR14-CONTRACT-001-grant
 
-Historical rationale: this grant was originally documented for a later publication stage rather than exercised by the review-only MVP. Current rule: the exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30's bounded one-normal-commit/non-force-push correction batch per reviewed public head and confirmed source-finding replies. Separately, CL-D31 supplies a same-session Issue grant only for its exact preview, optional body PATCH, and one ledger POST. Neither grant authorizes merge, force-push, amend, rebase, history rewrite, ADR acceptance, failed-gate bypass, provider mutation, aggregate-summary posting, or a different target; each expires at its scoped terminal boundary.
+Historical rationale: this grant was originally documented for a later publication stage rather than exercised by the review-only MVP. Current rule: the exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30's bounded one-normal-commit/non-force-push correction batch per reviewed public head and confirmed source-finding replies. Separately, CL-D31 supplies a same-session Issue grant only for its exact preview, optional body PATCH, and one ledger POST. Neither grant authorizes merge, force-push, amend, rebase, history rewrite, ADR acceptance, failed-gate bypass, or provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST; neither authorizes aggregate-summary posting or a different target; each expires at its scoped terminal boundary.
 
 ## AC-ISSUE-NO-EXTERNAL — Issue readiness excludes external gates
 **Clauses:** AC-ISSUE-NO-EXTERNAL
