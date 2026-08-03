@@ -892,7 +892,8 @@
         "skills/closed-loop-pr/SKILL.md"
       ],
       "requires": [
-        "At every exact-autofix boundary",
+        "At each ordinary exact-autofix boundary listed in this paragraph",
+        "Correction-overlay, staged-manifest, and `POST_COMMIT_PRE_PUSH` boundaries use their distinct phase guards",
         "fully clean at the exact published public head",
         "concurrent local edit",
         "cannot enter a gate, reply, final classification, or summary mutation"
@@ -1026,11 +1027,12 @@
         "maximum one commit and one push",
         "every forbidden action",
         "immediately before commit",
-        "Immediately after commit and before push",
+        "Immediately after commit, execute the distinct post-commit/pre-push guard",
+        "Immediately before push, repeat the full identical",
         "complete target identity again",
         "Before its first edit and immediately before commit",
         "local `HEAD` is public parent `P`",
-        "Immediately after commit and before push",
+        "Immediately after commit, execute the distinct post-commit/pre-push guard",
         "local `HEAD` is verified commit `C`",
         "After the non-force push, verify that the public head became `C`",
         "all three local dimensions",
@@ -1432,6 +1434,141 @@
         "It remains valid until a later explicit owner-approved contract decision separates the entrypoints or changes their shared Skill architecture"
       ],
       "section": "## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints"
+    },
+    {
+      "id": "CL-D10-pi-contract",
+      "marker": "CL-D10",
+      "title": "Repository-root Pi runtime exclusion is narrow and fail-closed",
+      "files": ["CONTRACT.md"],
+      "requires": [
+        "ordinary operational cleanliness",
+        "repository-root `.pi/**` namespace",
+        "real directory inspected without following links",
+        "outside the repository-root `.pi/**` namespace",
+        "candidate/public `HEAD` tree nor the index contains `.pi`",
+        "staged deletion cannot cure a forbidden path in the candidate parent"
+      ],
+      "section": "## CL-D10 — Worktree precondition for autofix"
+    },
+    {
+      "id": "CL-D30-pi-contract",
+      "marker": "CL-D30",
+      "title": "CL-D30 records the Issue #17 operational-cleanliness amendment",
+      "files": ["CONTRACT.md"],
+      "requires": [
+        "Issue #17 operational-cleanliness amendment",
+        "unfiltered raw effective diff",
+        "distinct `local HEAD=C`, sole parent `P`, remote/public `P` guard",
+        "Runtime churn contributes no candidate, evidence, or publication bytes"
+      ],
+      "section": "## CL-D30 — Exact PR autofix publishes one bounded correction per public head"
+    },
+    {
+      "id": "CL-D30-pi-boundaries",
+      "marker": "CL-D30",
+      "title": "Every gate and reply boundary uses scoped operational cleanliness",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "ordinary operational cleanliness",
+        "before each gate, route-to-Sol, post-push gate, reply, final classification",
+        "Correction-overlay, staged-manifest, and `POST_COMMIT_PRE_PUSH` boundaries use their distinct phase guards",
+        "unsafe root",
+        "forbidden candidate/public `HEAD` or index entry fails closed",
+        "runtime `.pi/**` churn"
+      ],
+      "section": "### Public-head loop and evidence"
+    },
+    {
+      "id": "CL-D30-pi-publication",
+      "marker": "CL-D30",
+      "title": "Publication phases exclude Pi from correction and manifest state",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "repository-root `.pi` root",
+        "distinct post-commit/pre-push guard",
+        "POST_COMMIT_PRE_PUSH",
+        "BEFORE_VALIDATION",
+        "AFTER_VALIDATION",
+        "BEFORE_STAGING",
+        "AFTER_STAGING",
+        "BEFORE_COMMIT",
+        "AFTER_COMMIT",
+        "BEFORE_PUSH",
+        "Immediately before push, repeat the full identical",
+        "Each guard independently reclassifies the repository-root `.pi`",
+        "Between these two guards, safe untracked runtime churn below that root may change",
+        "descendant create, content change, rename, removal",
+        "safe root transition between absent and real directory",
+        "Every other state must remain unchanged",
+        "outside-`.pi/**` untracked state is empty",
+        "immutable staged manifest",
+        "manifest tree/inventory/blob identities",
+        "no `.pi` entry",
+        "safe root/no-follow",
+        "zero cleanup, retry, continuation, or mutation"
+      ],
+      "section": "### Exact identity and Luna publication phases"
+    },
+    {
+      "id": "CL-D30-pi-replies",
+      "marker": "CL-D30",
+      "title": "Replies and summaries preserve the scoped runtime boundary",
+      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "requires": [
+        "`.pi/**` runtime churn",
+        "untracked cleanliness",
+        "no cleanup, retry, compensation, or resume",
+        "reply, final-classification, post-reply, and summary boundary"
+      ],
+      "section": "### Source-finding replies and final readiness"
+    },
+    {
+      "id": "CL-D30-pi-readme",
+      "marker": "CL-D30",
+      "title": "README scopes the Pi exception to exact PR autofix",
+      "files": ["README.md"],
+      "requires": [
+        "In exact PR `autofix` only",
+        "untracked descendants under a verified real repository-root `.pi/` directory",
+        "Any `.pi` entry in candidate `HEAD`, the index",
+        "AFTER_COMMIT and repeated BEFORE_PUSH guards independently reclassify the root",
+        "safe untracked `.pi/**` runtime churn",
+        "candidate, tracked/index/unstaged, manifest, commit, evidence, and public-head identity remain unchanged",
+        "Any other change stops before push",
+        "no cleanup, retry, or resume"
+      ],
+      "section": "### Autofix"
+    },
+    {
+      "id": "CL-D30-pi-fixtures",
+      "marker": "CL-D30",
+      "title": "Issue #17 fixtures are explicit and non-authoritative",
+      "files": ["test/pr-operational-cleanliness.test.js"],
+      "requires": [
+        "non-authoritative",
+        "compile/contract RED",
+        "co-developed, then strengthened review-driven",
+        "Issue #17 vector 01",
+        "Issue #17 vector 23",
+        "required acceptance-vector inventory is complete",
+        "boundary-hazard inventory is complete",
+        "REQUIRED_VECTOR_20_SUBCASES",
+        "raw bytes and digest are unchanged",
+        "new run ID",
+        "raw bytes and digest are unchanged"
+      ]
+    },
+    {
+      "id": "CL-D30-pi-packaging",
+      "marker": "CL-D30",
+      "title": "Issue #17 packaging checks both report and tarball",
+      "files": ["test/package.test.js"],
+      "requires": [
+        "Issue #17 npm pack excludes repository-root .pi runtime artifacts from dry-run and actual tarball",
+        "Retrospective behavioral characterization",
+        "dry-run report",
+        "actual tarball"
+      ]
     }
   ]
 }
