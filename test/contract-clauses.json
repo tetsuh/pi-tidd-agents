@@ -1516,6 +1516,9 @@
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
         "`.pi/**` runtime churn",
+        "safe untracked repository-root `.pi/**` runtime bytes and contents are excluded from every gate payload, candidate draft, finding/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim",
+        "the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published",
+        "the only truthful runtime-content statement permitted is that safe untracked runtime state was excluded from candidate/evidence identity and reclassified at the required boundaries without following links",
         "untracked cleanliness",
         "no cleanup, retry, compensation, or resume",
         "reply, final-classification, post-reply, and summary boundary"
