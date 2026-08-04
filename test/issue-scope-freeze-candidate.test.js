@@ -29,7 +29,7 @@ function sectionOf(text, heading) {
 }
 
 const CONDITIONAL_OWNER_CHOICE =
-  'Conditionally selected by the exact affirmative response bound to this displayed candidate; no owner choice exists unless that response is observed.';
+  'Option B: adopt the exact recommended scope without guessing an owner value. Conditionally selected by the exact affirmative response bound to this displayed candidate; no owner choice exists unless that response is observed.';
 const DEC_FIELDS = [
   'Decision ID', 'Kind', 'Target and revision', 'Question',
   'Options and trade-offs', 'Recommendation', 'Owner choice', 'Rationale',
