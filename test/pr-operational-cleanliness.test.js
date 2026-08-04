@@ -242,9 +242,11 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
   }
   assert.match(replies, /repository-root directory|\.pi\/\*\*/);
   assert.match(replies, /safe untracked repository-root `?\.pi\/\*\*` runtime bytes and contents are excluded from every gate payload, candidate draft, finding\/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim/i);
-  assert.match(replies, /must not claim those runtime bytes were cleaned, preserved, validated, committed, or published/i);
+  const requiredDenial = /the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published\./i;
+  assert.match(replies, requiredDenial);
   assert.match(replies, /only truthful runtime-content statement permitted.*excluded from candidate\/evidence identity.*reclassified.*without following links/is);
-  assert.doesNotMatch(replies, /runtime (?:bytes|contents|state) (?:were|was) (?:cleaned|preserved|validated|committed|published)/i);
+  const repliesWithoutRequiredDenial = replies.replace(requiredDenial, '');
+  assert.doesNotMatch(repliesWithoutRequiredDenial, /runtime (?:bytes|contents|state) (?:were|was) (?:cleaned|preserved|validated|committed|published)/i);
   for (const text of [preflight, boundaries, phases, replies]) {
     assert.doesNotMatch(text, /untracked baseline clean/i);
     assert.doesNotMatch(text, /untracked state(?: to be)? fully clean/i);
