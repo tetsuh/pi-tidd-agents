@@ -445,7 +445,7 @@ test('artifact assertions cover exact autofix safety records and remain non-auth
   const skill = readText(PR_SKILL);
   for (const required of [
     'local `HEAD`', 'manifest must still match the index exactly',
-    'C` has sole parent `P`', 'complete worktree, index, and untracked state are clean',
+    'C` has sole parent `P`', 'tracked worktree and index are clean', 'no outside untracked path exists',
     'Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result',
     'A reply marker is bound to source identity', 'exact reply body/digest', 'exact public head',
     'required app/source identity', 'older-head thread', 'top-level status, praise, duplicate summary',
