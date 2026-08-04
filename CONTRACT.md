@@ -221,6 +221,33 @@ Both Skills bind the full procedure to every initial and re-invocation Sol paylo
 
 The exception supersedes CL-D13, CL-D13-issue, CL-D16, CL-D28, AC-AUTOFIX, AC-GRANT, and AC-REVIEW-ONLY only for these two Issue entrypoints and only for the bounded actions and candidate-phase rules above. PR review-only, exact PR `autofix`, CL-D30, foreign-repository review-and-draft-only behavior, and all unlisted prohibitions remain unchanged.
 
+## CL-D32 — Scope-freeze approval stays inside the candidate transaction
+**Clauses:** CL-D32-architecture-contract, CL-D32-transaction-contract, CL-D32-eligibility-contract, CL-D32-round-contract, CL-D32-decision-contract, CL-D32-safety-contract, CL-D32-fixtures, CL-D32-packaging, CL-D32-skill, CL-D32-prompt, CL-D32-readme
+
+*Decision ID:* CL-D32
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#15` at published Issue #15 body SHA-256 `7d04df705a9e503464178148d70ad2755da720441ce61d0a8eaffee4d35c0b23`, final published `issue_spec` `b850ae9fe339a3881f739ee8a7295e700047319e7f781dff16cc7d032d98734c`, and the target-specific base revision used by its candidate
+*Question:* How can one readiness-relevant pre-candidate scope-freeze response enter the existing CL-D31 candidate transaction without standalone publication or gate bypass?
+*Options and trade-offs:* Retain the legacy operator-post path; or add one narrow combined preview that freezes the complete conditional decision and candidate before mandatory post-decision Sol and Terra review. The legacy path preserves the old boundary but requires a fresh run; the bounded route avoids that repetition while retaining every downstream gate and publication proof.
+*Recommendation:* Adopt the narrow combined route only after the independent current-repository Issue, checkout, and resolver antecedent and exactly five decision conditions; freeze one complete nine-field target-specific readiness-blocking scope-freeze AC-DECISION record (for example `DEC-56-SCOPE-FREEZE-001`). The target-specific record is distinct from the repository contract decision `DEC-I15-ROUND-BUDGET-001` and is never that record. Preserve CL-D31 serialization and all unrelated routes.
+*Owner choice:* Adopt the Issue #15 combined route with a target-specific conditional scope-freeze AC-DECISION record and the dormant at-most-one counted Sol round selected by `DEC-I15-ROUND-BUDGET-001`, with no implementation-start authority.
+*Rationale:* The combined response binds one complete byte-identical candidate and conditional nine-field decision. It authorizes no mutation until unchanged Sol and Terra `MERGE`, and the existing Snapshot A / optional PATCH / B / one ledger POST / C proof succeeds.
+*Validity and invalidation conditions:* This is a later CL-D32 extension to CL-D31 for the two equivalent Issue entrypoints only. Any candidate, body, diff, ledger, target, resolver, checkout, identity, base-spec, nonce, session, or owner-decision change; any gate finding requiring correction, non-`MERGE`, correlation mismatch, or gate uncertainty; and any tool/provider/capture failure, uncertainty, terminal outcome, replay, transfer, retry, or later command expires the approval and dormant grant. A fresh exact candidate and owner response are required.
+
+The CL-D32 route remains prose-only orchestration with no executable controller, extension, durable resume state, retry, compensation, or provider lock. Its dormant grant permits no Terra, publication, retry, correction, transfer, replay, or further extension. It never publishes a standalone scope-freeze decision; specifically, it never publishes a standalone target-specific scope-freeze decision. The complete target-specific AC-DECISION record is transported exactly once inside the final ledger POST and observed by Snapshot C; `DEC-I15-ROUND-BUDGET-001` remains the separate repository contract decision selecting dormant-round semantics. Foreign Issues remain review-and-draft-only even when all five decision conditions hold; PR/CL-D30, legacy CL-D31, equivalent entrypoints, physical-attempt correlation, and every unlisted mutation prohibition remain unchanged. The exact affirmative response changes only logical owner-choice truth and grant state; it never changes candidate, body, diff, ledger, or decision bytes. After matching gates it preserves only CL-D31's optional current-Issue body PATCH and one exact ledger POST; it grants no additional or unlisted GitHub/provider authority and no implementation, repository-file, Git, commit, push, PR, merge, or implementation-start authority.
+
+## DEC-I15-ROUND-BUDGET-001 — Bounded post-decision Sol round
+**Clauses:** DEC-I15-round-budget
+*Decision ID:* DEC-I15-ROUND-BUDGET-001
+*Kind:* Scope and bounded workflow-authority decision
+*Target and revision:* `tetsuh/pi-tidd-agents#15` at base `issue_spec` `7f8288e4293875a7764436569d57ac974cd4a50d6b6bf64af08c4e9476eaa384`; the proposed Issue revision that incorporates the selected dormant-round semantics.
+*Question:* Should a scope decision raised on the last authorized Sol round be excluded from the combined path, or should the exact combined response carry one dormant bounded post-decision Sol round?
+*Options and trade-offs:* Option A: fail-closed exclusion, preserving existing round authority but retaining a second-response edge case. Option B: one dormant at-most-one counted Sol round bound to the exact candidate/session, adding narrow review-budget authority while preserving one-response routing.
+*Recommendation:* Option B: include the dormant bounded round in the exact combined response, activate it only when no already-authorized round remains, and forbid retry, transfer, mutation authority, or further extension.
+*Owner choice:* Option B approved by the exact live same-session response `推奨案を承認`.
+*Rationale:* The last-round boundary must not undermine one-response routing. Option B removes that branching without skipping Sol, Terra, snapshots, or publication guards and grants no provider or implementation mutation.
+*Validity and invalidation conditions:* Valid for the selected semantics in this Issue #15 revision and later faithful implementation until a later explicit owner-approved decision changes them. Candidate regeneration that preserves these semantics does not change this owner choice; any semantic expansion, additional round, retry, transfer, replay, durable resume, different candidate/session use, or changed authority requires a new owner decision. Before publication, authoritative target/input movement still invalidates the CL-D31 candidate and publication authority.
+
 ## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints
 **Clauses:** DEC-I13-ownership, DEC-I13-decision, DEC-I13-publication
 *Decision ID:* DEC-I13-ENTRYPOINT-029

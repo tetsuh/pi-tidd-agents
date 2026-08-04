@@ -1398,6 +1398,180 @@
       ]
     },
     {
+      "id": "CL-D32-architecture-contract",
+      "marker": "CL-D32",
+      "title": "Issue #15 remains prose orchestration",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "later CL-D32 extension to CL-D31",
+        "no executable controller, extension, durable resume state, retry, compensation, or provider lock"
+      ],
+      "section": "## CL-D32 — Scope-freeze approval stays inside the candidate transaction"
+    },
+    {
+      "id": "CL-D32-transaction-contract",
+      "marker": "CL-D32",
+      "title": "The exact response binds one frozen candidate",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "complete byte-identical candidate",
+        "never publishes a standalone scope-freeze decision",
+        "exactly once inside the final ledger POST"
+      ],
+      "section": "## CL-D32 — Scope-freeze approval stays inside the candidate transaction"
+    },
+    {
+      "id": "CL-D32-eligibility-contract",
+      "marker": "CL-D32",
+      "title": "Combined eligibility is narrow and foreign-safe",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "independent current-repository Issue, checkout, and resolver antecedent",
+        "exactly five decision conditions",
+        "Foreign Issues remain review-and-draft-only"
+      ],
+      "section": "## CL-D32 — Scope-freeze approval stays inside the candidate transaction"
+    },
+    {
+      "id": "CL-D32-round-contract",
+      "marker": "CL-D32",
+      "title": "Dormant Sol review authority is bounded",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "dormant at-most-one counted Sol round",
+        "no Terra, publication, retry, correction, transfer, replay, or further extension"
+      ],
+      "section": "## CL-D32 — Scope-freeze approval stays inside the candidate transaction"
+    },
+    {
+      "id": "CL-D32-decision-contract",
+      "marker": "CL-D32",
+      "title": "Conditional decision bytes are canonical",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "complete nine-field target-specific readiness-blocking scope-freeze AC-DECISION record",
+        "distinct from the repository contract decision `DEC-I15-ROUND-BUDGET-001`",
+        "The exact affirmative response changes only logical owner-choice truth",
+        "never changes candidate, body, diff, ledger, or decision bytes"
+      ],
+      "section": "## CL-D32 — Scope-freeze approval stays inside the candidate transaction"
+    },
+    {
+      "id": "CL-D32-safety-contract",
+      "marker": "CL-D32",
+      "title": "Mandatory gates and publication proof remain",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "unchanged Sol and Terra `MERGE`",
+        "gate finding requiring correction, non-`MERGE`, correlation mismatch, or gate uncertainty",
+        "optional current-Issue body PATCH and one exact ledger POST",
+        "no additional or unlisted GitHub/provider authority",
+        "Snapshot A",
+        "Snapshot C",
+        "no implementation-start authority"
+      ],
+      "section": "## CL-D32 — Scope-freeze approval stays inside the candidate transaction"
+    },
+    {
+      "id": "CL-D32-fixtures",
+      "marker": "CL-D32",
+      "title": "Issue #15 fixtures are non-authoritative",
+      "files": [
+        "test/issue-scope-freeze-candidate.test.js"
+      ],
+      "requires": [
+        "cannot prove LLM orchestration",
+        "fixture:",
+        "concrete AC6 state changes independently expire approval",
+        "each target, pagination, publication, transport, and Snapshot-C predicate independently blocks readiness"
+      ]
+    },
+    {
+      "id": "CL-D32-packaging",
+      "marker": "CL-D32",
+      "title": "Issue #15 packaged artifacts remain prose-only",
+      "files": [
+        "test/package.test.js"
+      ],
+      "requires": [
+        "npm pack",
+        "packed Skill",
+        "no executable/controller"
+      ]
+    },
+    {
+      "id": "CL-D32-skill",
+      "marker": "CL-D32",
+      "title": "Issue Skill owns the combined transaction",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "independent pre-question antecedent",
+        "five necessary-and-sufficient decision conditions",
+        "complete nine-field target-specific readiness-blocking scope-freeze AC-DECISION record",
+        "distinct from the repository contract decision `DEC-I15-ROUND-BUDGET-001`",
+        "Owner choice` field is exactly",
+        "dormant grant for at most one additional counted Sol round",
+        "Never publish the scope-freeze decision as a standalone comment",
+        "Snapshot A, optional body PATCH, Snapshot B, one ledger POST, and Snapshot C"
+      ],
+      "section": "### Combined scope-freeze decision transaction (CL-D32)"
+    },
+    {
+      "id": "CL-D32-prompt",
+      "marker": "CL-D32",
+      "title": "Issue prompt delegates the combined transaction",
+      "files": [
+        "prompts/tidd-issue.md"
+      ],
+      "requires": [
+        "CL-D32 combined scope-freeze approval",
+        "one exact owner response",
+        "authoritative"
+      ]
+    },
+    {
+      "id": "CL-D32-readme",
+      "marker": "CL-D32",
+      "title": "README documents combined scope-freeze approval",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "one exact combined scope-freeze preview",
+        "one exact owner response",
+        "dormant at-most-one counted Sol round",
+        "does not authorize starting implementation"
+      ],
+      "section": "#### Combined scope-freeze approval"
+    },
+    {
+      "id": "DEC-I15-round-budget",
+      "marker": "DEC-I15-ROUND-BUDGET-001",
+      "title": "Canonical Issue #15 round-budget decision",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "*Decision ID:* DEC-I15-ROUND-BUDGET-001",
+        "*Owner choice:* Option B approved by the exact live same-session response"
+      ],
+      "section": "## DEC-I15-ROUND-BUDGET-001 — Bounded post-decision Sol round"
+    },
+    {
       "id": "DEC-I13-ownership",
       "marker": "DEC-I13-ENTRYPOINT-029",
       "title": "Durable owner decision identity",

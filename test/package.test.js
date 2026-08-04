@@ -158,6 +158,49 @@ test('Issue #13 CL-D31 legacy artifacts are packaged without a controller', () =
   }
 });
 
+// CL-D32 packaging is behavioral: execute npm pack and read the resulting packed Skill,
+// prompt, and README from the tarball rather than inferring payload content from package.json. The package remains prose-only and has no executable/controller.
+test('Issue #15 CL-D32 packed artifacts contain the combined transaction prose', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue-15-pack-'));
+  try {
+    const stdout = execSync(`npm pack --json --pack-destination ${JSON.stringify(directory)}`, {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const report = JSON.parse(stdout.slice(stdout.indexOf('['), stdout.lastIndexOf(']') + 1));
+    const tarball = path.join(directory, report[0].filename);
+    const entries = report[0].files.map((entry) => ({ ...entry, path: entry.path.replace(/\\/g, '/') }));
+    const reportedFiles = entries.map((entry) => entry.path);
+    const archiveEntries = execSync(`tar -tvzf ${JSON.stringify(tarball)}`, {
+      cwd: repoRoot, encoding: 'utf8', env: { ...process.env, LC_ALL: 'C' },
+    }).trim().split('\n').map((line) => {
+      const match = line.match(/^([dl-][rwxStTs-]{9})\s+\S+\s+\d+\s+\S+\s+\S+\s+(.+)$/);
+      assert.ok(match, `could not parse tar header: ${line}`);
+      return { mode: match[1], path: match[2].replace(/^package\//, '').replace(/\/$/, '') };
+    }).filter((entry) => entry.path && entry.mode[0] !== 'd');
+    const files = archiveEntries.map((entry) => entry.path);
+    const readPacked = (entry) => execSync(`tar -xOf ${JSON.stringify(tarball)} ${JSON.stringify(`package/${entry}`)}`, {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    assert.match(readPacked('skills/closed-loop-issue/SKILL.md'), /Combined scope-freeze decision transaction \(CL-D32\)/);
+    assert.match(readPacked('prompts/tidd-issue.md'), /CL-D32 combined scope-freeze approval/);
+    assert.match(readPacked('README.md'), /#### Combined scope-freeze approval/);
+    assert.deepEqual(files.slice().sort(), reportedFiles.slice().sort(), 'the generated archive must match its same-invocation npm report');
+    assert.ok(!files.some((file) => /(?:controller|extension)/i.test(file)));
+    assert.ok(!files.some((file) => /\.(?:js|mjs|cjs|ts)$/.test(file)));
+    assert.ok(!files.some((file) => file.startsWith('test/')));
+    assert.ok(!files.includes('CONTRACT.md'));
+    for (const entry of archiveEntries) {
+      assert.equal(entry.mode[0], '-', `actual CL-D32 package entry must be a regular file: ${entry.path}`);
+      assert.equal(`${entry.mode[3]}${entry.mode[6]}${entry.mode[9]}`, '---', `actual CL-D32 package entry must not be executable: ${entry.path}`);
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('the packed tarball contains the closed-loop resources', () => {
   const files = packFileList();
   const required = [
