@@ -153,7 +153,7 @@ Round budgets are **run-scoped**. This MVP keeps no state between invocations, s
 
 This legacy Skill/prompt package remains prose orchestration with no executable controller or extension. The bounded authority is one optional body PATCH and one exact ledger POST. The fixed review order is Sol-before-Terra. In the ordinary CL-D31 route only, after both gates return MERGE the parent shows an exact same-session owner preview; readiness retains the disclosed observational residual risk. CL-D32 is the sole narrow pre-rereview combined-preview exception and grants no mutation before the mandatory unchanged Sol then Terra sequence.
 
-This section is the authoritative implementation of published Issue #13 and applies identically to the two equivalent entrypoints `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>`. The legacy Skill/prompt package remains the orchestrating runtime; this is a Skill/prompt-only orchestration contract: it is normative prose plus test-local reference fixtures, not an executable controller. A foreign-repository Issue remains review-and-draft-only and never receives an exact preview or mutation authority.
+This section is the authoritative implementation of published Issue #13 and applies identically to the two equivalent entrypoints `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>`. The legacy Skill/prompt package remains the orchestrating runtime; this is a Skill/prompt-only orchestration contract: it is normative prose, not an executable controller. A foreign-repository Issue remains review-and-draft-only and never receives an exact preview or mutation authority.
 
 ### Combined scope-freeze decision transaction (CL-D32)
 
@@ -213,10 +213,6 @@ Readiness requires the final published issue_spec and snapshot C to observe the 
 
 A later observed authoritative body edit or qualifying comment addition/edit/deletion/reclassification invalidates the candidate and readiness and requires a fresh equivalent run. Bot and other advisory comments remain outside `issue_spec`. Author metadata establishes eligibility, not human agency. The only publication actions are the optional current-repository body PATCH and one exact ledger POST; all other mutation remains forbidden.
 
-### Issue 13 validation and fixture boundary
-
-Artifact assertions inspect the shipped Skill, prompt, README, contract, and package output. Reference fixtures cover candidate framing/scalars/Unicode/CRLF/delimiters/version boundaries/diff substitution; effective fetch/push resolver sets and canonical identities; complete pagination and every snapshot adjacency/failure class; nonce, attempts, result rejection, rounds/order/restarts; complete finding/decision records; preview/decline/non-affirmative/expiry; candidate-phase status rules and legacy resume preservation; snapshots A/B/C; bounded mutation failures and no retry; final CL-D9 membership/readiness and later invalidation. Every test-local fixture is labeled `fixture:` and pins intended semantics only; it cannot prove LLM execution, provider locking, or orchestration runtime behavior.
-
 ## Finding dispositions (AC-DISPOSITION)
 
 Give every actionable finding **exactly one disposition**:
@@ -274,8 +270,7 @@ Require a meaningful behavioral RED for deterministic bug fixes and for behavior
 
 The two pre-implementation classes are separated by what the test does, not by where its inputs come from. A test that **inspects an artifact's content or structure** — reading a file and checking for required or forbidden text, parsing frontmatter — is compile/contract RED. A test that **executes the thing being specified and observes what it does** is behavioural RED, and it stays behavioural when the thing it executes lives in this repository. **Assertion polarity is irrelevant**: `doesNotMatch` against a Markdown file is no more behavioural than `match` against one.
 
-Applying that here gives three groups, not two. The `npm pack` assertions **execute the packaging tool and observe** what it actually publishes, which no amount of reading `package.json` would establish, so they are behavioural. The clause and artifact assertions read files and check text, so they are compile/contract. The reference fixtures execute a specification written inside the test itself rather than the artifact under review, so they are neither: they pin intended semantics and cannot verify prose. This is the criterion applied here, not the criterion.
- A recorded owner exception is a narrow override of a named rule and must state its scope, rationale, and invalidation conditions.
+A recorded owner exception is a narrow override of a named rule and must state its scope, rationale, and invalidation conditions.
 
 ## Outcome and status block (CL-D13, CL-D14)
 
