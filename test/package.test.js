@@ -37,6 +37,10 @@ const PROMPTS = {
   'prompts/tidd-pr.md': { hint: '<pr-ref> [autofix]', skill: 'closed-loop-pr' },
 };
 
+const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.keys(PROMPTS)];
+const GENERIC_FALSIFICATION_EVIDENCE = 'authoritative files of the repository under review';
+const ABSENT_RECORD_RULE = 'that absence is not itself a finding';
+
 let packedEntries = null;
 function packEntryList() {
   if (packedEntries) return packedEntries;
@@ -120,6 +124,21 @@ test('shipped skills omit repository-specific test-suite commentary', () => {
     for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
       assert.doesNotMatch(text, forbidden, `${file} contains repository-specific test commentary: ${forbidden}`);
     }
+  }
+});
+
+test('falsification guidance does not require a package-specific development record', () => {
+  for (const file of FALSIFICATION_ARTIFACTS) {
+    assert.doesNotMatch(
+      readText(file),
+      /CONTRACT\.md/,
+      `${file} names an unpackaged repository-specific record as falsification evidence`,
+    );
+  }
+  for (const file of Object.values(SKILLS)) {
+    const text = readText(file);
+    assert.match(text, new RegExp(GENERIC_FALSIFICATION_EVIDENCE));
+    assert.match(text, new RegExp(ABSENT_RECORD_RULE, 'i'));
   }
 });
 
@@ -217,6 +236,37 @@ test('Issue #15 CL-D32 packed artifacts contain the combined transaction prose',
     for (const entry of archiveEntries) {
       assert.equal(entry.mode[0], '-', `actual CL-D32 package entry must be a regular file: ${entry.path}`);
       assert.equal(`${entry.mode[3]}${entry.mode[6]}${entry.mode[9]}`, '---', `actual CL-D32 package entry must not be executable: ${entry.path}`);
+    }
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test('Issue #25 packed artifacts do not require the unpackaged development record', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue-25-pack-'));
+  try {
+    const stdout = execFileSync('npm', ['pack', '--json', '--pack-destination', directory], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const report = JSON.parse(stdout.slice(stdout.indexOf('['), stdout.lastIndexOf(']') + 1))[0];
+    const tarball = path.join(directory, report.filename);
+    const files = report.files.map((entry) => entry.path.replace(/\\/g, '/'));
+    const readPacked = (entry) => execFileSync('tar', ['-xOf', tarball, `package/${entry}`], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+
+    assert.equal(files.length, 14, `packed file count changed: ${files.join(', ')}`);
+    assert.ok(!files.includes('CONTRACT.md'));
+    for (const file of FALSIFICATION_ARTIFACTS) {
+      assert.ok(files.includes(file), `packed tarball is missing ${file}`);
+      assert.doesNotMatch(
+        readPacked(file),
+        /CONTRACT\.md/,
+        `packed ${file} names an unpackaged repository-specific record as falsification evidence`,
+      );
     }
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });

@@ -738,7 +738,8 @@
         "actual cited counterexample",
         "verdict-material claim that cannot be verified",
         "No counterexample is neither a finding nor proof",
-        "authoritative repository files",
+        "authoritative files of the repository under review",
+        "that absence is not itself a finding",
         "do not revive superseded comments from #3"
       ]
     },
@@ -756,7 +757,8 @@
         "current authoritative decision record",
         "semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims",
         "examples only (examples-only)",
-        "attempt falsification against authoritative `CONTRACT.md`, implementation, tests, and available Git/GitHub evidence",
+        "attempt falsification against the authoritative files of the repository under review",
+        "treat that absence as not itself a finding",
         "require an actual cited counterexample disproving the claim",
         "never invent a counterexample",
         "restrict authoritative comments to non-bot `OWNER`, `MEMBER`, or `COLLABORATOR` authors under CL-D9"
@@ -776,7 +778,8 @@
         "current authoritative decision record",
         "semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims",
         "examples only (examples-only)",
-        "attempt falsification against authoritative `CONTRACT.md`, implementation, tests, and available Git/GitHub evidence",
+        "attempt falsification against the authoritative files of the repository under review",
+        "treat that absence as not itself a finding",
         "require an actual cited counterexample disproving the claim",
         "never invent a counterexample",
         "restrict authoritative comments to non-bot `OWNER`, `MEMBER`, or `COLLABORATOR` authors under CL-D9"
