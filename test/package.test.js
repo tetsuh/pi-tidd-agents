@@ -25,6 +25,13 @@ const SKILLS = {
   'closed-loop-pr': 'skills/closed-loop-pr/SKILL.md',
 };
 
+const REPOSITORY_SPECIFIC_SKILL_PROSE = [
+  /npm pack/,
+  /reference fixtures/,
+  /clause and artifact assertions/,
+  /Issue 13 validation/,
+];
+
 const PROMPTS = {
   'prompts/tidd-issue.md': { hint: '<issue-ref>', skill: 'closed-loop-issue' },
   'prompts/tidd-pr.md': { hint: '<pr-ref> [autofix]', skill: 'closed-loop-pr' },
@@ -107,6 +114,15 @@ test('both skills are valid Agent Skills definitions', () => {
   }
 });
 
+test('shipped skills omit repository-specific test-suite commentary', () => {
+  for (const file of Object.values(SKILLS)) {
+    const text = readText(file);
+    for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
+      assert.doesNotMatch(text, forbidden, `${file} contains repository-specific test commentary: ${forbidden}`);
+    }
+  }
+});
+
 test('both prompt templates expose accurate argument hints', () => {
   for (const [file, expected] of Object.entries(PROMPTS)) {
     assert.ok(exists(file), `missing prompt template: ${file}`);
@@ -185,6 +201,12 @@ test('Issue #15 CL-D32 packed artifacts contain the combined transaction prose',
       encoding: 'utf8',
     });
     assert.match(readPacked('skills/closed-loop-issue/SKILL.md'), /Combined scope-freeze decision transaction \(CL-D32\)/);
+    for (const file of Object.values(SKILLS)) {
+      const text = readPacked(file);
+      for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
+        assert.doesNotMatch(text, forbidden, `packed ${file} contains repository-specific test commentary: ${forbidden}`);
+      }
+    }
     assert.match(readPacked('prompts/tidd-issue.md'), /CL-D32 combined scope-freeze approval/);
     assert.match(readPacked('README.md'), /#### Combined scope-freeze approval/);
     assert.deepEqual(files.slice().sort(), reportedFiles.slice().sort(), 'the generated archive must match its same-invocation npm report');

@@ -314,8 +314,6 @@ Require a meaningful behavioral RED for deterministic bug fixes and behavior exe
 
 The two pre-implementation classes are separated by what the test does, not by where its inputs come from. A test that **inspects an artifact's content or structure** — reading a file and checking for required or forbidden text, parsing frontmatter — is compile/contract RED. A test that **executes the thing being specified and observes what it does** is behavioural RED, and it stays behavioural when the thing it executes lives in this repository. **Assertion polarity is irrelevant**: `doesNotMatch` against a Markdown file is no more behavioural than `match` against one.
 
-Applying that here gives three groups, not two. The `npm pack` assertions **execute the packaging tool and observe** what it actually publishes, which no amount of reading `package.json` would establish, so they are behavioural. The clause and artifact assertions read files and check text, so they are compile/contract. The reference fixtures execute a specification written inside the test itself rather than the artifact under review, so they are neither: they pin intended semantics and cannot verify prose. This is the criterion applied here, not the criterion.
-
 
 ## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)
 

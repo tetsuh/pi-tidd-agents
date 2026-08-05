@@ -608,8 +608,7 @@
         "never rewrite history to simulate",
         "Assertion polarity is irrelevant",
         "inspects an artifact's content or structure",
-        "executes the thing being specified and observes what it does",
-        "execute the packaging tool and observe"
+        "executes the thing being specified and observes what it does"
       ]
     },
     {
