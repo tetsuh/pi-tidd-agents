@@ -562,7 +562,7 @@
         "CONTRACT.md"
       ],
       "requires": [
-        "provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST"
+        "provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST"
       ],
       "section": "## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions"
     },
@@ -574,7 +574,7 @@
         "CONTRACT.md"
       ],
       "requires": [
-        "provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST"
+        "provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST"
       ],
       "section": "## AC-GRANT — Run-scoped bounded publication grant"
     },
@@ -810,17 +810,18 @@
       ],
       "requires": [
         "Before its first edit and immediately before commit",
-        "Immediately before commit",
+        "`CLEAN@P` conditions 1 and 3–6",
+        "`CLEAN@P` conditions 1 and 4–6",
         "The index is intentionally not clean",
         "sole parent `P`",
-        "verify that the public head became `C`",
+        "After verifying public head `C`, require `CLEAN@C`",
         "git log -1 --format=%B",
-        "stored commit message bytes/content",
+        "stored bytes/content exactly",
         "expected approved message",
         "no encoded backslash-n sequence",
         "unexpected worktree or index mutation",
-        "whether the changed path is authorized",
-        "stop without cleanup"
+        "regardless of path authorization",
+        "zero cleanup, retry, continuation, or mutation"
       ]
     },
     {
@@ -852,7 +853,7 @@
         "wait until all included findings are finally confirmed",
         "Exclude only verified workflow-authored replies",
         "Every reply body states the confirmed disposition",
-        "Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state except for the sole provider-mutation exception: posting the exact confirmed CL-D30 GitHub source-finding reply.",
+        "Replies never approve, request rereview, resolve threads, or invoke bot commands; provider mutation is exactly `REPLY_EXCEPTION`.",
         "never claims that the whole PR is ready unless final readiness has independently been reached",
         "parent must create and report the proposed aggregate final-summary body/draft",
         "The draft is not workflow state",
@@ -894,9 +895,10 @@
         "skills/closed-loop-pr/SKILL.md"
       ],
       "requires": [
-        "At each ordinary exact-autofix boundary listed in this paragraph",
-        "Correction-overlay, staged-manifest, and `POST_COMMIT_PRE_PUSH` boundaries use their distinct phase guards",
-        "fully clean at the exact published public head",
+        "Every ordinary exact-autofix boundary",
+        "must satisfy `CLEAN@H` for the exact published public head `H`",
+        "Correction-overlay and staged-manifest boundaries use the named condition deltas",
+        "post-commit/pre-push boundaries use `POST_COMMIT(C, P)`",
         "concurrent local edit",
         "cannot enter a gate, reply, final classification, or summary mutation"
       ]
@@ -943,7 +945,7 @@
       ],
       "requires": [
         "Review-only never posts.",
-        "Exact PR `autofix` posts only its authorized GitHub source-finding replies; exact confirmed CL-D30 GitHub source-finding replies are the sole provider-mutation exception, and all other provider, external, and review-service mutations remain forbidden."
+        "Exact PR `autofix` permits only `REPLY_EXCEPTION` (defined below); all other provider, external, and review-service mutations remain forbidden."
       ]
     },
     {
@@ -956,7 +958,7 @@
       ],
       "requires": [
         "Before the first gate or any mutation, exact PR `autofix` requires",
-        "exactly matching the published public head",
+        "satisfy `CLEAN@H` for the published public head `H`",
         "Exact autofix has no resume"
       ]
     },
@@ -1005,12 +1007,11 @@
       ],
       "requires": [
         "target PR to be open and non-draft",
-        "head branch to be verified writable by a normal actor-authorized non-force push",
+        "head branch to be verified writable by a normal actor-authorized non-force push without branch-protection or ruleset bypass",
         "writability result to be unambiguous",
         "fails closed before review or mutation",
-        "normal actor-authorized non-force push without branch-protection or ruleset bypass",
-        "A branch is not considered writable when success depends on the actor's bypass permission",
-        "bypass-dependent branch/ruleset write preflight fails closed"
+        "A branch is not writable when success depends on the actor's bypass permission",
+        "missing, rejected, ambiguous, unavailable, or bypass-dependent result fails closed"
       ]
     },
     {
@@ -1022,25 +1023,19 @@
         "skills/closed-loop-pr/SKILL.md"
       ],
       "requires": [
-        "The parent Luna payload must contain",
+        "The parent Luna payload contains",
         "finding IDs and authorized corrections",
         "permitted scope and paths",
-        "validation requirements",
+        "validation and commit-message requirements",
         "maximum one commit and one push",
         "every forbidden action",
-        "immediately before commit",
-        "Immediately after commit, execute the distinct post-commit/pre-push guard",
-        "Immediately before push, repeat the full identical",
-        "complete target identity again",
         "Before its first edit and immediately before commit",
-        "local `HEAD` is public parent `P`",
-        "Immediately after commit, execute the distinct post-commit/pre-push guard",
-        "local `HEAD` is verified commit `C`",
-        "After the non-force push, verify that the public head became `C`",
-        "all three local dimensions",
-        "the tracked worktree",
-        "the index",
-        "the untracked state",
+        "every intervening guard does the same",
+        "`AFTER_COMMIT` immediately after commit is the distinct post-commit/pre-push guard: local `HEAD=C` while remote/public head remains `P`; it requires `POST_COMMIT(C, P)`",
+        "`BEFORE_PUSH` immediately before push independently repeats `POST_COMMIT(C, P)` in full with the deliberate phase delta: local `HEAD=C` while remote/public head remains `P`.",
+        "After verifying public head `C`, require `CLEAN@C`",
+        "All three local dimensions remain independently guarded",
+        "tracked worktree, index, and untracked state outside `.pi/**`",
         "pre-existing tracked unstaged edit is rejected"
       ]
     },
@@ -1054,11 +1049,10 @@
       ],
       "requires": [
         "run-local staged manifest is complete and immutable",
-        "parent OID, staged tree OID",
-        "exact path/status/mode inventory",
-        "staged blob identities",
-        "manifest must still match the index exactly",
-        "commit tree/inventory/blob identities to equal the manifest"
+        "parent `P`, staged tree OID",
+        "every allowed path/status/mode and staged blob identity",
+        "index exactly equal to the immutable manifest",
+        "commit tree/inventory/blob identities equal to the immutable manifest"
       ]
     },
     {
@@ -1617,12 +1611,12 @@
       "title": "Repository-root Pi runtime exclusion is narrow and fail-closed",
       "files": ["CONTRACT.md"],
       "requires": [
-        "ordinary operational cleanliness",
-        "repository-root `.pi/**` namespace",
-        "real directory inspected without following links",
-        "outside the repository-root `.pi/**` namespace",
-        "candidate/public `HEAD` tree nor the index contains `.pi`",
-        "staged deletion cannot cure a forbidden path in the candidate parent"
+        "`CLEAN@H`",
+        "All six conditions apply at preflight",
+        "safe no-follow repository-root `.pi` classification",
+        "namespace remains exactly `.pi` and descendants beginning `.pi/`",
+        "absence of forbidden `.pi` entries from `H` and the index",
+        "staged deletion never cures a forbidden path in the candidate parent"
       ],
       "section": "## CL-D10 — Worktree precondition for autofix"
     },
@@ -1632,9 +1626,11 @@
       "title": "CL-D30 records the Issue #17 operational-cleanliness amendment",
       "files": ["CONTRACT.md"],
       "requires": [
-        "Issue #17 operational-cleanliness amendment",
+        "Issue #17 operational-cleanliness amendment and Issue #20 named-invariant refactor",
+        "`CLEAN@H` :=",
+        "`POST_COMMIT(C, P)` :=",
+        "`REPLY_EXCEPTION` :=",
         "unfiltered raw effective diff",
-        "distinct `local HEAD=C`, sole parent `P`, remote/public `P` guard",
         "Runtime churn contributes no candidate, evidence, or publication bytes"
       ],
       "section": "## CL-D30 — Exact PR autofix publishes one bounded correction per public head"
@@ -1645,12 +1641,13 @@
       "title": "Every gate and reply boundary uses scoped operational cleanliness",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "ordinary operational cleanliness",
+        "`CLEAN@H`",
         "before each gate, route-to-Sol, post-push gate, reply, final classification",
-        "Correction-overlay, staged-manifest, and `POST_COMMIT_PRE_PUSH` boundaries use their distinct phase guards",
+        "Correction-overlay and staged-manifest boundaries use the named condition deltas",
+        "post-commit/pre-push boundaries use `POST_COMMIT(C, P)`",
         "unsafe root",
-        "forbidden candidate/public `HEAD` or index entry fails closed",
-        "runtime `.pi/**` churn"
+        "forbidden candidate/public `HEAD` or index entry",
+        "`.pi/**` runtime churn"
       ],
       "section": "### Public-head loop and evidence"
     },
@@ -1660,9 +1657,10 @@
       "title": "Publication phases exclude Pi from correction and manifest state",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "repository-root `.pi` root",
+        "`CLEAN@P` conditions 1 and 3–6",
+        "`CLEAN@P` conditions 1 and 4–6",
         "distinct post-commit/pre-push guard",
-        "POST_COMMIT_PRE_PUSH",
+        "`POST_COMMIT(C, P)`",
         "BEFORE_VALIDATION",
         "AFTER_VALIDATION",
         "BEFORE_STAGING",
@@ -1670,17 +1668,14 @@
         "BEFORE_COMMIT",
         "AFTER_COMMIT",
         "BEFORE_PUSH",
-        "Immediately before push, repeat the full identical",
         "Each guard independently reclassifies the repository-root `.pi`",
         "Between these two guards, safe untracked runtime churn below that root may change",
         "descendant create, content change, rename, removal",
         "safe root transition between absent and real directory",
         "Every other state must remain unchanged",
-        "outside-`.pi/**` untracked state is empty",
         "immutable staged manifest",
-        "manifest tree/inventory/blob identities",
-        "no `.pi` entry",
-        "safe root/no-follow",
+        "parent/tree/inventory/blob identities",
+        "staged deletion never cures a forbidden entry in `P`",
         "zero cleanup, retry, continuation, or mutation"
       ],
       "section": "### Exact identity and Luna publication phases"
@@ -1691,8 +1686,8 @@
       "title": "Replies and summaries preserve the scoped runtime boundary",
       "files": ["skills/closed-loop-pr/SKILL.md"],
       "requires": [
-        "`.pi/**` runtime churn",
-        "safe untracked repository-root `.pi/**` runtime bytes and contents are excluded from every gate payload, candidate draft, finding/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim",
+        "Runtime `.pi/**` churn",
+        "Safe untracked repository-root `.pi/**` runtime bytes and contents are excluded from every gate payload, candidate draft, finding/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim",
         "the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published",
         "the only truthful runtime-content statement permitted is that safe untracked runtime state was excluded from candidate/evidence identity and reclassified at the required boundaries without following links",
         "untracked cleanliness",
