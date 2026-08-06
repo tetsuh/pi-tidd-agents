@@ -1,7 +1,9 @@
 'use strict';
 
-// Provenance: the artifact assertions were authored first and produced a captured
-// compile/contract RED after a syntax typo was corrected. The reference fixtures
+// Provenance: the initial Issue #20 named-invariant artifact assertions were
+// authored first and produced a captured pre-implementation compile/contract RED
+// after a syntax typo was corrected. The AFTER_STAGING qualification assertions
+// were added later as review-driven regression coverage. The reference fixtures
 // were co-developed, then strengthened review-driven. They are non-authoritative
 // specifications and cannot prove LLM/runtime behavior. npm-pack coverage is a
 // retrospective behavioral characterization, not RED evidence.
@@ -318,8 +320,10 @@ test('artifact: Issue #20 names each invariant once and references it at every p
     assert.match(phases, pattern, `${guard} must name CLEAN@P and state only its delta`);
   }
   for (const guard of ['AFTER_COMMIT', 'BEFORE_PUSH']) {
-    const pattern = new RegExp('`' + guard + '`[\\s\\S]{0,240}`POST_COMMIT\\(C, P\\)`');
-    assert.match(phases, pattern, `${guard} must name POST_COMMIT(C, P)`);
+    const guardLine = phases.split('\n').find((line) => line.startsWith(`- \`${guard}\``));
+    assert.ok(guardLine, `${guard} guard must exist`);
+    assert.match(guardLine, /local `HEAD=C` while remote\/public head remains `P`/, `${guard} must independently state its local/public head delta`);
+    assert.match(guardLine, /`POST_COMMIT\(C, P\)`/, `${guard} must independently name POST_COMMIT(C, P)`);
   }
   assert.match(phases, /every `\.pi` path.*fails closed regardless of its mode, stage, intent-to-add, or add\/modify\/rename\/delete\/conflict status/si);
   assert.doesNotMatch(phases, /every staged mode\/stage\/intent\/add\/modify\/rename\/delete\/conflict, fails closed/i);
