@@ -229,18 +229,26 @@ function withHazard(value, hazard) {
 test('artifact: Issue #17 sections define scoped operational cleanliness', () => {
   const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
   const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
+  const invariants = section(SKILL, '### Named exact-autofix invariants (CL-D10, CL-D30)');
   const preflight = section(SKILL, '### Worktree precondition (CL-D10)');
   const phases = section(SKILL, '### Exact identity and Luna publication phases');
   const boundaries = section(SKILL, '### Public-head loop and evidence');
   const replies = section(SKILL, '### Source-finding replies and final readiness');
-  for (const text of [d10, d30, preflight, phases, boundaries]) {
+  for (const text of [d30, invariants]) {
     assert.match(text, /repository-root `?\.pi/);
     assert.match(text, /real (?:repository-root )?\.pi directory|real directory/);
     assert.match(text, /without following links|not follow/);
     assert.match(text, /outside.*untracked|untracked.*outside/si);
     assert.match(text, /HEAD.*index|index.*HEAD/si);
   }
-  assert.match(replies, /repository-root directory|\.pi\/\*\*/);
+  assert.match(d10, /`CLEAN@H`/);
+  assert.match(preflight, /`CLEAN@H`/);
+  assert.match(boundaries, /`CLEAN@H`/);
+  assert.match(boundaries, /`POST_COMMIT\(C, P\)`/);
+  assert.match(phases, /`CLEAN@P`/);
+  assert.match(phases, /`POST_COMMIT\(C, P\)`/);
+  assert.match(replies, /`CLEAN@H`/);
+  assert.match(replies, /`REPLY_EXCEPTION`/);
   assert.match(replies, /safe untracked repository-root `?\.pi\/\*\*` runtime bytes and contents are excluded from every gate payload, candidate draft, finding\/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim/i);
   const requiredDenial = /the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published\./i;
   assert.match(replies, requiredDenial);
@@ -253,21 +261,20 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
     assert.doesNotMatch(text, /all three local dimensions.*completely clean/i);
   }
   assert.doesNotMatch(boundaries, /At every exact-autofix boundary.*ordinary operational cleanliness/si);
-  assert.match(boundaries, /each ordinary exact-autofix boundary listed in this paragraph/);
-  assert.match(boundaries, /distinct phase guards below/);
-  assert.match(phases, /BEFORE_VALIDATION|immediately before focused validation/);
-  assert.match(phases, /AFTER_VALIDATION|immediately after focused/);
-  assert.match(phases, /BEFORE_STAGING|immediately before staging/);
-  assert.match(phases, /AFTER_STAGING|immediately after staging/);
-  assert.match(phases, /BEFORE_COMMIT|immediately before commit/);
-  assert.match(phases, /AFTER_COMMIT.*POST_COMMIT_PRE_PUSH|Immediately after commit.*POST_COMMIT_PRE_PUSH/si);
-  assert.match(phases, /BEFORE_PUSH.*POST_COMMIT_PRE_PUSH|Immediately before push.*full identical/si);
-  assert.match(phases, /outside-`?\.pi\/\*\*.*empty/si);
-  assert.match(phases, /distinct `?POST_COMMIT_PRE_PUSH|distinct post-commit\/pre-push/);
+  assert.match(boundaries, /Every ordinary exact-autofix boundary/);
+  assert.match(boundaries, /Correction-overlay and staged-manifest boundaries use the named condition deltas/);
+  assert.match(phases, /BEFORE_VALIDATION.*immediately before focused validation/si);
+  assert.match(phases, /AFTER_VALIDATION.*immediately after focused/si);
+  assert.match(phases, /BEFORE_STAGING.*immediately before staging/si);
+  assert.match(phases, /AFTER_STAGING.*immediately after staging/si);
+  assert.match(phases, /BEFORE_COMMIT.*immediately before commit/si);
+  assert.match(phases, /AFTER_COMMIT.*POST_COMMIT\(C, P\)/si);
+  assert.match(phases, /BEFORE_PUSH.*POST_COMMIT\(C, P\)/si);
+  assert.match(phases, /distinct post-commit\/pre-push guard/);
   assert.match(d30, /raw.*effective diff|raw.*diff/si);
   assert.match(README, /untracked descendants.*\.pi|untracked.*\.pi.*runtime/si);
   assert.match(README, /AFTER_COMMIT.*BEFORE_PUSH.*independently reclassify/si);
-  assert.match(d30, /AFTER_COMMIT.*BEFORE_PUSH.*independently reclassif/si);
+  assert.match(d30, /AFTER_COMMIT.*BEFORE_PUSH.*independently require.*reclassif/si);
   assert.match(phases, /safe untracked runtime churn.*may change.*descendant create.*content change.*rename.*removal/si);
   assert.match(phases, /Every other state must remain unchanged/);
 });
@@ -283,6 +290,52 @@ test('artifact: Issue #17 stale cleanliness prose is rejected section-by-section
   }
   assert.match(SKILL, /outside-`?\.pi|outside.*untracked/i);
   assert.doesNotMatch(README, /\.pi.*generally ignored/i);
+});
+
+test('artifact: Issue #20 names each invariant once and references it at every phase', () => {
+  const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
+  const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
+  const preflight = section(SKILL, '### Worktree precondition (CL-D10)');
+  const boundaries = section(SKILL, '### Public-head loop and evidence');
+  const phases = section(SKILL, '### Exact identity and Luna publication phases');
+  const replies = section(SKILL, '### Source-finding replies and final readiness');
+  const addendum = SKILL.slice(SKILL.indexOf('## Exact PR `autofix` addendum (CL-D30)'));
+  const definitionCount = (text, name) => {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return [...text.matchAll(new RegExp(`^[-*] ${'`'}${escaped}${'`'} :=`, 'gm'))].length;
+  };
+
+  for (const name of ['CLEAN@H', 'POST_COMMIT(C, P)', 'REPLY_EXCEPTION']) {
+    assert.equal(definitionCount(CONTRACT, name), 1, `${name} must be defined exactly once in CONTRACT.md`);
+    assert.equal(definitionCount(SKILL, name), 1, `${name} must be defined exactly once in the PR Skill`);
+  }
+  assert.match(d10, /`CLEAN@H`/);
+  assert.match(preflight, /`CLEAN@H`/);
+  assert.match(boundaries, /`CLEAN@H`/);
+  assert.match(boundaries, /`POST_COMMIT\(C, P\)`/);
+  for (const guard of ['BEFORE_VALIDATION', 'AFTER_VALIDATION', 'BEFORE_STAGING', 'AFTER_STAGING', 'BEFORE_COMMIT']) {
+    const pattern = new RegExp('`' + guard + '`[^\\n]*`CLEAN@P`|`' + guard + '`[\\s\\S]{0,320}`CLEAN@P`');
+    assert.match(phases, pattern, `${guard} must name CLEAN@P and state only its delta`);
+  }
+  for (const guard of ['AFTER_COMMIT', 'BEFORE_PUSH']) {
+    const pattern = new RegExp('`' + guard + '`[\\s\\S]{0,240}`POST_COMMIT\\(C, P\\)`');
+    assert.match(phases, pattern, `${guard} must name POST_COMMIT(C, P)`);
+  }
+  assert.match(phases, /every `\.pi` path.*fails closed regardless of its mode, stage, intent-to-add, or add\/modify\/rename\/delete\/conflict status/si);
+  assert.doesNotMatch(phases, /every staged mode\/stage\/intent\/add\/modify\/rename\/delete\/conflict, fails closed/i);
+  assert.match(replies, /`REPLY_EXCEPTION`/);
+  assert.ok((SKILL.match(/`REPLY_EXCEPTION`/g) || []).length >= 5, 'every provider-mutation boundary must reference REPLY_EXCEPTION');
+  assert.equal((SKILL.match(/all three local dimensions remain independently guarded/gi) || []).length, 1);
+  assert.ok(Buffer.byteLength(addendum) < 25022, 'the CL-D30 addendum must be smaller than its pre-refactor baseline');
+
+  const retainedVectorMap = {
+    'CLEAN@H': ['01', '02', '06', '08', '09', '10', '11', '12', '13', '19', '20'],
+    'POST_COMMIT(C, P)': ['17', '18', '19', '20'],
+  };
+  for (const [name, ids] of Object.entries(retainedVectorMap)) {
+    assert.ok(ids.length > 0, `${name} needs retained Issue #17 vector coverage`);
+    for (const id of ids) assert.ok(ISSUE_17_REQUIRED_VECTORS.includes(id), `${name} maps to unknown vector ${id}`);
+  }
 });
 
 const vectors = [

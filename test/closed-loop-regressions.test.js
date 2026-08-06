@@ -189,7 +189,7 @@ test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   assert.match(contract, /## AC-GRANT — Run-scoped bounded publication grant/);
   assert.match(contract, /PR review-only still never commits, pushes, posts/);
   assert.match(contract, /During CL-D31 only, exact same-session approval authorizes at most one optional current-repository Issue body PATCH followed by one exact ledger POST/);
-  assert.match(contract, /Exact PR `autofix` may post only CL-D30's bounded confirmed GitHub source-finding replies/);
+  assert.match(contract, /Exact PR `autofix` may post only `REPLY_EXCEPTION`/);
   assert.doesNotMatch(contract, /this MVP never posts/i);
   assert.doesNotMatch(contract, /## CL-D28 — The MVP does not publish/);
   assert.doesNotMatch(contract, /## AC-AUTOFIX — Autofix is file-mutation permission only/);
@@ -203,7 +203,7 @@ test('contract scopes the exact provider-mutation exceptions', () => {
   const contract = readText('CONTRACT.md');
   const autofix = artifactSection(contract, '## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions');
   const grant = artifactSection(contract, '## AC-GRANT — Run-scoped bounded publication grant');
-  const exceptions = 'provider mutation other than the exact scoped CL-D30 confirmed source-finding replies and CL-D31 optional body PATCH/ledger POST';
+  const exceptions = 'provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST';
   for (const [name, section] of [['AC-AUTOFIX', autofix], ['AC-GRANT', grant]]) {
     assert.ok(section, `${name} section must exist for provider-mutation protection`);
     assert.ok(section.includes(exceptions), `${name} must preserve only the exact scoped provider-mutation exceptions`);
@@ -212,21 +212,22 @@ test('contract scopes the exact provider-mutation exceptions', () => {
 });
 
 test('provider mutation exceptions remain scoped in PR Skills and prompt', () => {
-  const exception = 'exact confirmed CL-D30 GitHub source-finding replies are the sole provider-mutation exception';
-  const language = artifactSection(readText(PR_SKILL), '## Language Profile (CL-D16)');
-  const autofix = artifactSection(readText(PR_SKILL), '## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)');
-  const publication = artifactSection(readText(PR_SKILL), '## Publication (AC-GRANT, CL-D28, CL-D30)');
-  const replies = artifactSection(readText(PR_SKILL), '### Source-finding replies and final readiness');
+  const skill = readText(PR_SKILL);
+  const language = artifactSection(skill, '## Language Profile (CL-D16)');
+  const autofix = artifactSection(skill, '## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)');
+  const publication = artifactSection(skill, '## Publication (AC-GRANT, CL-D28, CL-D30)');
+  const replies = artifactSection(skill, '### Source-finding replies and final readiness');
   for (const [name, section] of [['Language Profile', language], ['Autofix', autofix], ['Publication', publication]]) {
     assert.ok(section, `${name} section must exist for provider-mutation protection`);
-    assert.match(section, new RegExp(exception, 'i'));
+    assert.match(section, /`REPLY_EXCEPTION`/);
     assert.doesNotMatch(section, /(?:neither mode|does not authorize|never authorizes)[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s, `${name} restores an unqualified provider-mutation prohibition`);
   }
+  assert.equal((skill.match(/^- `REPLY_EXCEPTION` :=/gm) || []).length, 1);
   assert.ok(replies, 'Source-finding replies section must exist for provider-mutation protection');
-  assert.match(replies, /Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state except for the sole provider-mutation exception: posting the exact confirmed CL-D30 GitHub source-finding reply\./);
+  assert.match(replies, /Replies never approve, request rereview, resolve threads, or invoke bot commands; provider mutation is exactly `REPLY_EXCEPTION`\./);
   assert.doesNotMatch(replies, /Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state\./);
   const prompt = readText('prompts/tidd-pr.md');
-  assert.match(prompt, new RegExp(exception, 'i'));
+  assert.match(prompt, /Only the Skill's `REPLY_EXCEPTION` permits provider mutation\./);
   assert.doesNotMatch(prompt, /never authorizes[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s);
   assert.match(prompt, /Issue mutation/);
 });
@@ -444,36 +445,38 @@ test('fixture: all 22 Issue #10 acceptance scenarios execute against the referen
 test('artifact assertions cover exact autofix safety records and remain non-authoritative', () => {
   const skill = readText(PR_SKILL);
   for (const required of [
-    'local `HEAD`', 'manifest must still match the index exactly',
-    'C` has sole parent `P`', 'tracked worktree and index are clean', 'no outside untracked path exists',
+    '`CLEAN@H` :=', '`POST_COMMIT(C, P)` :=', '`REPLY_EXCEPTION` :=',
+    'no untracked path exists outside', 'C` has sole parent `P`',
+    'tracked worktree, index, and `unstaged` are clean', 'deliberately does not require local and public head equality',
     'Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result',
     'A reply marker is bound to source identity', 'exact reply body/digest', 'exact public head',
     'required app/source identity', 'older-head thread', 'top-level status, praise, duplicate summary',
     'shared CL-D1 exact verdict vocabulary', 'CL-D2 invocation-payload duties', 'CL-D29 adversarial duties',
     'fresh independent Sol/Terra roles', 'review-evidence snapshot fingerprint',
-    'head branch to be verified writable by a normal actor-authorized non-force push', 'The parent Luna payload must contain',
-    'run-local staged manifest is complete and immutable', 'parent OID, staged tree OID',
-    'exact path/status/mode inventory', 'staged blob identities', 'source kind, source ID, source URL',
-    'preflight every planned destination and source', 'Order the batch deterministically by source identity',
-    'destination language', 'any movement expires approval',
-    'local `HEAD` is public parent `P`', 'local `HEAD` is verified commit `C`',
-    'After the non-force push, verify that the public head became `C`',
-    'all three local dimensions', 'the tracked worktree', 'the untracked state',
+    'head branch to be verified writable by a normal actor-authorized non-force push', 'The parent Luna payload contains',
+    'run-local staged manifest is complete and immutable', 'parent `P`, staged tree OID',
+    'every allowed path/status/mode and staged blob identity', 'index exactly equal to the immutable manifest',
+    'source kind, source ID, source URL', 'preflight every planned destination and source',
+    'Order the batch deterministically by source identity', 'destination language', 'any movement expires approval',
+    'Luna repeats `CLEAN@P` immediately before its first edit',
+    '`AFTER_COMMIT` immediately after commit', '`BEFORE_PUSH` immediately before push independently repeats `POST_COMMIT(C, P)`',
+    'After verifying public head `C`, require `CLEAN@C`',
+    'All three local dimensions remain independently guarded', 'tracked worktree, index, and untracked state outside `.pi/**`',
     'pre-existing tracked unstaged edit is rejected', 'git log -1 --format=%B',
-    'stored commit message bytes/content', 'expected approved message',
-    'unexpected worktree or index mutation', 'whether the changed path is authorized', 'stop without cleanup',
+    'stored bytes/content exactly', 'expected approved message',
+    'unexpected worktree or index mutation', 'regardless of path authorization', 'zero cleanup, retry, continuation, or mutation',
     'never claims that the whole PR is ready unless final readiness has independently been reached',
     'parent must create and report the proposed aggregate final-summary body/draft',
     'The draft is not workflow state', 'declining or not posting it never blocks readiness',
     'Before any exact-autofix edit', 'security/risk', 'always stops at `WAITING_FOR_OWNER(reason=owner_decision_required)`',
     'A security or risk finding cannot be delegated', 'The run ends at that boundary with no resume',
     'branch-protection or ruleset bypass', 'normal actor-authorized non-force push without',
-    'bypass-dependent branch/ruleset write preflight fails closed',
+    'missing, rejected, ambiguous, unavailable, or bypass-dependent result fails closed',
   ]) assert.ok(skill.includes(required), `missing exact safety artifact: ${required}`);
   assert.doesNotMatch(skill, /before gate invocation 15|at five successful pushes/);
   assert.doesNotMatch(skill, /immediately before push[^.]*local `HEAD` is public parent `P`/s);
   assert.match(skill, /via `git commit -F`/);
-  assert.match(skill, /absence of literal `\\\\n`/);
+  assert.match(skill, /no literal `\\\\n`/);
 });
 
 test('shared baseline disposition and decision records remain protected in both Skills', () => {
