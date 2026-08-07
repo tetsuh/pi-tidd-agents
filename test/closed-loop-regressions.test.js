@@ -461,7 +461,7 @@ test('artifact assertions cover exact autofix safety records and remain non-auth
     'Luna repeats `CLEAN@P` immediately before its first edit',
     '`AFTER_COMMIT` immediately after commit', '`BEFORE_PUSH` immediately before push independently repeats `POST_COMMIT(C, P)`',
     'After verifying public head `C`, require `CLEAN@C`',
-    'All three local dimensions remain independently guarded', 'tracked worktree, index, and untracked state outside `.pi/**`',
+    'All three local dimensions remain independently guarded', 'tracked worktree, index, and untracked state outside `RUNTIME_ROOTS`',
     'pre-existing tracked unstaged edit is rejected', 'git log -1 --format=%B',
     'stored bytes/content exactly', 'expected approved message',
     'unexpected worktree or index mutation', 'regardless of path authorization', 'zero cleanup, retry, continuation, or mutation',
