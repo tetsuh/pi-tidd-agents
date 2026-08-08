@@ -62,7 +62,7 @@
       "title": "Writer selection",
       "section": "### The writer (CL-D3)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "For exact `/tidd-pr ... autofix`, `luna-worker` is mandatory",
@@ -83,7 +83,7 @@
       "id": "CL-D4",
       "title": "Do not use context.md / plan.md",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Never create `context.md` or `plan.md`"
@@ -233,7 +233,7 @@
       "id": "CL-D23",
       "title": "Candidate evidence is mode-scoped and exact autofix uses the published head",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Review-only never edits any repository file",
@@ -248,7 +248,7 @@
       "id": "CL-D24",
       "title": "External observation is per-run and never carried forward",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "observation origin",
@@ -276,7 +276,7 @@
       "id": "CL-D10",
       "title": "Worktree precondition for autofix",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "gh pr checkout",
@@ -288,7 +288,7 @@
       "title": "Round accounting",
       "files": [
         "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "at most three",
@@ -302,7 +302,7 @@
       "title": "Round budgets are run-scoped (known MVP limitation)",
       "files": [
         "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "run-scoped",
@@ -314,7 +314,7 @@
       "title": "Status block and resume",
       "files": [
         "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "tidd-status",
@@ -354,7 +354,7 @@
       "marker": "CL-D14",
       "title": "Canonical status tokens",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "MERGE_READY",
@@ -371,7 +371,7 @@
       "title": "Scratch-file boundary",
       "files": [
         "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "outside the repository"
@@ -397,7 +397,7 @@
       "id": "CL-D17",
       "title": "SonarCloud disposition in the MVP",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "SonarCloud",
@@ -409,7 +409,7 @@
       "id": "CL-D18",
       "title": "External observation is reported, not enforced",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "two-minute quiet period",
@@ -481,7 +481,7 @@
       "id": "CL-D27",
       "title": "Autofix and publication are governed by one identity invariant",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Target stability",
@@ -495,7 +495,7 @@
       "marker": "CL-D25",
       "title": "A normal commit under the publication grant follows the project convention",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Conventional Commits subject",
@@ -509,7 +509,7 @@
       "title": "Sequential Sol then Terra gates",
       "files": [
         "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "sol-reviewer",
@@ -626,7 +626,7 @@
       "marker": "AC-REVIEW-ONLY",
       "title": "Review-only prohibitions",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "Review-only is the default",
@@ -653,7 +653,7 @@
       "id": "AC-AUTOFIX",
       "title": "Autofix token grants only bounded CL-D30 actions",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "The exact PR `autofix` token itself selects and approves only the bounded CL-D30 actions",
@@ -670,7 +670,7 @@
       "id": "AC-GRANT",
       "title": "Run-scoped bounded publication grant",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Only the exact PR `autofix` mode token supplies a run-scoped publication grant",
@@ -692,7 +692,7 @@
       "title": "Mode-scoped publication boundary (historical no-publication rule)",
       "section": "## Publication (AC-GRANT, CL-D28, CL-D30)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Issue workflow has no publication grant",
@@ -710,7 +710,7 @@
       "marker": "CL-D13",
       "title": "The PR status block carries resumable observation and publication state",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "external_observation: head <sha> observed_from <timestamp>, this run only",
@@ -791,7 +791,7 @@
       "title": "Exact PR autofix public-head loop",
       "section": "## Exact PR `autofix` addendum (CL-D30)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "This addendum is selected only when",
@@ -806,7 +806,7 @@
       "title": "Exact Luna identity and publication phases",
       "section": "### Exact identity and Luna publication phases",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Before its first edit and immediately before commit",
@@ -830,7 +830,7 @@
       "title": "Exact autofix circuit breakers and precedence",
       "section": "### Findings, no-progress, and deterministic status",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result",
@@ -845,7 +845,7 @@
       "title": "Exact source-finding replies and final readiness",
       "section": "### Source-finding replies and final readiness",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "A reply marker is bound to source identity",
@@ -878,7 +878,7 @@
       "title": "Review-only retains per-gate three-round accounting",
       "section": "### Round accounting (CL-D11, PR review-only baseline)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "Each gate allows **at most three** rounds. **The passing round counts.**",
@@ -892,7 +892,7 @@
       "title": "Exact autofix clean boundary at every gate and reply phase",
       "section": "### Public-head loop and evidence",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Every ordinary exact-autofix boundary",
@@ -923,7 +923,7 @@
       "title": "Exact autofix is mode-gated against review-only and Issue",
       "section": "## Exact PR `autofix` addendum (CL-D30)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "It is not applied to Issue workflow or PR review-only mode.",
@@ -954,7 +954,7 @@
       "title": "Exact autofix starts only at clean published head",
       "section": "### Worktree precondition (CL-D10)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Before the first gate or any mutation, exact PR `autofix` requires",
@@ -968,7 +968,7 @@
       "title": "Exact autofix readiness is not blocked by aggregate draft",
       "section": "## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "Exact PR `autofix` has no uncommitted candidate",
@@ -982,7 +982,7 @@
       "title": "Exact gates inherit shared verdict/payload/adversarial contract and full correlation",
       "section": "### Exact gate contract and correlation (CL-D1, CL-D2, CL-D29)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "shared CL-D1 exact verdict vocabulary",
@@ -1003,7 +1003,7 @@
       "title": "Exact autofix preconditions include lifecycle and non-force writability",
       "section": "### Worktree precondition (CL-D10)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "target PR to be open and non-draft",
@@ -1020,7 +1020,7 @@
       "title": "Luna payload and complete identity guards are explicit",
       "section": "### Exact identity and Luna publication phases",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "The parent Luna payload contains",
@@ -1045,7 +1045,7 @@
       "title": "Run-local staged manifest binds parent/tree/inventory/blob identities",
       "section": "### Exact identity and Luna publication phases",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "run-local staged manifest is complete and immutable",
@@ -1079,7 +1079,7 @@
       "title": "Snapshot evidence routes new findings to Sol and allows confirmed finding replies",
       "section": "### Public-head loop and evidence",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "before Terra",
@@ -1096,7 +1096,7 @@
       "title": "Reply batches preflight destinations and bind deterministic evidence",
       "section": "### Source-finding replies and final readiness",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "preflight every planned destination and source",
@@ -1113,7 +1113,7 @@
       "title": "Aggregate summary approval is complete and fail-stop",
       "section": "### Source-finding replies and final readiness",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "destination language",
@@ -1132,7 +1132,7 @@
       "title": "Circuit breaker wording prevents only sixteenth gate and sixth push",
       "section": "### Findings, no-progress, and deterministic status",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "completed gate counter is already 15",
@@ -1328,7 +1328,7 @@
       "marker": "CL-D31",
       "title": "Preserve PR behavior",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Issue workflow has no publication grant",
@@ -1646,7 +1646,7 @@
       "marker": "CL-D30",
       "title": "Every gate and reply boundary uses scoped operational cleanliness",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "`CLEAN@H`",
@@ -1664,7 +1664,7 @@
       "marker": "CL-D30",
       "title": "Publication phases exclude Pi from correction and manifest state",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "`CLEAN@P` conditions 1 and 3–6",
@@ -1695,7 +1695,7 @@
       "marker": "CL-D30",
       "title": "Replies and summaries preserve the scoped runtime boundary",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Runtime-root churn",

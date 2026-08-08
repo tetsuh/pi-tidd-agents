@@ -111,9 +111,14 @@ test('fixture: text fingerprint serialization is newline-stable and delimiter-st
 // exact PR autofix token approves only CL-D30's bounded actions. Prose obligations
 // live in the clause manifest, but unqualified stale rules require negative
 // assertions because a manifest cannot express their absence.
+const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
+const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
+const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_ARTIFACTS = [PR_SKILL, PR_REVIEW_ONLY, PR_AUTOFIX];
+const readPrMode = (reference) => [PR_SKILL, reference].map(readText).join('\n');
 const ENTRY_ARTIFACTS = [
   'skills/closed-loop-issue/SKILL.md',
-  'skills/closed-loop-pr/SKILL.md',
+  ...PR_ARTIFACTS,
   'prompts/tidd-issue.md',
   'prompts/tidd-pr.md',
 ];
@@ -124,7 +129,6 @@ const ENTRY_ARTIFACTS = [
 // after its removal, and external resume restored after it was withdrawn. A
 // clause proves a rule is present; nothing proves an obsolete rule is gone
 // unless it is named. Retired phrasings go here.
-const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 
 function artifactSection(text, heading) {
   const lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
@@ -149,28 +153,28 @@ const SUPERSEDED = [
     reason: 'only exact PR autofix token grants bounded CL-D30 publication' },
   { files: ENTRY_ARTIFACTS, pattern: /require the separate run-scoped publication grant/i,
     reason: 'only exact PR autofix token grants bounded CL-D30 publication' },
-  { files: [PR_SKILL], pattern: /observation origin is part of resumable state/i,
+  { files: PR_ARTIFACTS, pattern: /observation origin is part of resumable state/i,
     reason: 'external evidence is no longer carried across runs' },
-  { files: [PR_SKILL], pattern: /a resume against the same head restores/i,
+  { files: PR_ARTIFACTS, pattern: /a resume against the same head restores/i,
     reason: 'external evidence is no longer carried across runs' },
   { files: ENTRY_ARTIFACTS, pattern: /whose only inputs are repository files/i,
     reason: 'the RED classes are separated by what a test does, not by where its inputs come from' },
   { files: [
       'skills/closed-loop-issue/SKILL.md',
-      'skills/closed-loop-pr/SKILL.md',
+      ...PR_ARTIFACTS,
       'CONTRACT.md',
     ], pattern: /produce (?:a )?counterexample from ground-truth files for each/i,
     reason: 'CL-D29 requires falsification attempts and actual cited counterexamples, not one invented counterexample per claim' },
   { files: [
       'skills/closed-loop-issue/SKILL.md',
-      'skills/closed-loop-pr/SKILL.md',
+      ...PR_ARTIFACTS,
       'CONTRACT.md',
     ], pattern: /survives (?:the check )?as (?:a )?finding/i,
     reason: 'CL-D29 makes no counterexample neither a finding nor proof' },
 ];
 
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {
-  const skill = readText(PR_SKILL);
+  const skill = readText(PR_AUTOFIX);
   assert.match(skill, /This addendum is selected only when.*exactly `autofix`/s);
   assert.match(skill, /Review-only retains the preceding/);
   assert.match(skill, /one bounded normal commit/);
@@ -212,7 +216,7 @@ test('contract scopes the exact provider-mutation exceptions', () => {
 });
 
 test('provider mutation exceptions remain scoped in PR Skills and prompt', () => {
-  const skill = readText(PR_SKILL);
+  const skill = readPrMode(PR_AUTOFIX);
   const language = artifactSection(skill, '## Language Profile (CL-D16)');
   const autofix = artifactSection(skill, '## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)');
   const publication = artifactSection(skill, '## Publication (AC-GRANT, CL-D28, CL-D30)');
@@ -241,7 +245,7 @@ test('no superseded rule survives beside its replacement', () => {
 });
 
 test('exact-autofix Luna ownership is protected within its authored sections', () => {
-  const skill = readText(PR_SKILL);
+  const skill = readText(PR_AUTOFIX);
   const writer = artifactSection(skill, '### The writer (CL-D3)');
   const addendum = artifactSection(skill, '## Exact PR `autofix` addendum (CL-D30)');
   const exactOwner = artifactSection(skill, '### Exact owner and safety boundary (CL-D30)');
@@ -434,7 +438,7 @@ const SCENARIOS = [
   ['19 confirmation records enforce exact one-to-one tuples and multiple assigned findings', () => { const base = { findingId: 'f', blockerKey: 'b', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'e' }; const both = { findingId: 'f', blockerKey: 'b', headOid: 'H', confirmationGate: 'both', proposedDisposition: 'fixed' }; const correct = [base, { ...base, gate: 'terra' }]; assert.equal(confirmation(both, correct), true); assert.equal(confirmation(both, [base]), false); assert.equal(confirmation(both, [base, { ...base, blockerKey: 'wrong', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, headOid: 'OLD', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, proposedDisposition: 'deferred', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, gate: 'terra' }, { ...base, gate: 'sol' }]), false); const solOnly = { findingId: 's', blockerKey: 'bs', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'fixed' }; const solRecord = { findingId: 's', blockerKey: 'bs', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 's' }; assert.equal(confirmation(solOnly, [solRecord, { ...solRecord, gate: 'terra' }]), false); assert.equal(confirmationRecordsValid([{ ...base, gate: 'bad' }]), false); assert.equal(confirmationRecordsValid([{ ...base, proposedDisposition: 'bad' }]), false); assert.equal(confirmationRecordsValid([{ ...base, blockerKey: undefined }]), false); assert.equal(confirmationRecordsValid([base, base]), false); const other = { findingId: 'g', blockerKey: 'bg', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'g' }; const assigned = { findingId: 'g', blockerKey: 'bg', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'fixed' }; assert.equal(confirmation(assigned, [other, ...correct], [assigned, both]), true); assert.equal(confirmation(assigned, [other], [assigned, both]), false); }],
   ['20 blockerKey x breakerOwner deduplicates within result but counts separate results', () => { const history = noProgressHistory([{ resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'terra' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-2', blockerKey: 'shared', breakerOwner: 'shared', gate: 'terra' }, { resultId: 'shared-3', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }]); assert.equal(history.get('owned:sol'), 1); assert.equal(history.get('shared:shared'), 3); assert.equal(breaker('final', { observations: history.get('shared:shared') }), 'ROUND_LIMIT_REACHED:no_progress'); assert.equal(noProgressObservation([{ blockerKey: 'shared' }, { blockerKey: 'shared' }]), 1); }],
   ['21 concurrent local dirtiness/staged race and post-commit checkout mismatch fail without cleanup/retry', () => { const results = [publicationPhase({ phase: 'gate', fullyClean: false }), publicationPhase({ phase: 'reply', fullyClean: false }), publicationPhase({ phase: 'edit', fullyClean: false }), publicationPhase({ phase: 'commit', indexMatchesManifest: false }), publicationPhase({ phase: 'commit', indexTree: 'raced' }), publicationPhase({ phase: 'push', checkoutHead: 'P' })]; assert.deepEqual(results, ['BLOCKED:gate_guard', 'BLOCKED:reply_guard', 'BLOCKED:edit_guard', 'BLOCKED:commit_guard', 'BLOCKED:commit_guard', 'BLOCKED:push_guard']); assert.equal(publicationPhase({ phase: 'push', localHead: 'C', checkoutHead: 'C' }), 'push'); assert.deepEqual(results.map(blockedEffects), results.map(() => ({ commit: 0, push: 0, cleanup: 0, retry: 0 }))); }],
-  ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = readText(PR_SKILL); assert.match(skill, /not applied to Issue workflow or PR review-only mode/); assert.match(skill, /Review-only retains the preceding/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
+  ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = readText(PR_AUTOFIX); assert.match(skill, /not applied to Issue workflow or PR review-only mode/); assert.match(skill, /Review-only retains the preceding/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
 ];
 
 test('fixture: all 22 Issue #10 acceptance scenarios execute against the reference model', () => {
@@ -443,7 +447,7 @@ test('fixture: all 22 Issue #10 acceptance scenarios execute against the referen
 });
 
 test('artifact assertions cover exact autofix safety records and remain non-authoritative', () => {
-  const skill = readText(PR_SKILL);
+  const skill = readPrMode(PR_AUTOFIX);
   for (const required of [
     '`CLEAN@H` :=', '`POST_COMMIT(C, P)` :=', '`REPLY_EXCEPTION` :=',
     'no untracked path exists outside', 'C` has sole parent `P`',
