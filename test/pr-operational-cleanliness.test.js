@@ -1,12 +1,17 @@
 'use strict';
 
-// Provenance: the initial Issue #20 named-invariant artifact assertions were
-// authored first and produced a captured pre-implementation compile/contract RED
-// after a syntax typo was corrected. The AFTER_STAGING qualification assertions
-// were added later as review-driven regression coverage. The reference fixtures
-// were co-developed, then strengthened review-driven. They are non-authoritative
-// specifications and cannot prove LLM/runtime behavior. npm-pack coverage is a
-// retrospective behavioral characterization, not RED evidence.
+// Provenance: the Issue #28 RUNTIME_ROOTS artifact assertions were authored before
+// the prose change and captured against a git archive of base ddadc9b with
+// `node --test test/pr-operational-cleanliness.test.js` (exit 1: genuine
+// compile/contract RED for missing RUNTIME_ROOTS/expanded-root contract prose).
+// The Issue #28 acceptance inventory, mixed-root phase checks, raw-root
+// evidence check, and prompt-authority assertion are review-driven contract
+// regression coverage, not pre-implementation behavioral RED. The reference
+// fixtures are parameterized over each runtime root. They were co-developed, then strengthened review-driven;
+// they are non-authoritative specifications and cannot prove LLM/runtime behavior;
+// safe and unsafe roots are classified independently.
+// npm-pack coverage is a retrospective behavioral characterization,
+// not RED evidence.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
@@ -15,11 +20,49 @@ const { readText } = require('./helpers');
 const CONTRACT = readText('CONTRACT.md');
 const SKILL = readText('skills/closed-loop-pr/SKILL.md');
 const README = readText('README.md');
+const PROMPT = readText('prompts/tidd-pr.md');
+const PACKAGE_TEST = readText('test/package.test.js');
 const executedCoverage = new Set();
 const executedSubcases = new Set();
 const executedSubcaseOccurrences = [];
-// Inventory labels: Issue #17 vector 01 through Issue #17 vector 23.
+// Inventory labels: Issue #17 vector 01 through Issue #17 vector 23,
+// parameterized over the exact owner-approved runtime-root set.
+const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];
+let ACTIVE_RUNTIME_ROOT = RUNTIME_ROOTS[0];
 const ISSUE_17_REQUIRED_VECTORS = Array.from({ length: 23 }, (_, i) => String(i + 1).padStart(2, '0'));
+// One literal Issue #28 acceptance table is authoritative for both semantics and
+// scope. The expected ID order and scope map are independent literals: the
+// assertions below run before execution/coverage derivation so table omissions or
+// scope drift cannot self-certify.
+const ISSUE_28_EXPECTED_IDS = Object.freeze(['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14', '15']);
+const ISSUE_28_EXPECTED_SCOPES = Object.freeze({
+  '01': 'each-root', '02': 'each-root', '03': 'each-root', '04': 'each-root', '05': 'each-root',
+  '06': 'each-root', '07': 'each-root', '08': 'each-root', '09': 'both-roots', '10': 'each-root',
+  '11': 'each-root', '12': 'each-root', '13': 'each-root', '14': 'global', '15': 'global',
+});
+const ISSUE_28_VECTOR_TABLE = Object.freeze([
+  { id: '01', scope: 'each-root', semantic: 'root absent with no other dirt passes' },
+  { id: '02', scope: 'each-root', semantic: 'artifacts and chain-runs descendants under a real root pass' },
+  { id: '03', scope: 'each-root', semantic: 'runtime create, content change, rename, and removal preserve identity' },
+  { id: '04', scope: 'each-root', semantic: 'descendant symlinks are lexical and targets are not followed' },
+  { id: '05', scope: 'each-root', semantic: 'unsafe root kinds fail closed' },
+  { id: '06', scope: 'each-root', semantic: 'tracked modes, statuses, intent-to-add, and conflict stages fail closed' },
+  { id: '07', scope: 'each-root', semantic: 'staged deletion cannot cure a forbidden candidate parent entry' },
+  { id: '08', scope: 'each-root', semantic: 'lookalike and nested non-root names remain ordinary outside paths' },
+  { id: '09', scope: 'both-roots', semantic: 'both enumerated roots present safely at once pass' },
+  { id: '10', scope: 'each-root', semantic: 'the current root is unsafe while the other root remains safe' },
+  { id: '11', scope: 'each-root', semantic: 'runtime churn remains safe at every named boundary' },
+  { id: '12', scope: 'each-root', semantic: 'forbidden root entries fail closed independently at every boundary' },
+  { id: '13', scope: 'each-root', semantic: 'dry-run and actual package contain neither runtime root' },
+  { id: '14', scope: 'global', semantic: 'ended dirty runs require a fresh invocation' },
+  { id: '15', scope: 'global', semantic: 'root additions require a recorded contract decision' },
+]);
+assert.deepEqual(ISSUE_28_VECTOR_TABLE.map(({ id }) => id), ISSUE_28_EXPECTED_IDS);
+assert.deepEqual(Object.fromEntries(ISSUE_28_VECTOR_TABLE.map(({ id, scope }) => [id, scope])), ISSUE_28_EXPECTED_SCOPES);
+const ISSUE_28_REQUIRED_COVERAGE = ISSUE_28_VECTOR_TABLE.flatMap(({ id, scope }) =>
+  scope === 'each-root' ? RUNTIME_ROOTS.map((root) => `${root}:${id}`) : [`${scope}:${id}`]);
+const executedIssue28Coverage = new Set();
+const issue28CoverageOccurrences = [];
 
 function section(text, heading) {
   const start = text.indexOf(heading);
@@ -28,7 +71,22 @@ function section(text, heading) {
   const next = rest.search(/\n(?:##|###) /);
   return text.slice(start, next === -1 ? undefined : start + heading.length + next);
 }
-function isPiNamespace(value) { return value === '.pi' || value.startsWith('.pi/'); }
+function isRuntimeNamespace(value) {
+  return RUNTIME_ROOTS.some((root) => value === root || value.startsWith(`${root}/`));
+}
+function isPiNamespace(value) { return isRuntimeNamespace(value); }
+function runtimePath(value) {
+  return value === '.pi' || value.startsWith('.pi/')
+    ? `${ACTIVE_RUNTIME_ROOT}${value.slice(3)}`
+    : value;
+}
+function replaceRuntimePaths(value) {
+  if (Buffer.isBuffer(value)) return value;
+  if (typeof value === 'string') return runtimePath(value);
+  if (Array.isArray(value)) return value.map(replaceRuntimePaths);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replaceRuntimePaths(item)]));
+  return value;
+}
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function stable(value) { return JSON.stringify(value); }
 function fingerprint(value) { return crypto.createHash('sha256').update(stable(value)).digest('hex'); }
@@ -38,7 +96,7 @@ function gitEntry(path, options = {}) {
     blob: options.blob || `blob:${path}` };
 }
 function baseState(overrides = {}) {
-  return {
+  return replaceRuntimePaths({
     identityOk: true, expectedPublicHead: 'P', localHead: 'P', remoteHead: 'P',
     piRoot: { kind: 'absent', followed: false }, runtimeDescendants: [],
     headEntries: [], indexEntries: [], trackedChanges: [], untrackedPaths: [],
@@ -49,19 +107,31 @@ function baseState(overrides = {}) {
     commit: { oid: 'C', parents: ['P'], tree: 'T-commit', treeEntries: [], entries: [], blobs: [] },
     publishedHead: 'P', rawDiff: '', baseEntries: [], candidateEntries: [],
     ...overrides,
-  };
+  });
+}
+function rootSafe(root, descriptor, descendants, untrackedPaths) {
+  const kinds = new Set(['absent', 'directory', 'symlink', 'file', 'fifo', 'socket', 'device', 'unknown']);
+  if (!kinds.has(descriptor.kind) || descriptor.followed !== false) return false;
+  if (descriptor.kind === 'directory') {
+    const expectedPrefix = `${root}/`;
+    const paths = descendants.map((entry) => entry.path).sort();
+    const untracked = untrackedPaths.filter((path) => path === root || path.startsWith(expectedPrefix)).sort();
+    return descendants.every((entry) => entry.path.startsWith(expectedPrefix) && entry.lexical === true && entry.followed !== true) &&
+      stable(paths) === stable(untracked);
+  }
+  return descriptor.kind === 'absent' && descendants.length === 0 &&
+    untrackedPaths.every((path) => path !== root && !path.startsWith(`${root}/`));
 }
 function runtimeRootSafe(value) {
-  const kinds = new Set(['absent', 'directory', 'symlink', 'file', 'fifo', 'socket', 'device', 'unknown']);
-  if (!kinds.has(value.piRoot.kind) || value.piRoot.followed !== false) return false;
-  if (value.piRoot.kind === 'directory') {
-    const descendants = value.runtimeDescendants.map((entry) => entry.path).sort();
-    const untracked = value.untrackedPaths.filter((path) => isPiNamespace(path)).sort();
-    return value.runtimeDescendants.every((entry) => entry.path.startsWith('.pi/') && entry.lexical === true && entry.followed !== true) &&
-      stable(descendants) === stable(untracked);
+  if (value.runtimeRoots) {
+    return RUNTIME_ROOTS.every((root) => rootSafe(
+      root,
+      value.runtimeRoots[root] || { kind: 'absent', followed: false },
+      (value.runtimeDescendantsByRoot || {})[root] || [],
+      value.untrackedPaths,
+    ));
   }
-  return value.piRoot.kind === 'absent' && value.runtimeDescendants.length === 0 &&
-    value.untrackedPaths.every((path) => !isPiNamespace(path));
+  return rootSafe(ACTIVE_RUNTIME_ROOT, value.piRoot, value.runtimeDescendants, value.untrackedPaths);
 }
 function forbiddenGit(value) {
   return [...value.headEntries, ...value.indexEntries].some((entry) => isPiNamespace(entry.path));
@@ -161,9 +231,115 @@ function operationalClean(value) {
 }
 function mark(vector) { executedCoverage.add(vector); }
 function markSubcase(key) { executedSubcases.add(key); executedSubcaseOccurrences.push(key); }
+function markIssue28(root, vector) {
+  const key = `${root}:${vector}`;
+  assert.equal(executedIssue28Coverage.has(key), false, `duplicate Issue #28 coverage: ${key}`);
+  executedIssue28Coverage.add(key);
+  issue28CoverageOccurrences.push(key);
+}
+function issue28State(root, descriptor = { kind: 'absent', followed: false }, descendants = [], overrides = {}) {
+  const runtimeRoots = Object.fromEntries(RUNTIME_ROOTS.map((candidate) => [candidate, { kind: 'absent', followed: false }]));
+  const runtimeDescendantsByRoot = Object.fromEntries(RUNTIME_ROOTS.map((candidate) => [candidate, []]));
+  runtimeRoots[root] = descriptor;
+  runtimeDescendantsByRoot[root] = descendants;
+  return baseState({ runtimeRoots, runtimeDescendantsByRoot, untrackedPaths: descendants.map((entry) => entry.path), ...overrides });
+}
+function bothRootsSafe(overrides = {}) {
+  return baseState({
+    runtimeRoots: {
+      '.pi': { kind: 'directory', followed: false },
+      '.pi-subagents': { kind: 'directory', followed: false },
+    },
+    runtimeDescendantsByRoot: {
+      '.pi': [{ path: '.pi/tasks/probe', lexical: true }],
+      '.pi-subagents': [{ path: '.pi-subagents/artifacts/probe', lexical: true }],
+    },
+    untrackedPaths: ['.pi/tasks/probe', '.pi-subagents/artifacts/probe'],
+    ...overrides,
+  });
+}
+function makeUnsafeRoot(value, root) {
+  const next = clone(value);
+  next.runtimeRoots[root] = { kind: 'symlink', followed: false, target: `/real/${root.slice(1)}` };
+  next.runtimeDescendantsByRoot[root] = [];
+  next.untrackedPaths = next.untrackedPaths.filter((path) => path !== root && !path.startsWith(`${root}/`));
+  return next;
+}
+function forbiddenEntry(root, suffix = 'forbidden') {
+  return gitEntry(`${root}/${suffix}`, { blob: `runtime:${root}/${suffix}` });
+}
+function forbiddenTreeEntry(root) {
+  return gitEntry(`${root}/tree-forbidden`, { blob: `runtime:${root}/tree-forbidden` });
+}
+function addForbiddenParent(value, root) {
+  const next = clone(value);
+  next.headEntries.push(forbiddenEntry(root));
+  return next;
+}
+function addForbiddenIndex(value, root) {
+  const next = clone(value);
+  next.indexEntries.push(forbiddenEntry(root));
+  return next;
+}
+function addManifestForbiddenEntry(value, root) {
+  const next = clone(value);
+  const entry = forbiddenEntry(root);
+  for (const target of [next.validatedOverlay, next.indexSnapshot.entries, next.manifest.entries]) target.push(clone(entry));
+  for (const target of [next.indexSnapshot.blobs, next.manifest.blobs]) target.push(entry.blob);
+  return next;
+}
+function addManifestForbiddenTree(value, root) {
+  const next = clone(value);
+  const entry = forbiddenTreeEntry(root);
+  next.indexSnapshot.treeEntries.push(clone(entry));
+  next.manifest.treeEntries.push(clone(entry));
+  return next;
+}
+function addPostCommitForbiddenEntry(value, root) {
+  const next = clone(value);
+  const entry = forbiddenEntry(root);
+  for (const target of [next.validatedOverlay, next.indexSnapshot.entries, next.manifest.entries, next.commit.entries]) target.push(clone(entry));
+  for (const target of [next.indexSnapshot.blobs, next.manifest.blobs, next.commit.blobs]) target.push(entry.blob);
+  return next;
+}
+function addPostCommitForbiddenTree(value, root) {
+  const next = clone(value);
+  const entry = forbiddenTreeEntry(root);
+  next.indexSnapshot.treeEntries.push(clone(entry));
+  next.manifest.treeEntries.push(clone(entry));
+  next.commit.treeEntries.push(clone(entry));
+  return next;
+}
+function assertRootForbiddenAtBoundary(boundary, value, root) {
+  // Parent and current-index hazards are independent for every ordinary and overlay boundary.
+  if (ORDINARY.includes(boundary) || OVERLAY.includes(boundary)) {
+    blocked(classify(boundary, addForbiddenParent(value, root)));
+    blocked(classify(boundary, addForbiddenIndex(value, root)));
+    return;
+  }
+  if (MANIFEST.includes(boundary)) {
+    blocked(classify(boundary, addForbiddenParent(value, root)));
+    blocked(classify(boundary, addForbiddenIndex(value, root)));
+    // Keep currentOverlay and exact manifest equality intact while introducing only the forbidden entry.
+    blocked(classify(boundary, addManifestForbiddenEntry(value, root)));
+    // Keep the tree inventory equal across the independent index snapshot and manifest.
+    blocked(classify(boundary, addManifestForbiddenTree(value, root)));
+    return;
+  }
+  if (CP.includes(boundary)) {
+    blocked(classify(boundary, addForbiddenParent(value, root)));
+    blocked(classify(boundary, addForbiddenIndex(value, root)));
+    // Keep validatedOverlay/indexSnapshot/manifest/commit entries and blobs aligned.
+    blocked(classify(boundary, addPostCommitForbiddenEntry(value, root)));
+    // Keep indexSnapshot/manifest/commit tree inventories aligned.
+    blocked(classify(boundary, addPostCommitForbiddenTree(value, root)));
+    return;
+  }
+  throw new Error(`unknown forbidden boundary ${boundary}`);
+}
 // Independent acceptance inventory: this literal is intentionally not derived from
 // hazardsForBoundary() or the execution loop, so omissions cannot self-certify.
-const REQUIRED_VECTOR_20_SUBCASES = [
+const BASE_REQUIRED_VECTOR_20_SUBCASES = [
   'preflight:root','preflight:outside','preflight:parent','preflight:index','preflight:identity',
   'sol:root','sol:outside','sol:parent','sol:index','sol:identity',
   'terra:root','terra:outside','terra:parent','terra:index','terra:identity',
@@ -184,6 +360,7 @@ const REQUIRED_VECTOR_20_SUBCASES = [
   'after-commit:root','after-commit:outside','after-commit:parent','after-commit:index','after-commit:identity','after-commit:manifestPath','after-commit:manifestTree','after-commit:commitPath','after-commit:commitTree','after-commit:commitBlob','after-commit:unstaged',
   'before-push:root','before-push:outside','before-push:parent','before-push:index','before-push:identity','before-push:manifestPath','before-push:manifestTree','before-push:commitPath','before-push:commitTree','before-push:commitBlob','before-push:unstaged',
 ];
+const REQUIRED_VECTOR_20_SUBCASES = RUNTIME_ROOTS.flatMap((root) => BASE_REQUIRED_VECTOR_20_SUBCASES.map((key) => `${root}:${key}`));
 function hazardsForBoundary(boundary) {
   if (ORDINARY.includes(boundary)) return ['root', 'outside', 'parent', 'index', 'identity'];
   if (boundary === 'before-validation') return ['root', 'outside', 'parent', 'index', 'identity', 'overlayAuthority'];
@@ -197,16 +374,16 @@ function withHazard(value, hazard) {
   switch (hazard) {
     case 'root': next.piRoot = { kind: 'symlink', followed: false, target: '/real/pi' }; next.runtimeDescendants = []; break;
     case 'outside': next.untrackedPaths = [...next.untrackedPaths, 'notes.txt']; break;
-    case 'parent': next.headEntries = [...next.headEntries, gitEntry('.pi/file')]; break;
-    case 'index': next.indexEntries = [...next.indexEntries, gitEntry('.pi/file', { stage: 2, intentToAdd: true, status: 'add' })]; break;
+    case 'parent': next.headEntries = [...next.headEntries, gitEntry(runtimePath('.pi/file'))]; break;
+    case 'index': next.indexEntries = [...next.indexEntries, gitEntry(runtimePath('.pi/file'), { stage: 2, intentToAdd: true, status: 'add' })]; break;
     case 'identity': next.identityOk = false; break;
-    case 'overlayAuthority': next.authorizedPaths = ['.pi/file']; break;
+    case 'overlayAuthority': next.authorizedPaths = [runtimePath('.pi/file')]; break;
     case 'overlayDrift': next.overlayChanges = next.overlayChanges.map((entry) => ({ ...entry, blob: 'drifted' })); break;
     case 'overlayIndex': next.overlayChanges = next.overlayChanges.map((entry) => ({ ...entry, blob: 'index-drift' })); break;
-    case 'stagedIndexPath': next.indexSnapshot.entries = [...next.indexSnapshot.entries, gitEntry('.pi/file')]; break;
-    case 'stagedIndexTree': next.indexSnapshot.treeEntries = [...next.indexSnapshot.treeEntries, gitEntry('.pi/file')]; break;
-    case 'manifestPath': next.manifest.entries = [...next.manifest.entries, gitEntry('.pi/file')]; break;
-    case 'manifestTree': next.manifest.treeEntries = [...next.manifest.treeEntries, gitEntry('.pi/file')]; break;
+    case 'stagedIndexPath': next.indexSnapshot.entries = [...next.indexSnapshot.entries, gitEntry(runtimePath('.pi/file'))]; break;
+    case 'stagedIndexTree': next.indexSnapshot.treeEntries = [...next.indexSnapshot.treeEntries, gitEntry(runtimePath('.pi/file'))]; break;
+    case 'manifestPath': next.manifest.entries = [...next.manifest.entries, gitEntry(runtimePath('.pi/file'))]; break;
+    case 'manifestTree': next.manifest.treeEntries = [...next.manifest.treeEntries, gitEntry(runtimePath('.pi/file'))]; break;
     case 'manifestBlob': next.manifest.blobs = [...next.manifest.blobs, 'wrong']; break;
     case 'validatedOverlayIndex': next.indexSnapshot.entries = [gitEntry('src/fix.js', { status: 'modify', blob: 'A' })]; next.indexSnapshot.blobs = ['A']; break;
     case 'validatedOverlayManifest': next.manifest.entries = [gitEntry('src/fix.js', { status: 'modify', blob: 'A' })]; next.manifest.blobs = ['A']; break;
@@ -219,8 +396,8 @@ function withHazard(value, hazard) {
       break;
     }
     case 'unstaged': next.unstagedChanges = [...next.unstagedChanges, 'src/fix.js']; break;
-    case 'commitPath': next.commit.entries = [...next.commit.entries, gitEntry('.pi/file')]; break;
-    case 'commitTree': next.commit.treeEntries = [...next.commit.treeEntries, gitEntry('.pi/file')]; break;
+    case 'commitPath': next.commit.entries = [...next.commit.entries, gitEntry(runtimePath('.pi/file'))]; break;
+    case 'commitTree': next.commit.treeEntries = [...next.commit.treeEntries, gitEntry(runtimePath('.pi/file'))]; break;
     case 'commitBlob': next.commit.blobs = ['wrong']; break;
     default: throw new Error(`unknown Issue #17 hazard ${hazard}`);
   }
@@ -237,7 +414,7 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
   const boundaries = section(SKILL, '### Public-head loop and evidence');
   const replies = section(SKILL, '### Source-finding replies and final readiness');
   for (const text of [d30, invariants]) {
-    assert.match(text, /repository-root `?\.pi/);
+    assert.match(text, /RUNTIME_ROOTS|runtime-root/);
     assert.match(text, /real (?:repository-root )?\.pi directory|real directory/);
     assert.match(text, /without following links|not follow/);
     assert.match(text, /outside.*untracked|untracked.*outside/si);
@@ -251,7 +428,7 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
   assert.match(phases, /`POST_COMMIT\(C, P\)`/);
   assert.match(replies, /`CLEAN@H`/);
   assert.match(replies, /`REPLY_EXCEPTION`/);
-  assert.match(replies, /safe untracked repository-root `?\.pi\/\*\*` runtime bytes and contents are excluded from every gate payload, candidate draft, finding\/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim/i);
+  assert.match(replies, /safe untracked runtime-root bytes and contents are excluded from every gate payload, candidate draft, finding\/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim/i);
   const requiredDenial = /the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published\./i;
   assert.match(replies, requiredDenial);
   assert.match(replies, /only truthful runtime-content statement permitted.*excluded from candidate\/evidence identity.*reclassified.*without following links/is);
@@ -274,10 +451,17 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
   assert.match(phases, /BEFORE_PUSH.*POST_COMMIT\(C, P\)/si);
   assert.match(phases, /distinct post-commit\/pre-push guard/);
   assert.match(d30, /raw.*effective diff|raw.*diff/si);
-  assert.match(README, /untracked descendants.*\.pi|untracked.*\.pi.*runtime/si);
+  assert.match(README, /RUNTIME_ROOTS.*\.pi.*\.pi-subagents/si);
+  assert.match(README, /artifactDir: "session".*artifactDir: "temp".*do \*\*not\*\* guarantee.*\.pi-subagents/is);
   assert.match(README, /AFTER_COMMIT.*BEFORE_PUSH.*independently reclassify/si);
   assert.match(d30, /AFTER_COMMIT.*BEFORE_PUSH.*independently require.*reclassif/si);
-  assert.match(phases, /safe untracked runtime churn.*may change.*descendant create.*content change.*rename.*removal/si);
+  for (const text of [d10, d30, invariants, README]) assert.match(text, /RUNTIME_ROOTS/);
+  for (const text of [d30, invariants, README]) {
+    assert.match(text, /\.pi.*\.pi-subagents/si);
+    assert.match(text, /enumerat|exact.*set|independently/si);
+  }
+  assert.match(phases, /safe untracked runtime(?:-root)? churn.*may change.*descendant create.*content change.*rename.*removal/si);
+  assert.match(phases, /every `RUNTIME_ROOTS` member without following links/i);
   assert.match(phases, /Every other state must remain unchanged/);
 });
 
@@ -325,7 +509,7 @@ test('artifact: Issue #20 names each invariant once and references it at every p
     assert.match(guardLine, /local `HEAD=C` while remote\/public head remains `P`/, `${guard} must independently state its local/public head delta`);
     assert.match(guardLine, /`POST_COMMIT\(C, P\)`/, `${guard} must independently name POST_COMMIT(C, P)`);
   }
-  assert.match(phases, /every `\.pi` path.*fails closed regardless of its mode, stage, intent-to-add, or add\/modify\/rename\/delete\/conflict status/si);
+  assert.match(phases, /every runtime-root path.*fails closed regardless of its mode, stage, intent-to-add, or add\/modify\/rename\/delete\/conflict status/si);
   assert.doesNotMatch(phases, /every staged mode\/stage\/intent\/add\/modify\/rename\/delete\/conflict, fails closed/i);
   assert.match(replies, /`REPLY_EXCEPTION`/);
   assert.ok((SKILL.match(/`REPLY_EXCEPTION`/g) || []).length >= 5, 'every provider-mutation boundary must reference REPLY_EXCEPTION');
@@ -339,6 +523,202 @@ test('artifact: Issue #20 names each invariant once and references it at every p
   for (const [name, ids] of Object.entries(retainedVectorMap)) {
     assert.ok(ids.length > 0, `${name} needs retained Issue #17 vector coverage`);
     for (const id of ids) assert.ok(ISSUE_17_REQUIRED_VECTORS.includes(id), `${name} maps to unknown vector ${id}`);
+  }
+});
+
+test('artifact: RUNTIME_ROOTS is the documented exact set and classifies roots independently', () => {
+  assert.deepEqual(RUNTIME_ROOTS, ['.pi', '.pi-subagents']);
+  const definition = /`?RUNTIME_ROOTS`?\s*:=\s*[^\n{]*\{ "\.pi", "\.pi-subagents" \}/g;
+  assert.equal((CONTRACT.match(definition) || []).length, 1, 'CONTRACT.md must define RUNTIME_ROOTS exactly once');
+  assert.equal((SKILL.match(definition) || []).length, 1, 'PR Skill must define RUNTIME_ROOTS exactly once');
+  assert.doesNotMatch(PROMPT, /RUNTIME_ROOTS\s*:=/, 'thin prompt must not define RUNTIME_ROOTS');
+  for (const text of [CONTRACT, SKILL, README]) {
+    assert.match(text, /RUNTIME_ROOTS/);
+    assert.match(text, /\{ "\.pi", "\.pi-subagents" \}/);
+    assert.doesNotMatch(text, /\.pi\*/);
+  }
+  const safeBoth = baseState({
+    runtimeRoots: {
+      '.pi': { kind: 'directory', followed: false },
+      '.pi-subagents': { kind: 'directory', followed: false },
+    },
+    runtimeDescendantsByRoot: {
+      '.pi': [{ path: '.pi/tasks/probe', lexical: true }],
+      '.pi-subagents': [{ path: '.pi-subagents/missions/probe', lexical: true }],
+    },
+    untrackedPaths: ['.pi/tasks/probe', '.pi-subagents/missions/probe'],
+  });
+  assert.equal(operationalClean(safeBoth).status, 'pass');
+  const mixedUnsafe = { ...safeBoth, runtimeRoots: { ...safeBoth.runtimeRoots, '.pi-subagents': { kind: 'symlink', followed: false } }, runtimeDescendantsByRoot: { ...safeBoth.runtimeDescendantsByRoot, '.pi-subagents': [] }, untrackedPaths: ['.pi/tasks/probe'] };
+  assert.equal(operationalClean(mixedUnsafe).status, 'BLOCKED');
+});
+
+test('fixture: Issue #28 acceptance vectors 01–15 cover their declared root scope exactly once', () => {
+  ACTIVE_RUNTIME_ROOT = RUNTIME_ROOTS[0];
+  for (const { id: vector, scope } of ISSUE_28_VECTOR_TABLE) {
+    if (scope !== 'each-root') continue;
+    for (const root of RUNTIME_ROOTS) {
+      markIssue28(root, vector);
+      const descendant = (suffix, content = undefined) => ({ path: `${root}/${suffix}`, lexical: true, ...(content === undefined ? {} : { content }) });
+      switch (vector) {
+        case '01': // Root absent, no other dirt: pass.
+          assert.equal(operationalClean(issue28State(root)).status, 'pass');
+          break;
+        case '02': { // Real root with the default artifact and chain-run descendants: pass.
+          const descendants = [descendant('artifacts/probe'), descendant('chain-runs/probe')];
+          assert.equal(operationalClean(issue28State(root, { kind: 'directory', followed: false }, descendants)).status, 'pass');
+          break;
+        }
+        case '03': { // Create, content change, rename, and removal preserve identity.
+          const candidate = { base: [{ path: 'src/fix.js', blob: 'A' }], head: [{ path: 'src/fix.js', blob: 'B' }] };
+          const before = fingerprint(candidate);
+          for (const event of [
+            { type: 'create', entries: [descendant('task', 'one')] },
+            { type: 'content-change', entries: [descendant('task', 'two')] },
+            { type: 'rename', entries: [descendant('renamed', 'two')] },
+            { type: 'remove', entries: [] },
+          ]) {
+            assert.equal(operationalClean(issue28State(root, { kind: 'directory', followed: false }, event.entries)).status, 'pass', event.type);
+            assert.equal(fingerprint(candidate), before, event.type);
+          }
+          break;
+        }
+        case '04': { // Descendant symlinks are lexical; following a target blocks.
+          const lexical = issue28State(root, { kind: 'directory', followed: false }, [{ ...descendant('link'), kind: 'symlink', target: '/outside/secret', followed: false }]);
+          assert.equal(operationalClean(lexical).status, 'pass');
+          const followed = clone(lexical);
+          followed.runtimeDescendantsByRoot[root][0].followed = true;
+          blocked(operationalClean(followed));
+          break;
+        }
+        case '05': // Symlink, file, FIFO, socket, device, and unknown roots are unsafe.
+          for (const descriptor of [
+            { kind: 'symlink', followed: false }, { kind: 'file', followed: false }, { kind: 'fifo', followed: false },
+            { kind: 'socket', followed: false }, { kind: 'device', followed: false }, { kind: 'unknown', followed: false },
+          ]) blocked(operationalClean(issue28State(root, descriptor)));
+          break;
+        case '06': { // Every tracked mode/status/stage, intent-to-add, and conflict stage blocks.
+          for (const mode of ['120000', '100644', '160000', '040000']) {
+            blocked(operationalClean(issue28State(root, undefined, [], { headEntries: [gitEntry(root, { mode })] })));
+          }
+          for (const options of [
+            { status: 'add' }, { status: 'modify' }, { status: 'rename' }, { status: 'delete' },
+            { intentToAdd: true }, { stage: 1 }, { stage: 2 }, { stage: 3 },
+          ]) blocked(operationalClean(issue28State(root, undefined, [], { indexEntries: [gitEntry(`${root}/file`, options)] })));
+          break;
+        }
+        case '07': // A staged deletion cannot cure a forbidden entry in candidate parent P.
+          blocked(operationalClean(issue28State(root, undefined, [], { headEntries: [gitEntry(`${root}/file`)], indexEntries: [gitEntry(`${root}/file`, { status: 'delete' })] })));
+          break;
+        case '08': { // Only lookalikes corresponding to the current root occurrence are tested.
+          const lookalikes = root === '.pi'
+            ? ['.pi2/file', 'x/.pi/file', 'foo.pi/bar']
+            : ['.pi-subagentsX/file', 'x/.pi-subagents/file', 'foo.pi-subagents/bar'];
+          for (const path of lookalikes) blocked(operationalClean(issue28State(root, undefined, [], { untrackedPaths: [path] })));
+          break;
+        }
+        case '10': { // Only the current root is unsafe; the other remains safe.
+          blocked(operationalClean(makeUnsafeRoot(bothRootsSafe(), root)));
+          break;
+        }
+        case '11': { // Runtime churn remains safe at every named ordinary/overlay/manifest/commit boundary.
+          const churn = (value, changedRoot) => {
+            const next = clone(value);
+            next.runtimeDescendantsByRoot[changedRoot] = [{ path: `${changedRoot}/churn`, lexical: true, content: 'changed' }];
+            next.untrackedPaths = Object.values(next.runtimeDescendantsByRoot).flat().map((entry) => entry.path);
+            return next;
+          };
+          const entries = [{ path: 'src/fix.js', status: 'modify', mode: '100644', blob: 'B' }];
+          const ordinary = bothRootsSafe();
+          const overlay = bothRootsSafe({ overlayChanges: entries, trackedChanges: ['src/fix.js'], authorizedPaths: ['src/fix.js'], validatedOverlay: clone(entries) });
+          const beforeValidation = { ...overlay, validatedOverlay: null };
+          const manifest = bothRootsSafe({ ...overlay, trackedChanges: [], indexSnapshot: { parent: 'P', tree: 'T', treeEntries: [], entries, blobs: ['B'] }, manifest: { parent: 'P', tree: 'T', treeEntries: [], entries, blobs: ['B'] }, unstagedChanges: [] });
+          const commit = bothRootsSafe({ ...manifest, localHead: 'C', commit: { oid: 'C', parents: ['P'], tree: 'T', treeEntries: [], entries, blobs: ['B'] }, indexEntries: [] });
+          for (const boundary of ORDINARY) assert.equal(classify(boundary, churn(ordinary, root)).status, 'pass', `${boundary}:${root}`);
+          assert.equal(classify('before-validation', churn(beforeValidation, root)).status, 'pass', `before-validation:${root}`);
+          for (const boundary of ['after-validation', 'before-staging']) assert.equal(classify(boundary, churn(overlay, root)).status, 'pass', `${boundary}:${root}`);
+          for (const boundary of MANIFEST) assert.equal(classify(boundary, churn(manifest, root)).status, 'pass', `${boundary}:${root}`);
+          for (const boundary of CP) assert.equal(classify(boundary, churn(commit, root)).status, 'pass', `${boundary}:${root}`);
+          break;
+        }
+        case '12': { // A forbidden root entry blocks every named boundary, regardless of the other safe root.
+          const entries = [{ path: 'src/fix.js', status: 'modify', mode: '100644', blob: 'B' }];
+          const overlay = bothRootsSafe({ overlayChanges: entries, trackedChanges: ['src/fix.js'], authorizedPaths: ['src/fix.js'], validatedOverlay: clone(entries) });
+          const manifest = bothRootsSafe({ ...overlay, trackedChanges: [], indexSnapshot: { parent: 'P', tree: 'T', treeEntries: [], entries, blobs: ['B'] }, manifest: { parent: 'P', tree: 'T', treeEntries: [], entries, blobs: ['B'] }, unstagedChanges: [] });
+          const commit = bothRootsSafe({ ...manifest, localHead: 'C', commit: { oid: 'C', parents: ['P'], tree: 'T', treeEntries: [], entries, blobs: ['B'] }, indexEntries: [] });
+          const phases = [
+            ['preflight', bothRootsSafe()], ['sol', bothRootsSafe()], ['terra', bothRootsSafe()],
+            ['route-to-Sol', bothRootsSafe()], ['luna-delegation', bothRootsSafe()], ['luna-first-edit', bothRootsSafe()],
+            ['post-push-gate', bothRootsSafe()], ['reply-batch', bothRootsSafe()], ['individual-reply', bothRootsSafe()],
+            ['final-classification', bothRootsSafe()], ['post-reply-readiness', bothRootsSafe()], ['aggregate-summary', bothRootsSafe()],
+            ['before-validation', { ...overlay, validatedOverlay: null }], ['after-validation', overlay], ['before-staging', overlay],
+            ['after-staging', manifest], ['before-commit', manifest], ['after-commit', commit], ['before-push', commit],
+          ];
+          for (const [boundary, valid] of phases) assertRootForbiddenAtBoundary(boundary, valid, root);
+          break;
+        }
+        case '13': // Packaging test covers dry-run report and actual tarball for every enumerated root.
+          assert.match(PACKAGE_TEST, /const runtimeRoots = \['\.pi', '\.pi-subagents'\]/);
+          assert.match(PACKAGE_TEST, /pack\(\['--dry-run', '--json'\]\)/);
+          assert.match(PACKAGE_TEST, /pack\(\['--json', '--pack-destination', destination\]\)/);
+          assert.match(PACKAGE_TEST, /actual tarball/);
+          assert.match(PACKAGE_TEST, new RegExp(`entry === '${root}'|entry === root`));
+          break;
+        default:
+          throw new Error(`unknown root-scoped Issue #28 vector ${vector}`);
+      }
+    }
+  }
+  const bothRootsVector = ISSUE_28_VECTOR_TABLE.find(({ scope }) => scope === 'both-roots');
+  assert.equal(bothRootsVector.id, '09');
+  markIssue28(bothRootsVector.scope, bothRootsVector.id); // Both roots present and safe simultaneously: pass.
+  assert.equal(operationalClean(bothRootsSafe()).status, 'pass');
+  for (const { id, scope } of ISSUE_28_VECTOR_TABLE.filter(({ scope }) => scope === 'global')) {
+    markIssue28(scope, id);
+    if (id === '14') { // An ended dirty run cannot resume; only explicit fresh invocation works.
+      const terminate = (run) => ({ ...run, status: 'BLOCKED', resumable: false, acceptedState: null });
+      const continueRun = (run) => run.resumable ? { status: 'resumed', runId: run.runId } : { status: 'BLOCKED', runId: run.runId, resumed: false };
+      const startFresh = (command, prior) => command === 'explicit-command'
+        ? { runId: `${command}-${prior.runId + 1}`, status: 'fresh', resumable: false, acceptedState: null, priorStateAccepted: false }
+        : { status: 'BLOCKED', runId: prior.runId, resumed: false };
+      const ended = terminate({ runId: 41, status: 'dirty_candidate_baseline', resumable: true, acceptedState: { candidate: 'stale' } });
+      assert.equal(continueRun(ended).status, 'BLOCKED');
+      assert.equal(startFresh(undefined, ended).status, 'BLOCKED');
+      const fresh = startFresh('explicit-command', ended);
+      assert.notEqual(fresh.runId, ended.runId); assert.equal(fresh.status, 'fresh'); assert.equal(fresh.priorStateAccepted, false); assert.equal(fresh.acceptedState, null);
+    } else if (id === '15') { // The exact set equals the guarded set; additions require a recorded decision.
+      assert.match(CONTRACT, /RUNTIME_ROOTS.*\{ "\.pi", "\.pi-subagents" \}/s);
+      assert.match(SKILL, /RUNTIME_ROOTS.*\{ "\.pi", "\.pi-subagents" \}/s);
+      assert.match(SKILL, /every member of `RUNTIME_ROOTS`/);
+      assert.match(CONTRACT, /future additions require a recorded contract decision naming the producing tool, default configuration, and affected version range/);
+    }
+  }
+  assert.deepEqual([...executedIssue28Coverage].sort(), [...ISSUE_28_REQUIRED_COVERAGE].sort());
+  assert.equal(issue28CoverageOccurrences.length, ISSUE_28_REQUIRED_COVERAGE.length, 'duplicate or missing Issue #28 coverage');
+});
+
+test('fixture: Issue #28 every phase independently blocks either unsafe root and forbidden Git state', () => {
+  ACTIVE_RUNTIME_ROOT = RUNTIME_ROOTS[0];
+  const entries = [{ path: 'src/fix.js', status: 'modify', mode: '100644', blob: 'B' }];
+  const overlay = bothRootsSafe({ overlayChanges: entries, trackedChanges: ['src/fix.js'], authorizedPaths: ['src/fix.js'], validatedOverlay: clone(entries) });
+  const manifest = bothRootsSafe({ ...overlay, trackedChanges: [], indexSnapshot: { parent: 'P', tree: 'T', treeEntries: [], entries, blobs: ['B'] }, manifest: { parent: 'P', tree: 'T', treeEntries: [], entries, blobs: ['B'] }, unstagedChanges: [] });
+  const commit = bothRootsSafe({ ...manifest, localHead: 'C', commit: { oid: 'C', parents: ['P'], tree: 'T', treeEntries: [], entries, blobs: ['B'] }, indexEntries: [] });
+  const phases = [
+    ['preflight', bothRootsSafe()],
+    ['before-validation', { ...overlay, validatedOverlay: null }],
+    ['after-validation', overlay],
+    ['after-staging', manifest],
+    ['before-commit', manifest],
+    ['after-commit', commit],
+    ['before-push', commit],
+  ];
+  for (const [boundary, valid] of phases) {
+    assert.equal(classify(boundary, valid).status, 'pass', `${boundary}: baseline`);
+    for (const root of RUNTIME_ROOTS) {
+      // Unsafe-root checks are separate from forbidden-entry checks.
+      blocked(classify(boundary, makeUnsafeRoot(valid, root)));
+      assertRootForbiddenAtBoundary(boundary, valid, root);
+    }
   }
 });
 
@@ -371,7 +751,7 @@ const vectors = [
   }],
   ['06', 'repository-root symlink blocks without following target', () => assert.equal(operationalClean(baseState({ piRoot: { kind: 'symlink', followed: false, target: '/real/pi' }, runtimeDescendants: [] })).status, 'BLOCKED')],
   ['07', 'non-directory and unknown roots block', () => { for (const kind of ['file', 'fifo', 'socket', 'device', 'unknown']) assert.equal(operationalClean(baseState({ piRoot: { kind, followed: false }, runtimeDescendants: [] })).status, 'BLOCKED'); }],
-  ['08', 'similar names remain outside runtime namespace', () => { for (const path of ['.pi2/file', 'x/.pi/file', 'foo.pi/bar']) assert.equal(operationalClean(baseState({ untrackedPaths: [path] })).status, 'BLOCKED'); }],
+  ['08', 'similar names remain outside runtime namespace', () => { for (const path of ['.pi2/file', '.pi-subagentsX/file', 'x/.pi/file', 'x/.pi-subagents/file', 'foo.pi/bar', 'foo.pi-subagents/bar']) assert.equal(operationalClean(baseState({ untrackedPaths: [path] })).status, 'BLOCKED'); }],
   ['09', 'every other untracked path blocks', () => assert.equal(operationalClean(baseState({ untrackedPaths: ['notes.txt', 'src/tmp'] })).status, 'BLOCKED')],
   ['10', 'HEAD or index tracked pi blocks', () => { blocked(operationalClean(baseState({ headEntries: [gitEntry('.pi/file')] }))); blocked(operationalClean(baseState({ indexEntries: [gitEntry('.pi/file')] }))); }],
   ['11', 'forbidden candidate modes block', () => { for (const mode of ['120000', '100644', '160000', '040000']) blocked(operationalClean(baseState({ headEntries: [gitEntry('.pi', { mode })] }))); }],
@@ -393,8 +773,8 @@ const vectors = [
     for (const bad of [
       { manifest: { ...good.manifest, tree: 'different' } },
       { indexSnapshot: { ...good.indexSnapshot, entries: [gitEntry('other.js')] } },
-      { manifest: { ...good.manifest, entries: [gitEntry('.pi/file')] } },
-      { manifest: { ...good.manifest, treeEntries: [gitEntry('.pi/file')] } },
+      { manifest: { ...good.manifest, entries: [gitEntry(runtimePath('.pi/file'))] } },
+      { manifest: { ...good.manifest, treeEntries: [gitEntry(runtimePath('.pi/file'))] } },
       { manifest: { ...good.manifest, blobs: ['wrong'] } },
       withHazard(good, 'validatedOverlayStagedManifest'),
       { unstagedChanges: ['src/fix.js'] },
@@ -423,9 +803,9 @@ const vectors = [
     const stableIdentity = stable({ localHead: cp.localHead, remoteHead: cp.remoteHead, publishedHead: cp.publishedHead, headEntries: cp.headEntries, indexEntries: cp.indexEntries, indexSnapshot: cp.indexSnapshot, manifest: cp.manifest, commit: cp.commit, overlayChanges: cp.overlayChanges, validatedOverlay: cp.validatedOverlay });
     assert.equal(classify('after-commit', cp).status, 'pass');
     const runtimeTransitions = [
-      { kind: 'directory', descendants: [{ path: '.pi/task', content: 'one', lexical: true }] },
-      { kind: 'directory', descendants: [{ path: '.pi/task', content: 'two', lexical: true }] },
-      { kind: 'directory', descendants: [{ path: '.pi/renamed', content: 'two', lexical: true }] },
+      { kind: 'directory', descendants: [{ path: runtimePath('.pi/task'), content: 'one', lexical: true }] },
+      { kind: 'directory', descendants: [{ path: runtimePath('.pi/task'), content: 'two', lexical: true }] },
+      { kind: 'directory', descendants: [{ path: runtimePath('.pi/renamed'), content: 'two', lexical: true }] },
       { kind: 'directory', descendants: [] },
       { kind: 'absent', descendants: [] },
     ];
@@ -452,32 +832,34 @@ const vectors = [
             : boundary === 'after-validation' || boundary === 'before-staging' ? overlay : ordinary;
       assert.equal(classify(boundary, valid).status, 'pass', `${boundary}: valid baseline`);
       for (const hazard of hazardsForBoundary(boundary)) {
-        const key = `${boundary}:${hazard}`;
+        const key = `${ACTIVE_RUNTIME_ROOT}:${boundary}:${hazard}`;
         markSubcase(key);
         const result = classify(boundary, withHazard(valid, hazard));
         blocked(result);
       }
     }
   }],
-  ['21', 'base-only .pi deletion preserves exact raw diff through blocked correction', () => {
-    const baseEntries = [{ path: '.pi/old', blob: 'OLD' }, { path: 'src/fix.js', blob: 'A' }];
+  ['21', 'base-only runtime-root deletion preserves exact raw diff through blocked correction', () => {
+    const runtimeEntry = runtimePath('.pi/old');
+    const baseEntries = [{ path: runtimeEntry, blob: 'OLD' }, { path: 'src/fix.js', blob: 'A' }];
     const candidateEntries = [{ path: 'src/fix.js', blob: 'B' }];
     const freezeRawDiff = (base, candidate) => Buffer.from(`RAW-DIFF\\n${base[0].path}:${base[0].blob}\\n${candidate[0].path}:${candidate[0].blob}\\n`, 'utf8');
     const frozenRawDiff = freezeRawDiff(baseEntries, candidateEntries);
     const frozenDigest = crypto.createHash('sha256').update(frozenRawDiff).digest('hex');
+    assert.ok(frozenRawDiff.includes(Buffer.from(runtimeEntry)), `raw diff must contain active runtime root ${ACTIVE_RUNTIME_ROOT}`);
     // The blocked transition proves raw bytes and digest are unchanged.
     const attemptUnauthorizedCorrection = (value) => {
       const failed = overlayClean(value, 'after-validation');
       return { status: failed.status, rawDiff: value.rawDiff, digest: crypto.createHash('sha256').update(value.rawDiff).digest('hex'), effects: failed.status === 'pass' ? { correction: 1 } : { correction: 0 } };
     };
-    const value = baseState({ baseEntries, candidateEntries, rawDiff: frozenRawDiff, overlayChanges: [{ path: '.pi/new', status: 'add', blob: 'NEW' }], validatedOverlay: [{ path: '.pi/new', status: 'add', blob: 'NEW' }], authorizedPaths: ['src/fix.js'] });
+    const value = baseState({ baseEntries, candidateEntries, rawDiff: frozenRawDiff, overlayChanges: [{ path: runtimeEntry, status: 'add', blob: 'NEW' }], validatedOverlay: [{ path: runtimeEntry, status: 'add', blob: 'NEW' }], authorizedPaths: ['src/fix.js'] });
     const result = attemptUnauthorizedCorrection(value);
     assert.equal(result.status, 'validation_failed');
     assert.deepEqual(result.rawDiff, frozenRawDiff);
     assert.equal(result.digest, frozenDigest);
     assert.deepEqual(result.effects, { correction: 0 });
   }],
-  ['22', 'package path predicate covers exact and descendants but not near names', () => { for (const path of ['.pi', '.pi/tasks/probe', '.pi/a/b']) assert.equal(isPiNamespace(path), true); for (const path of ['.pi2/x', 'x/.pi/y', 'foo.pi/z']) assert.equal(isPiNamespace(path), false); }],
+  ['22', 'package path predicate covers exact and descendants but not near names', () => { for (const root of RUNTIME_ROOTS) for (const path of [root, `${root}/tasks/probe`, `${root}/a/b`]) assert.equal(isRuntimeNamespace(path), true); for (const path of ['.pi2/x', '.pi-subagentsX/x', 'x/.pi/y', 'x/.pi-subagents/y', 'foo.pi/z', 'foo.pi-subagents/z']) assert.equal(isRuntimeNamespace(path), false); }],
   ['23', 'dirty run rejects continuation and creates a clean fresh run', () => {
     // A fresh invocation receives a new run ID and no prior accepted state.
     const terminate = (run) => ({ ...run, status: 'BLOCKED', resumable: false, acceptedState: null });
@@ -498,13 +880,20 @@ const vectors = [
     assert.equal(fresh.acceptedState, null);
   }],
 ];
-for (const [id, name, assertion] of vectors) test(`fixture: Issue #17 vector ${id} — ${name}`, () => { mark(id); assertion(); });
+for (const [id, name, assertion] of vectors) test(`fixture: Issue #17 vector ${id} — ${name}`, () => {
+  for (const root of RUNTIME_ROOTS) {
+    ACTIVE_RUNTIME_ROOT = root;
+    mark(id);
+    assertion();
+  }
+  ACTIVE_RUNTIME_ROOT = RUNTIME_ROOTS[0];
+});
 
 test('fixture: Issue #17 required acceptance-vector inventory is complete', () => {
   assert.deepEqual([...executedCoverage].sort(), [...ISSUE_17_REQUIRED_VECTORS].sort());
   assert.equal(executedCoverage.size, ISSUE_17_REQUIRED_VECTORS.length);
 });
-test('fixture: Issue #17 vector 20 boundary-hazard inventory is complete', () => {
+test('fixture: Issue #17 vector 20 boundary-hazard inventory is complete for every runtime root', () => {
   assert.deepEqual([...executedSubcases].sort(), [...REQUIRED_VECTOR_20_SUBCASES].sort());
   assert.equal(executedSubcases.size, REQUIRED_VECTOR_20_SUBCASES.length);
   assert.equal(executedSubcaseOccurrences.length, executedSubcases.size, 'duplicate boundary-hazard subcase execution');

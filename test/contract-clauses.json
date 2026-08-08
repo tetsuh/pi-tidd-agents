@@ -1035,7 +1035,7 @@
         "`BEFORE_PUSH` immediately before push independently repeats `POST_COMMIT(C, P)` in full with the deliberate phase delta: local `HEAD=C` while remote/public head remains `P`.",
         "After verifying public head `C`, require `CLEAN@C`",
         "All three local dimensions remain independently guarded",
-        "tracked worktree, index, and untracked state outside `.pi/**`",
+        "tracked worktree, index, and untracked state outside `RUNTIME_ROOTS`",
         "pre-existing tracked unstaged edit is rejected"
       ]
     },
@@ -1609,13 +1609,14 @@
       "id": "CL-D10-pi-contract",
       "marker": "CL-D10",
       "title": "Repository-root Pi runtime exclusion is narrow and fail-closed",
-      "files": ["CONTRACT.md"],
+      "files": [
+        "CONTRACT.md"
+      ],
       "requires": [
         "`CLEAN@H`",
         "All six conditions apply at preflight",
-        "safe no-follow repository-root `.pi` classification",
-        "namespace remains exactly `.pi` and descendants beginning `.pi/`",
-        "absence of forbidden `.pi` entries from `H` and the index",
+        "safe no-follow classification of every enumerated `RUNTIME_ROOTS` member",
+        "absence of forbidden runtime-root entries from `H` and the index",
         "staged deletion never cures a forbidden path in the candidate parent"
       ],
       "section": "## CL-D10 — Worktree precondition for autofix"
@@ -1624,14 +1625,19 @@
       "id": "CL-D30-pi-contract",
       "marker": "CL-D30",
       "title": "CL-D30 records the Issue #17 operational-cleanliness amendment",
-      "files": ["CONTRACT.md"],
+      "files": [
+        "CONTRACT.md"
+      ],
       "requires": [
         "Issue #17 operational-cleanliness amendment and Issue #20 named-invariant refactor",
         "`CLEAN@H` :=",
         "`POST_COMMIT(C, P)` :=",
         "`REPLY_EXCEPTION` :=",
         "unfiltered raw effective diff",
-        "Runtime churn contributes no candidate, evidence, or publication bytes"
+        "Runtime churn contributes no candidate, evidence, or publication bytes",
+        "the exact enumerated repository-root runtime set",
+        "Every root is classified independently",
+        "future additions require a recorded contract decision naming the producing tool, default configuration, and affected version range"
       ],
       "section": "## CL-D30 — Exact PR autofix publishes one bounded correction per public head"
     },
@@ -1639,7 +1645,9 @@
       "id": "CL-D30-pi-boundaries",
       "marker": "CL-D30",
       "title": "Every gate and reply boundary uses scoped operational cleanliness",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "`CLEAN@H`",
         "before each gate, route-to-Sol, post-push gate, reply, final classification",
@@ -1647,7 +1655,7 @@
         "post-commit/pre-push boundaries use `POST_COMMIT(C, P)`",
         "unsafe root",
         "forbidden candidate/public `HEAD` or index entry",
-        "`.pi/**` runtime churn"
+        "runtime-root churn"
       ],
       "section": "### Public-head loop and evidence"
     },
@@ -1655,7 +1663,9 @@
       "id": "CL-D30-pi-publication",
       "marker": "CL-D30",
       "title": "Publication phases exclude Pi from correction and manifest state",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
         "`CLEAN@P` conditions 1 and 3–6",
         "`CLEAN@P` conditions 1 and 4–6",
@@ -1668,8 +1678,8 @@
         "BEFORE_COMMIT",
         "AFTER_COMMIT",
         "BEFORE_PUSH",
-        "Each guard independently reclassifies the repository-root `.pi`",
-        "Between these two guards, safe untracked runtime churn below that root may change",
+        "Each guard independently reclassifies every `RUNTIME_ROOTS` member",
+        "Between these two guards, safe untracked runtime-root churn below each root may change",
         "descendant create, content change, rename, removal",
         "safe root transition between absent and real directory",
         "Every other state must remain unchanged",
@@ -1684,10 +1694,12 @@
       "id": "CL-D30-pi-replies",
       "marker": "CL-D30",
       "title": "Replies and summaries preserve the scoped runtime boundary",
-      "files": ["skills/closed-loop-pr/SKILL.md"],
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
       "requires": [
-        "Runtime `.pi/**` churn",
-        "Safe untracked repository-root `.pi/**` runtime bytes and contents are excluded from every gate payload, candidate draft, finding/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim",
+        "Runtime-root churn",
+        "Safe untracked runtime-root bytes and contents are excluded from every gate payload, candidate draft, finding/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim",
         "the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published",
         "the only truthful runtime-content statement permitted is that safe untracked runtime state was excluded from candidate/evidence identity and reclassified at the required boundaries without following links",
         "untracked cleanliness",
@@ -1700,13 +1712,15 @@
       "id": "CL-D30-pi-readme",
       "marker": "CL-D30",
       "title": "README scopes the Pi exception to exact PR autofix",
-      "files": ["README.md"],
+      "files": [
+        "README.md"
+      ],
       "requires": [
         "In exact PR `autofix` only",
-        "untracked descendants under a verified real repository-root `.pi/` directory",
-        "Any `.pi` entry in candidate `HEAD`, the index",
-        "AFTER_COMMIT and repeated BEFORE_PUSH guards independently reclassify the root",
-        "safe untracked `.pi/**` runtime churn",
+        "untracked descendants under verified real repository-root runtime roots in the enumerated set `RUNTIME_ROOTS := { \".pi\", \".pi-subagents\" }`",
+        "Any runtime-root entry in candidate `HEAD`, the index",
+        "The AFTER_COMMIT and repeated BEFORE_PUSH guards independently reclassify the root for every `RUNTIME_ROOTS` member",
+        "safe untracked runtime-root churn",
         "candidate, tracked/index/unstaged, manifest, commit, evidence, and public-head identity remain unchanged",
         "Any other change stops before push",
         "no cleanup, retry, or resume"
@@ -1717,7 +1731,9 @@
       "id": "CL-D30-pi-fixtures",
       "marker": "CL-D30",
       "title": "Issue #17 fixtures are explicit and non-authoritative",
-      "files": ["test/pr-operational-cleanliness.test.js"],
+      "files": [
+        "test/pr-operational-cleanliness.test.js"
+      ],
       "requires": [
         "non-authoritative",
         "compile/contract RED",
@@ -1729,19 +1745,25 @@
         "REQUIRED_VECTOR_20_SUBCASES",
         "raw bytes and digest are unchanged",
         "new run ID",
-        "raw bytes and digest are unchanged"
+        "raw bytes and digest are unchanged",
+        "RUNTIME_ROOTS",
+        "parameterized over each runtime root",
+        "safe and unsafe roots are classified independently"
       ]
     },
     {
       "id": "CL-D30-pi-packaging",
       "marker": "CL-D30",
       "title": "Issue #17 packaging checks both report and tarball",
-      "files": ["test/package.test.js"],
+      "files": [
+        "test/package.test.js"
+      ],
       "requires": [
-        "Issue #17 npm pack excludes repository-root .pi runtime artifacts from dry-run and actual tarball",
+        "Issue #28 npm pack excludes every enumerated runtime root from dry-run and actual tarball",
         "Retrospective behavioral characterization",
         "dry-run report",
-        "actual tarball"
+        "actual tarball",
+        "every enumerated runtime root"
       ]
     }
   ]

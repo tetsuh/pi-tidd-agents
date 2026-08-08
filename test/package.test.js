@@ -328,19 +328,22 @@ test('the README documents the closed-loop workflow and its requirements', () =>
   }
 });
 
-// CL-D30 packaging characterization for Issue #17.
-test('Issue #17 npm pack excludes repository-root .pi runtime artifacts from dry-run and actual tarball', () => {
+// CL-D30 packaging characterization for Issue #28.
+test('Issue #28 npm pack excludes every enumerated runtime root from dry-run and actual tarball', () => {
   // Retrospective behavioral characterization: package.json already has an allowlist,
-  // so this is expected to pass before the Issue #17 prose change, not RED evidence.
-  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue17-pack-'));
-  const destination = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue17-dest-'));
+  // so this is expected to pass before the Issue #28 prose change, not RED evidence.
+  const runtimeRoots = ['.pi', '.pi-subagents'];
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue28-pack-'));
+  const destination = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue28-dest-'));
   const copy = (entry) => fs.cpSync(repoPath(entry), path.join(tempRoot, entry), { recursive: true });
   try {
     fs.copyFileSync(repoPath('package.json'), path.join(tempRoot, 'package.json'));
     for (const entry of ['agents', 'skills', 'prompts', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md']) copy(entry);
-    const probe = path.join(tempRoot, '.pi', 'tasks', 'issue-17-probe', 'deep.txt');
-    fs.mkdirSync(path.dirname(probe), { recursive: true });
-    fs.writeFileSync(probe, 'Pi runtime probe\\n');
+    const probes = runtimeRoots.map((root) => path.join(tempRoot, root, 'tasks', 'issue-28-probe', 'deep.txt'));
+    for (const probe of probes) {
+      fs.mkdirSync(path.dirname(probe), { recursive: true });
+      fs.writeFileSync(probe, 'Pi runtime probe\\n');
+    }
     const parseReport = (stdout) => {
       const start = stdout.indexOf('[');
       const end = stdout.lastIndexOf(']');
@@ -348,19 +351,21 @@ test('Issue #17 npm pack excludes repository-root .pi runtime artifacts from dry
       return JSON.parse(stdout.slice(start, end + 1))[0];
     };
     const reportPaths = (report) => report.files.map((entry) => entry.path.replace(/\\/g, '/'));
-    const assertNoPi = (entries, label) => {
-      for (const entry of entries) assert.ok(entry !== '.pi' && !entry.startsWith('.pi/'), `${label} leaked .pi entry: ${entry}`);
+    const assertNoRuntimeRoot = (entries, label) => {
+      for (const entry of entries) {
+        assert.ok(!runtimeRoots.some((root) => entry === root || entry.startsWith(`${root}/`)), `${label} leaked runtime-root entry: ${entry}`);
+      }
     };
     const pack = (args) => execFileSync('npm', ['pack', ...args], { cwd: tempRoot, encoding: 'utf8' });
     const dryReport = parseReport(pack(['--dry-run', '--json']));
-    assertNoPi(reportPaths(dryReport), 'dry-run report');
+    assertNoRuntimeRoot(reportPaths(dryReport), 'dry-run report');
     const actualReport = parseReport(pack(['--json', '--pack-destination', destination]));
-    assertNoPi(reportPaths(actualReport), 'actual report');
+    assertNoRuntimeRoot(reportPaths(actualReport), 'actual report');
     const archive = path.join(destination, actualReport.filename);
     const archiveEntries = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' })
       .trim().split(/\r?\n/).filter(Boolean).map((entry) => entry.replace(/^package\//, '').replace(/\\/g, '/'));
-    assertNoPi(archiveEntries, 'actual tarball');
-    assert.ok(fs.existsSync(probe), 'packaging must not clean the runtime probe');
+    assertNoRuntimeRoot(archiveEntries, 'actual tarball');
+    for (const probe of probes) assert.ok(fs.existsSync(probe), 'packaging must not clean runtime probes');
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
     fs.rmSync(destination, { recursive: true, force: true });
