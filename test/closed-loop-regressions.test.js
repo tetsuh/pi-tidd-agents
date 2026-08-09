@@ -176,7 +176,7 @@ const SUPERSEDED = [
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   const skill = readText(PR_AUTOFIX);
   assert.match(skill, /This addendum is selected only when.*exactly `autofix`/s);
-  assert.match(skill, /Review-only retains the preceding/);
+  assert.doesNotMatch(skill, /Review-only retains the preceding/);
   assert.match(skill, /one bounded normal commit/);
   assert.match(skill, /one non-force push/);
   assert.match(skill, /five successful correction pushes/);
@@ -201,6 +201,31 @@ test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   const readme = readText('README.md');
   assert.match(readme, /PR review-only retains the legacy resumable `tidd-status`/);
   assert.match(readme, /Exact PR `autofix` ends/);
+});
+
+test('fixture: PR mode references own downstream obligations exclusively', () => {
+  const reviewOnly = readText(PR_REVIEW_ONLY);
+  const autofix = readText(PR_AUTOFIX);
+  const reviewOwned = [
+    'Review-only never edits any repository file or creates a working-tree candidate.',
+    'Review-only has no publication phase and no local commit/push window.',
+    'Review-only never commits, pushes, posts, replies, or mutates external state.',
+    'A missing or unparsable verdict is a tool-level failure: retry the invocation once',
+  ];
+  const autofixOwned = [
+    'Exact PR `autofix` submits only the published public-head OID',
+    'Only the exact PR `autofix` mode token supplies a run-scoped publication grant',
+    'Exact PR `autofix` never resumes: a later command is a fresh run.',
+    'Exact autofix malformed or unparsable verdict stops on first failure.',
+  ];
+  for (const text of reviewOwned) assert.ok(reviewOnly.includes(text), `review-only must retain ${text}`);
+  for (const text of autofixOwned) assert.ok(autofix.includes(text), `autofix must retain ${text}`);
+  assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
+  assert.doesNotMatch(autofix, /Review-only has no publication phase/);
+  assert.doesNotMatch(autofix, /Review-only never commits, pushes, posts, replies/);
+  assert.doesNotMatch(reviewOnly, /Exact PR `autofix` submits only the published public-head OID/);
+  assert.doesNotMatch(reviewOnly, /Only the exact PR `autofix` mode token supplies a run-scoped publication grant/);
+  assert.doesNotMatch(reviewOnly, /Exact autofix malformed or unparsable verdict stops on first failure/);
 });
 
 test('contract scopes the exact provider-mutation exceptions', () => {
@@ -438,7 +463,7 @@ const SCENARIOS = [
   ['19 confirmation records enforce exact one-to-one tuples and multiple assigned findings', () => { const base = { findingId: 'f', blockerKey: 'b', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'e' }; const both = { findingId: 'f', blockerKey: 'b', headOid: 'H', confirmationGate: 'both', proposedDisposition: 'fixed' }; const correct = [base, { ...base, gate: 'terra' }]; assert.equal(confirmation(both, correct), true); assert.equal(confirmation(both, [base]), false); assert.equal(confirmation(both, [base, { ...base, blockerKey: 'wrong', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, headOid: 'OLD', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, proposedDisposition: 'deferred', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, gate: 'terra' }, { ...base, gate: 'sol' }]), false); const solOnly = { findingId: 's', blockerKey: 'bs', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'fixed' }; const solRecord = { findingId: 's', blockerKey: 'bs', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 's' }; assert.equal(confirmation(solOnly, [solRecord, { ...solRecord, gate: 'terra' }]), false); assert.equal(confirmationRecordsValid([{ ...base, gate: 'bad' }]), false); assert.equal(confirmationRecordsValid([{ ...base, proposedDisposition: 'bad' }]), false); assert.equal(confirmationRecordsValid([{ ...base, blockerKey: undefined }]), false); assert.equal(confirmationRecordsValid([base, base]), false); const other = { findingId: 'g', blockerKey: 'bg', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'g' }; const assigned = { findingId: 'g', blockerKey: 'bg', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'fixed' }; assert.equal(confirmation(assigned, [other, ...correct], [assigned, both]), true); assert.equal(confirmation(assigned, [other], [assigned, both]), false); }],
   ['20 blockerKey x breakerOwner deduplicates within result but counts separate results', () => { const history = noProgressHistory([{ resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'terra' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-2', blockerKey: 'shared', breakerOwner: 'shared', gate: 'terra' }, { resultId: 'shared-3', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }]); assert.equal(history.get('owned:sol'), 1); assert.equal(history.get('shared:shared'), 3); assert.equal(breaker('final', { observations: history.get('shared:shared') }), 'ROUND_LIMIT_REACHED:no_progress'); assert.equal(noProgressObservation([{ blockerKey: 'shared' }, { blockerKey: 'shared' }]), 1); }],
   ['21 concurrent local dirtiness/staged race and post-commit checkout mismatch fail without cleanup/retry', () => { const results = [publicationPhase({ phase: 'gate', fullyClean: false }), publicationPhase({ phase: 'reply', fullyClean: false }), publicationPhase({ phase: 'edit', fullyClean: false }), publicationPhase({ phase: 'commit', indexMatchesManifest: false }), publicationPhase({ phase: 'commit', indexTree: 'raced' }), publicationPhase({ phase: 'push', checkoutHead: 'P' })]; assert.deepEqual(results, ['BLOCKED:gate_guard', 'BLOCKED:reply_guard', 'BLOCKED:edit_guard', 'BLOCKED:commit_guard', 'BLOCKED:commit_guard', 'BLOCKED:push_guard']); assert.equal(publicationPhase({ phase: 'push', localHead: 'C', checkoutHead: 'C' }), 'push'); assert.deepEqual(results.map(blockedEffects), results.map(() => ({ commit: 0, push: 0, cleanup: 0, retry: 0 }))); }],
-  ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = readText(PR_AUTOFIX); assert.match(skill, /not applied to Issue workflow or PR review-only mode/); assert.match(skill, /Review-only retains the preceding/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
+  ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = readText(PR_AUTOFIX); assert.match(skill, /final raw argument token is exactly `autofix`/); assert.doesNotMatch(readText(PR_REVIEW_ONLY), /Exact PR `autofix`/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
 ];
 
 test('fixture: all 22 Issue #10 acceptance scenarios execute against the reference model', () => {

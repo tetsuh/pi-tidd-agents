@@ -231,16 +231,14 @@
     },
     {
       "id": "CL-D23",
-      "title": "Candidate evidence is mode-scoped and exact autofix uses the published head",
+      "title": "Review-only candidate evidence remains outside the repository",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "Review-only never edits any repository file",
         "outside the repository",
-        "no post-fix formal gate consumes an uncommitted overlay",
-        "published public-head OID",
-        "legacy `candidate_diff` field is not an exact-autofix identity"
+        "no post-fix formal gate consumes an uncommitted overlay"
       ],
       "section": "### Candidate evidence boundary (CL-D23, CL-D9)"
     },
@@ -676,7 +674,6 @@
         "Only the exact PR `autofix` mode token supplies a run-scoped publication grant",
         "For each validated correction batch against one reviewed public head/gate result",
         "The run-wide cap is five successful correction pushes",
-        "Issue and PR review-only have no publication grant",
         "never authorizes",
         "merge",
         "force-push",
@@ -689,19 +686,15 @@
     {
       "id": "CL-D28",
       "marker": "CL-D28",
-      "title": "Mode-scoped publication boundary (historical no-publication rule)",
-      "section": "## Publication (AC-GRANT, CL-D28, CL-D30)",
+      "title": "Review-only publication boundary",
+      "section": "## Publication boundary (CL-D28)",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "Issue workflow has no publication grant",
-        "PR review-only retains the existing no-publication boundary",
-        "Only the exact PR `autofix` mode token supplies a run-scoped publication grant",
-        "For each validated correction batch against one reviewed public head/gate result",
-        "parent-owned confirmed source-finding replies",
-        "It never authorizes merge",
-        "aggregate summary posting",
+        "PR review-only has no publication grant",
+        "Review-only never commits, pushes, posts, replies, or mutates external state",
         "Drafting is not publishing"
       ]
     },
@@ -795,7 +788,6 @@
       ],
       "requires": [
         "This addendum is selected only when",
-        "Review-only retains the preceding",
         "Every successful push invalidates all earlier Sol and Terra approvals",
         "at most one correction batch"
       ]
@@ -926,8 +918,7 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "It is not applied to Issue workflow or PR review-only mode.",
-        "The exact-autofix supersession is limited",
+        "supersede only the CL-D30 publication",
         "Before any exact-autofix edit",
         "unclear, conflicting, scope-changing, architectural, compatibility, security/risk, or contract-changing finding",
         "always stops at `WAITING_FOR_OWNER(reason=owner_decision_required)`",
@@ -1326,15 +1317,15 @@
     {
       "id": "CL-D31-pr-boundary-pr",
       "marker": "CL-D31",
-      "title": "Preserve PR behavior",
+      "title": "Preserve PR review-only behavior",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
         "Issue workflow has no publication grant",
-        "PR review-only retains"
+        "PR review-only has no publication grant"
       ],
-      "section": "## Publication (AC-GRANT, CL-D28, CL-D30)"
+      "section": "## Publication boundary (CL-D28)"
     },
     {
       "id": "CL-D31-prompt",

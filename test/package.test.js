@@ -163,8 +163,8 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
   assert.match(reviewOnly, /## Gate loop \(PR review-only baseline;/);
   assert.match(reviewOnly, /## Outcome and status block \(PR review-only baseline;/);
   assert.match(reviewOnly, /A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`\./);
-  assert.doesNotMatch(reviewOnly, /Exact PR `autofix` has no uncommitted candidate/);
-  assert.doesNotMatch(reviewOnly, /Exact PR `autofix` never resumes/);
+  assert.doesNotMatch(reviewOnly, /Exact PR `autofix`/);
+  assert.doesNotMatch(reviewOnly, /publication_grant: .*autofix/);
   assert.match(autofix, /## Autofix \(AC-AUTOFIX,/);
   assert.match(autofix, /## Exact PR `autofix` addendum \(CL-D30\)/);
   assert.match(autofix, /Exact PR `autofix` has no uncommitted candidate and may report readiness only from the CL-D30 post-reply final snapshot; its optional aggregate-summary draft never blocks readiness\./);
@@ -173,6 +173,27 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
   assert.doesNotMatch(autofix, /references\/review-only\.md/);
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(reviewOnly) < PR_SKILL_PRE_SPLIT_BYTES, 'review-only disclosure must be smaller than the pre-split PR Skill');
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(autofix) < PR_SKILL_PRE_SPLIT_BYTES, 'autofix disclosure must be smaller than the pre-split PR Skill');
+
+  const reviewOnlyExclusive = [
+    'Review-only never edits any repository file or creates a working-tree candidate.',
+    'Review-only has no publication phase and no local commit/push window.',
+    'Review-only never commits, pushes, posts, replies, or mutates external state.',
+    'A missing or unparsable verdict is a tool-level failure: retry the invocation once',
+  ];
+  const autofixExclusive = [
+    'Exact PR `autofix` submits only the published public-head OID',
+    'Only the exact PR `autofix` mode token supplies a run-scoped publication grant',
+    'Exact PR `autofix` never resumes: a later command is a fresh run.',
+    'Exact autofix malformed or unparsable verdict stops on first failure.',
+  ];
+  for (const text of reviewOnlyExclusive) assert.ok(reviewOnly.includes(text), `review-only reference must own: ${text}`);
+  for (const text of autofixExclusive) assert.ok(autofix.includes(text), `autofix reference must own: ${text}`);
+  assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
+  assert.doesNotMatch(autofix, /Review-only has no publication phase/);
+  assert.doesNotMatch(autofix, /Review-only never commits, pushes, posts, replies/);
+  assert.doesNotMatch(reviewOnly, /Exact PR `autofix` submits only the published public-head OID/);
+  assert.doesNotMatch(reviewOnly, /Only the exact PR `autofix` mode token supplies a run-scoped publication grant/);
+  assert.doesNotMatch(reviewOnly, /Exact autofix malformed or unparsable verdict stops on first failure/);
 });
 
 test('shipped skills omit repository-specific test-suite commentary', () => {

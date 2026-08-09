@@ -2,7 +2,7 @@
 
 ## Review-only is the default (AC-REVIEW-ONLY, CL-D15)
 
-Unless the exact token `autofix` was supplied, for the whole run:
+For the whole review-only run:
 
 - do not edit any file in the repository, tracked or untracked;
 - do not change git state;
@@ -13,9 +13,21 @@ Unless the exact token `autofix` was supplied, for the whole run:
 
 You may inspect, review, disposition findings locally, and draft proposed replies and patches. Working notes, the disposition ledger, and drafts belong in a temporary directory **outside the repository**.
 
+### Candidate evidence boundary (CL-D23, CL-D9)
+
+Review-only never edits any repository file or creates a working-tree candidate. Proposed patches, disposition ledgers, replies, and drafts belong outside the repository; no post-fix formal gate consumes an uncommitted overlay.
+
+### Target stability during a run (CL-D27)
+
+Review-only has no publication phase and no local commit/push window. Revalidate the target and its evidence before each gate; refuse to continue against a changed target without cleaning, normalizing, or discarding anything, and report what moved instead.
+
+## Publication boundary (CL-D28)
+
+Issue workflow has no publication grant through this Skill, and PR review-only has no publication grant through this PR path. Issue publication authority, when present, originates only from the CL-D31 exception in the shared Issue Skill for `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>`; it does not originate from `/tidd-pr` or this Skill. Review-only never commits, pushes, posts, replies, or mutates external state. It may draft a proposed commit message, replies, and disposition summary for the operator. **Drafting is not publishing.**
+
 ## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 
-The following gate loop and its disposition/fix handoff are the PR review-only baseline. Exact PR `autofix` uses only the CL-D30 addendum and does not inherit this loop's publication or candidate behavior.
+The following gate loop and its disposition/fix handoff are the PR review-only baseline.
 
 The order is fixed and sequential:
 
@@ -49,7 +61,7 @@ Round budgets are **run-scoped**. This MVP keeps no state between invocations, s
 
 ## External review (PR review-only baseline; CL-D18, CL-D24, CL-D17)
 
-The following quiet-period, observation-reporting, Sonar handoff, and resumable external-review procedure applies to PR review-only. Exact PR `autofix` uses the current-process snapshots and fail-stop policy in the CL-D30 addendum. External gates apply only to pull-request readiness, and only through what is observable on the pull request with `gh`.
+The following quiet-period, observation-reporting, Sonar handoff, and resumable external-review procedure applies to PR review-only. External gates apply only to pull-request readiness, and only through what is observable on the pull request with `gh`.
 
 Detection is limited to reviews, comments, and checks present on the current `pr_head`. A service that has produced none of those is **not detected** and is reported as such, never as passed and never as failed. Distinguish not configured, configured but not started, pending, completed without findings, completed with findings, failed, stale for an older head, and authentication or rate-limit failure. Never treat an unknown state as success.
 
@@ -60,21 +72,21 @@ Observation policy, which this MVP reports against rather than enforces:
 - a **fifteen-minute** maximum observation window per head, measured from that initial snapshot (a new head starts a new origin);
 - a new head resets both.
 
-**External evidence is never carried across runs.** A resumed or later run takes its own snapshot and reprocesses what it sees; nothing external is read from a pasted status block. The window and quiet period are therefore reported for the current run's observation only, and the report says so rather than implying a longer continuous watch.
+**External evidence is never carried across runs.** A resumed or later run takes its own snapshot and reprocesses what it sees; nothing external is read from a pasted status block. The window and quiet period are therefore reported for the current run's observation only, and the report says so rather than implying a longer continuous watch. These are current-process snapshots for this review-only run.
 
 This is a narrowing of `DEC-EXT-SNAPSHOT-001`, which kept the origin and compared findings by stable identity. Making that work needs a **provider-native finding identity** for reviews, inline review comments, issue comments, check runs and commit statuses, plus edit timestamps and head association per source. That is provider correlation logic, and it belongs to the external-review integration issue rather than to this MVP's prose — the same boundary CL-D28 drew for publication.
 
 When an external state cannot be determined — a provider that exposes no usable identity, a missing timestamp, a record with no head association — report it as **unknown, not complete**, and stay `WAITING_EXTERNAL_REVIEW`. An undetermined provider is never a passing one.
 
-In PR review-only, findings the workflow raises itself carry across resumptions: Sol and Terra findings have identities this workflow assigns, so the status block lists each with its disposition. Exact PR `autofix` is run-local only and never resumes. The review-only initial snapshot is not polling and does not delay internal review. Review-only has no timers and **must not busy-poll** or spend turns waiting; when processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume. Exact autofix stops instead.
+In PR review-only, findings the workflow raises itself carry across resumptions: Sol and Terra findings have identities this workflow assigns, so the status block lists each with its disposition. The review-only initial snapshot is not polling and does not delay internal review. Review-only has no timers and **must not busy-poll** or spend turns waiting; when processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume.
 
 Treat CodeRabbit and SonarCloud as required once detected. Process GitHub Copilot review findings when observed, but never block merely because an optional Copilot review is absent. Human `Changes requested` and required approvals are a separate repository-policy gate.
 
 ### SonarCloud (CL-D17)
 
-PR review-only has no SonarCloud credentials or API integration, so it **cannot perform provider-side status transitions**. It dispositions each Sonar finding and drafts the Accepted rationale in the configured SonarCloud language, plus a summary in the pull-request language, for the operator. Exact PR `autofix` never calls Sonar/provider mutation APIs and does not treat an absent transition as success.
+PR review-only has no SonarCloud credentials or API integration, so it **cannot perform provider-side status transitions**. It dispositions each Sonar finding and drafts the Accepted rationale in the configured SonarCloud language, plus a summary in the pull-request language, for the operator.
 
-PR review-only `MERGE_READY` **must not be declared on the basis of a transition that was never performed**. Exact PR `autofix` follows its own final-policy and source-reply requirements in CL-D30. Report remaining owner actions in review-only.
+PR review-only `MERGE_READY` **must not be declared on the basis of a transition that was never performed**. Report remaining owner actions in review-only.
 
 ## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)
 
@@ -93,20 +105,20 @@ In PR review-only, **never declare `MERGE_READY` while a locally drafted candida
 
 Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself.
 
-Whenever a PR review-only run stops, emit the resumable block below. Exact PR `autofix` reports its non-resumable CL-D30 status instead and never emits a resume action:
+Whenever a PR review-only run stops, emit the resumable block below:
 
 ````text
 ```tidd-status
 target: <owner/repo#123>
 head_branch: <branch>
-mode: <review-only|autofix>
+mode: review-only
 state: <token>
 active_gate: <sol|terra|external|none>
 fingerprints: issue_spec <d> base <d> tree <d> diff <d> commits <d> head <sha>
 rounds: sol <used>/3, terra <used>/3
 findings: <internal finding id: disposition, one per line>
 pending_decisions: <decision ids or none>
-publication_grant: <review-only not-applicable | autofix bounded CL-D30 grant>
+publication_grant: review-only not-applicable
 external_observation: head <sha> observed_from <timestamp>, this run only
 operator_actions: <what the operator must do to publish, or none>
 invalidated_evidence: <what must be redone>
@@ -114,4 +126,4 @@ next_action: <the single next permitted action>
 ```
 ````
 
-PR review-only may resume when the operator pastes that block back with the command; **revalidate the fingerprints** first. In either mode, refuse to continue against a changed target without cleaning, normalizing, or discarding anything, and report what moved instead. Recompute rather than trusting pasted state: a pasted digest is a claim, not evidence.
+PR review-only may resume when the operator pastes that block back with the command; **revalidate the fingerprints** first. Refuse to continue against a changed target without cleaning, normalizing, or discarding anything, and report what moved instead. Recompute rather than trusting pasted state: a pasted digest is a claim, not evidence.
