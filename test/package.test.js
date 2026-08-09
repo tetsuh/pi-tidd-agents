@@ -25,6 +25,12 @@ const SKILLS = {
   'closed-loop-pr': 'skills/closed-loop-pr/SKILL.md',
 };
 
+const PR_MODE_REFERENCES = {
+  'review-only': 'skills/closed-loop-pr/references/review-only.md',
+  autofix: 'skills/closed-loop-pr/references/autofix.md',
+};
+const PR_SKILL_PRE_SPLIT_BYTES = 57160;
+
 const REPOSITORY_SPECIFIC_SKILL_PROSE = [
   /npm pack/,
   /reference fixtures/,
@@ -37,7 +43,7 @@ const PROMPTS = {
   'prompts/tidd-pr.md': { hint: '<pr-ref> [autofix]', skill: 'closed-loop-pr' },
 };
 
-const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.keys(PROMPTS)];
+const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.keys(PROMPTS)];
 const GENERIC_FALSIFICATION_EVIDENCE = 'authoritative files of the repository under review';
 const ABSENT_RECORD_RULE = 'that absence is not itself a finding';
 
@@ -118,8 +124,80 @@ test('both skills are valid Agent Skills definitions', () => {
   }
 });
 
+test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () => {
+  const skill = readText(SKILLS['closed-loop-pr']);
+  for (const file of Object.values(PR_MODE_REFERENCES)) assert.ok(exists(file), `missing mode reference: ${file}`);
+  const dispatch = [
+    '## Mode dispatch (CL-D19)',
+    '',
+    'After CL-D6 mode parsing succeeds and the shared preflight, target, evidence, language, gate, disposition, decision, and test-provenance rules above are available, load the authoritative continuation for the parsed mode:',
+    '',
+    '- review-only mode: read `references/review-only.md`;',
+    '- exact CL-D30 `autofix` mode: read `references/autofix.md`.',
+    '',
+    'Read exactly one mode reference after mode parsing. Never read both. Follow the selected reference together with this shared contract; no instruction from the unselected mode applies.',
+    '',
+  ].join('\n');
+  assert.ok(skill.endsWith(dispatch), 'mode dispatch must be the final PR SKILL.md block');
+  for (const file of Object.values(PR_MODE_REFERENCES)) {
+    const relative = file.replace('skills/closed-loop-pr/', '');
+    assert.equal((skill.match(new RegExp(relative.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length, 1, `dispatch must name ${relative} exactly once`);
+  }
+  for (const forbidden of [
+    'implementation and validation\n→ one initial external-review snapshot',
+    'A round is one completed gate invocation that returns a parsable verdict.',
+    'a **two-minute quiet period** after the latest external event',
+    'external_observation: head <sha> observed_from <timestamp>, this run only',
+    '`POST_COMMIT(C, P)` :=',
+    'exact-autofix writer is not replaceable',
+    'successful-push counter',
+    'Before every allowed reply attempt',
+    'A missing or unparsable verdict is a tool-level failure: retry the invocation once',
+  ]) assert.ok(!skill.includes(forbidden), `root PR Skill retains mode-only prose: ${forbidden}`);
+  assert.doesNotMatch(skill, /## Gate loop \(PR review-only baseline;/);
+  assert.doesNotMatch(skill, /## Exact PR `autofix` addendum \(CL-D30\)/);
+
+  const reviewOnly = readText(PR_MODE_REFERENCES['review-only']);
+  const autofix = readText(PR_MODE_REFERENCES.autofix);
+  assert.match(reviewOnly, /## Review-only is the default/);
+  assert.match(reviewOnly, /## Gate loop \(PR review-only baseline;/);
+  assert.match(reviewOnly, /## Outcome and status block \(PR review-only baseline;/);
+  assert.match(reviewOnly, /A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`\./);
+  assert.doesNotMatch(reviewOnly, /Exact PR `autofix`/);
+  assert.doesNotMatch(reviewOnly, /publication_grant: .*autofix/);
+  assert.match(autofix, /## Autofix \(AC-AUTOFIX,/);
+  assert.match(autofix, /## Exact PR `autofix` addendum \(CL-D30\)/);
+  assert.match(autofix, /Exact PR `autofix` has no uncommitted candidate and may report readiness only from the CL-D30 post-reply final snapshot; its optional aggregate-summary draft never blocks readiness\./);
+  assert.match(autofix, /Exact PR `autofix` never resumes: a later command is a fresh run\./);
+  assert.doesNotMatch(reviewOnly, /references\/autofix\.md/);
+  assert.doesNotMatch(autofix, /references\/review-only\.md/);
+  assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(reviewOnly) < PR_SKILL_PRE_SPLIT_BYTES, 'review-only disclosure must be smaller than the pre-split PR Skill');
+  assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(autofix) < PR_SKILL_PRE_SPLIT_BYTES, 'autofix disclosure must be smaller than the pre-split PR Skill');
+
+  const reviewOnlyExclusive = [
+    'Review-only never edits any repository file or creates a working-tree candidate.',
+    'Review-only has no publication phase and no local commit/push window.',
+    'Review-only never commits, pushes, posts, replies, or mutates external state.',
+    'A missing or unparsable verdict is a tool-level failure: retry the invocation once',
+  ];
+  const autofixExclusive = [
+    'Exact PR `autofix` submits only the published public-head OID',
+    'Only the exact PR `autofix` mode token supplies a run-scoped publication grant',
+    'Exact PR `autofix` never resumes: a later command is a fresh run.',
+    'Exact autofix malformed or unparsable verdict stops on first failure.',
+  ];
+  for (const text of reviewOnlyExclusive) assert.ok(reviewOnly.includes(text), `review-only reference must own: ${text}`);
+  for (const text of autofixExclusive) assert.ok(autofix.includes(text), `autofix reference must own: ${text}`);
+  assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
+  assert.doesNotMatch(autofix, /Review-only has no publication phase/);
+  assert.doesNotMatch(autofix, /Review-only never commits, pushes, posts, replies/);
+  assert.doesNotMatch(reviewOnly, /Exact PR `autofix` submits only the published public-head OID/);
+  assert.doesNotMatch(reviewOnly, /Only the exact PR `autofix` mode token supplies a run-scoped publication grant/);
+  assert.doesNotMatch(reviewOnly, /Exact autofix malformed or unparsable verdict stops on first failure/);
+});
+
 test('shipped skills omit repository-specific test-suite commentary', () => {
-  for (const file of Object.values(SKILLS)) {
+  for (const file of [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES)]) {
     const text = readText(file);
     for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
       assert.doesNotMatch(text, forbidden, `${file} contains repository-specific test commentary: ${forbidden}`);
@@ -166,8 +244,8 @@ test('prompt templates delegate to their skill instead of duplicating the contra
   }
 });
 
-test('no skill or prompt hard-codes a model ID', () => {
-  const files = [...Object.values(SKILLS), ...Object.keys(PROMPTS)];
+test('no skill, mode reference, or prompt hard-codes a model ID', () => {
+  const files = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.keys(PROMPTS)];
   for (const file of files) {
     const text = readText(file);
     assert.doesNotMatch(
@@ -258,7 +336,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 14, `packed file count changed: ${files.join(', ')}`);
+    assert.equal(files.length, 16, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);
@@ -282,12 +360,36 @@ test('the packed tarball contains the closed-loop resources', () => {
     'agents/luna-worker.md',
     'skills/closed-loop-issue/SKILL.md',
     'skills/closed-loop-pr/SKILL.md',
+    ...Object.values(PR_MODE_REFERENCES),
     'prompts/tidd-issue.md',
     'prompts/tidd-pr.md',
     'README.md',
   ];
   for (const entry of required) {
     assert.ok(files.includes(entry), `packed tarball is missing ${entry}\npacked: ${files.join(', ')}`);
+  }
+});
+
+test('Issue #19 npm pack reports and archives both PR mode references', () => {
+  // Passing behavioral characterization: package.json already publishes the skills tree.
+  const expected = Object.values(PR_MODE_REFERENCES);
+  const dryRunFiles = packFileList();
+  for (const file of expected) assert.ok(dryRunFiles.includes(file), `dry-run report is missing ${file}`);
+
+  const destination = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue19-pack-'));
+  try {
+    const stdout = execFileSync('npm', ['pack', '--json', '--pack-destination', destination], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const report = JSON.parse(stdout.slice(stdout.indexOf('['), stdout.lastIndexOf(']') + 1))[0];
+    const tarball = path.join(destination, report.filename);
+    const archiveFiles = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' })
+      .trim().split(/\r?\n/).filter(Boolean).map((entry) => entry.replace(/^package\//, '').replace(/\/$/, ''));
+    for (const file of expected) assert.ok(archiveFiles.includes(file), `actual tarball is missing ${file}`);
+  } finally {
+    fs.rmSync(destination, { recursive: true, force: true });
   }
 });
 

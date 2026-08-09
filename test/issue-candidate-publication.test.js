@@ -81,7 +81,7 @@ test('artifact: Issue 13 safety boundaries are explicit and PR behavior stays se
     'author_association', 'run nonce', 'physical-attempt', 'tidd-status',
     'Sol-before-Terra', 'snapshot-C', 'Do not retry',
   ]) assert.ok(skill.includes(required), `Issue Skill missing safety contract: ${required}`);
-  const pr = readText('skills/closed-loop-pr/SKILL.md');
+  const pr = `${readText('skills/closed-loop-pr/SKILL.md')}\n${readText('skills/closed-loop-pr/references/autofix.md')}`;
   assert.match(pr, /CL-D31 exception/);
   assert.match(pr, /does not originate from `\/tidd-pr`/);
   assert.match(pr, /luna-worker/);

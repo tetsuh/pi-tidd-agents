@@ -18,7 +18,9 @@ const crypto = require('node:crypto');
 const { readText } = require('./helpers');
 
 const CONTRACT = readText('CONTRACT.md');
-const SKILL = readText('skills/closed-loop-pr/SKILL.md');
+const PR_SKILL = readText('skills/closed-loop-pr/SKILL.md');
+const PR_AUTOFIX = readText('skills/closed-loop-pr/references/autofix.md');
+const SKILL = `${PR_SKILL}\n${PR_AUTOFIX}`;
 const README = readText('README.md');
 const PROMPT = readText('prompts/tidd-pr.md');
 const PACKAGE_TEST = readText('test/package.test.js');

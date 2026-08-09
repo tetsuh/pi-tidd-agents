@@ -113,12 +113,12 @@ The MVP has no SonarCloud credentials, so it cannot perform provider-side status
 
 The two-minute quiet period and fifteen-minute window are policy the MVP reports against. It has no timers and must not busy-poll. A service with no reviews, comments or checks on the current head is *not detected*, never passed and never failed; an unknown state is never treated as success.
 
-## CL-D19 — Division of responsibility between prompts and skills
+## CL-D19 — Division of responsibility between prompts, Skills, and mode references
 **Clauses:** none — structural
 
-Prompt templates stay thin — frontmatter, argument capture, mode determination, and an instruction to load the skill — and the skill holds the workflow contract, so the two cannot drift apart.
+Prompt templates stay thin — frontmatter, argument capture, mode determination, and an instruction to load the Skill — so prompts cannot drift from the workflow contract. The PR `SKILL.md` owns argument parsing, target resolution, evidence identity, shared obligations, and mode dispatch. After parsing succeeds, a PR run reads exactly one authoritative mode continuation: `references/review-only.md` or `references/autofix.md`; it never reads both. Everything downstream that applies only to the parsed mode belongs to that mode reference.
 
-Enforced by `test/package.test.js`, which asserts each prompt names the skill it loads and stays within a line budget.
+Enforced by `test/package.test.js`, which asserts each prompt names the Skill it loads and stays within a line budget, and that the PR Skill dispatches to exactly one packaged mode reference.
 
 ## CL-D20 — Precondition guard
 **Clauses:** CL-D20-issue, CL-D20-pr
