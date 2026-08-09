@@ -9,6 +9,16 @@ Take one pull request from implementation toward `MERGE_READY` by reviewing it, 
 
 You are the orchestrator. Formal gates run as read-only subagents, at most one worker ever writes, and merge is never yours to perform.
 
+
+## Shared references (Issue #24)
+
+Before PR-specific rules, read both common references relative to this Skill directory. The shared Sol procedure searches authoritative files of the repository under review; that absence is not itself a finding.
+
+- `../closed-loop-shared/references/gate-contract.md`
+- `../closed-loop-shared/references/records.md`
+
+These references own only policy that is identical across Issue and PR workflows. Workflow-specific target rejection, agents, gates, status, publication, and mode behavior remain authoritative in this Skill and the selected PR mode reference.
+
 ## Precondition guard (CL-D20)
 
 This skill runs only against an explicit target supplied by the operator. If no pull-request reference was supplied, stop and print usage:
@@ -31,18 +41,14 @@ A near-miss token signals intent to mutate, so it must surface as an error rathe
 
 ## Preflight (CL-D22, CL-D5)
 
-1. Subagent execution comes from `pi-subagents`. If `pi-subagents` is unavailable, stop and report `BLOCKED` with installation guidance. Never substitute your own execution for a formal gate, and never edit files yourself in place of a worker.
-2. Confirm that the required agents resolve: `sol-reviewer`, `terra-reviewer`, and, conditionally for autofix mode, `luna-worker`.
-3. Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided ones with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name through the name-level override guidance.
-4. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path. Do not begin a gate that cannot finish.
+1. Confirm that the workflow-specific required agents resolve: `sol-reviewer`, `terra-reviewer`, and, conditionally for autofix mode, `luna-worker`.
+2. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path. Do not begin a gate that cannot finish.
 
 A preflight failure is not a review round.
 
-## Target resolution (CL-D7, CL-D8)
+## Workflow target-kind boundary (CL-D7, CL-D8)
 
-Accept a full GitHub URL, `#123`, `123`, `Issue #123`, `PR #123`, or `PR123`.
-
-The prompt template passes the complete raw argument vector (`$@`) to this Skill. Parse it before calling `gh`: greedily recognize `Issue`/`PR` followed by `#123` as one two-token reference, recognize the other forms as one token, and treat only a final exact `autofix` as the mode. Reject any remaining token. Resolve the reference with `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`. The target is **never inferred from the current branch**.
+Resolve the reference after the shared target grammar has consumed the target reference. CL-D6 then consumes only a final exact `autofix` token; reject any leftover token or near-miss. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`.
 
 A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. The same GitHub API evidence path is available to a same-repository review-only target when local Git objects are absent; this requires no fetch, checkout, or git-state mutation. Autofix still requires local objects, the head branch checked out, and the worktree rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 
@@ -82,122 +88,23 @@ An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMB
 
 A code review may be carried forward across a **metadata-only rewrite** only when `pr_tree` and `pr_diff` are unchanged, and the carry-forward note must name which evidence was preserved and which was invalidated. Any change to `pr_head` always invalidates CI and exact-head external evidence, even when the tree is identical.
 
-## Language Profile (CL-D16)
+## PR-specific record obligations
 
-Resolve and display the destination-based profile at the start of the run. There is no configuration file in this MVP; derive it from explicit operator instruction, then project instructions, then these package defaults:
+The PR workflow retains workflow- and mode-specific duties outside the shared references:
 
-```yaml
-languages:
-  conversation: <the language the operator is using in this session>
-  github:
-    issue: en
-    pull_request: en
-  external_sites: {}
-```
+- PR finding records retain complete stable source identity when available: source kind, source ID, source URL, author identity and type, body digest, timestamps, review-commit association, path and line association, observed public head, fingerprint, semantic fingerprint, corrective change, validation evidence, and reply/status URL.
 
-- Converse in `conversation`.
-- Write pull-request titles, bodies, summaries, and review replies in `github.pull_request`. Replies posted on the pull request use the pull-request language regardless of which service raised the finding.
-- Use `github.issue` for issue destinations.
-- For any destination under `external_sites` that has no configured language, **stop and ask before drafting content for that destination** rather than guessing. Review-only never posts. It never mutates providers. Exact PR `autofix` permits only `REPLY_EXCEPTION` (defined below); all other provider, external, and review-service mutations remain forbidden.
-- This profile **never governs source code**, code comments, repository documentation, or commit messages. Those follow project instructions.
+### PR finding source identity (AC-DISPOSITION)
 
-### Sol adversarial consistency check (AC-ADVERSARIAL, CL-D29)
+For each PR finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published. A reviewer score, severity label, or provider recommendation is never by itself a decision to change code.
+- Review-only drafts findings and replies without posting; exact PR `autofix` requires a published correction commit and responsible-gate confirmation before a fixed disposition or source-finding reply.
+- PR owner decisions retain review-only draft transport and exact-autofix `WAITING_FOR_OWNER(reason=owner_decision_required)` behavior.
+- Merging without required deterministic coverage needs explicit owner approval; this PR-specific requirement remains in this PR Skill/root.
 
-Treat the exact pull-request body, the current authoritative decision record and comments supplied in the payload (only qualifying comments are authoritative), and applicable assertions in this Skill as **claims to verify, not assumed context**. Semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims, including claims expressed with examples only (examples-only), `always`, `never`, `unique`, `every`, `all`, `no`, `sole`, `must`, or `exactly`; do not search keywords without understanding the claim.
+### PR owner-decision scope (AC-DECISION)
 
-Attempt falsification against the authoritative files of the repository under review — its contract or decision records where they exist, implementation, and tests — together with available Git/GitHub evidence. When a named authoritative record is absent, that absence is not itself a finding; report a claim as unverifiable only when the evidence needed to check that specific claim is unavailable. A finding requires either an actual cited counterexample that disproves the claim or a verdict-material claim that cannot be verified because required evidence is unavailable. Never invent a counterexample. No counterexample is neither a finding nor proof that the claim is correct.
-
-Limit authoritative comments consistently with CL-D9: accept only comments by a non-bot author with `author_association` `OWNER`, `MEMBER`, or `COLLABORATOR`, and do not revive superseded comments from #3. Report the claim, evidence searched, and the cited counterexample or unavailable evidence.
-
-### Gate verdicts (CL-D1, PR review-only baseline)
-
-Every gate must end with a verdict line using exactly this vocabulary:
-
-```text
-MERGE | FIX BEFORE MERGE | NEEDS DECISION
-```
-
-Require that verdict line in the invocation payload rather than relying on the agent to supply one. **Do not modify any file under `agents/`**: the existing agents must stay unchanged and independently usable.
-
-Only the parsed verdict decides whether a gate passed. A missing or unparsable verdict is a tool-level failure; mode-specific handling belongs to the selected mode reference.
-
-### Invocation payload (CL-D2)
-
-Every agent in this package sets `inheritSkills: false`, so nothing in this skill reaches a subagent automatically. **Nothing may rely on a child inheriting this skill.** Each invocation must restate:
-
-- the required verdict vocabulary and that the verdict must be the last line;
-- whether the child is read-only or the sole writer;
-- the target, the relevant fingerprints, and the exact diff under review;
-- the applicable Language Profile entries;
-- the finding format: severity, evidence, impact, and smallest correction;
-- the scope boundary, so the child does not redesign approved decisions;
-- the acceptance criteria the target must satisfy, so that every finding can be traced to one;
-- on a gate re-invocation, every finding from that gate's earlier rounds, plus the dispositioned findings of any gate that already passed, each with its disposition and rationale.
-
-#### Sol adversarial payload (AC-ADVERSARIAL-payload-pr, CL-D29)
-
-Because `inheritSkills: false`, every initial Sol invocation and every Sol re-invocation must include this complete procedure in its payload: treat the exact pull-request body, current authoritative decision record and comments supplied in the payload (only qualifying comments are authoritative), and applicable Skill assertions as claims to verify rather than context; semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims, including examples only (examples-only), `always`, `never`, `unique`, `every`, `all`, `no`, `sole`, `must`, and `exactly` (not keyword-only); attempt falsification against the authoritative files of the repository under review — its contract or decision records where they exist, implementation, and tests — together with available Git/GitHub evidence; when a named authoritative record is absent, treat that absence as not itself a finding and report a claim as unverifiable only when the evidence needed to check that specific claim is unavailable; require an actual cited counterexample disproving the claim or report a verdict-material claim as unverifiable when required evidence is unavailable; never invent a counterexample; treat no counterexample as neither a finding nor proof; restrict authoritative comments to non-bot `OWNER`, `MEMBER`, or `COLLABORATOR` authors under CL-D9 and do not revive superseded #3 comments. The payload must also require the claim, searched evidence, and cited counterexample or unavailable evidence in each finding.
-
-A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**, and the payload must say so: re-raising one requires new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker, and must be labelled that way instead of returning `FIX BEFORE MERGE`.
-
-Without this the loop cannot terminate. Reviewers run with fresh context and `inheritSkills: false`, so a disposition the parent recorded is invisible to the next round, and any finding not literally fixed returns indefinitely.
-
-## Finding dispositions (AC-DISPOSITION)
-
-Give every actionable finding **exactly one disposition**:
-
-```text
-fixed
-accepted-as-designed
-deferred
-duplicate
-not-applicable
-needs-owner-decision
-```
-
-For each finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published. In PR review-only, the proposed correction and reply are drafts outside the repository and no fixed disposition claims publication. In exact PR `autofix`, `fixed` requires Luna's published correction commit and responsible-gate confirmation against the resulting public head; confirmed source-finding replies may then be posted by the parent.
-
-Judge findings individually. A reviewer score, severity label, or provider recommendation is never by itself a decision to change code. In review-only, record the rationale and draft each unfixed reply without posting it. In exact autofix, unconfirmed, unverifiable, or owner-decision findings receive no reply; only the bounded confirmed source-finding reply action is authorized.
-
-Group the report into blockers, fixes worth making now, optional improvements, pre-existing findings, and findings intentionally declined.
-
-## Owner decisions (AC-DECISION)
-
-Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, ADR acceptance, dangerous operations, and ship decisions.
-
-Ask **one question at a time**, with options and a recommendation. Record durable decisions as:
-
-```text
-Decision ID
-Kind
-Target and revision
-Question
-Options and trade-offs
-Recommendation
-Owner choice
-Rationale
-Validity and invalidation conditions
-```
-
-For PR review-only, long-lived contract, waiver, and risk decisions belong on the pull request in the configured language; draft them outside the repository and hand them to the operator to post. For exact PR `autofix`, an owner decision or owner action terminates the run at `WAITING_FOR_OWNER(reason=owner_decision_required)` with no draft-post, retry, or resume action. While either mode is pending that boundary, the state is `WAITING_FOR_OWNER`.
-
-## Test provenance (AC-TDD)
-
-Classify the coverage backing each fix truthfully as one of:
-
-```text
-pre-implementation behavioral RED
-pre-implementation compile/contract RED
-co-developed integration coverage
-review-driven regression
-retrospective reproduction
-```
-
-Require a meaningful behavioral RED for deterministic bug fixes and behavior exercisable through an existing test seam. Permit truthful co-development for integration scaffolding, new module bootstrapping, platform-only packaging checks, and review-driven regression coverage when a pre-implementation behavioral RED is impractical.
-
-**Never fabricate RED evidence**, and **never rewrite history to simulate** a test-first chronology. Merging without required deterministic coverage needs explicit owner approval.
-
-The two pre-implementation classes are separated by what the test does, not by where its inputs come from. A test that **inspects an artifact's content or structure** — reading a file and checking for required or forbidden text, parsing frontmatter — is compile/contract RED. A test that **executes the thing being specified and observes what it does** is behavioural RED, and it stays behavioural when the thing it executes lives in this repository. **Assertion polarity is irrelevant**: `doesNotMatch` against a Markdown file is no more behavioural than `match` against one.
+Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, ADR acceptance, dangerous operations, and ship decisions. Routine details already settled by an approved contract remain implementation judgments. While an owner decision or owner action is pending, the state is `WAITING_FOR_OWNER`.
+- PR external-review applicability, provider mutation boundaries, mode status, retry, no-resume, and final-readiness behavior remain in the selected mode reference.
 
 ## Mode dispatch (CL-D19)
 

@@ -9,6 +9,16 @@ Take one GitHub issue from specification to `IMPLEMENTATION_READY` by reviewing 
 
 You are the orchestrator. Formal gates run as read-only subagents. This skill never merges anything and never becomes an autonomous editor.
 
+
+## Shared references (Issue #24)
+
+Before workflow-specific rules, read both common references relative to this Skill directory. The shared Sol procedure searches authoritative files of the repository under review; that absence is not itself a finding.
+
+- `../closed-loop-shared/references/gate-contract.md`
+- `../closed-loop-shared/references/records.md`
+
+The shared files supply common Issue/PR grammar, evidence, and record taxonomy; this Issue Skill remains authoritative for Issue target rejection, agents, gates, status, publication, and CL-D31/CL-D32 behavior.
+
 ## Precondition guard (CL-D20)
 
 This skill runs only against an explicit target supplied by the operator.
@@ -23,20 +33,11 @@ Do not infer a target, do not scan for candidate issues, and do not start any ga
 
 ## Preflight (CL-D22, CL-D5)
 
-Before the first gate, confirm the runtime can actually complete the workflow.
+Before the first gate, confirm the workflow-specific required agents resolve: `sol-reviewer` and `terra-oracle`. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path. Do not begin a gate that cannot finish. A preflight failure is not a review round.
 
-1. Subagent execution comes from `pi-subagents`. If `pi-subagents` is unavailable, stop and report `BLOCKED` with installation guidance. Never substitute your own execution for a formal gate.
-2. Confirm that the required agents resolve: `sol-reviewer` and `terra-oracle`.
-3. Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided ones with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name through the name-level override guidance. Naming a model here would remove that escape hatch.
-4. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path. Do not begin a gate that cannot finish.
+## Workflow target-kind boundary (CL-D7, CL-D8)
 
-A preflight failure is not a review round.
-
-## Target resolution (CL-D7, CL-D8)
-
-Accept a full GitHub URL, `#123`, `123`, `Issue #123`, `PR #123`, or `PR123`.
-
-The prompt template passes the complete raw argument vector (`$@`) to this Skill. Parse it before calling `gh`: recognize `Issue`/`PR` followed by `#123` as one two-token reference, recognize the other forms as one token, and reject any remaining token. Resolve the reference with `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence, so a number alone does not identify the kind. If the reference resolves to a pull request, stop and tell the operator to use `/tidd-pr`. The target is **never inferred from the current branch**.
+Resolve the reference after the shared target grammar has consumed the target reference. Reject any remaining argument before calling `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence, so a number alone does not identify the kind. If the reference resolves to a pull request, stop and tell the operator to use `/tidd-pr`.
 
 A target in **another repository** may be reviewed, but nothing may be published to it and no local work may be started for it. Publication authority is bound to the repository of the current checkout.
 
@@ -52,27 +53,6 @@ An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMB
 
 Outside the CL-D31 candidate-publication phase, recompute `issue_spec` before declaring readiness; if it changed since a gate passed, that gate is stale and must run again. During CL-D31, gates are bound to the base `issue_spec` and exact frozen candidate; the separately computed snapshot-C final `issue_spec` may establish readiness without duplicate gates only through the byte/content-identity proof below.
 
-## Language Profile (CL-D16)
-
-Resolve and display the destination-based profile at the start of the run. There is no configuration file in this MVP; derive it from explicit operator instruction, then project instructions, then these package defaults:
-
-```yaml
-languages:
-  conversation: <the language the operator is using in this session>
-  github:
-    issue: en
-    pull_request: en
-  external_sites: {}
-```
-
-- Converse in `conversation`.
-- Write issue titles, bodies, comments, decisions, and waivers in `github.issue`.
-- Use `github.pull_request` for pull-request destinations.
-- For any destination under `external_sites` that has no configured language, **stop and ask before drafting content for that destination** rather than guessing. The trigger is drafting, not posting: the CL-D31 exception only permits its exact GitHub Issue actions; external destinations without a configured language still stop before drafting.
-- This profile **never governs source code**, code comments, repository documentation, or commit messages. Those follow project instructions.
-
-Quote source text verbatim when quoting is needed.
-
 ## Mutation boundary (CL-D15, CL-D28, CL-D31)
 
 The default remains review-and-draft only. Before candidate construction and outside the candidate-publication phase:
@@ -84,6 +64,32 @@ The default remains review-and-draft only. Before candidate construction and out
 
 Working notes, the disposition ledger, and drafts belong in a temporary directory **outside the repository**. The only exception is the exact CL-D31 workflow below. It does not add an executable controller or extension and never grants authority to PR commands, other aliases, foreign repositories, standalone workers, or unlisted actions.
 
+## Issue-specific record and gate obligations
+
+The Issue workflow retains these obligations outside the shared references:
+
+- `terra-oracle` has no verdict contract of its own; the parent requires the shared verdict vocabulary in its invocation payload.
+- External review services, external static-analysis sites, and pull-request checks **are not part of issue readiness** (AC-ISSUE-NO-EXTERNAL).
+- Issue finding records retain the `issue_spec` raised-against field, candidate identity, revised passage, validation evidence, and explicit snapshot-C assignment.
+
+### Issue finding record fields (AC-DISPOSITION)
+
+For each finding record the source gate, severity, the `issue_spec` it was raised against, candidate identity, evidence, impact, exactly one disposition, rationale, revised passage when the disposition is `fixed`, validation evidence that the revision resolves it, and the reply/status URL or explicit snapshot-C assignment.
+- Issue owner decisions retain the CL-D31/CL-D32 language, publication transport, and owner-action boundaries. The frozen English ledger owns the complete decision record during CL-D31.
+- Issue policy precedence is project instructions, then authoritative Issue requirements that do not weaken them, then the package default. A recorded owner exception is a narrow override of a named rule and must state its scope, rationale, and invalidation conditions.
+
+### Issue owner-decision scope (AC-DECISION)
+
+Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, and ADR acceptance. Routine details that an approved contract already settles are yours to decide. While an owner decision or owner action is pending, the state is `WAITING_FOR_OWNER`.
+
+### Issue AC-TDD quality gate (AC-TDD)
+
+An issue is not ready until it states its acceptance contract and validation plan. Apply the risk-based test-first default when reviewing that plan.
+
+### Issue malformed-verdict boundary (CL-D1, CL-D32)
+
+Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`. Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes still allocate physical identities under the existing correlation rules, but expire the combined approval and any dormant or activated grant; they cannot use the ordinary missing-or-unparsable retry.
+
 ## Gate loop (AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 
 The order is fixed and sequential for legacy review, and the CL-D31 candidate path is a bounded extension:
@@ -94,60 +100,7 @@ specification → sol-reviewer gate → disposition/revision → Sol MERGE → t
 
 Before candidate construction, legacy review-and-draft status/resume remains available. Once CL-D31 candidate construction begins, the candidate phase is non-resumable and the exact preview/publication rules in the CL-D31 section apply.
 
-`sol-reviewer` owns requirements, contracts, scope, acceptance, feasibility, and the bounded adversarial check below. `terra-oracle` then checks the revised specification against inherited decisions for contradiction and drift. **Never start the Terra gate before the Sol gate returns `MERGE`.**
-
-### Sol adversarial consistency check (AC-ADVERSARIAL, CL-D29)
-
-Treat the exact issue body, the current authoritative decision record and comments supplied in the payload (only qualifying comments are authoritative), and applicable assertions in this Skill as **claims to verify, not assumed context**. Semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims, including claims expressed with examples only (examples-only), `always`, `never`, `unique`, `every`, `all`, `no`, `sole`, `must`, or `exactly`; do not search keywords without understanding the claim.
-
-Attempt falsification against the authoritative files of the repository under review — its contract or decision records where they exist, implementation, and tests — together with available Git/GitHub evidence. When a named authoritative record is absent, that absence is not itself a finding; report a claim as unverifiable only when the evidence needed to check that specific claim is unavailable. A finding requires either an actual cited counterexample that disproves the claim or a verdict-material claim that cannot be verified because required evidence is unavailable. Never invent a counterexample. No counterexample is neither a finding nor proof that the claim is correct.
-
-Limit authoritative comments consistently with CL-D9: accept only comments by a non-bot author with `author_association` `OWNER`, `MEMBER`, or `COLLABORATOR`, and do not revive superseded comments from #3. Report the claim, evidence searched, and the cited counterexample or unavailable evidence.
-
-External review services, external static-analysis sites, and pull-request checks **are not part of issue readiness** (AC-ISSUE-NO-EXTERNAL).
-
-### Gate verdicts (CL-D1)
-
-Every gate must end with a verdict line using exactly this vocabulary:
-
-```text
-MERGE | FIX BEFORE MERGE | NEEDS DECISION
-```
-
-`sol-reviewer` already ends its report with that verdict. **`terra-oracle` has no verdict contract of its own**, so you must require the same verdict line in the invocation payload you send it. **Do not modify any file under `agents/`** to add one: the existing agents must stay unchanged and independently usable.
-
-Only the parsed verdict decides whether a gate passed. Never read approval into prose. **A missing or unparsable verdict is a tool-level failure**: under ordinary CL-D31 rules, retry the invocation once, and if it fails again report `BLOCKED`. For CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes still allocate physical identities under the existing correlation rules, but expire the combined approval and any dormant/activated grant; they cannot use the ordinary missing-or-unparsable retry.
-
-### Invocation payload (CL-D2)
-
-Every agent in this package sets `inheritSkills: false`, so nothing in this skill reaches a subagent automatically. **Nothing may rely on a child inheriting this skill.** Each invocation must restate:
-
-- the required verdict vocabulary and that the verdict must be the last line;
-- that the child is read-only;
-- the target, its `issue_spec` fingerprint, and the exact text under review;
-- the applicable Language Profile entries;
-- the finding format: severity, evidence, impact, and smallest correction;
-- the scope boundary, so the child does not redesign approved decisions;
-- the acceptance criteria the target must satisfy, so that every finding can be traced to one;
-- on a gate re-invocation, every finding from that gate's earlier rounds, plus the dispositioned findings of any gate that already passed, each with its disposition and rationale.
-
-#### Sol adversarial payload (AC-ADVERSARIAL-payload-issue, CL-D29)
-
-Because `inheritSkills: false`, every initial Sol invocation and every Sol re-invocation must include this complete procedure in its payload: treat the exact issue body, current authoritative decision record and comments supplied in the payload (only qualifying comments are authoritative), and applicable Skill assertions as claims to verify rather than context; semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims, including examples only (examples-only), `always`, `never`, `unique`, `every`, `all`, `no`, `sole`, `must`, and `exactly` (not keyword-only); attempt falsification against the authoritative files of the repository under review — its contract or decision records where they exist, implementation, and tests — together with available Git/GitHub evidence; when a named authoritative record is absent, treat that absence as not itself a finding and report a claim as unverifiable only when the evidence needed to check that specific claim is unavailable; require an actual cited counterexample disproving the claim or report a verdict-material claim as unverifiable when required evidence is unavailable; never invent a counterexample; treat no counterexample as neither a finding nor proof; restrict authoritative comments to non-bot `OWNER`, `MEMBER`, or `COLLABORATOR` authors under CL-D9 and do not revive superseded #3 comments. The payload must also require the claim, searched evidence, and cited counterexample or unavailable evidence in each finding.
-
-A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**, and the payload must say so: re-raising one requires new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker, and must be labelled that way instead of returning `FIX BEFORE MERGE`.
-
-Without this the loop cannot terminate. Reviewers run with fresh context and `inheritSkills: false`, so a disposition the parent recorded is invisible to the next round, and any finding not literally fixed returns indefinitely.
-
-### Round accounting (CL-D11, CL-D12)
-
-- A round is one completed gate invocation that returns a parsable verdict.
-- Each gate allows **at most three** rounds. **The passing round counts.**
-- Tool, provider, startup, stale-target, and unparsable-verdict failures **do not consume a round**.
-- If a Terra finding forces a change to something Sol already approved, the Sol gate must run again and consumes one of its own rounds.
-- At the limit, ask the owner whether to grant more rounds. Before candidate construction and outside the candidate-publication phase, report `ROUND_LIMIT_REACHED` through the legacy status path. During CL-D31, pause only as a live same-session owner question without emitting resumable state; an individually granted extension remains bound to the same frozen candidate and session. CL-D32 is the sole narrow exception: its displayed combined response carries a dormant at-most-one counted Sol round, activated only at the last already-authorized Sol round as specified in the CL-D32 section, and never grants Terra, publication, retry, transfer, or further extension. A decline, session end, later command, or ungranted limit terminates the phase and discards candidate authority.
-
-Round budgets are **run-scoped**. This MVP keeps no state between invocations, so re-running the command resets every counter. Report rounds used per gate in every status block so the owner can carry them forward. **Do not create a state file** to work around this; persistent workflow state is a later stage.
+`sol-reviewer` owns requirements, contracts, scope, acceptance, feasibility, and the shared adversarial falsification procedure. `terra-oracle` then checks the revised specification against inherited decisions for contradiction and drift. **Never start the Terra gate before the Sol gate returns `MERGE`.**
 
 ## Owner-gated Issue candidate publication (CL-D31)
 
@@ -212,65 +165,6 @@ PATCH and POST are not atomic. After the first mutation, any HTTP/provider/tool/
 Readiness requires the final published issue_spec and snapshot C to observe the exact approved proposed body, exactly one newly created ledger comment with exact approved bytes and recorded transport identity, CL-D9 eligibility as non-bot `OWNER`, `MEMBER`, or `COLLABORATOR`, no unexpected authoritative input across the fixed bracket, and complete semantic equality with the reviewed bundle. Record C's final published `issue_spec` as the observational readiness linearization point and allow `IMPLEMENTATION_READY` without duplicate Sol/Terra gates only for this byte/content-identical candidate. This proof is limited to observed R2/C3 state and cannot exclude later races, a post-R2/C3 edit, or an overwritten interleaving.
 
 A later observed authoritative body edit or qualifying comment addition/edit/deletion/reclassification invalidates the candidate and readiness and requires a fresh equivalent run. Bot and other advisory comments remain outside `issue_spec`. Author metadata establishes eligibility, not human agency. The only publication actions are the optional current-repository body PATCH and one exact ledger POST; all other mutation remains forbidden.
-
-## Finding dispositions (AC-DISPOSITION)
-
-Give every actionable finding **exactly one disposition**:
-
-```text
-fixed
-accepted-as-designed
-deferred
-duplicate
-not-applicable
-needs-owner-decision
-```
-
-For each finding record the source gate, severity, the `issue_spec` it was raised against, candidate identity, evidence, impact, exactly one disposition, rationale, revised passage when the disposition is `fixed`, validation evidence that the revision resolves it, and the reply/status URL or explicit snapshot-C assignment. Before candidate construction and outside CL-D31, an operator-post URL may remain pending; during CL-D31 the frozen English ledger owns the complete record and snapshot-C transport assignment. Judge findings individually; a severity label is never by itself a decision to change the specification. Record the rationale for anything intentionally left unchanged.
-
-Group the report into blockers, changes worth making now, optional improvements, pre-existing conditions, and findings intentionally declined.
-
-## Owner decisions (AC-DECISION)
-
-Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, and ADR acceptance. Routine details that an approved contract already settles are yours to decide.
-
-Ask **one question at a time**, with options and a recommendation. Record durable decisions as:
-
-```text
-Decision ID
-Kind
-Target and revision
-Question
-Options and trade-offs
-Recommendation
-Owner choice
-Rationale
-Validity and invalidation conditions
-```
-
-Long-lived contract, waiver, and risk decisions belong on the issue in the configured issue language. Before candidate construction and outside CL-D31, draft them and hand them to the operator to post. The CL-D32 eligible scope-freeze exception instead freezes its complete conditional nine-field decision inside the candidate and never publishes a standalone decision comment; every ineligible decision retains operator-post behavior. During CL-D31, the frozen English ledger owns the complete decision record and snapshot-C URL assignment; the operator action is only the exact same-session preview answer.
-
-While an owner decision or an owner action is pending, the state is `WAITING_FOR_OWNER`.
-
-## Specification quality bar (AC-TDD)
-
-An issue is not ready until it states its acceptance contract and validation plan. Apply the risk-based test-first default when reviewing that plan, and require it to classify coverage truthfully as one of:
-
-```text
-pre-implementation behavioral RED
-pre-implementation compile/contract RED
-co-developed integration coverage
-review-driven regression
-retrospective reproduction
-```
-
-Require a meaningful behavioral RED for deterministic bug fixes and for behavior exercisable through an existing test seam. Permit truthful co-development for integration scaffolding, new module bootstrapping, platform-only packaging checks, and review-driven regression coverage when a pre-implementation behavioral RED is impractical.
-
-**Never fabricate RED evidence**, and **never rewrite history to simulate** a test-first chronology. Policy precedence is project instructions, then authoritative issue requirements that do not weaken them, then this package default.
-
-The two pre-implementation classes are separated by what the test does, not by where its inputs come from. A test that **inspects an artifact's content or structure** — reading a file and checking for required or forbidden text, parsing frontmatter — is compile/contract RED. A test that **executes the thing being specified and observes what it does** is behavioural RED, and it stays behavioural when the thing it executes lives in this repository. **Assertion polarity is irrelevant**: `doesNotMatch` against a Markdown file is no more behavioural than `match` against one.
-
-A recorded owner exception is a narrow override of a named rule and must state its scope, rationale, and invalidation conditions.
 
 ## Outcome and status block (CL-D13, CL-D14)
 

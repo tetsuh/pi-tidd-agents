@@ -13,7 +13,7 @@ These decisions were made during [#3](https://github.com/tetsuh/pi-tidd-agents/i
 ---
 
 ## CL-D1 — Gate verdicts are supplied by the caller, not by agent files
-**Clauses:** CL-D1-issue, CL-D1-pr
+**Clauses:** CL-D1-issue, CL-D1-pr, CL-D1-issue-routing, CL-D1-issue-retry
 
 `terra-oracle` has no verdict contract of its own, and the acceptance criteria require the existing agents to stay unchanged. The verdict line is therefore required through the invocation payload, and nothing under `agents/` is modified. A missing or unparsable verdict is a tool-level failure: retry once, then report `BLOCKED`.
 
@@ -116,9 +116,11 @@ The two-minute quiet period and fifteen-minute window are policy the MVP reports
 ## CL-D19 — Division of responsibility between prompts, Skills, and mode references
 **Clauses:** none — structural
 
-Prompt templates stay thin — frontmatter, argument capture, mode determination, and an instruction to load the Skill — so prompts cannot drift from the workflow contract. The PR `SKILL.md` owns argument parsing, target resolution, evidence identity, shared obligations, and mode dispatch. After parsing succeeds, a PR run reads exactly one authoritative mode continuation: `references/review-only.md` or `references/autofix.md`; it never reads both. Everything downstream that applies only to the parsed mode belongs to that mode reference.
+Prompt templates stay thin — frontmatter, argument capture, mode determination, and an instruction to load the Skill — so prompts cannot drift from the workflow contract. Each workflow prompt loads its workflow Skill, and each workflow root reads both non-skill shared references `../closed-loop-shared/references/gate-contract.md` and `../closed-loop-shared/references/records.md`. The PR `SKILL.md` owns argument parsing, target resolution, evidence identity, shared dispatch, and mode selection. After CL-D6 parsing succeeds, a PR run reads exactly one authoritative mode continuation: `references/review-only.md` or `references/autofix.md`; it never reads both. Everything downstream that applies only to the parsed mode belongs to that mode reference. The shared references own only genuinely common grammar, gate/evidence, record, and truthful AC-TDD policy; Issue-specific and PR/mode-specific behavior remains in its owning file.
 
-Enforced by `test/package.test.js`, which asserts each prompt names the Skill it loads and stays within a line budget, and that the PR Skill dispatches to exactly one packaged mode reference.
+Authority graph: `prompt -> workflow SKILL.md -> both shared references -> exactly one PR mode reference when applicable`.
+
+Enforced by `test/package.test.js`, which asserts each prompt names the Skill it loads and stays within a line budget, both workflow roots name each shared reference exactly once, no shared `SKILL.md` creates a third Skill, and the PR Skill dispatches to exactly one packaged mode reference.
 
 ## CL-D20 — Precondition guard
 **Clauses:** CL-D20-issue, CL-D20-pr
@@ -133,7 +135,7 @@ Tests run under `node:test` with zero `devDependencies`, because pi runs `npm in
 Enforced by `test/package.test.js`, which asserts the test script exists and that there are no `devDependencies`.
 
 ## CL-D22 — Closed-loop model requirements and preflight
-**Clauses:** CL-D22-issue, CL-D22-pr
+**Clauses:** CL-D22-issue, CL-D22-pr, CL-D22-issue-agents, CL-D22-pr-agents
 
 The closed loop composes this exact runtime set: `sol-reviewer` → `gpt-5.6-sol`, `terra-oracle` → `gpt-5.6-terra`, `terra-reviewer` → `gpt-5.6-terra`, and conditional `luna-worker` → `gpt-5.6-luna`. `glm-worker` is excluded from the closed loop and remains standalone because selecting it would add a second model family. Skills use runtime names, never model IDs, and preflight only the agents required by their command.
 
@@ -289,7 +291,7 @@ Its outcome is enforced by `CL-D24`. Renovating the record preserves the final a
 Without the exact PR `autofix` token, Issue and PR review-only remain file-mutation-free and publication-free before candidate construction and outside CL-D31. During CL-D31, its named same-session approval is the only Issue grant. The exact PR token itself is the run-scoped approval only for the smallest CL-D30 correction batch per reviewed public head: one normal commit, one non-force push, and `REPLY_EXCEPTION`. It does not authorize merge, force-push, amend, rebase, history rewriting, or provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST; it does not authorize approval, thread resolution, authoritative Issue changes, aggregate-summary posting, or any different target.
 
 ## AC-DECISION — Owner decision record
-**Clauses:** AC-DECISION, AC-DECISION-pr
+**Clauses:** AC-DECISION, AC-DECISION-pr, AC-DECISION-issue-scope, AC-DECISION-pr-scope
 
 Nine fields: Decision ID, Kind, Target and revision, Question, Options and trade-offs, Recommendation, Owner choice, Rationale, Validity and invalidation conditions. Questions are asked one at a time.
 
@@ -319,7 +321,7 @@ External review services, static-analysis sites and pull-request checks are not 
 Without the exact `autofix` token, and before candidate construction or outside CL-D31, no file edits, no git-state changes, no commits or pushes, no posting to GitHub, no replies to review threads, and no external mutation. CL-D31 is the sole named Issue exception and does not alter PR review-only.
 
 ## AC-TDD — Risk-based test-first policy and truthful provenance
-**Clauses:** AC-TDD
+**Clauses:** AC-TDD, AC-TDD-issue-quality-gate
 
 Coverage is classified as pre-implementation behavioural RED, pre-implementation compile/contract RED, co-developed integration coverage, review-driven regression, or retrospective reproduction. RED evidence is never fabricated and history is never rewritten to simulate chronology.
 
