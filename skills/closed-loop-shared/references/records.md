@@ -37,7 +37,7 @@ Rationale
 Validity and invalidation conditions
 ```
 
-Workflow-specific language, pending-state status, posting/draft transport, CL-D31/CL-D32 behavior, and exact-autofix owner boundaries remain in the owning workflow files. The Issue Skill retains project/Issue/package policy precedence and the recorded-owner-exception rule. PR mode references retain the deterministic-coverage owner-approval duty.
+Workflow-specific language, pending-state status, posting/draft transport, CL-D31/CL-D32 behavior, and exact-autofix owner boundaries remain in the owning workflow files. The Issue Skill retains project/Issue/package policy precedence and the recorded-owner-exception rule. The PR Skill/root retains the deterministic-coverage owner-approval duty.
 
 ## AC-TDD coverage and truthful provenance
 

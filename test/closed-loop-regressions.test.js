@@ -542,12 +542,23 @@ test('Issue #24 workflow-specific ownership remains outside shared records', () 
   assert.doesNotMatch(shared, /An issue is not ready until it states its acceptance contract/);
   assert.match(pr, /Merging without required deterministic coverage needs explicit owner approval; this PR-specific requirement remains in this PR Skill\/root\./);
   assert.doesNotMatch(pr, /remains in the selected mode reference/);
+  assert.match(shared, /The PR Skill\/root retains the deterministic-coverage owner-approval duty\./);
+  assert.doesNotMatch(shared, /PR mode references retain the deterministic-coverage owner-approval duty\./);
   assert.doesNotMatch(shared, /dangerous operations, and ship decisions/);
   assert.match(pr, /dangerous operations, and ship decisions/);
   assert.doesNotMatch(issue, /dangerous operations, and ship decisions/);
   assert.match(issue, /Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`\./);
   assert.match(issue, /Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes/);
   assert.doesNotMatch(shared, /retry the invocation once, and if it fails again report `BLOCKED`/);
+});
+
+test('Issue #24 pins shared target grammar and PR-specific parsing ownership', () => {
+  const contract = readText('CONTRACT.md');
+  const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
+  assert.match(contract, /The shared `gate-contract\.md` owns common target-reference grammar\./);
+  assert.match(contract, /The PR `SKILL\.md` owns CL-D6 mode parsing, target-kind resolution\/handling, evidence identity, shared dispatch, and mode selection\./);
+  assert.match(shared, /## Target grammar \(CL-D7, CL-D8\)/);
+  assert.doesNotMatch(contract, /The PR `SKILL\.md` owns argument parsing,/);
 });
 
 test('Issue 13 negative guards reject stale unqualified publication/resume prose while preserving scoped legacy rules', () => {
