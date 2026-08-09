@@ -30,6 +30,48 @@ const PR_MODE_REFERENCES = {
   autofix: 'skills/closed-loop-pr/references/autofix.md',
 };
 const PR_SKILL_PRE_SPLIT_BYTES = 57160;
+const SHARED_REFERENCES = {
+  'gate-contract': 'skills/closed-loop-shared/references/gate-contract.md',
+  records: 'skills/closed-loop-shared/references/records.md',
+};
+const AUTHORITY_FILES = [
+  SKILLS['closed-loop-issue'],
+  SKILLS['closed-loop-pr'],
+  PR_MODE_REFERENCES['review-only'],
+  PR_MODE_REFERENCES.autofix,
+  SHARED_REFERENCES['gate-contract'],
+  SHARED_REFERENCES.records,
+];
+const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const markdownLiteral = (value) => new RegExp('`' + escapeRegExp(value) + '`', 'g');
+
+function locateInstalledPiSkillsApi() {
+  const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const globalRoot = execFileSync(npmCommand, ['root', '-g'], { encoding: 'utf8' }).trim();
+  const packageRoot = path.join(globalRoot, '@earendil-works', 'pi-coding-agent');
+  const packageJsonPath = path.join(packageRoot, 'package.json');
+  if (!fs.existsSync(packageJsonPath)) return null;
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+  const apiPath = path.join(packageRoot, 'dist', 'core', 'skills.js');
+  if (!fs.existsSync(apiPath)) throw new Error(`installed Pi package is missing its skills API: ${apiPath}`);
+  const api = require(apiPath);
+  if (typeof api.loadSkillsFromDir !== 'function') throw new Error('installed Pi skills API does not export loadSkillsFromDir');
+  if (!/^(?:0\.(?:8[4-9]|9\d)|[1-9]\d*)\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(packageJson.version)) {
+    throw new Error(`installed Pi version is not a supported semantic version: ${packageJson.version}`);
+  }
+  return { api, version: packageJson.version };
+}
+
+const installedPiSkills = locateInstalledPiSkillsApi();
+
+function validateDiscoveryDiagnostics(discovery) {
+  const fields = ['errors', 'diagnostics'].filter((field) => Object.prototype.hasOwnProperty.call(discovery, field));
+  assert.ok(fields.length > 0, 'installed Pi discovery must expose errors or diagnostics');
+  for (const field of fields) {
+    assert.ok(Array.isArray(discovery[field]), `installed Pi discovery ${field} must be an array`);
+    assert.deepEqual(discovery[field], [], `installed Pi discovery ${field} must be empty`);
+  }
+}
 
 const REPOSITORY_SPECIFIC_SKILL_PROSE = [
   /npm pack/,
@@ -43,7 +85,7 @@ const PROMPTS = {
   'prompts/tidd-pr.md': { hint: '<pr-ref> [autofix]', skill: 'closed-loop-pr' },
 };
 
-const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.keys(PROMPTS)];
+const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
 const GENERIC_FALSIFICATION_EVIDENCE = 'authoritative files of the repository under review';
 const ABSENT_RECORD_RULE = 'that absence is not itself a finding';
 
@@ -108,6 +150,101 @@ test('the six existing agents remain discoverable and unchanged in identity', ()
   }
 });
 
+test('Issue #24 shared references exist and duplicate paragraphs are absent', () => {
+  for (const file of Object.values(SHARED_REFERENCES)) assert.ok(exists(file), `missing shared reference: ${file}`);
+  const normalize = (text) => text
+    .replace(/\r\n?/g, '\n')
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim().replace(/\s+/g, ' '))
+    .filter(Boolean);
+  const paragraphs = (root) => fs.readdirSync(repoPath(root), { recursive: true }).filter((file) => file.endsWith('.md')).flatMap((file) => normalize(readText(path.join(root, file))));
+  const issue = new Set(paragraphs('skills/closed-loop-issue').filter((paragraph) => [...paragraph].length >= 200));
+  const pr = new Set(paragraphs('skills/closed-loop-pr').filter((paragraph) => [...paragraph].length >= 200));
+  assert.deepEqual([...issue].filter((paragraph) => pr.has(paragraph)), [], 'duplicate normalized paragraph remains across workflow trees');
+});
+
+test('Issue #24 duplicate normalization handles newline and whitespace equivalence independently', () => {
+  const normalize = (text) => text
+    .replace(/\r\n?/g, '\n')
+    .split(/\n\s*\n+/)
+    .map((paragraph) => paragraph.trim().replace(/\s+/g, ' '))
+    .filter(Boolean);
+  const left = normalize('  synthetic\r\nparagraph with   equivalent whitespace and blank lines  \r\n\r\nnext  block  ');
+  const right = normalize('synthetic\nparagraph with equivalent whitespace and blank lines\n\nnext block');
+  assert.deepEqual(left, right, 'normalization must canonicalize CRLF/CR, blank lines, trimming, and whitespace runs');
+  assert.equal([...left[0]].length, 62);
+});
+
+test('Issue #24 shared references are named once and do not create a third discovered Skill', () => {
+  for (const skill of Object.values(SKILLS)) {
+    const text = readText(skill);
+    for (const relative of ['../closed-loop-shared/references/gate-contract.md', '../closed-loop-shared/references/records.md']) {
+      assert.equal((text.match(markdownLiteral(relative)) || []).length, 1, `${skill} must name ${relative} exactly once`);
+    }
+  }
+  const discovered = [];
+  const walk = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const full = path.join(directory, entry.name);
+      if (!entry.isDirectory()) continue;
+      if (fs.existsSync(path.join(full, 'SKILL.md'))) discovered.push(path.relative(repoRoot, full).replace(/\\/g, '/'));
+      walk(full);
+    }
+  };
+  walk(repoPath('skills'));
+  assert.deepEqual(discovered.sort(), ['skills/closed-loop-issue', 'skills/closed-loop-pr']);
+  for (const file of Object.values(SHARED_REFERENCES)) {
+    const shared = readText(file);
+    assert.doesNotMatch(shared, /SKILL\.md|^---$/m, `${file} must remain a bare documentation reference`);
+    assert.doesNotMatch(shared, /references\/(?:review-only|autofix)\.md/, `${file} must not select or cross-reference a PR mode`);
+  }
+});
+
+// Review-driven regression: exact Markdown-literal matching must reject malformed path lookalikes.
+test('Issue #24 shared-reference literal matching rejects malformed prefixes', () => {
+  const literal = '../closed-loop-shared/references/gate-contract.md';
+  const metacharacters = '.*+?^${}()|[]\\';
+  const metacharacterRegex = new RegExp(`^${escapeRegExp(metacharacters)}$`);
+  assert.match(metacharacters, metacharacterRegex);
+  assert.doesNotMatch(metacharacters + 'x', metacharacterRegex);
+  const malformed = [
+    '`../../closed-loop-shared/references/gate-contract.md`',
+    '`../closed-loop-shared/references/gate-contractXmd`',
+    '`.../closed-loop-shared/references/gate-contract.md`',
+  ].join('\n');
+  assert.equal(malformed.match(markdownLiteral(literal)), null, 'malformed backticked paths must not satisfy the exact relative path');
+  assert.equal(('`' + literal + '`').match(markdownLiteral(literal))?.[0], '`' + literal + '`');
+  assert.equal(('x' + literal).match(markdownLiteral(literal)), null, 'an unbackticked path must not satisfy the Markdown literal assertion');
+});
+
+test('Issue #24 six authority files remain below the published baseline', () => {
+  // Review-driven regression: this raw-byte ceiling protects the reviewed authority graph.
+  const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
+  assert.ok(total < 99182, `six authority files total ${total} bytes, expected less than 99182`);
+});
+
+// Review-driven regression: installed Pi discovery must validate the complete runtime result.
+test('Issue #24 discovery diagnostics validation is fail-closed', () => {
+  assert.throws(() => validateDiscoveryDiagnostics({}), /errors or diagnostics/);
+  assert.throws(() => validateDiscoveryDiagnostics({ errors: [], diagnostics: ['finding'] }), /diagnostics must be empty/);
+  assert.throws(() => validateDiscoveryDiagnostics({ errors: ['finding'], diagnostics: [] }), /errors must be empty/);
+  assert.doesNotThrow(() => validateDiscoveryDiagnostics({ errors: [] }));
+  assert.doesNotThrow(() => validateDiscoveryDiagnostics({ diagnostics: [] }));
+  assert.doesNotThrow(() => validateDiscoveryDiagnostics({ errors: [], diagnostics: [] }));
+});
+
+test('Issue #24 installed Pi discovery matches structural discovery when available', { skip: installedPiSkills ? false : 'Pi is not installed in this environment' }, () => {
+  assert.match(installedPiSkills.version, /^(?:0\.(?:8[4-9]|9\d)|[1-9]\d*)\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
+  assert.equal(typeof installedPiSkills.api.loadSkillsFromDir, 'function');
+  const discovery = installedPiSkills.api.loadSkillsFromDir({ dir: repoPath('skills'), source: 'Issue #24 package test' });
+  validateDiscoveryDiagnostics(discovery);
+  const discoveredNames = discovery.skills.map((skill) => skill.name).sort();
+  assert.deepEqual(discoveredNames, ['closed-loop-issue', 'closed-loop-pr']);
+  const discoveredPaths = discovery.skills
+    .map((skill) => path.relative(repoRoot, skill.filePath).replace(/\\/g, '/')).sort();
+  assert.deepEqual(discoveredPaths, ['skills/closed-loop-issue/SKILL.md', 'skills/closed-loop-pr/SKILL.md']);
+});
+
 test('both skills are valid Agent Skills definitions', () => {
   for (const [name, file] of Object.entries(SKILLS)) {
     assert.ok(exists(file), `missing skill: ${file}`);
@@ -141,7 +278,7 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
   assert.ok(skill.endsWith(dispatch), 'mode dispatch must be the final PR SKILL.md block');
   for (const file of Object.values(PR_MODE_REFERENCES)) {
     const relative = file.replace('skills/closed-loop-pr/', '');
-    assert.equal((skill.match(new RegExp(relative.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')) || []).length, 1, `dispatch must name ${relative} exactly once`);
+    assert.equal((skill.match(markdownLiteral(relative)) || []).length, 1, `dispatch must name ${relative} exactly once`);
   }
   for (const forbidden of [
     'implementation and validation\n→ one initial external-review snapshot',
@@ -197,7 +334,7 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
 });
 
 test('shipped skills omit repository-specific test-suite commentary', () => {
-  for (const file of [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES)]) {
+  for (const file of [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES)]) {
     const text = readText(file);
     for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
       assert.doesNotMatch(text, forbidden, `${file} contains repository-specific test commentary: ${forbidden}`);
@@ -245,7 +382,7 @@ test('prompt templates delegate to their skill instead of duplicating the contra
 });
 
 test('no skill, mode reference, or prompt hard-codes a model ID', () => {
-  const files = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.keys(PROMPTS)];
+  const files = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
   for (const file of files) {
     const text = readText(file);
     assert.doesNotMatch(
@@ -336,7 +473,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 16, `packed file count changed: ${files.join(', ')}`);
+    assert.equal(files.length, 18, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);
@@ -361,12 +498,31 @@ test('the packed tarball contains the closed-loop resources', () => {
     'skills/closed-loop-issue/SKILL.md',
     'skills/closed-loop-pr/SKILL.md',
     ...Object.values(PR_MODE_REFERENCES),
+    ...Object.values(SHARED_REFERENCES),
     'prompts/tidd-issue.md',
     'prompts/tidd-pr.md',
     'README.md',
   ];
   for (const entry of required) {
     assert.ok(files.includes(entry), `packed tarball is missing ${entry}\npacked: ${files.join(', ')}`);
+  }
+});
+
+test('Issue #24 npm pack reports and archives both shared references', () => {
+  // New shared-path archive coverage is co-developed integration coverage; package inclusion itself is characterized above.
+  const expected = Object.values(SHARED_REFERENCES);
+  const dryRunFiles = packFileList();
+  for (const file of expected) assert.ok(dryRunFiles.includes(file), `dry-run report is missing ${file}`);
+
+  const destination = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue24-pack-'));
+  try {
+    const stdout = execFileSync('npm', ['pack', '--json', '--pack-destination', destination], { cwd: repoRoot, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    const report = JSON.parse(stdout.slice(stdout.indexOf('['), stdout.lastIndexOf(']') + 1))[0];
+    const archive = path.join(destination, report.filename);
+    const archiveFiles = execFileSync('tar', ['-tzf', archive], { encoding: 'utf8' }).trim().split(/\r?\n/).filter(Boolean).map((entry) => entry.replace(/^package\//, '').replace(/\/$/, ''));
+    for (const file of expected) assert.ok(archiveFiles.includes(file), `actual tarball is missing ${file}`);
+  } finally {
+    fs.rmSync(destination, { recursive: true, force: true });
   }
 });
 

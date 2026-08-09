@@ -47,17 +47,14 @@ implementation and validation
 
 `sol-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `terra-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.**
 
-### Round accounting (CL-D11, PR review-only baseline)
+### Review-only round deltas (CL-D11, CL-D12)
 
-- A round is one completed gate invocation that returns a parsable verdict.
-- Each gate allows **at most three** rounds. **The passing round counts.**
-- Tool, provider, startup, stale-target, and unparsable-verdict failures **do not consume a round**.
+The shared gate contract supplies the common three-round, passing-round, failure-consumption, and run-scoped accounting. Review-only adds these deltas:
+
 - A gate rerun caused by a fix consumes a round from that gate's budget.
 - If a Terra finding forces a change to something Sol already approved, the Sol gate must run again and consumes one of its own rounds. The same applies to a fix that originates from an external finding.
 - At the limit, stop and report `ROUND_LIMIT_REACHED` and ask the owner whether to grant more rounds.
 - A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`.
-
-Round budgets are **run-scoped**. This MVP keeps no state between invocations, so re-running the command resets every counter. Report rounds used per gate in every status block. **Do not create a state file** to work around this; persistent workflow state is a later stage.
 
 ## External review (PR review-only baseline; CL-D18, CL-D24, CL-D17)
 

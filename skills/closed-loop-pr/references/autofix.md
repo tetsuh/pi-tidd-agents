@@ -2,6 +2,10 @@
 
 ## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)
 
+### Language Profile (CL-D16)
+
+Exact PR `autofix` permits only `REPLY_EXCEPTION` (defined below); all other provider, external, and review-service mutations remain forbidden.
+
 The exact PR `autofix` token itself selects and approves only the bounded CL-D30 actions: one validated correction batch per reviewed public head, its one normal commit and one non-force push, and parent-owned confirmed source-finding replies. Everything else remains forbidden; the token does not authorize merge, force-push, amend, rebase, history rewriting, branch-protection or ruleset bypass, comments outside confirmed source replies, external-service changes, approval, thread resolution, Issue mutation, or aggregate-summary posting. Only `REPLY_EXCEPTION` permits provider mutation.
 
 ### Named exact-autofix invariants (CL-D10, CL-D30)
@@ -54,7 +58,7 @@ A normal commit follows CL-D25: a Conventional Commits subject, issue-number ref
 
 ## Exact PR `autofix` addendum (CL-D30)
 
-This addendum is selected only when the recognized target is a pull request and the final raw argument token is exactly `autofix`. The exact-autofix rules below supersede only the CL-D30 publication, round-accounting, malformed-verdict, resume, quiet/provider/carried-observation, and publication-dependent evidence clauses defined here.
+This addendum is selected only when the recognized target is a pull request and the final raw argument token is exactly `autofix`. The exact-autofix rules below supersede only the CL-D30 publication, shared/base round-accounting, malformed-verdict, resume, quiet/provider/carried-observation, and publication-dependent evidence clauses defined in the shared gate contract and review-only baseline.
 
 ### Exact-autofix readiness and resume boundary (CL-D30)
 
@@ -125,6 +129,8 @@ Create exactly one non-empty normal commit `C`. For a multiline message, preserv
 Push exactly once non-force to the verified head branch. After verifying public head `C`, require `CLEAN@C` before any later gate. Validation, staging, pre-commit, or pre-push failure leaves the observed state and stops with zero cleanup, retry, continuation, or mutation; unexpected worktree or index mutation fails regardless of path authorization. Runtime-root churn permitted by the named invariant is not candidate dirt. Commit failure stops with observed state. Push rejection/failure leaves the local commit and is never retried; an ambiguous outcome is `push_outcome_unknown` and permits no later gate or reply mutation. A successful push followed by gate failure leaves the published head and stops. There is no retry, resume, outbox, delayed action, scheduler, cleanup, compensation, or durable workflow artifact.
 
 ### Findings, no-progress, and deterministic status
+
+Exact CL-D30 accounting supersedes the shared three-round base: the run permits at most 15 counted gate invocations and 5 successful correction pushes, with the no-progress stop on the third observation of one unresolved `blockerKey × breakerOwner`; the 15th invocation and fifth push may complete, but the 16th invocation and sixth push are forbidden.
 
 Before correction or no-code reconsideration, the parent assigns immutable `blockerKey`, `breakerOwner: sol | terra | shared`, and `confirmationGate: sol | terra | both`. Normal assignment is `sol` for contract/scope/API/correctness/test findings, `terra` for concurrency/lifetime/cleanup/race/ownership findings, and `both` for cross-domain or ambiguous findings. A shared key has one combined counter across its designated observations. Every gate result includes exactly one complete record per assigned finding: `findingId`, `blockerKey`, `gate`, exact `headOid`, `proposedDisposition`, `confirmation: confirmed | rejected | unverifiable`, and evidence. Missing, duplicate, mismatched, or malformed records stop. A `both` finding needs matching Sol and Terra `confirmed` records on the same head. A no-code disposition becomes final only after its assigned gate confirms it; if that gate rejects it, the finding remains open and routes to correction or `WAITING_FOR_OWNER`, never silently final.
 

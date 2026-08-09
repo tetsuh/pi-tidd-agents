@@ -79,6 +79,19 @@ test('fixture: the documented grammar accepts every reference form', () => {
   }
 });
 
+test('fixture: the composed shared/root target grammar delegates mode handling correctly', () => {
+  const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
+  const issue = readText('skills/closed-loop-issue/SKILL.md');
+  const pr = readText(PR_SKILL);
+  assert.match(shared, /consume only that target reference/);
+  assert.match(issue, /Reject any remaining argument/);
+  assert.match(pr, /CL-D6 then consumes only a final exact `autofix` token/);
+  assert.deepEqual(parseReferenceArgs(['Issue', '#123', 'autofix'], 'issue'), { usage: true });
+  assert.equal(parseReferenceArgs(['PR', '#123', 'autofix'], 'pr').mode, 'autofix');
+  assert.deepEqual(parseReferenceArgs(['PR', '#123', 'Autofix'], 'pr'), { usage: true });
+  assert.deepEqual(parseReferenceArgs(['PR', '#123', 'autofix', 'extra'], 'pr'), { usage: true });
+});
+
 test('fixture: the documented grammar keeps the autofix boundary exact', () => {
   assert.equal(parseReferenceArgs(['PR', '#123'], 'pr').mode, 'review-only');
   assert.equal(parseReferenceArgs(['PR', '#123', 'autofix'], 'pr').mode, 'autofix');
@@ -241,12 +254,15 @@ test('contract scopes the exact provider-mutation exceptions', () => {
 });
 
 test('provider mutation exceptions remain scoped in PR Skills and prompt', () => {
+  const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
   const skill = readPrMode(PR_AUTOFIX);
-  const language = artifactSection(skill, '## Language Profile (CL-D16)');
+  const language = artifactSection(shared, '## Language Profile (CL-D16)');
   const autofix = artifactSection(skill, '## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)');
   const publication = artifactSection(skill, '## Publication (AC-GRANT, CL-D28, CL-D30)');
   const replies = artifactSection(skill, '### Source-finding replies and final readiness');
-  for (const [name, section] of [['Language Profile', language], ['Autofix', autofix], ['Publication', publication]]) {
+  assert.ok(language, 'shared Language Profile section must exist for provider-mutation protection');
+  assert.doesNotMatch(language, /`REPLY_EXCEPTION`/, 'shared Language Profile must not acquire PR-mode mutation authority');
+  for (const [name, section] of [['Autofix', autofix], ['Publication', publication]]) {
     assert.ok(section, `${name} section must exist for provider-mutation protection`);
     assert.match(section, /`REPLY_EXCEPTION`/);
     assert.doesNotMatch(section, /(?:neither mode|does not authorize|never authorizes)[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s, `${name} restores an unqualified provider-mutation prohibition`);
@@ -508,16 +524,42 @@ test('artifact assertions cover exact autofix safety records and remain non-auth
   assert.match(skill, /no literal `\\\\n`/);
 });
 
-test('shared baseline disposition and decision records remain protected in both Skills', () => {
+test('shared baseline disposition and decision records remain protected in both workflow authority graphs', () => {
   const enumBlock = 'fixed\\naccepted-as-designed\\ndeferred\\nduplicate\\nnot-applicable\\nneeds-owner-decision';
   const decisionBlock = 'Decision ID\\nKind\\nTarget and revision\\nQuestion\\nOptions and trade-offs\\nRecommendation\\nOwner choice\\nRationale\\nValidity and invalidation conditions';
-  for (const file of ['skills/closed-loop-issue/SKILL.md', PR_SKILL]) {
-    const text = readText(file).replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    assert.ok(text.includes(enumBlock.replaceAll('\\n', '\n')));
-    assert.ok(text.includes(decisionBlock.replaceAll('\\n', '\n')));
-  }
+  const shared = readText('skills/closed-loop-shared/references/records.md').replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  assert.ok(shared.includes(enumBlock.replaceAll('\\n', '\n')));
+  assert.ok(shared.includes(decisionBlock.replaceAll('\\n', '\n')));
+  for (const file of ['skills/closed-loop-issue/SKILL.md', PR_SKILL]) assert.match(readText(file), /shared references/);
 });
 
+
+test('Issue #24 workflow-specific ownership remains outside shared records', () => {
+  const issue = readText('skills/closed-loop-issue/SKILL.md');
+  const pr = readText(PR_SKILL);
+  const shared = readText('skills/closed-loop-shared/references/records.md');
+  assert.match(issue, /An issue is not ready until it states its acceptance contract and validation plan\. Apply the risk-based test-first default when reviewing that plan\./);
+  assert.doesNotMatch(shared, /An issue is not ready until it states its acceptance contract/);
+  assert.match(pr, /Merging without required deterministic coverage needs explicit owner approval; this PR-specific requirement remains in this PR Skill\/root\./);
+  assert.doesNotMatch(pr, /remains in the selected mode reference/);
+  assert.match(shared, /The PR Skill\/root retains the deterministic-coverage owner-approval duty\./);
+  assert.doesNotMatch(shared, /PR mode references retain the deterministic-coverage owner-approval duty\./);
+  assert.doesNotMatch(shared, /dangerous operations, and ship decisions/);
+  assert.match(pr, /dangerous operations, and ship decisions/);
+  assert.doesNotMatch(issue, /dangerous operations, and ship decisions/);
+  assert.match(issue, /Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`\./);
+  assert.match(issue, /Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes/);
+  assert.doesNotMatch(shared, /retry the invocation once, and if it fails again report `BLOCKED`/);
+});
+
+test('Issue #24 pins shared target grammar and PR-specific parsing ownership', () => {
+  const contract = readText('CONTRACT.md');
+  const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
+  assert.match(contract, /The shared `gate-contract\.md` owns common target-reference grammar\./);
+  assert.match(contract, /The PR `SKILL\.md` owns CL-D6 mode parsing, target-kind resolution\/handling, evidence identity, shared dispatch, and mode selection\./);
+  assert.match(shared, /## Target grammar \(CL-D7, CL-D8\)/);
+  assert.doesNotMatch(contract, /The PR `SKILL\.md` owns argument parsing,/);
+});
 
 test('Issue 13 negative guards reject stale unqualified publication/resume prose while preserving scoped legacy rules', () => {
   const issue = readText('skills/closed-loop-issue/SKILL.md');

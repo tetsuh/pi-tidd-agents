@@ -18,34 +18,34 @@
       "marker": "CL-D1",
       "title": "Gate verdicts are supplied by the caller, not by agent files",
       "files": [
-        "skills/closed-loop-issue/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
         "Do not modify any file under `agents/`",
-        "terra-oracle` has no verdict contract of its own",
         "A missing or unparsable verdict is a tool-level failure"
-      ]
+      ],
+      "section": "## Gate verdicts (CL-D1)"
     },
     {
       "id": "CL-D1-pr",
       "marker": "CL-D1",
       "title": "Gate verdicts are supplied by the caller, not by agent files",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
         "Do not modify any file under `agents/`",
         "A missing or unparsable verdict is a tool-level failure"
-      ]
+      ],
+      "section": "## Gate verdicts (CL-D1)"
     },
     {
       "id": "CL-D2",
       "title": "Every constraint is restated in the invocation payload",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "inheritSkills: false",
@@ -55,7 +55,8 @@
         "on a gate re-invocation, every finding from that gate's earlier rounds",
         "re-raising one requires new evidence",
         "out-of-scope improvement rather than a blocker"
-      ]
+      ],
+      "section": "## Invocation payload (CL-D2)"
     },
     {
       "id": "CL-D3",
@@ -93,13 +94,14 @@
       "id": "CL-D5",
       "title": "pi-subagents is a hard runtime dependency",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "pi-subagents",
-        "If `pi-subagents` is unavailable, stop and report `BLOCKED`"
-      ]
+        "If `pi-subagents` is unavailable, stop and report `BLOCKED`",
+        "Refer to agents **by runtime name** only, **never by model ID**"
+      ],
+      "section": "## Name-level agent resolution (CL-D22, CL-D5)"
     },
     {
       "id": "CL-D6-skill",
@@ -133,15 +135,15 @@
       "id": "CL-D7",
       "title": "Target kind is verified, never assumed",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "complete raw argument vector",
         "one two-token reference",
         "Verify that the resolved target is the expected kind",
         "never inferred from the current branch"
-      ]
+      ],
+      "section": "## Target grammar (CL-D7, CL-D8)"
     },
     {
       "id": "CL-D8",
@@ -285,27 +287,27 @@
       "id": "CL-D11",
       "title": "Round accounting",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "at most three",
         "The passing round counts",
         "do not consume a round",
         "ROUND_LIMIT_REACHED"
-      ]
+      ],
+      "section": "## Base round accounting (CL-D11, CL-D12)"
     },
     {
       "id": "CL-D12",
       "title": "Round budgets are run-scoped (known MVP limitation)",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "run-scoped",
         "Do not create a state file"
-      ]
+      ],
+      "section": "## Base round accounting (CL-D11, CL-D12)"
     },
     {
       "id": "CL-D13",
@@ -379,8 +381,7 @@
       "id": "CL-D16",
       "title": "Language Profile package defaults",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "conversation",
@@ -389,7 +390,8 @@
         "external_sites",
         "stop and ask before drafting content for that destination",
         "never governs source code"
-      ]
+      ],
+      "section": "## Language Profile (CL-D16)"
     },
     {
       "id": "CL-D17",
@@ -445,35 +447,32 @@
       "marker": "CL-D22",
       "title": "Issue closed-loop model requirements and preflight",
       "files": [
-        "skills/closed-loop-issue/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "Preflight",
         "by runtime name",
         "never by model ID",
-        "sol-reviewer",
-        "terra-oracle",
         "stop and report `BLOCKED`",
         "name-level override guidance"
-      ]
+      ],
+      "section": "## Name-level agent resolution (CL-D22, CL-D5)"
     },
     {
       "id": "CL-D22-pr",
       "marker": "CL-D22",
       "title": "PR closed-loop model requirements and preflight",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
         "Preflight",
         "by runtime name",
         "never by model ID",
-        "sol-reviewer",
-        "terra-reviewer",
-        "conditionally for autofix mode, `luna-worker`",
         "stop and report `BLOCKED`",
         "name-level override guidance"
-      ]
+      ],
+      "section": "## Name-level agent resolution (CL-D22, CL-D5)"
     },
     {
       "id": "CL-D27",
@@ -519,11 +518,11 @@
       "title": "Finding disposition values",
       "section": "## Finding dispositions (AC-DISPOSITION)",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/records.md"
       ],
       "requires": [
-        "Give every actionable finding **exactly one disposition**:\n\n```text\nfixed\naccepted-as-designed\ndeferred\nduplicate\nnot-applicable\nneeds-owner-decision\n```",
+        "Give every actionable finding **exactly one disposition**:",
+        "fixed\naccepted-as-designed\ndeferred\nduplicate\nnot-applicable\nneeds-owner-decision",
         "For each finding record"
       ]
     },
@@ -531,7 +530,7 @@
       "id": "AC-DISPOSITION-issue",
       "marker": "AC-DISPOSITION",
       "title": "The issue finding record names every field",
-      "section": "## Finding dispositions (AC-DISPOSITION)",
+      "section": "### Issue finding record fields (AC-DISPOSITION)",
       "files": [
         "skills/closed-loop-issue/SKILL.md"
       ],
@@ -543,13 +542,13 @@
       "id": "AC-DISPOSITION-pr",
       "marker": "AC-DISPOSITION",
       "title": "The pull-request finding record names every field",
-      "section": "## Finding dispositions (AC-DISPOSITION)",
+      "section": "### PR finding source identity (AC-DISPOSITION)",
       "files": [
         "skills/closed-loop-pr/SKILL.md"
       ],
       "requires": [
-        "For each finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published.",
-        "complete stable source identity when available"
+        "For each PR finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published.",
+        "A reviewer score, severity label, or provider recommendation is never by itself a decision to change code."
       ]
     },
     {
@@ -581,11 +580,9 @@
       "title": "Owner decision record names every field",
       "section": "## Owner decisions (AC-DECISION)",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/records.md"
       ],
       "requires": [
-        "Ask **one question at a time**, with options and a recommendation.",
         "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions"
       ]
     },
@@ -593,8 +590,7 @@
       "id": "AC-TDD",
       "title": "Risk-based test-first policy and truthful provenance",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/records.md"
       ],
       "requires": [
         "pre-implementation behavioral RED",
@@ -607,7 +603,8 @@
         "Assertion polarity is irrelevant",
         "inspects an artifact's content or structure",
         "executes the thing being specified and observes what it does"
-      ]
+      ],
+      "section": "## AC-TDD coverage and truthful provenance"
     },
     {
       "id": "AC-ISSUE-NO-EXTERNAL",
@@ -617,7 +614,8 @@
       ],
       "requires": [
         "are not part of issue readiness"
-      ]
+      ],
+      "section": "## Issue-specific record and gate obligations"
     },
     {
       "id": "AC-REVIEW-ONLY-skill",
@@ -719,12 +717,10 @@
       "marker": "CL-D29",
       "title": "Sol attempts adversarial falsification of absolute claims",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
-      "section": "### Sol adversarial consistency check (AC-ADVERSARIAL, CL-D29)",
+      "section": "## Sol adversarial consistency check (AC-ADVERSARIAL, CL-D29)",
       "requires": [
-        "claims to verify, not assumed context",
         "universal, exclusive, exhaustive, otherwise absolute, and other absolute claims",
         "examples only (examples-only)",
         "keyword",
@@ -733,7 +729,9 @@
         "No counterexample is neither a finding nor proof",
         "authoritative files of the repository under review",
         "that absence is not itself a finding",
-        "do not revive superseded comments from #3"
+        "do not revive superseded comments from #3",
+        "loaded non-Skill shared references",
+        "selected mode reference"
       ]
     },
     {
@@ -741,12 +739,12 @@
       "marker": "CL-D29",
       "title": "Every issue Sol payload carries the full adversarial procedure",
       "files": [
-        "skills/closed-loop-issue/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
-      "section": "#### Sol adversarial payload (AC-ADVERSARIAL-payload-issue, CL-D29)",
+      "section": "### Sol adversarial payload (AC-ADVERSARIAL-payload, CL-D29)",
       "requires": [
         "every initial Sol invocation and every Sol re-invocation",
-        "exact issue body",
+        "exact target body",
         "current authoritative decision record",
         "semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims",
         "examples only (examples-only)",
@@ -762,12 +760,12 @@
       "marker": "CL-D29",
       "title": "Every PR Sol payload carries the full adversarial procedure",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
-      "section": "#### Sol adversarial payload (AC-ADVERSARIAL-payload-pr, CL-D29)",
+      "section": "### Sol adversarial payload (AC-ADVERSARIAL-payload, CL-D29)",
       "requires": [
         "every initial Sol invocation and every Sol re-invocation",
-        "exact pull-request body",
+        "exact target body",
         "current authoritative decision record",
         "semantically enumerate universal, exclusive, exhaustive, otherwise absolute, and other absolute claims",
         "examples only (examples-only)",
@@ -858,7 +856,7 @@
       "title": "The pull-request owner decision record is whole and section-scoped",
       "section": "## Owner decisions (AC-DECISION)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/records.md"
       ],
       "requires": [
         "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions"
@@ -868,14 +866,14 @@
       "id": "CL-D11-review-only",
       "marker": "CL-D11",
       "title": "Review-only retains per-gate three-round accounting",
-      "section": "### Round accounting (CL-D11, PR review-only baseline)",
+      "section": "### Review-only round deltas (CL-D11, CL-D12)",
       "files": [
         "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
-        "Each gate allows **at most three** rounds. **The passing round counts.**",
-        "unparsable-verdict failures **do not consume a round**",
-        "At the limit, stop and report `ROUND_LIMIT_REACHED`"
+        "A gate rerun caused by a fix consumes a round from that gate's budget.",
+        "At the limit, stop and report `ROUND_LIMIT_REACHED`",
+        "retry the invocation once, and if it fails again report `BLOCKED`"
       ]
     },
     {
@@ -930,12 +928,11 @@
       "id": "CL-D30-language-boundary",
       "marker": "CL-D30",
       "title": "Posting boundary is mode-scoped and provider-safe",
-      "section": "## Language Profile (CL-D16)",
+      "section": "### Language Profile (CL-D16)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "Review-only never posts.",
         "Exact PR `autofix` permits only `REPLY_EXCEPTION` (defined below); all other provider, external, and review-service mutations remain forbidden."
       ]
     },
@@ -1050,7 +1047,7 @@
       "id": "CL-D30-source-schema",
       "marker": "CL-D30",
       "title": "Source identity and owner confirmation assignment are complete",
-      "section": "## Finding dispositions (AC-DISPOSITION)",
+      "section": "### PR finding source identity (AC-DISPOSITION)",
       "files": [
         "skills/closed-loop-pr/SKILL.md"
       ],
@@ -1755,6 +1752,98 @@
         "dry-run report",
         "actual tarball",
         "every enumerated runtime root"
+      ]
+    },
+    {
+      "id": "CL-D1-issue-routing",
+      "marker": "CL-D1",
+      "title": "Issue gate routing remains workflow-specific",
+      "section": "## Issue-specific record and gate obligations",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "`terra-oracle` has no verdict contract of its own"
+      ]
+    },
+    {
+      "id": "CL-D1-issue-retry",
+      "marker": "CL-D1",
+      "title": "Issue malformed-verdict retry and CL-D32 expiry remain workflow-specific",
+      "section": "### Issue malformed-verdict boundary (CL-D1, CL-D32)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "Only under ordinary CL-D31 rules",
+        "retry the invocation once",
+        "if it fails again report `BLOCKED`",
+        "Under CL-D32",
+        "expire the combined approval"
+      ]
+    },
+    {
+      "id": "AC-DECISION-issue-scope",
+      "marker": "AC-DECISION",
+      "title": "Issue owner-decision scope remains Issue-specific",
+      "section": "### Issue owner-decision scope (AC-DECISION)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, and ADR acceptance."
+      ]
+    },
+    {
+      "id": "AC-DECISION-pr-scope",
+      "marker": "AC-DECISION",
+      "title": "PR owner-decision scope remains PR-specific",
+      "section": "### PR owner-decision scope (AC-DECISION)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, ADR acceptance, dangerous operations, and ship decisions."
+      ]
+    },
+    {
+      "id": "AC-TDD-issue-quality-gate",
+      "marker": "AC-TDD",
+      "title": "Issue readiness requires acceptance contract and validation plan",
+      "section": "### Issue AC-TDD quality gate (AC-TDD)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "An issue is not ready until it states its acceptance contract and validation plan.",
+        "Apply the risk-based test-first default when reviewing that plan."
+      ]
+    },
+    {
+      "id": "CL-D22-issue-agents",
+      "marker": "CL-D22",
+      "title": "Issue preflight retains required agent set",
+      "section": "## Preflight (CL-D22, CL-D5)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "sol-reviewer",
+        "terra-oracle"
+      ]
+    },
+    {
+      "id": "CL-D22-pr-agents",
+      "marker": "CL-D22",
+      "title": "PR preflight retains required agent set",
+      "section": "## Preflight (CL-D22, CL-D5)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "sol-reviewer",
+        "terra-reviewer",
+        "conditionally for autofix mode, `luna-worker`"
       ]
     }
   ]
