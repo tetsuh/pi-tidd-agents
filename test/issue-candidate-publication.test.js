@@ -88,11 +88,12 @@ test('artifact: Issue 13 safety boundaries are explicit and PR behavior stays se
   assert.doesNotMatch(pr, /Issue PATCH.*POST.*CL-D30/s);
 });
 
-test('Issue prompt delegates equivalent owner-gated entrypoints to the Skill', () => {
+test('Issue prompt delegates to its authoritative Skill without workflow restatement', () => {
   const prompt = readText('prompts/tidd-issue.md');
-  assert.match(prompt, /equivalent entrypoints/);
-  assert.match(prompt, /owner-gated candidate publication/);
-  assert.doesNotMatch(prompt, /review-and-draft only|does not publish/i);
+  assert.match(prompt, /closed-loop-issue/);
+  assert.match(prompt, /authoritative contract/);
+  assert.match(prompt, /Raw arguments \(preserve this complete vector for the Skill to parse\): \$@/);
+  assert.doesNotMatch(prompt, /equivalent entrypoints|owner-gated candidate publication|review-and-draft only|does not publish/i);
 });
 
 test('README documents the bounded Issue publication workflow', () => {

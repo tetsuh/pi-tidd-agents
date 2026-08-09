@@ -43,7 +43,7 @@ The workers' `defaultReads` name those files, but creating them is a file mutati
 Subagents are invoked only through its documented interface. If it is unavailable the workflow stops with installation guidance and never falls back to editing directly.
 
 ## CL-D6 — Mode token parsing is exact and fails closed
-**Clauses:** CL-D6-skill, CL-D6-prompt
+**Clauses:** CL-D6-skill
 
 The mode token is the final token of the raw argument vector, evaluated once the target reference has been recognised. Exactly `autofix` selects autofix; no remaining token means review-only; anything else stops with usage.
 
@@ -116,11 +116,23 @@ The two-minute quiet period and fifteen-minute window are policy the MVP reports
 ## CL-D19 — Division of responsibility between prompts, Skills, and mode references
 **Clauses:** none — structural
 
-Prompt templates stay thin — frontmatter, argument capture, mode determination, and an instruction to load the Skill — so prompts cannot drift from the workflow contract. Each workflow prompt loads its workflow Skill, and each workflow root reads both non-skill shared references `../closed-loop-shared/references/gate-contract.md` and `../closed-loop-shared/references/records.md`. The shared `gate-contract.md` owns common target-reference grammar. The PR `SKILL.md` owns CL-D6 mode parsing, target-kind resolution/handling, evidence identity, shared dispatch, and mode selection. After CL-D6 parsing succeeds, a PR run reads exactly one authoritative mode continuation: `references/review-only.md` or `references/autofix.md`; it never reads both. Everything downstream that applies only to the parsed mode belongs to that mode reference. The shared references own only genuinely common grammar, gate/evidence, record, and truthful AC-TDD policy; Issue-specific and PR/mode-specific behavior remains in its owning file.
+Prompt templates contain only frontmatter, complete raw argument capture, the loaded Skill name, and an instruction to follow that Skill as authoritative. They must not restate workflow clauses, including target grammar, mode parsing, safety prohibitions, publication boundaries, or gate transactions; those obligations have one source of truth in the Skill authority graph. Each workflow prompt loads its workflow Skill, and each workflow root reads both non-skill shared references `../closed-loop-shared/references/gate-contract.md` and `../closed-loop-shared/references/records.md`. The shared `gate-contract.md` owns common target-reference grammar. The PR `SKILL.md` owns CL-D6 mode parsing, target-kind resolution/handling, evidence identity, shared dispatch, and mode selection. After CL-D6 parsing succeeds, a PR run reads exactly one authoritative mode continuation: `references/review-only.md` or `references/autofix.md`; it never reads both. Everything downstream that applies only to the parsed mode belongs to that mode reference. The shared references own only genuinely common grammar, gate/evidence, record, and truthful AC-TDD policy; Issue-specific and PR/mode-specific behavior remains in its owning file.
 
 Authority graph: `prompt -> workflow SKILL.md -> both shared references -> exactly one PR mode reference when applicable`.
 
-Enforced by `test/package.test.js`, which asserts each prompt names the Skill it loads and stays within a line budget, both workflow roots name each shared reference exactly once, no shared `SKILL.md` creates a third Skill, and the PR Skill dispatches to exactly one packaged mode reference.
+Enforced by `test/package.test.js`, which asserts each prompt names its Skill, passes raw `$@` exactly once, declares the Skill authoritative, contains no workflow restatement, and shares no normalized 60+ character sentence with its root Skill; both workflow roots name each shared reference exactly once, no shared `SKILL.md` creates a third Skill, and the PR Skill dispatches to exactly one packaged mode reference.
+
+## DEC-I22-PROMPT-AUTHORITY-001 — CL-D19 prompt authority
+**Clauses:** none — structural
+*Decision ID:* DEC-I22-PROMPT-AUTHORITY-001
+*Kind:* owner decision
+*Target and revision:* `tetsuh/pi-tidd-agents#22` at the 2026-08-10 JST implementation decision
+*Question:* Should prompt templates restate workflow clauses or defer all workflow authority to the loaded Skills?
+*Options and trade-offs:* Option A makes prompts thin dispatchers and keeps each workflow rule in one Skill authority; Option B permits selected safety-critical restatements but creates synchronization obligations; Option C permits only a narrow review-only exception while retaining multiple sources of truth.
+*Recommendation:* Adopt Option A and make CL-D19 the sole authority boundary.
+*Owner choice:* Option A approved by the owner response `OK. A で進めて`.
+*Rationale:* Thin prompts eliminate drift and per-invocation payload cost without removing any Skill-owned safety obligation; the Skill is loaded before workflow execution and remains authoritative.
+*Validity and invalidation conditions:* Valid for the current prompt-to-Skill authority graph and Issue #22 scope. A future invocation path that does not load the Skill must fail closed rather than restore duplicated workflow prose; any exception requires a later explicit owner decision.
 
 ## CL-D20 — Precondition guard
 **Clauses:** CL-D20-issue, CL-D20-pr
@@ -217,7 +229,7 @@ Both Skills bind the full procedure to every initial and re-invocation Sol paylo
 CL-D10 preflight and every ordinary gate, reply, final-classification, and post-push boundary use `CLEAN@H`. Correction/validation guards name the exact `CLEAN@H` conditions they retain and replace only the tracked-worktree or index condition with the authorized overlay or immutable staged-manifest delta. `AFTER_COMMIT` and `BEFORE_PUSH` independently require `POST_COMMIT(C, P)` and reclassify every `RUNTIME_ROOTS` member without following links. Between them, safe untracked runtime churn may change—including descendant create, content change, rename, removal, and a safe absent/real-directory root transition—while candidate, tracked worktree/index/unstaged, manifest, commit, evidence, and public-head identity remain unchanged; every other change fails closed before push. Base-only runtime-root deletion remains visible in the unfiltered raw effective diff and is never correction scope. Runtime churn contributes no candidate, evidence, or publication bytes and must not be claimed as cleaned, preserved, validated, committed, or published. Outside untracked dirt, unsafe roots, forbidden Git entries, identity movement, validation/manifest/commit failure, retry, resume, cleanup, compensation, or any other existing CL-D30 failure remains fail-closed with no effect.
 
 ## CL-D31 — Owner-gated Issue candidate publication
-**Clauses:** CL-D31-architecture-contract, CL-D31-architecture-skill, CL-D31-authority-contract, CL-D31-authority-skill, CL-D31-candidate-skill, CL-D31-resolver-skill, CL-D31-snapshot-skill, CL-D31-correlation-skill, CL-D31-preview-skill, CL-D31-publication-skill, CL-D31-readiness-skill, CL-D31-status-skill, CL-D31-language-skill, CL-D31-pr-boundary-pr, CL-D31-prompt, CL-D31-readme, CL-D31-fixtures, CL-D31-packaging
+**Clauses:** CL-D31-architecture-contract, CL-D31-architecture-skill, CL-D31-authority-contract, CL-D31-authority-skill, CL-D31-candidate-skill, CL-D31-resolver-skill, CL-D31-snapshot-skill, CL-D31-correlation-skill, CL-D31-preview-skill, CL-D31-publication-skill, CL-D31-readiness-skill, CL-D31-status-skill, CL-D31-language-skill, CL-D31-pr-boundary-pr, CL-D31-readme, CL-D31-fixtures, CL-D31-packaging
 *Decision ID:* CL-D31
 *Kind:* contract
 *Target and revision:* `tetsuh/pi-tidd-agents#13` at the proposed revision based on published base `issue_spec` `7f527af828599860c4dcf2651c0bd329bca09e67c0c565dcf7e1616a2d5af0b7`
@@ -231,7 +243,7 @@ CL-D10 preflight and every ordinary gate, reply, final-classification, and post-
 The exception supersedes CL-D13, CL-D13-issue, CL-D16, CL-D28, AC-AUTOFIX, AC-GRANT, and AC-REVIEW-ONLY only for these two Issue entrypoints and only for the bounded actions and candidate-phase rules above. PR review-only, exact PR `autofix`, CL-D30, foreign-repository review-and-draft-only behavior, and all unlisted prohibitions remain unchanged.
 
 ## CL-D32 — Scope-freeze approval stays inside the candidate transaction
-**Clauses:** CL-D32-architecture-contract, CL-D32-transaction-contract, CL-D32-eligibility-contract, CL-D32-round-contract, CL-D32-decision-contract, CL-D32-safety-contract, CL-D32-fixtures, CL-D32-packaging, CL-D32-skill, CL-D32-prompt, CL-D32-readme
+**Clauses:** CL-D32-architecture-contract, CL-D32-transaction-contract, CL-D32-eligibility-contract, CL-D32-round-contract, CL-D32-decision-contract, CL-D32-safety-contract, CL-D32-fixtures, CL-D32-packaging, CL-D32-skill, CL-D32-readme
 
 *Decision ID:* CL-D32
 *Kind:* contract
@@ -316,7 +328,7 @@ Historical rationale: this grant was originally documented for a later publicati
 External review services, static-analysis sites and pull-request checks are not part of issue readiness.
 
 ## AC-REVIEW-ONLY — Review-only is the default
-**Clauses:** AC-REVIEW-ONLY-skill, AC-REVIEW-ONLY-prompt
+**Clauses:** AC-REVIEW-ONLY-skill
 
 Without the exact `autofix` token, and before candidate construction or outside CL-D31, no file edits, no git-state changes, no commits or pushes, no posting to GitHub, no replies to review threads, and no external mutation. CL-D31 is the sole named Issue exception and does not alter PR review-only.
 
