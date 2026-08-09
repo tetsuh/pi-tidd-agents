@@ -60,6 +60,12 @@ Drafting is not publishing. A normal commit follows CL-D25: a Conventional Commi
 
 This addendum is selected only when the recognized target is a pull request and the final raw argument token is exactly `autofix`. It is not applied to Issue workflow or PR review-only mode. Review-only retains the preceding FIX handoff/draft path, one malformed-verdict retry, per-gate three-round accounting, external observation/reporting, and resumable `tidd-status` behavior. The exact-autofix supersession is limited to CL-D28/AC-AUTOFIX/AC-GRANT publication, CL-D11 round accounting, CL-D1 malformed-verdict retry, CL-D13 resume, CL-D17/18/24 quiet/provider/carried observation behavior, and publication-dependent CL-D23/27 prose as specified here.
 
+### Exact-autofix readiness and resume boundary (CL-D30)
+
+Exact PR `autofix` has no uncommitted candidate and may report readiness only from the CL-D30 post-reply final snapshot; its optional aggregate-summary draft never blocks readiness.
+
+Exact PR `autofix` never resumes: a later command is a fresh run.
+
 ### Exact owner and safety boundary (CL-D30)
 
 The exact-autofix writer is not replaceable: it is always `luna-worker`, and an owner request or selection of another worker stops the run before mutation because it would change the CL-D30 contract. The exact-autofix run ends there and has no resume. Standalone explicit worker delegation outside this workflow remains separate, receives no CL-D30 authority, and does not alter this rule.

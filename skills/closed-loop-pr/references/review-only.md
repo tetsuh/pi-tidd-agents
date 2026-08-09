@@ -43,6 +43,7 @@ implementation and validation
 - A gate rerun caused by a fix consumes a round from that gate's budget.
 - If a Terra finding forces a change to something Sol already approved, the Sol gate must run again and consumes one of its own rounds. The same applies to a fix that originates from an external finding.
 - At the limit, stop and report `ROUND_LIMIT_REACHED` and ask the owner whether to grant more rounds.
+- A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`.
 
 Round budgets are **run-scoped**. This MVP keeps no state between invocations, so re-running the command resets every counter. Report rounds used per gate in every status block. **Do not create a state file** to work around this; persistent workflow state is a later stage.
 
@@ -88,7 +89,7 @@ BLOCKED
 ABORTED
 ```
 
-In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**. Review-only drafts are outside the repository and any outstanding operator publication action ends at `WAITING_FOR_OWNER`; after the operator publishes, a fresh review-only run reruns Sol, Terra, external state, and exact-head checks. Exact PR `autofix` has no uncommitted candidate and may report readiness only from the CL-D30 post-reply final snapshot; its optional aggregate-summary draft never blocks readiness.
+In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**. Review-only drafts are outside the repository and any outstanding operator publication action ends at `WAITING_FOR_OWNER`; after the operator publishes, a fresh review-only run reruns Sol, Terra, external state, and exact-head checks. A fresh run starts by revalidating the current target and external evidence.
 
 Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself.
 
@@ -113,4 +114,4 @@ next_action: <the single next permitted action>
 ```
 ````
 
-PR review-only may resume when the operator pastes that block back with the command; **revalidate the fingerprints** first. Exact PR `autofix` never resumes: a later command is a fresh run. In either mode, refuse to continue against a changed target without cleaning, normalizing, or discarding anything, and report what moved instead. Recompute rather than trusting pasted state: a pasted digest is a claim, not evidence.
+PR review-only may resume when the operator pastes that block back with the command; **revalidate the fingerprints** first. In either mode, refuse to continue against a changed target without cleaning, normalizing, or discarding anything, and report what moved instead. Recompute rather than trusting pasted state: a pasted digest is a claim, not evidence.

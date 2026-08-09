@@ -152,6 +152,7 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
     'exact-autofix writer is not replaceable',
     'successful-push counter',
     'Before every allowed reply attempt',
+    'A missing or unparsable verdict is a tool-level failure: retry the invocation once',
   ]) assert.ok(!skill.includes(forbidden), `root PR Skill retains mode-only prose: ${forbidden}`);
   assert.doesNotMatch(skill, /## Gate loop \(PR review-only baseline;/);
   assert.doesNotMatch(skill, /## Exact PR `autofix` addendum \(CL-D30\)/);
@@ -161,8 +162,13 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
   assert.match(reviewOnly, /## Review-only is the default/);
   assert.match(reviewOnly, /## Gate loop \(PR review-only baseline;/);
   assert.match(reviewOnly, /## Outcome and status block \(PR review-only baseline;/);
+  assert.match(reviewOnly, /A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`\./);
+  assert.doesNotMatch(reviewOnly, /Exact PR `autofix` has no uncommitted candidate/);
+  assert.doesNotMatch(reviewOnly, /Exact PR `autofix` never resumes/);
   assert.match(autofix, /## Autofix \(AC-AUTOFIX,/);
   assert.match(autofix, /## Exact PR `autofix` addendum \(CL-D30\)/);
+  assert.match(autofix, /Exact PR `autofix` has no uncommitted candidate and may report readiness only from the CL-D30 post-reply final snapshot; its optional aggregate-summary draft never blocks readiness\./);
+  assert.match(autofix, /Exact PR `autofix` never resumes: a later command is a fresh run\./);
   assert.doesNotMatch(reviewOnly, /references\/autofix\.md/);
   assert.doesNotMatch(autofix, /references\/review-only\.md/);
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(reviewOnly) < PR_SKILL_PRE_SPLIT_BYTES, 'review-only disclosure must be smaller than the pre-split PR Skill');

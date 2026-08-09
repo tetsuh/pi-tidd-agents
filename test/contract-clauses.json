@@ -966,9 +966,9 @@
       "id": "CL-D30-readiness",
       "marker": "CL-D30",
       "title": "Exact autofix readiness is not blocked by aggregate draft",
-      "section": "## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)",
+      "section": "### Exact-autofix readiness and resume boundary (CL-D30)",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
         "Exact PR `autofix` has no uncommitted candidate",

@@ -119,7 +119,7 @@ MERGE | FIX BEFORE MERGE | NEEDS DECISION
 
 Require that verdict line in the invocation payload rather than relying on the agent to supply one. **Do not modify any file under `agents/`**: the existing agents must stay unchanged and independently usable.
 
-Only the parsed verdict decides whether a gate passed. **A missing or unparsable verdict is a tool-level failure**: retry the invocation once, and if it fails again report `BLOCKED`.
+Only the parsed verdict decides whether a gate passed. A missing or unparsable verdict is a tool-level failure; mode-specific handling belongs to the selected mode reference.
 
 ### Invocation payload (CL-D2)
 
