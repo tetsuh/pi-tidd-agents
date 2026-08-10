@@ -45,7 +45,7 @@ implementation and validation
 → MERGE_READY
 ```
 
-`sol-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `terra-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.**
+Each review-only gate payload composes the shared Every-gate invariant payload block verbatim, exactly one selected PR root role-authority block verbatim, and the volatile envelope/history projection; Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim. `sol-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `terra-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.**
 
 ### Review-only round deltas (CL-D11, CL-D12)
 

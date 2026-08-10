@@ -88,6 +88,17 @@ An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMB
 
 A code review may be carried forward across a **metadata-only rewrite** only when `pr_tree` and `pr_diff` are unchanged, and the carry-forward note must name which evidence was preserved and which was invalidated. Any change to `pr_head` always invalidates CI and exact-head external evidence, even when the tree is identical.
 
+## PR gate payload composition (CL-D2, CL-D29)
+
+### PR gate role-authority blocks (CL-D2)
+
+Copy exactly one of these owning-root blocks verbatim into each PR gate payload:
+
+- `PR Sol role-authority block`: `You are the read-only PR requirements, contract, scope, correctness, and test reviewer.`
+- `PR Terra role-authority block`: `You are the read-only concurrency, lifetime, ownership, cleanup, and decision-drift reviewer for this PR.`
+
+Every PR review-only Sol/Terra invocation and every exact-autofix Sol/Terra invocation composes the shared Every-gate invariant payload block verbatim, the shared Sol-only adversarial invariant payload block verbatim for Sol (including every post-push Sol), exactly one selected PR gate role-authority block verbatim, and the volatile envelope/history projection. Review-only and exact-autofix mode references must not restate the retired all-history requirement; mode-specific correlation and safety duties remain in their owning references.
+
 ## PR-specific record obligations
 
 The PR workflow retains workflow- and mode-specific duties outside the shared references:

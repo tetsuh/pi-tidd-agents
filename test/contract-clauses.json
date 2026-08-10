@@ -51,12 +51,53 @@
         "inheritSkills: false",
         "Invocation payload",
         "Nothing may rely on a child inheriting this skill",
+        "### Run-invariant payload blocks (CL-D2, CL-D29)",
+        "#### Every-gate invariant payload block (CL-D2)",
+        "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
+        "The formal gate child is read-only",
+        "#### Volatile envelope and compact history projection",
+        "include each applicable block verbatim in every applicable invocation",
         "acceptance criteria the target must satisfy",
-        "on a gate re-invocation, every finding from that gate's earlier rounds",
-        "re-raising one requires new evidence",
+        "full finding records only for unresolved findings and settled findings reopened by materially new evidence",
+        "stable finding ID, source gate, raised-against identity or fingerprint, disposition, confirmation gate or evidence",
+        "counts grouped by settled disposition",
+        "does not reduce the transmitted size of any invariant block",
+        "re-raising one requires materially new evidence",
         "out-of-scope improvement rather than a blocker"
       ],
       "section": "## Invocation payload (CL-D2)"
+    },
+    {
+      "id": "CL-D2-issue-role",
+      "marker": "CL-D2",
+      "title": "Issue gate role authority is defined once in the Issue root",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "Copy exactly one of these owning-root blocks verbatim into each Issue gate payload",
+        "Issue Sol role-authority block",
+        "read-only Issue requirements, contract, scope, acceptance, and feasibility reviewer",
+        "Issue Terra role-authority block",
+        "read-only inherited-decision, contradiction, and decision-drift reviewer for this Issue"
+      ],
+      "section": "### Issue gate role-authority blocks (CL-D2)"
+    },
+    {
+      "id": "CL-D2-pr-role",
+      "marker": "CL-D2",
+      "title": "PR gate role authority is defined once in the PR root",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Copy exactly one of these owning-root blocks verbatim into each PR gate payload",
+        "PR Sol role-authority block",
+        "read-only PR requirements, contract, scope, correctness, and test reviewer",
+        "PR Terra role-authority block",
+        "read-only concurrency, lifetime, ownership, cleanup, and decision-drift reviewer for this PR"
+      ],
+      "section": "### PR gate role-authority blocks (CL-D2)"
     },
     {
       "id": "CL-D3",
@@ -717,7 +758,7 @@
       "files": [
         "skills/closed-loop-shared/references/gate-contract.md"
       ],
-      "section": "### Sol adversarial payload (AC-ADVERSARIAL-payload, CL-D29)",
+      "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
       "requires": [
         "every initial Sol invocation and every Sol re-invocation",
         "exact target body",
@@ -738,7 +779,7 @@
       "files": [
         "skills/closed-loop-shared/references/gate-contract.md"
       ],
-      "section": "### Sol adversarial payload (AC-ADVERSARIAL-payload, CL-D29)",
+      "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
       "requires": [
         "every initial Sol invocation and every Sol re-invocation",
         "exact target body",

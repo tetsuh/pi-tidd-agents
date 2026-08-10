@@ -1,0 +1,97 @@
+{
+  "recordVersion": "issue23-retrospective-real-run-measurement-v1",
+  "classification": "retrospective measurement, not test coverage or behavioral RED",
+  "sourceCase": {
+    "repository": "tetsuh/pi-tidd-agents",
+    "target": "PR #33",
+    "publicHeadOid": "61b2a925a78cb9bed65fdbdf23621d6b1e35fc92",
+    "findingId": "SOL33-TDD-001",
+    "baselineRealRunId": "9b057bb3",
+    "baselineGate": "sol",
+    "baselineInvocation": 1,
+    "baselineOutcome": "MERGE",
+    "afterReplayRealRunId": "cfd6cad8",
+    "afterReplayOutcome": "MERGE",
+    "model": "openai-codex/gpt-5.6-sol:high",
+    "baselineLaunchContractDigest": "71dc9c92d9825ef6d9c9b0c7beb2be0ccf6bcb971f7f8b47213a9e57f39967ca",
+    "afterLaunchContractDigest": "81673cd24356c9dfad636e13329723ed221e6fa3073baae1fa0842a945abac70"
+  },
+  "revisions": {
+    "packageBaselineCommit": "7c708acc8f8d67db5df1deee4c6a3b97d5bff82d",
+    "candidateAuthorityGraphFiles": [
+      "skills/closed-loop-issue/SKILL.md",
+      "skills/closed-loop-pr/SKILL.md",
+      "skills/closed-loop-pr/references/review-only.md",
+      "skills/closed-loop-pr/references/autofix.md",
+      "skills/closed-loop-shared/references/gate-contract.md",
+      "skills/closed-loop-shared/references/records.md"
+    ],
+    "candidateAuthorityGraphBytes": 98991,
+    "candidateAuthorityGraphSha256": "eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf",
+    "candidateAuthorityRawBytes": 98692,
+    "candidateAuthorityRawConcatSha256": "7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139",
+    "candidateAuthorityFraming": "For each listed file in order: UTF-8 path, one space, decimal raw byte length, LF, raw file bytes, LF."
+  },
+  "environment": {
+    "pi": "0.84.1",
+    "piSubagents": "0.45.2",
+    "node": "v24.18.0",
+    "tokenizer": "tiktoken 0.11.0 / o200k_base",
+    "tokenizerIsProviderMetric": false
+  },
+  "method": {
+    "controlledUnit": "settled-history projection for the same confirmed real finding",
+    "before": "Deterministic legacy full settled record reconstructed from baseline run 9b057bb3 input and confirmation output.",
+    "after": "Compact settled summary actually transmitted in final read-only measurement replay cfd6cad8, which independently verified the candidate authority graph.",
+    "allOtherPayloadBytesHeldConstant": false,
+    "wholeTaskTotalsComparable": false,
+    "causalWholeTaskClaim": false,
+    "providerTokenReductionClaim": false,
+    "runtimeModelComplianceClaim": false
+  },
+  "baselineObservation": {
+    "actualTaskBytes": 5637,
+    "actualTaskO200kTokens": 1516,
+    "actualTaskSha256": "7e8b0a6dc3bb8189e7f33f8e3028fed9d911ac622f5938755394128692b0dbfb",
+    "providerReportedInputTokensAllTurns": 146230,
+    "metadataSha256": "eff5d7548f62188f8eb451aea87f8cb20650a63e9f926bca2842a21c14ed50d7"
+  },
+  "afterObservation": {
+    "actualTaskBytes": 1796,
+    "actualTaskO200kTokens": 546,
+    "actualTaskSha256": "268f0fd5760a798b6905f902270e521fdac951bb39d4e65dc1025dff6848302a",
+    "providerReportedInputTokensAllTurns": 36366,
+    "metadataSha256": "51504270c579c3b3af90dc82f5d080737ea8ead86a48cc9abd94f27137cdfc72",
+    "compactSegmentActuallyTransmitted": true,
+    "candidateAuthorityGraphVerified": true
+  },
+  "controlledProjection": {
+    "before": {
+      "text": "Settled finding full record {findingId=SOL33-TDD-001; blockerKey=issue22-tdd-provenance-chronology; sourceGate=sol; severity=Major; raisedAgainst=public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92 and snapshot 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713; evidence=the prior gate said chronology evidence was unavailable; impact=the PR's pre-implementation compile/contract RED chronology could not be verified; smallestCorrection=provide preserved chronological evidence or truthfully reclassify the provenance; acceptanceTrace=Issue #22 truthful TDD provenance; disposition=not-applicable; rationale=the preserved exact command/result artifact disproves the unavailable-evidence premise; confirmationGate=sol; confirmation=confirmed; confirmationEvidence=/tmp/clpr33-red-evidence.json SHA-256 c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d records the exact pre-implementation command at 2026-08-09T22:20:44Z failing 0/2 with exit 1}. Reopen only with materially new evidence naming why the prior disposition no longer applies.",
+      "utf8Bytes": 1069,
+      "o200kTokens": 293,
+      "sha256": "1875d6b60447bfc163f9e6c6930db271478bf9923cfe1724ddeccb84c7f99529",
+      "actuallyTransmittedAsThisProjection": false
+    },
+    "after": {
+      "text": "Settled counts [fixed=0, accepted-as-designed=0, deferred=0, duplicate=0, not-applicable=1, needs-owner-decision=0]. Summary {findingId=SOL33-TDD-001; blockerKey=issue22-tdd-provenance-chronology; sourceGate=sol; raisedAgainst=61b2a925a78cb9bed65fdbdf23621d6b1e35fc92@3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713; disposition=not-applicable; confirmationEvidence=sol-confirmed:c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d}. Reopen only with materially new evidence naming why the prior disposition no longer applies.",
+      "utf8Bytes": 556,
+      "o200kTokens": 195,
+      "sha256": "77190296c9ec9bb667e60e6f2e8ff4858077a2392601892b086baa9f1367cfff",
+      "actuallyTransmittedAsThisProjection": true
+    },
+    "difference": {
+      "utf8Bytes": -513,
+      "o200kTokens": -98,
+      "utf8Percent": -47.989,
+      "o200kPercent": -33.447
+    }
+  },
+  "limitations": [
+    "The baseline full settled record is a deterministic retrospective reconstruction from one recorded real gate, not a second transmission of those exact reconstructed bytes.",
+    "The after compact segment was transmitted in a dedicated read-only final measurement replay, not an authoritative readiness gate.",
+    "Whole-task totals are reported for audit but are not comparable because the surrounding tasks differ.",
+    "o200k_base is a named reproducible tokenizer, not a provider-isolated GPT-5 payload-token metric; provider-reported all-turn input usage is not used for the controlled comparison.",
+    "The record measures one settled finding only and does not prove runtime instruction compliance."
+  ]
+}

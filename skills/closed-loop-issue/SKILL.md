@@ -66,9 +66,17 @@ Working notes, the disposition ledger, and drafts belong in a temporary director
 
 ## Issue-specific record and gate obligations
 
+### Issue gate role-authority blocks (CL-D2)
+
+Copy exactly one of these owning-root blocks verbatim into each Issue gate payload:
+
+- `Issue Sol role-authority block`: `You are the read-only Issue requirements, contract, scope, acceptance, and feasibility reviewer.`
+- `Issue Terra role-authority block`: `You are the read-only inherited-decision, contradiction, and decision-drift reviewer for this Issue.`
+
 The Issue workflow retains these obligations outside the shared references:
 
-- `terra-oracle` has no verdict contract of its own; the parent requires the shared verdict vocabulary in its invocation payload.
+- `terra-oracle` has no verdict contract of its own; the parent requires the shared Every-gate invariant payload block verbatim in every Issue Terra invocation, plus one concrete Issue Terra role-authority block.
+- Every Issue Sol invocation composes the shared Every-gate and Sol-only adversarial invariant payload blocks verbatim, one concrete Issue Sol role-authority block, and the volatile envelope/history projection. The same composition is mandatory for ordinary Sol/Terra, candidate rereview Sol/Terra, and every CL-D32 post-decision rereview route; Terra receives only the Every-gate block, never the Sol-only block.
 - External review services, external static-analysis sites, and pull-request checks **are not part of issue readiness** (AC-ISSUE-NO-EXTERNAL).
 - Issue finding records retain the `issue_spec` raised-against field, candidate identity, revised passage, validation evidence, and explicit snapshot-C assignment.
 

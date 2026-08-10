@@ -547,6 +547,101 @@ test('shared baseline disposition and decision records remain protected in both 
 });
 
 
+test('Issue #23 contains self-contained invariant blocks and compacts only history projection', () => {
+  const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
+  const contract = readText('CONTRACT.md');
+  const issue = readText('skills/closed-loop-issue/SKILL.md');
+  const pr = readText(PR_SKILL);
+  const review = readText(PR_REVIEW_ONLY);
+  const autofix = readText(PR_AUTOFIX);
+  const issueRoles = artifactSection(issue, '### Issue gate role-authority blocks (CL-D2)');
+  const prRoles = artifactSection(pr, '### PR gate role-authority blocks (CL-D2)');
+  const container = artifactSection(shared, '### Run-invariant payload blocks (CL-D2, CL-D29)');
+  const every = artifactSection(shared, '#### Every-gate invariant payload block (CL-D2)');
+  const sol = artifactSection(shared, '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)');
+  assert.ok(container && every && sol && issueRoles && prRoles);
+  assert.match(issueRoles, /Issue Sol role-authority block.*read-only Issue requirements/s);
+  assert.match(issueRoles, /Issue Terra role-authority block.*read-only inherited-decision/s);
+  assert.match(prRoles, /PR Sol role-authority block.*read-only PR requirements/s);
+  assert.match(prRoles, /PR Terra role-authority block.*read-only concurrency/s);
+  assert.match(container, /#### Every-gate invariant payload block \(CL-D2\)/);
+  assert.match(container, /#### Sol-only adversarial invariant payload block \(AC-ADVERSARIAL-payload, CL-D29\)/);
+  assert.match(every, /MERGE \| FIX BEFORE MERGE \| NEEDS DECISION/);
+  assert.match(every, /The formal gate child is read-only/);
+  assert.match(every, /verdict must be the final line/);
+  assert.match(sol, /every initial Sol invocation and every Sol re-invocation/);
+  assert.match(sol, /attempt falsification against the authoritative files of the repository under review/);
+  assert.match(sol, /actual cited counterexample disproving the claim/);
+  assert.equal((shared.match(/Treat the exact target body \(the Issue or pull-request body as applicable\)/g) || []).length, 1);
+  assert.match(container, /include each applicable block verbatim in every applicable invocation/);
+  assert.match(container, /Defining them once does not reduce the transmitted size of any invariant block/);
+  assert.match(shared, /stable finding ID, source gate, raised-against identity or fingerprint, disposition, confirmation gate or evidence/);
+  assert.match(shared, /counts grouped by settled disposition/);
+  assert.doesNotMatch(shared, /finding ID, blocker key, source gate, raised-against identity/);
+  assert.match(contract, /DEC-I23-PAYLOAD-COMPACTION-001/);
+  assert.match(contract, /does not reduce the transmitted size of any invariant block/);
+  assert.match(issue, /ordinary Sol\/Terra, candidate rereview Sol\/Terra/);
+  assert.match(issue, /every CL-D32 post-decision rereview route/);
+  assert.match(pr, /Every PR review-only Sol\/Terra invocation/);
+  assert.match(pr, /every post-push Sol/);
+  assert.match(review, /shared Every-gate invariant payload block verbatim/);
+  assert.match(review, /Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim/);
+  assert.match(autofix, /shared `Every-gate invariant payload block` verbatim/);
+  assert.match(autofix, /including every post-push Sol/);
+  assert.doesNotMatch(autofix, /prior findings\/dispositions on re-invocation/);
+  assert.doesNotMatch(autofix, /Every payload restates .*prior findings/);
+  assert.doesNotMatch(contract, /on a re-invocation\) the prior rounds' findings with their dispositions/);
+  assert.equal((issue.match(/\.\.\/closed-loop-shared\/references\/gate-contract\.md/g) || []).length, 1);
+  assert.equal((pr.match(/\.\.\/closed-loop-shared\/references\/gate-contract\.md/g) || []).length, 1);
+  assert.doesNotMatch(issue, /agents\/sol-reviewer\.md/);
+  assert.doesNotMatch(pr, /agents\/sol-reviewer\.md/);
+});
+
+// Retrospective measurement evidence for Issue #23. This validates the recorded
+// UTF-8 projection arithmetic and provenance flags; it is not runtime compliance
+// coverage and does not independently implement the named tokenizer.
+test('Issue #23 records a bounded real-run settled-history measurement', () => {
+  const record = JSON.parse(readText('test/records/issue-23-payload-measurement.json'));
+  assert.equal(record.recordVersion, 'issue23-retrospective-real-run-measurement-v1');
+  assert.equal(record.classification, 'retrospective measurement, not test coverage or behavioral RED');
+  assert.equal(record.sourceCase.baselineRealRunId, '9b057bb3');
+  assert.equal(record.sourceCase.afterReplayRealRunId, 'cfd6cad8');
+  assert.equal(record.sourceCase.model, 'openai-codex/gpt-5.6-sol:high');
+  assert.equal(record.method.controlledUnit, 'settled-history projection for the same confirmed real finding');
+  assert.equal(record.method.wholeTaskTotalsComparable, false);
+  assert.equal(record.method.providerTokenReductionClaim, false);
+  assert.equal(record.method.runtimeModelComplianceClaim, false);
+  const authorityFrames = record.revisions.candidateAuthorityGraphFiles.map((file) => {
+    const bytes = Buffer.from(readText(file), 'utf8');
+    return Buffer.concat([Buffer.from(`${file} ${bytes.length}\n`, 'utf8'), bytes, Buffer.from('\n')]);
+  });
+  const authorityRaw = Buffer.concat(record.revisions.candidateAuthorityGraphFiles.map((file) => Buffer.from(readText(file), 'utf8')));
+  const authorityGraph = Buffer.concat(authorityFrames);
+  assert.equal(authorityRaw.length, record.revisions.candidateAuthorityRawBytes);
+  assert.equal(crypto.createHash('sha256').update(authorityRaw).digest('hex'), record.revisions.candidateAuthorityRawConcatSha256);
+  assert.equal(record.revisions.candidateAuthorityFraming, 'For each listed file in order: UTF-8 path, one space, decimal raw byte length, LF, raw file bytes, LF.');
+  assert.equal(authorityGraph.length, record.revisions.candidateAuthorityGraphBytes);
+  assert.equal(crypto.createHash('sha256').update(authorityGraph).digest('hex'), record.revisions.candidateAuthorityGraphSha256);
+  assert.equal(record.afterObservation.candidateAuthorityGraphVerified, true);
+  const before = record.controlledProjection.before;
+  const after = record.controlledProjection.after;
+  for (const projection of [before, after]) {
+    assert.equal(Buffer.byteLength(projection.text, 'utf8'), projection.utf8Bytes);
+    assert.equal(crypto.createHash('sha256').update(Buffer.from(projection.text, 'utf8')).digest('hex'), projection.sha256);
+    assert.ok(Number.isSafeInteger(projection.o200kTokens) && projection.o200kTokens > 0);
+  }
+  assert.equal(before.actuallyTransmittedAsThisProjection, false);
+  assert.equal(after.actuallyTransmittedAsThisProjection, true);
+  assert.match(before.text, /evidence=.*impact=.*smallestCorrection=.*rationale=/);
+  assert.doesNotMatch(after.text, /evidence=.*impact=.*smallestCorrection=.*rationale=/);
+  assert.match(after.text, /findingId=.*sourceGate=.*raisedAgainst=.*disposition=.*confirmationEvidence=/);
+  assert.equal(record.controlledProjection.difference.utf8Bytes, after.utf8Bytes - before.utf8Bytes);
+  assert.equal(record.controlledProjection.difference.o200kTokens, after.o200kTokens - before.o200kTokens);
+  assert.ok(record.controlledProjection.difference.utf8Bytes < 0);
+  assert.ok(record.controlledProjection.difference.o200kTokens < 0);
+  assert.ok(record.limitations.some((item) => item.includes('not a provider-isolated GPT-5 payload-token metric')));
+});
+
 test('Issue #24 workflow-specific ownership remains outside shared records', () => {
   const issue = readText('skills/closed-loop-issue/SKILL.md');
   const pr = readText(PR_SKILL);
