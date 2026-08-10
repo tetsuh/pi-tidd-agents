@@ -119,19 +119,6 @@
       ]
     },
     {
-      "id": "CL-D6-prompt",
-      "marker": "CL-D6",
-      "title": "Mode token parsing is restated in the prompt template",
-      "files": [
-        "prompts/tidd-pr.md"
-      ],
-      "requires": [
-        "case-sensitive",
-        "final exact token",
-        "stop and print usage"
-      ]
-    },
-    {
       "id": "CL-D7",
       "title": "Target kind is verified, never assumed",
       "files": [
@@ -632,17 +619,6 @@
         "do not post to GitHub",
         "do not reply to review threads",
         "do not mutate any external service"
-      ]
-    },
-    {
-      "id": "AC-REVIEW-ONLY-prompt",
-      "marker": "AC-REVIEW-ONLY",
-      "title": "Review-only prohibition is restated in the prompt template",
-      "files": [
-        "prompts/tidd-pr.md"
-      ],
-      "requires": [
-        "do not edit any file in the repository"
       ]
     },
     {
@@ -1325,20 +1301,6 @@
       "section": "## Publication boundary (CL-D28)"
     },
     {
-      "id": "CL-D31-prompt",
-      "marker": "CL-D31",
-      "title": "Equivalent Issue prompt delegates bounded authority",
-      "files": [
-        "prompts/tidd-issue.md"
-      ],
-      "requires": [
-        "equivalent entrypoints",
-        "exact same-session owner-gated candidate publication preview",
-        "no-retry boundaries",
-        "foreign-repository rules belong to the Skill"
-      ]
-    },
-    {
       "id": "CL-D31-readme",
       "marker": "CL-D31",
       "title": "README documents bounded Issue publication",
@@ -1513,19 +1475,6 @@
         "Snapshot A, optional body PATCH, Snapshot B, one ledger POST, and Snapshot C"
       ],
       "section": "### Combined scope-freeze decision transaction (CL-D32)"
-    },
-    {
-      "id": "CL-D32-prompt",
-      "marker": "CL-D32",
-      "title": "Issue prompt delegates the combined transaction",
-      "files": [
-        "prompts/tidd-issue.md"
-      ],
-      "requires": [
-        "CL-D32 combined scope-freeze approval",
-        "one exact owner response",
-        "authoritative"
-      ]
     },
     {
       "id": "CL-D32-readme",

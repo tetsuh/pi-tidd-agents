@@ -7,9 +7,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount } = require('./helpers');
+const { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter } = require('./helpers');
 
 const manifest = readJson('package.json');
+const contractManifest = readJson('test/contract-clauses.json');
 
 const EXPECTED_AGENTS = {
   'glm-worker': 'glm-5.2',
@@ -81,9 +82,39 @@ const REPOSITORY_SPECIFIC_SKILL_PROSE = [
 ];
 
 const PROMPTS = {
-  'prompts/tidd-issue.md': { hint: '<issue-ref>', skill: 'closed-loop-issue' },
-  'prompts/tidd-pr.md': { hint: '<pr-ref> [autofix]', skill: 'closed-loop-pr' },
+  'prompts/tidd-issue.md': { hint: '<issue-ref>', skill: 'closed-loop-issue', skillFile: SKILLS['closed-loop-issue'] },
+  'prompts/tidd-pr.md': { hint: '<pr-ref> [autofix]', skill: 'closed-loop-pr', skillFile: SKILLS['closed-loop-pr'] },
 };
+const FORBIDDEN_PROMPT_RESTATEMENTS = {
+  'prompts/tidd-issue.md': [
+    /Under CL-D31 and CL-D32/,
+    /equivalent entrypoints/,
+    /owner-gated candidate publication preview/,
+    /no-retry boundaries/,
+    /foreign-repository rules/,
+    /IMPLEMENTATION_READY/,
+  ],
+  'prompts/tidd-pr.md': [
+    /Mode parsing is case-sensitive/,
+    /only the final exact token/,
+    /do not edit any file in the repository/,
+    /run-wide cap remains five successful correction pushes/,
+    /one normal commit/,
+    /REPLY_EXCEPTION/,
+    /exact token autofix/i,
+    /permit file edits/i,
+  ],
+};
+
+function normalizedSentences(text) {
+  return text
+    .replace(/^---\r?\n/, '')
+    .replace(/\r?\n---\r?\n?/, '\n')
+    .replace(/\r\n?/g, '\n')
+    .split(/\n\s*\n|(?<=[.!?])\s+/u)
+    .map((sentence) => sentence.trim().replace(/\s+/g, ' '))
+    .filter((sentence) => [...sentence].length >= 60);
+}
 
 const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
 const GENERIC_FALSIFICATION_EVIDENCE = 'authoritative files of the repository under review';
@@ -367,17 +398,49 @@ test('both prompt templates expose accurate argument hints', () => {
   }
 });
 
-test('prompt templates delegate to their skill instead of duplicating the contract', () => {
+// Provenance: pre-implementation compile/contract RED for Issue #22 Option A; the
+// captured focused run failed 2/2 before implementation (not behavioral RED).
+test('Issue #22 prompt templates are thin authoritative-Skill dispatchers', () => {
   for (const [file, expected] of Object.entries(PROMPTS)) {
     const text = readText(file);
-    assert.ok(
-      text.includes(expected.skill),
-      `${file} does not name the ${expected.skill} skill it must load`,
-    );
-    assert.ok(
-      lineCount(text) <= 45,
-      `${file} is ${lineCount(text)} lines; prompt templates must stay thin so the skill remains the single source of truth`,
-    );
+    assert.ok(text.includes(expected.skill), `${file} does not name the ${expected.skill} skill it must load`);
+    assert.equal((text.match(/\$@/g) || []).length, 1, `${file} must pass the complete raw $@ vector exactly once`);
+    assert.match(text, /authoritative contract/, `${file} must identify its Skill as authoritative`);
+    const body = text.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, '').trim();
+    assert.equal(body, [
+      'Raw arguments (preserve this complete vector for the Skill to parse): $@',
+      '',
+      `Load the \`${expected.skill}\` Skill and follow it as the authoritative contract for this run. Do not reconstruct the workflow from this prompt.`,
+    ].join('\n'), `${file} body must contain only raw argument capture and authoritative Skill delegation`);
+    for (const forbidden of FORBIDDEN_PROMPT_RESTATEMENTS[file]) {
+      assert.doesNotMatch(text, forbidden, `${file} restates workflow contract prose: ${forbidden}`);
+    }
+
+    const promptSentences = new Set(normalizedSentences(text));
+    const duplicated = normalizedSentences(readText(expected.skillFile)).filter((sentence) => promptSentences.has(sentence));
+    assert.deepEqual(duplicated, [], `${file} duplicates a normalized 60+ character sentence from ${expected.skillFile}`);
+  }
+});
+
+// Provenance: pre-implementation compile/contract RED for Issue #22 Option A; the
+// same captured focused run failed 2/2 before implementation (not runtime proof).
+test('Issue #22 removed prompt clauses retain named Skill-scoped enforcement', () => {
+  const clauses = new Map(contractManifest.clauses.map((clause) => [clause.id, clause]));
+  for (const removed of ['CL-D6-prompt', 'AC-REVIEW-ONLY-prompt', 'CL-D31-prompt', 'CL-D32-prompt']) {
+    assert.equal(clauses.has(removed), false, `${removed} must be removed under CL-D19 Option A`);
+  }
+  const surviving = {
+    'CL-D6-skill': SKILLS['closed-loop-pr'],
+    'AC-REVIEW-ONLY-skill': PR_MODE_REFERENCES['review-only'],
+    'CL-D8': SKILLS['closed-loop-issue'],
+    'CL-D31-authority-skill': SKILLS['closed-loop-issue'],
+    'CL-D31-preview-skill': SKILLS['closed-loop-issue'],
+    'CL-D31-publication-skill': SKILLS['closed-loop-issue'],
+    'CL-D32-skill': SKILLS['closed-loop-issue'],
+  };
+  for (const [id, file] of Object.entries(surviving)) {
+    assert.ok(clauses.has(id), `missing surviving Skill-scoped clause ${id}`);
+    assert.ok(clauses.get(id).files.includes(file), `${id} must remain enforced against ${file}`);
   }
 });
 
@@ -441,7 +504,10 @@ test('Issue #15 CL-D32 packed artifacts contain the combined transaction prose',
         assert.doesNotMatch(text, forbidden, `packed ${file} contains repository-specific test commentary: ${forbidden}`);
       }
     }
-    assert.match(readPacked('prompts/tidd-issue.md'), /CL-D32 combined scope-freeze approval/);
+    const packedIssuePrompt = readPacked('prompts/tidd-issue.md');
+    assert.match(packedIssuePrompt, /Raw arguments \(preserve this complete vector for the Skill to parse\): \$@/);
+    assert.match(packedIssuePrompt, /closed-loop-issue.*authoritative contract/s);
+    assert.doesNotMatch(packedIssuePrompt, /CL-D32 combined scope-freeze approval|one exact owner response/);
     assert.match(readPacked('README.md'), /#### Combined scope-freeze approval/);
     assert.deepEqual(files.slice().sort(), reportedFiles.slice().sort(), 'the generated archive must match its same-invocation npm report');
     assert.ok(!files.some((file) => /(?:controller|extension)/i.test(file)));

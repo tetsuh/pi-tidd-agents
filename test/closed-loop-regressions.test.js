@@ -253,7 +253,7 @@ test('contract scopes the exact provider-mutation exceptions', () => {
   }
 });
 
-test('provider mutation exceptions remain scoped in PR Skills and prompt', () => {
+test('provider mutation exceptions remain scoped in PR Skills', () => {
   const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
   const skill = readPrMode(PR_AUTOFIX);
   const language = artifactSection(shared, '## Language Profile (CL-D16)');
@@ -272,9 +272,22 @@ test('provider mutation exceptions remain scoped in PR Skills and prompt', () =>
   assert.match(replies, /Replies never approve, request rereview, resolve threads, or invoke bot commands; provider mutation is exactly `REPLY_EXCEPTION`\./);
   assert.doesNotMatch(replies, /Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state\./);
   const prompt = readText('prompts/tidd-pr.md');
-  assert.match(prompt, /Only the Skill's `REPLY_EXCEPTION` permits provider mutation\./);
-  assert.doesNotMatch(prompt, /never authorizes[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s);
-  assert.match(prompt, /Issue mutation/);
+  assert.doesNotMatch(prompt, /REPLY_EXCEPTION|Issue mutation|provider mutation/);
+});
+
+// Co-developed compile/contract coverage for Issue #22; this inspects artifact placement,
+// not runtime model compliance, and is not behavioral RED evidence.
+test('Issue #22 prompts contain no retired workflow restatements', () => {
+  const issuePrompt = readText('prompts/tidd-issue.md');
+  const prPrompt = readText('prompts/tidd-pr.md');
+  for (const [name, prompt, forbidden] of [
+    ['Issue', issuePrompt, /CL-D31|CL-D32|equivalent entrypoints|owner-gated candidate publication|no-retry|foreign-repository|scope-freeze/i],
+    ['PR', prPrompt, /CL-D6|AC-REVIEW-ONLY|case-sensitive|final exact token|do not edit|successful correction pushes|REPLY_EXCEPTION|Issue mutation|force-push|history rewriting/i],
+  ]) {
+    assert.doesNotMatch(prompt, forbidden, `${name} prompt contains workflow-owned prose`);
+    assert.match(prompt, /Raw arguments \(preserve this complete vector for the Skill to parse\): \$@/);
+    assert.match(prompt, /authoritative contract/);
+  }
 });
 
 test('no superseded rule survives beside its replacement', () => {

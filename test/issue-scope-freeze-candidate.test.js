@@ -115,12 +115,12 @@ test('CL-D31 ordinary-route prose is explicitly qualified for the CL-D32 excepti
   assert.match(outcome, /without duplicate gates/);
 });
 
-test('Issue prompt delegates CL-D32 combined approval without duplicating the contract', () => {
+test('Issue prompt delegates CL-D32 to the authoritative Skill without duplicating it', () => {
   const prompt = readText('prompts/tidd-issue.md');
-  assert.match(prompt, /CL-D32 combined scope-freeze approval/);
-  assert.match(prompt, /one exact owner response/);
-  assert.match(prompt, /authoritative.*Skill|Skill.*authoritative/s);
-  assert.ok(prompt.split('\n').length <= 45, 'Issue prompt must remain within the prompt line budget');
+  assert.match(prompt, /closed-loop-issue/);
+  assert.match(prompt, /authoritative contract/);
+  assert.match(prompt, /Raw arguments \(preserve this complete vector for the Skill to parse\): \$@/);
+  assert.doesNotMatch(prompt, /CL-D32 combined scope-freeze approval|one exact owner response/);
 });
 
 test('README documents one-response scope-freeze approval and preserved boundaries', () => {
