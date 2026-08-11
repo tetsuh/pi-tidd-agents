@@ -28,6 +28,7 @@ Issue workflow has no publication grant through this Skill, and PR review-only h
 ### Guarded owner publication artifacts (CL-D33, Issue #41)
 
 Each summary stop reads sibling `publish-review.sh` completely, copies it byte-for-byte, replaces all six exact ASCII placeholders once, and follows its Generation contract to draft exactly two UTF-8/LF artifacts in a fresh external `mktemp` directory: `review-comment.md` and `publish-review.sh`. Review-only never executes the script. CL-D33 aggregate-summary publication is optional, is not a locally drafted correction candidate, never blocks `MERGE_READY`, and does not create `WAITING_FOR_OWNER`; only an outstanding readiness-relevant unpublished correction candidate has that effect. Report paths/digest, repository/PR/head, exact command `bash "<path>/publish-review.sh"`, `changed head requires fresh review`, `publication_grant: review-only not-applicable`, and operator attribution. The owner executing that command is the publication grant.
+Generated artifacts remain external drafts; owner publication is outside readiness and observation windows
 
 ## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 
@@ -73,13 +74,13 @@ Observation policy, which this MVP reports against rather than enforces:
 - a **fifteen-minute** maximum observation window per head, measured from that initial snapshot (a new head starts a new origin);
 - a new head resets both.
 
-**External evidence is never carried across runs.** A resumed or later run takes its own snapshot and reprocesses what it sees; nothing external is read from a pasted status block. The window and quiet period are therefore reported for the current run's observation only, and the report says so rather than implying a longer continuous watch. These are current-process snapshots for this review-only run.
+**External evidence is never carried across runs.** Each run takes its own snapshot; no pasted status resumes it. Report quiet/window only for this run, as current-process snapshots.
 
-This is a narrowing of `DEC-EXT-SNAPSHOT-001`, which kept the origin and compared findings by stable identity. Making that work needs a **provider-native finding identity** for reviews, inline review comments, issue comments, check runs and commit statuses, plus edit timestamps and head association per source. That is provider correlation logic, and it belongs to the external-review integration issue rather than to this MVP's prose — the same boundary CL-D28 drew for publication.
+This narrows `DEC-EXT-SNAPSHOT-001`: **provider-native finding identity** for reviews, inline review comments, issue comments, check runs and commit statuses, with edit timestamps/head association, belongs to external-review integration, not this prose; CL-D28 draws the same publication boundary.
 
 When an external state cannot be determined — a provider that exposes no usable identity, a missing timestamp, a record with no head association — report it as **unknown, not complete**, and stay `WAITING_EXTERNAL_REVIEW`. An undetermined provider is never a passing one.
 
-In PR review-only, findings the workflow raises itself carry across resumptions: Sol and Terra findings have identities this workflow assigns, so the status block lists each with its disposition. The review-only initial snapshot is not polling and does not delay internal review. Review-only has no timers and **must not busy-poll** or spend turns waiting; when processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume.
+Workflow findings carry across resumptions with assigned identities and status dispositions. The initial snapshot is not polling. Review-only has no timers and **must not busy-poll**; incomplete processing reports `WAITING_EXTERNAL_REVIEW` with a status block for resume.
 
 Treat CodeRabbit and SonarCloud as required once detected. Process GitHub Copilot review findings when observed, but never block merely because an optional Copilot review is absent. Human `Changes requested` and required approvals are a separate repository-policy gate.
 

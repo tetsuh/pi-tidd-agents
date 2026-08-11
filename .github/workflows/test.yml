@@ -18,3 +18,19 @@ jobs:
           node-version: ${{ matrix.node-version }}
       - name: Run contract and packaging tests
         run: npm test
+
+  publication-git-bash:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Locate Git Bash
+        shell: pwsh
+        run: |
+          $bash = (Get-Command bash.exe).Source
+          "PI_GIT_BASH=$bash" >> $env:GITHUB_ENV
+      - name: Run publication tests under Git Bash
+        shell: bash
+        run: node --test test/pr-review-publication.test.js

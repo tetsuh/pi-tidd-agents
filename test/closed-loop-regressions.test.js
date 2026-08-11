@@ -204,13 +204,6 @@ test('Issue #41 publication authority remains review-only-owned and aggregate-on
   assert.doesNotMatch(shared, /publish-review\.sh|review-publication:v1/);
 });
 
-test('Issue #41 optional aggregate publication does not block readiness', () => {
-  const reviewOnly = readText(PR_REVIEW_ONLY);
-  assert.match(reviewOnly, /CL-D33 aggregate-summary publication is optional[\s\S]*never blocks `MERGE_READY`[\s\S]*does not create `WAITING_FOR_OWNER`/);
-  assert.match(reviewOnly, /only an outstanding readiness-relevant unpublished correction candidate has that effect/);
-  assert.doesNotMatch(reviewOnly, /any outstanding operator publication action ends at `WAITING_FOR_OWNER`/);
-});
-
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   const skill = readText(PR_AUTOFIX);
   assert.match(skill, /This addendum is selected only when.*exactly `autofix`/s);

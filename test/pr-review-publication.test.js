@@ -19,7 +19,25 @@ const REPOSITORY = 'tetsuh/pi-tidd-agents';
 const PR = '41';
 const HEAD = 'a'.repeat(40);
 const URL = `https://github.com/${REPOSITORY}/pull/${PR}`;
-const BASH = execFileSync('bash', ['-lc', 'command -v bash'], { encoding: 'utf8' }).trim();
+function resolveGitBash() {
+  if (process.env.PI_GIT_BASH) return process.env.PI_GIT_BASH;
+  const command = process.platform === 'win32' ? 'where.exe' : 'bash';
+  const args = process.platform === 'win32' ? ['bash.exe'] : ['-lc', 'command -v bash'];
+  return execFileSync(command, args, { encoding: 'utf8' }).trim().split(/\r?\n/)[0];
+}
+
+const BASH = resolveGitBash();
+
+function gitBashPath(value) {
+  if (process.platform !== 'win32') return value;
+  const cygpath = process.env.PI_CYGPATH || path.join(path.dirname(BASH), 'cygpath.exe');
+  return execFileSync(cygpath, ['-u', value], { encoding: 'utf8' }).trim();
+}
+
+function shellQuote(value) {
+  return `'${gitBashPath(value).split("'").join("'\"'\"'")}'`;
+}
+
 const fixtureRoots = new Set();
 test.after(() => {
   for (const root of fixtureRoots) fs.rmSync(root, { recursive: true, force: true });
@@ -97,23 +115,23 @@ function runPublisher(fixture, extra = {}) {
   const env = {
     ...process.env,
     PATH: `${fixture.bin}${path.delimiter}${process.env.PATH}`,
-    TMPDIR: fixture.root,
-    GH_CALL_LOG: fixture.log,
+    TMPDIR: gitBashPath(fixture.root),
+    GH_CALL_LOG: gitBashPath(fixture.log),
     GH_REPOSITORY: REPOSITORY,
     GH_PR_NUMBER: PR,
     GH_STATE: 'open',
     GH_HEAD: fixture.head,
     GH_PR_URL: URL,
-    GH_COMMENTS_FILE: fixture.commentsFile,
-    GH_POSTED_FILE: fixture.posted,
+    GH_COMMENTS_FILE: gitBashPath(fixture.commentsFile),
+    GH_POSTED_FILE: gitBashPath(fixture.posted),
     GH_POST_OUTPUT: `https://github.com/${REPOSITORY}/pull/${PR}#issuecomment-99`,
-    GH_VIEW_COUNT_FILE: fixture.viewCount,
+    GH_VIEW_COUNT_FILE: gitBashPath(fixture.viewCount),
     GH_EXPECTED_REPOSITORY: REPOSITORY,
     GH_EXPECTED_PR_NUMBER: PR,
-    GH_ORIGINAL_FILE: path.join(fixture.artifactDir, 'review-comment.md'),
+    GH_ORIGINAL_FILE: gitBashPath(path.join(fixture.artifactDir, 'review-comment.md')),
     ...extra,
   };
-  return execFileSync(BASH, [path.join(fixture.artifactDir, 'publish-review.sh')], {
+  return execFileSync(BASH, [gitBashPath(path.join(fixture.artifactDir, 'publish-review.sh'))], {
     cwd: fixture.root,
     env,
     encoding: 'utf8',
@@ -125,23 +143,23 @@ function runPublisherAsync(fixture, extra = {}) {
   const env = {
     ...process.env,
     PATH: `${fixture.bin}${path.delimiter}${process.env.PATH}`,
-    GH_CALL_LOG: fixture.log,
+    GH_CALL_LOG: gitBashPath(fixture.log),
     GH_REPOSITORY: REPOSITORY,
     GH_PR_NUMBER: PR,
     GH_STATE: 'open',
     GH_HEAD: fixture.head,
     GH_PR_URL: URL,
-    GH_COMMENTS_FILE: fixture.commentsFile,
-    GH_POSTED_FILE: fixture.posted,
+    GH_COMMENTS_FILE: gitBashPath(fixture.commentsFile),
+    GH_POSTED_FILE: gitBashPath(fixture.posted),
     GH_POST_OUTPUT: `https://github.com/${REPOSITORY}/pull/${PR}#issuecomment-99`,
-    GH_VIEW_COUNT_FILE: fixture.viewCount,
+    GH_VIEW_COUNT_FILE: gitBashPath(fixture.viewCount),
     GH_EXPECTED_REPOSITORY: REPOSITORY,
     GH_EXPECTED_PR_NUMBER: PR,
-    GH_ORIGINAL_FILE: path.join(fixture.artifactDir, 'review-comment.md'),
+    GH_ORIGINAL_FILE: gitBashPath(path.join(fixture.artifactDir, 'review-comment.md')),
     ...extra,
   };
   return new Promise((resolve) => {
-    execFile(BASH, [path.join(fixture.artifactDir, 'publish-review.sh')], {
+    execFile(BASH, [gitBashPath(path.join(fixture.artifactDir, 'publish-review.sh'))], {
       cwd: fixture.root, env, encoding: 'utf8',
     }, (error, stdout, stderr) => resolve({ error, stdout, stderr }));
   });
@@ -165,7 +183,7 @@ function pathWithoutGh(root) {
   fs.mkdirSync(bin);
   for (const command of ['dirname', 'git', 'mktemp', 'cp', 'sha256sum', 'shasum', 'iconv', 'tail', 'od', 'tr', 'awk', 'grep', 'mkdir', 'rm', 'rmdir']) {
     const resolved = execFileSync(BASH, ['-lc', `command -v ${command}`], { encoding: 'utf8' }).trim();
-    fs.symlinkSync(resolved, path.join(bin, command));
+    fs.writeFileSync(path.join(bin, command), `#!/usr/bin/env bash\nexec ${shellQuote(resolved)} "$@"\n`, { encoding: 'utf8', mode: 0o700 });
   }
   return bin;
 }
