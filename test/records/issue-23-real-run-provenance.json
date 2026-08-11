@@ -1,0 +1,421 @@
+{
+  "recordVersion": "issue23-real-run-provenance-audit-v1",
+  "classification": "review-driven regression, not pre-implementation RED and not runtime-compliance proof",
+  "sourceCase": {
+    "repository": "tetsuh/pi-tidd-agents",
+    "target": "PR #33",
+    "publicHeadOid": "61b2a925a78cb9bed65fdbdf23621d6b1e35fc92",
+    "findingId": "SOL33-TDD-001",
+    "sourceGate": "sol",
+    "confirmedDisposition": "not-applicable",
+    "confirmationEvidenceSha256": "c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d"
+  },
+  "runs": {
+    "9b057bb3": {
+      "runId": "9b057bb3",
+      "agent": "sol-reviewer",
+      "model": "openai-codex/gpt-5.6-sol:high",
+      "launchContractDigest": "71dc9c92d9825ef6d9c9b0c7beb2be0ccf6bcb971f7f8b47213a9e57f39967ca",
+      "metadata": {
+        "sha256": "eff5d7548f62188f8eb451aea87f8cb20650a63e9f926bca2842a21c14ed50d7",
+        "utf8Bytes": 10951,
+        "json": {
+          "runId": "9b057bb3",
+          "agent": "sol-reviewer",
+          "task": "FORMAL FRESH EXACT-AUTOFIX SOL GATE. Read-only. Do not edit/write/stage/commit/push/post to GitHub/mutate external services, inspect .pi or .pi-subagents contents, or launch subagents.\n\nCorrelation — echo every field exactly:\nrepository: tetsuh/pi-tidd-agents\npr_number: 33\nbase_oid: 3138c5d5bbd353502bcde2b829bdde221ef96761\nhead_repository: tetsuh/pi-tidd-agents\nhead_branch: refactor/issue-22-thin-prompts\npublic_head_oid: 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\nlifecycle: OPEN/non-draft\ngate: sol\nrun_wide_invocation: 1\nsnapshot_fingerprint: 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713\ncontract_input: skills/closed-loop-pr/SKILL.md + skills/closed-loop-shared/references/gate-contract.md + skills/closed-loop-shared/references/records.md + skills/closed-loop-pr/references/autofix.md at public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\n\nFingerprints: issue_spec=0c87c79ab3d07ddd36af8d519e1b09b12429ed0b5526d6b506d744549da3ba38; pr_tree=8b25a3d68dc4e95601e7810dd016bdd4c73a8802; pr_diff=09080c2242d9941d8458e9671fc59a3ce3c0689bf731af846793bf8fb7c77b2b; pr_commits=e1088a4abe3ce25e8f5e4e66e47aad1680fcf1aa551a2a52a5a0ac13da054225; pr_head=61b2a925a78cb9bed65fdbdf23621d6b1e35fc92. No authoritative Issue comments. No PR comments/reviews/inline comments/statuses. Six exact-head check runs completed successfully.\n\nExact frozen evidence paths: PR body=/tmp/clpr33-run2/pr-end.json field body; Issue #22 body=/tmp/clpr33-run2/issue.json field body; effective diff=/tmp/clpr33-run2/pr.diff; canonical snapshot=/tmp/clpr33-run2/snapshot.canonical.json. Read all four contract inputs and repository files/tests at exact head.\n\nPreserved pre-implementation RED evidence (owner chose Option A to supply this evidence, not reclassify): /tmp/clpr33-red-evidence.json, SHA-256 c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d. It canonically records source session /home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/2026-08-09T22-21-20-663Z_019fe89d-c197-715b-99dc-78a7bad60d89.jsonl, tool-call line 2242 and tool-result line 2243, call message e90d1d1c at 2026-08-09T22:20:44.240Z, result message 85444362 at 2026-08-09T22:20:44.478Z. Exact command: node --test --test-name-pattern='Issue #22' test/package.test.js. Exact result: 2 tests, 0 pass, 2 fail, exit code 1. Failures were (1) prompts/tidd-issue.md retained 'Under CL-D31 and CL-D32', and (2) CL-D6-prompt remained in the manifest. This is the original pre-implementation execution, not a baseline replay. Read and hash the artifact; inspect the source JSONL lines if needed.\n\nCarried source finding from the prior ended run: SOL33-TDD-001, blockerKey=issue22-tdd-provenance-chronology, breakerOwner=sol, confirmationGate=sol, exact prior head same as current. It said chronology evidence was unavailable. Owner selected Option A: present the preserved session evidence. Proposed disposition is not-applicable because the finding's unavailable-evidence premise is now disproved; rationale: the exact timestamped command/result artifact exists and is supplied. Re-raising requires new evidence. Explicitly return one confirmation record for this carried finding with proposedDisposition=not-applicable and confirmation=confirmed or rejected, with evidence.\n\nLanguage Profile: conversation=Japanese; github.issue=en; github.pull_request=en; external_sites={}. Source code/comments/docs follow project instructions.\n\nAcceptance scope: (1) dated exact nine-field Option A decision; (2) prompt frontmatter preserved but no mode/forbidden-action/push-cap/CL-D30/CL-D31/32 workflow restatement; (3) each prompt names Skill and forwards raw $@ once; (4) exactly four removed prompt clauses have named Skill enforcement; (5) no normalized exact 60+ Unicode-character sentence shared with loaded Skill; (6) documented raw vectors and near-miss outcomes unchanged; (7) npm test passes. Preserve CL-D6, review-only, CL-D31/32, argument hints, Issue #24 authority graph, packaging, and exactly two Skills. Provenance is pre-implementation compile/contract RED only, never behavioral/runtime proof.\n\nAdversarial procedure: treat exact target body, current authoritative decision record/comments, workflow Skill, loaded shared non-Skill references, and selected autofix reference as claims, not assumptions. Semantically enumerate universal/exclusive/exhaustive/absolute/example-only and always/never/unique/every/all/no/sole/must/exactly claims, not keyword-only. Attempt falsification against authoritative repository records/implementation/tests, Git/GitHub evidence, and the supplied exact provenance artifact. A missing named record is not itself a finding; unverifiable requires unavailable evidence needed for that claim. Require actual cited counterexample or verdict-material unavailable evidence; invent none; no counterexample is neither finding nor proof. Only non-bot OWNER/MEMBER/COLLABORATOR comments are authoritative; none exist. Report claim, searched evidence, and counterexample/unavailable evidence.\n\nReview contract fidelity, correctness, test false-greens, decision drift, provenance, and PR-body claims; no redesign. Every blocker traces to acceptance; otherwise nonblocking/out-of-scope. Finding schema: stable ID, severity, file/line evidence, impact, smallest correction, acceptance trace, source gate, exact head/fingerprint, blockerKey, breakerOwner, confirmationGate. Every assigned finding gets exactly one record: findingId, blockerKey, gate=sol, exact headOid, proposedDisposition, confirmation, evidence.\n\nEnd with exact correlation block and final line exactly MERGE, FIX BEFORE MERGE, or NEEDS DECISION.",
+          "exitCode": 0,
+          "processSignal": "SIGTERM",
+          "usage": {
+            "input": 146230,
+            "output": 11425,
+            "cacheRead": 582656,
+            "cacheWrite": 0,
+            "cost": 1.365228,
+            "turns": 13
+          },
+          "model": "openai-codex/gpt-5.6-sol:high",
+          "attemptedModels": [
+            "openai-codex/gpt-5.6-sol:high"
+          ],
+          "modelAttempts": [
+            {
+              "model": "openai-codex/gpt-5.6-sol:high",
+              "success": true,
+              "exitCode": 0,
+              "usage": {
+                "input": 146230,
+                "output": 11425,
+                "cacheRead": 582656,
+                "cacheWrite": 0,
+                "cost": 1.365228,
+                "turns": 13
+              }
+            }
+          ],
+          "durationMs": 300309,
+          "toolCount": 37,
+          "launchContractDigest": "71dc9c92d9825ef6d9c9b0c7beb2be0ccf6bcb971f7f8b47213a9e57f39967ca",
+          "launchResolvedExtensions": {
+            "version": 1,
+            "source": "launch-resolved",
+            "disableAmbientExtensions": false,
+            "runtime": [
+              "sha256:6cf7ea1508db9754"
+            ],
+            "configured": [],
+            "effective": [
+              "sha256:6cf7ea1508db9754"
+            ],
+            "omitted": {
+              "runtime": 0,
+              "configured": 0,
+              "effective": 0
+            }
+          },
+          "acceptance": {
+            "status": "attested",
+            "evidenceStatus": "attested",
+            "explicit": false,
+            "effectiveAcceptance": {
+              "level": "attested",
+              "explicit": false,
+              "inferredReason": [
+                "read-only/reviewer-style agent"
+              ],
+              "criteria": [
+                {
+                  "id": "criterion-1",
+                  "must": "Return concrete findings with file paths and severity when applicable",
+                  "evidence": [
+                    "review-findings",
+                    "residual-risks"
+                  ],
+                  "severity": "required"
+                }
+              ],
+              "evidence": [
+                "review-findings",
+                "residual-risks"
+              ],
+              "verify": [],
+              "stopRules": []
+            },
+            "inferredReason": [
+              "read-only/reviewer-style agent"
+            ],
+            "criteria": [
+              {
+                "id": "criterion-1",
+                "must": "Return concrete findings with file paths and severity when applicable",
+                "evidence": [
+                  "review-findings",
+                  "residual-risks"
+                ],
+                "severity": "required"
+              }
+            ],
+            "runtimeChecks": [],
+            "verifyRuns": [],
+            "childReport": {
+              "criteriaSatisfied": [
+                {
+                  "id": "criterion-1",
+                  "status": "satisfied",
+                  "evidence": "Exact-head review completed with file/line evidence; no actionable findings were found, and residual risks are stated."
+                }
+              ],
+              "changedFiles": [
+                "CONTRACT.md",
+                "prompts/tidd-issue.md",
+                "prompts/tidd-pr.md",
+                "test/closed-loop-regressions.test.js",
+                "test/contract-clauses.json",
+                "test/contract-record.test.js",
+                "test/issue-candidate-publication.test.js",
+                "test/issue-scope-freeze-candidate.test.js",
+                "test/package.test.js"
+              ],
+              "testsAddedOrUpdated": [
+                "test/closed-loop-regressions.test.js",
+                "test/contract-clauses.json",
+                "test/contract-record.test.js",
+                "test/issue-candidate-publication.test.js",
+                "test/issue-scope-freeze-candidate.test.js",
+                "test/package.test.js"
+              ],
+              "commandsRun": [
+                {
+                  "command": "sha256sum /tmp/clpr33-red-evidence.json",
+                  "result": "passed",
+                  "summary": "Matched c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d."
+                },
+                {
+                  "command": "git diff --check 3138c5d5bbd353502bcde2b829bdde221ef96761..61b2a925a78cb9bed65fdbdf23621d6b1e35fc92",
+                  "result": "passed",
+                  "summary": "No whitespace errors."
+                },
+                {
+                  "command": "node --test --test-name-pattern='Issue #22' test/package.test.js",
+                  "result": "passed",
+                  "summary": "2 tests passed."
+                },
+                {
+                  "command": "npm test",
+                  "result": "passed",
+                  "summary": "274 tests passed, 0 failed."
+                }
+              ],
+              "validationOutput": [
+                "Exact head tree: 8b25a3d68dc4e95601e7810dd016bdd4c73a8802",
+                "Effective diff SHA-256: 09080c2242d9941d8458e9671fc59a3ce3c0689bf731af846793bf8fb7c77b2b",
+                "Issue specification SHA-256: 0c87c79ab3d07ddd36af8d519e1b09b12429ed0b5526d6b506d744549da3ba38",
+                "Canonical snapshot SHA-256: 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713"
+              ],
+              "residualRisks": [
+                "Static prose and fixture coverage does not prove runtime model compliance; the PR truthfully disclaims such proof."
+              ],
+              "noStagedFiles": true,
+              "diffSummary": "Nine files changed: thin prompt entrypoints, a dated Option A authority decision, removal of four prompt clauses, and focused contract/packaging regressions.",
+              "reviewFindings": [
+                "no blockers"
+              ],
+              "manualNotes": "SOL33-TDD-001 disposition not-applicable is confirmed by the supplied preserved pre-implementation artifact."
+            }
+          },
+          "effects": {
+            "fileMutation": {
+              "status": "not-applicable",
+              "expected": false,
+              "attempted": true
+            }
+          },
+          "transcriptPath": "/home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/subagent-artifacts/9b057bb3_sol-reviewer_0_transcript.jsonl",
+          "timestamp": 1786376355549
+        },
+        "raw": "{\n  \"runId\": \"9b057bb3\",\n  \"agent\": \"sol-reviewer\",\n  \"task\": \"FORMAL FRESH EXACT-AUTOFIX SOL GATE. Read-only. Do not edit/write/stage/commit/push/post to GitHub/mutate external services, inspect .pi or .pi-subagents contents, or launch subagents.\\n\\nCorrelation — echo every field exactly:\\nrepository: tetsuh/pi-tidd-agents\\npr_number: 33\\nbase_oid: 3138c5d5bbd353502bcde2b829bdde221ef96761\\nhead_repository: tetsuh/pi-tidd-agents\\nhead_branch: refactor/issue-22-thin-prompts\\npublic_head_oid: 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\\nlifecycle: OPEN/non-draft\\ngate: sol\\nrun_wide_invocation: 1\\nsnapshot_fingerprint: 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713\\ncontract_input: skills/closed-loop-pr/SKILL.md + skills/closed-loop-shared/references/gate-contract.md + skills/closed-loop-shared/references/records.md + skills/closed-loop-pr/references/autofix.md at public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\\n\\nFingerprints: issue_spec=0c87c79ab3d07ddd36af8d519e1b09b12429ed0b5526d6b506d744549da3ba38; pr_tree=8b25a3d68dc4e95601e7810dd016bdd4c73a8802; pr_diff=09080c2242d9941d8458e9671fc59a3ce3c0689bf731af846793bf8fb7c77b2b; pr_commits=e1088a4abe3ce25e8f5e4e66e47aad1680fcf1aa551a2a52a5a0ac13da054225; pr_head=61b2a925a78cb9bed65fdbdf23621d6b1e35fc92. No authoritative Issue comments. No PR comments/reviews/inline comments/statuses. Six exact-head check runs completed successfully.\\n\\nExact frozen evidence paths: PR body=/tmp/clpr33-run2/pr-end.json field body; Issue #22 body=/tmp/clpr33-run2/issue.json field body; effective diff=/tmp/clpr33-run2/pr.diff; canonical snapshot=/tmp/clpr33-run2/snapshot.canonical.json. Read all four contract inputs and repository files/tests at exact head.\\n\\nPreserved pre-implementation RED evidence (owner chose Option A to supply this evidence, not reclassify): /tmp/clpr33-red-evidence.json, SHA-256 c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d. It canonically records source session /home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/2026-08-09T22-21-20-663Z_019fe89d-c197-715b-99dc-78a7bad60d89.jsonl, tool-call line 2242 and tool-result line 2243, call message e90d1d1c at 2026-08-09T22:20:44.240Z, result message 85444362 at 2026-08-09T22:20:44.478Z. Exact command: node --test --test-name-pattern='Issue #22' test/package.test.js. Exact result: 2 tests, 0 pass, 2 fail, exit code 1. Failures were (1) prompts/tidd-issue.md retained 'Under CL-D31 and CL-D32', and (2) CL-D6-prompt remained in the manifest. This is the original pre-implementation execution, not a baseline replay. Read and hash the artifact; inspect the source JSONL lines if needed.\\n\\nCarried source finding from the prior ended run: SOL33-TDD-001, blockerKey=issue22-tdd-provenance-chronology, breakerOwner=sol, confirmationGate=sol, exact prior head same as current. It said chronology evidence was unavailable. Owner selected Option A: present the preserved session evidence. Proposed disposition is not-applicable because the finding's unavailable-evidence premise is now disproved; rationale: the exact timestamped command/result artifact exists and is supplied. Re-raising requires new evidence. Explicitly return one confirmation record for this carried finding with proposedDisposition=not-applicable and confirmation=confirmed or rejected, with evidence.\\n\\nLanguage Profile: conversation=Japanese; github.issue=en; github.pull_request=en; external_sites={}. Source code/comments/docs follow project instructions.\\n\\nAcceptance scope: (1) dated exact nine-field Option A decision; (2) prompt frontmatter preserved but no mode/forbidden-action/push-cap/CL-D30/CL-D31/32 workflow restatement; (3) each prompt names Skill and forwards raw $@ once; (4) exactly four removed prompt clauses have named Skill enforcement; (5) no normalized exact 60+ Unicode-character sentence shared with loaded Skill; (6) documented raw vectors and near-miss outcomes unchanged; (7) npm test passes. Preserve CL-D6, review-only, CL-D31/32, argument hints, Issue #24 authority graph, packaging, and exactly two Skills. Provenance is pre-implementation compile/contract RED only, never behavioral/runtime proof.\\n\\nAdversarial procedure: treat exact target body, current authoritative decision record/comments, workflow Skill, loaded shared non-Skill references, and selected autofix reference as claims, not assumptions. Semantically enumerate universal/exclusive/exhaustive/absolute/example-only and always/never/unique/every/all/no/sole/must/exactly claims, not keyword-only. Attempt falsification against authoritative repository records/implementation/tests, Git/GitHub evidence, and the supplied exact provenance artifact. A missing named record is not itself a finding; unverifiable requires unavailable evidence needed for that claim. Require actual cited counterexample or verdict-material unavailable evidence; invent none; no counterexample is neither finding nor proof. Only non-bot OWNER/MEMBER/COLLABORATOR comments are authoritative; none exist. Report claim, searched evidence, and counterexample/unavailable evidence.\\n\\nReview contract fidelity, correctness, test false-greens, decision drift, provenance, and PR-body claims; no redesign. Every blocker traces to acceptance; otherwise nonblocking/out-of-scope. Finding schema: stable ID, severity, file/line evidence, impact, smallest correction, acceptance trace, source gate, exact head/fingerprint, blockerKey, breakerOwner, confirmationGate. Every assigned finding gets exactly one record: findingId, blockerKey, gate=sol, exact headOid, proposedDisposition, confirmation, evidence.\\n\\nEnd with exact correlation block and final line exactly MERGE, FIX BEFORE MERGE, or NEEDS DECISION.\",\n  \"exitCode\": 0,\n  \"processSignal\": \"SIGTERM\",\n  \"usage\": {\n    \"input\": 146230,\n    \"output\": 11425,\n    \"cacheRead\": 582656,\n    \"cacheWrite\": 0,\n    \"cost\": 1.365228,\n    \"turns\": 13\n  },\n  \"model\": \"openai-codex/gpt-5.6-sol:high\",\n  \"attemptedModels\": [\n    \"openai-codex/gpt-5.6-sol:high\"\n  ],\n  \"modelAttempts\": [\n    {\n      \"model\": \"openai-codex/gpt-5.6-sol:high\",\n      \"success\": true,\n      \"exitCode\": 0,\n      \"usage\": {\n        \"input\": 146230,\n        \"output\": 11425,\n        \"cacheRead\": 582656,\n        \"cacheWrite\": 0,\n        \"cost\": 1.365228,\n        \"turns\": 13\n      }\n    }\n  ],\n  \"durationMs\": 300309,\n  \"toolCount\": 37,\n  \"launchContractDigest\": \"71dc9c92d9825ef6d9c9b0c7beb2be0ccf6bcb971f7f8b47213a9e57f39967ca\",\n  \"launchResolvedExtensions\": {\n    \"version\": 1,\n    \"source\": \"launch-resolved\",\n    \"disableAmbientExtensions\": false,\n    \"runtime\": [\n      \"sha256:6cf7ea1508db9754\"\n    ],\n    \"configured\": [],\n    \"effective\": [\n      \"sha256:6cf7ea1508db9754\"\n    ],\n    \"omitted\": {\n      \"runtime\": 0,\n      \"configured\": 0,\n      \"effective\": 0\n    }\n  },\n  \"acceptance\": {\n    \"status\": \"attested\",\n    \"evidenceStatus\": \"attested\",\n    \"explicit\": false,\n    \"effectiveAcceptance\": {\n      \"level\": \"attested\",\n      \"explicit\": false,\n      \"inferredReason\": [\n        \"read-only/reviewer-style agent\"\n      ],\n      \"criteria\": [\n        {\n          \"id\": \"criterion-1\",\n          \"must\": \"Return concrete findings with file paths and severity when applicable\",\n          \"evidence\": [\n            \"review-findings\",\n            \"residual-risks\"\n          ],\n          \"severity\": \"required\"\n        }\n      ],\n      \"evidence\": [\n        \"review-findings\",\n        \"residual-risks\"\n      ],\n      \"verify\": [],\n      \"stopRules\": []\n    },\n    \"inferredReason\": [\n      \"read-only/reviewer-style agent\"\n    ],\n    \"criteria\": [\n      {\n        \"id\": \"criterion-1\",\n        \"must\": \"Return concrete findings with file paths and severity when applicable\",\n        \"evidence\": [\n          \"review-findings\",\n          \"residual-risks\"\n        ],\n        \"severity\": \"required\"\n      }\n    ],\n    \"runtimeChecks\": [],\n    \"verifyRuns\": [],\n    \"childReport\": {\n      \"criteriaSatisfied\": [\n        {\n          \"id\": \"criterion-1\",\n          \"status\": \"satisfied\",\n          \"evidence\": \"Exact-head review completed with file/line evidence; no actionable findings were found, and residual risks are stated.\"\n        }\n      ],\n      \"changedFiles\": [\n        \"CONTRACT.md\",\n        \"prompts/tidd-issue.md\",\n        \"prompts/tidd-pr.md\",\n        \"test/closed-loop-regressions.test.js\",\n        \"test/contract-clauses.json\",\n        \"test/contract-record.test.js\",\n        \"test/issue-candidate-publication.test.js\",\n        \"test/issue-scope-freeze-candidate.test.js\",\n        \"test/package.test.js\"\n      ],\n      \"testsAddedOrUpdated\": [\n        \"test/closed-loop-regressions.test.js\",\n        \"test/contract-clauses.json\",\n        \"test/contract-record.test.js\",\n        \"test/issue-candidate-publication.test.js\",\n        \"test/issue-scope-freeze-candidate.test.js\",\n        \"test/package.test.js\"\n      ],\n      \"commandsRun\": [\n        {\n          \"command\": \"sha256sum /tmp/clpr33-red-evidence.json\",\n          \"result\": \"passed\",\n          \"summary\": \"Matched c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d.\"\n        },\n        {\n          \"command\": \"git diff --check 3138c5d5bbd353502bcde2b829bdde221ef96761..61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\",\n          \"result\": \"passed\",\n          \"summary\": \"No whitespace errors.\"\n        },\n        {\n          \"command\": \"node --test --test-name-pattern='Issue #22' test/package.test.js\",\n          \"result\": \"passed\",\n          \"summary\": \"2 tests passed.\"\n        },\n        {\n          \"command\": \"npm test\",\n          \"result\": \"passed\",\n          \"summary\": \"274 tests passed, 0 failed.\"\n        }\n      ],\n      \"validationOutput\": [\n        \"Exact head tree: 8b25a3d68dc4e95601e7810dd016bdd4c73a8802\",\n        \"Effective diff SHA-256: 09080c2242d9941d8458e9671fc59a3ce3c0689bf731af846793bf8fb7c77b2b\",\n        \"Issue specification SHA-256: 0c87c79ab3d07ddd36af8d519e1b09b12429ed0b5526d6b506d744549da3ba38\",\n        \"Canonical snapshot SHA-256: 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713\"\n      ],\n      \"residualRisks\": [\n        \"Static prose and fixture coverage does not prove runtime model compliance; the PR truthfully disclaims such proof.\"\n      ],\n      \"noStagedFiles\": true,\n      \"diffSummary\": \"Nine files changed: thin prompt entrypoints, a dated Option A authority decision, removal of four prompt clauses, and focused contract/packaging regressions.\",\n      \"reviewFindings\": [\n        \"no blockers\"\n      ],\n      \"manualNotes\": \"SOL33-TDD-001 disposition not-applicable is confirmed by the supplied preserved pre-implementation artifact.\"\n    }\n  },\n  \"effects\": {\n    \"fileMutation\": {\n      \"status\": \"not-applicable\",\n      \"expected\": false,\n      \"attempted\": true\n    }\n  },\n  \"transcriptPath\": \"/home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/subagent-artifacts/9b057bb3_sol-reviewer_0_transcript.jsonl\",\n  \"timestamp\": 1786376355549\n}"
+      },
+      "inputArtifact": {
+        "sha256": "afe5253c712ce6448dd35dd85ccc48c60e3ce6bfe509b03dbb8520ed05555363",
+        "utf8Bytes": 7119,
+        "text": "# Task for sol-reviewer\n\nFORMAL FRESH EXACT-AUTOFIX SOL GATE. Read-only. Do not edit/write/stage/commit/push/post to GitHub/mutate external services, inspect .pi or .pi-subagents contents, or launch subagents.\n\nCorrelation — echo every field exactly:\nrepository: tetsuh/pi-tidd-agents\npr_number: 33\nbase_oid: 3138c5d5bbd353502bcde2b829bdde221ef96761\nhead_repository: tetsuh/pi-tidd-agents\nhead_branch: refactor/issue-22-thin-prompts\npublic_head_oid: 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\nlifecycle: OPEN/non-draft\ngate: sol\nrun_wide_invocation: 1\nsnapshot_fingerprint: 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713\ncontract_input: skills/closed-loop-pr/SKILL.md + skills/closed-loop-shared/references/gate-contract.md + skills/closed-loop-shared/references/records.md + skills/closed-loop-pr/references/autofix.md at public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\n\nFingerprints: issue_spec=0c87c79ab3d07ddd36af8d519e1b09b12429ed0b5526d6b506d744549da3ba38; pr_tree=8b25a3d68dc4e95601e7810dd016bdd4c73a8802; pr_diff=09080c2242d9941d8458e9671fc59a3ce3c0689bf731af846793bf8fb7c77b2b; pr_commits=e1088a4abe3ce25e8f5e4e66e47aad1680fcf1aa551a2a52a5a0ac13da054225; pr_head=61b2a925a78cb9bed65fdbdf23621d6b1e35fc92. No authoritative Issue comments. No PR comments/reviews/inline comments/statuses. Six exact-head check runs completed successfully.\n\nExact frozen evidence paths: PR body=/tmp/clpr33-run2/pr-end.json field body; Issue #22 body=/tmp/clpr33-run2/issue.json field body; effective diff=/tmp/clpr33-run2/pr.diff; canonical snapshot=/tmp/clpr33-run2/snapshot.canonical.json. Read all four contract inputs and repository files/tests at exact head.\n\nPreserved pre-implementation RED evidence (owner chose Option A to supply this evidence, not reclassify): /tmp/clpr33-red-evidence.json, SHA-256 c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d. It canonically records source session /home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/2026-08-09T22-21-20-663Z_019fe89d-c197-715b-99dc-78a7bad60d89.jsonl, tool-call line 2242 and tool-result line 2243, call message e90d1d1c at 2026-08-09T22:20:44.240Z, result message 85444362 at 2026-08-09T22:20:44.478Z. Exact command: node --test --test-name-pattern='Issue #22' test/package.test.js. Exact result: 2 tests, 0 pass, 2 fail, exit code 1. Failures were (1) prompts/tidd-issue.md retained 'Under CL-D31 and CL-D32', and (2) CL-D6-prompt remained in the manifest. This is the original pre-implementation execution, not a baseline replay. Read and hash the artifact; inspect the source JSONL lines if needed.\n\nCarried source finding from the prior ended run: SOL33-TDD-001, blockerKey=issue22-tdd-provenance-chronology, breakerOwner=sol, confirmationGate=sol, exact prior head same as current. It said chronology evidence was unavailable. Owner selected Option A: present the preserved session evidence. Proposed disposition is not-applicable because the finding's unavailable-evidence premise is now disproved; rationale: the exact timestamped command/result artifact exists and is supplied. Re-raising requires new evidence. Explicitly return one confirmation record for this carried finding with proposedDisposition=not-applicable and confirmation=confirmed or rejected, with evidence.\n\nLanguage Profile: conversation=Japanese; github.issue=en; github.pull_request=en; external_sites={}. Source code/comments/docs follow project instructions.\n\nAcceptance scope: (1) dated exact nine-field Option A decision; (2) prompt frontmatter preserved but no mode/forbidden-action/push-cap/CL-D30/CL-D31/32 workflow restatement; (3) each prompt names Skill and forwards raw $@ once; (4) exactly four removed prompt clauses have named Skill enforcement; (5) no normalized exact 60+ Unicode-character sentence shared with loaded Skill; (6) documented raw vectors and near-miss outcomes unchanged; (7) npm test passes. Preserve CL-D6, review-only, CL-D31/32, argument hints, Issue #24 authority graph, packaging, and exactly two Skills. Provenance is pre-implementation compile/contract RED only, never behavioral/runtime proof.\n\nAdversarial procedure: treat exact target body, current authoritative decision record/comments, workflow Skill, loaded shared non-Skill references, and selected autofix reference as claims, not assumptions. Semantically enumerate universal/exclusive/exhaustive/absolute/example-only and always/never/unique/every/all/no/sole/must/exactly claims, not keyword-only. Attempt falsification against authoritative repository records/implementation/tests, Git/GitHub evidence, and the supplied exact provenance artifact. A missing named record is not itself a finding; unverifiable requires unavailable evidence needed for that claim. Require actual cited counterexample or verdict-material unavailable evidence; invent none; no counterexample is neither finding nor proof. Only non-bot OWNER/MEMBER/COLLABORATOR comments are authoritative; none exist. Report claim, searched evidence, and counterexample/unavailable evidence.\n\nReview contract fidelity, correctness, test false-greens, decision drift, provenance, and PR-body claims; no redesign. Every blocker traces to acceptance; otherwise nonblocking/out-of-scope. Finding schema: stable ID, severity, file/line evidence, impact, smallest correction, acceptance trace, source gate, exact head/fingerprint, blockerKey, breakerOwner, confirmationGate. Every assigned finding gets exactly one record: findingId, blockerKey, gate=sol, exact headOid, proposedDisposition, confirmation, evidence.\n\nEnd with exact correlation block and final line exactly MERGE, FIX BEFORE MERGE, or NEEDS DECISION.\n\n## Acceptance Contract\nAcceptance level: attested\nCompletion is not accepted from prose alone. End with a structured acceptance report.\n\nCriteria:\n- criterion-1: Return concrete findings with file paths and severity when applicable\n\nRequired evidence: review-findings, residual-risks\n\nFinish with a fenced JSON block tagged `acceptance-report` in this shape:\nUse empty arrays when no items apply; array fields contain strings unless object entries are shown.\n`criteriaSatisfied[].status` must be exactly one of: satisfied, not-satisfied, not-applicable.\n`commandsRun[].result` must be exactly one of: passed, failed, not-run.\n`manualNotes` and `notes` are optional strings; an empty string means no note and does not satisfy `manual-notes` evidence.\n```acceptance-report\n{\n  \"criteriaSatisfied\": [\n    {\n      \"id\": \"criterion-1\",\n      \"status\": \"satisfied\",\n      \"evidence\": \"specific proof\"\n    }\n  ],\n  \"changedFiles\": [\n    \"src/file.ts\"\n  ],\n  \"testsAddedOrUpdated\": [\n    \"test/file.test.ts\"\n  ],\n  \"commandsRun\": [\n    {\n      \"command\": \"command\",\n      \"result\": \"passed\",\n      \"summary\": \"short result\"\n    }\n  ],\n  \"validationOutput\": [\n    \"validation output or concise summary\"\n  ],\n  \"residualRisks\": [\n    \"none\"\n  ],\n  \"noStagedFiles\": true,\n  \"diffSummary\": \"short description of the diff\",\n  \"reviewFindings\": [\n    \"blocker: file.ts:12 - issue found, or no blockers\"\n  ],\n  \"manualNotes\": \"anything else the parent should know\"\n}\n```"
+      },
+      "outputArtifact": {
+        "sha256": "7cd43a02530be546aab39e6160d31b5a4c10613890d39001055537b6df05fe3c",
+        "utf8Bytes": 7162,
+        "text": "## Review\n\n### Correct\n- Exact-head identity verified: `HEAD` is `61b2a925a78cb9bed65fdbdf23621d6b1e35fc92`; tree, diff, Issue, commit, and snapshot fingerprints all match the supplied values.\n- The Option A decision contains all nine AC-DECISION fields and a date at `CONTRACT.md:125-135`.\n- Both prompts retain frontmatter and argument hints, name their Skill, and forward `$@` exactly once without workflow restatement: `prompts/tidd-issue.md:1-8`, `prompts/tidd-pr.md:1-8`.\n- Exactly four prompt clauses were removed. Named enforcement remains:\n  - `CL-D6-prompt` → `CL-D6-skill` (`test/contract-clauses.json:107-119`)\n  - `AC-REVIEW-ONLY-prompt` → `AC-REVIEW-ONLY-skill` (`test/contract-clauses.json:608-622`)\n  - `CL-D31-prompt` → CL-D31 authority, preview, publication, and foreign-target clauses (`test/contract-clauses.json:1150-1162`, `1222-1249`)\n  - `CL-D32-prompt` → `CL-D32-skill` (`test/contract-clauses.json:1461-1477`)\n- Sentence normalization counts Unicode characters and rejects exact normalized 60+ character duplication at `test/package.test.js:109-116,419-421`; independent comparison found no duplicates.\n- Raw-vector and near-miss fixtures remain unchanged at `test/closed-loop-regressions.test.js:21-105`.\n- Exactly two packaged Skills remain.\n- `npm test` passed all 274 tests; focused Issue #22 validation passed 2/2; `git diff --check` passed.\n\n### Findings\n- No blockers, major findings, or minor findings.\n\n### Adversarial claim check\n| Claim group | Evidence searched | Counterexample or unavailable evidence |\n|---|---|---|\n| Prompts contain only frontmatter, raw-vector capture, and authoritative Skill delegation | Prompts, `CONTRACT.md:116-135`, package tests, effective diff | None found |\n| Exactly four clauses were removed while Skill enforcement remained | Manifest diff, surviving manifest entries, Issue/PR Skills and selected references | None found |\n| Exact/exhaustive parsing outcomes and near-miss rejection remain unchanged | `skills/closed-loop-pr/SKILL.md:32-41`, shared target grammar, `test/closed-loop-regressions.test.js:21-105` | None found |\n| Exactly two Skills and the authority graph remain intact | Skill inventory, package manifest, packaging tests | None found |\n| Review-only and exact-autofix exclusive safety boundaries remain Skill-owned | Review-only reference; autofix sole mutation exception, writer, caps, and prohibitions at `autofix.md:23-55,133` | None found |\n| TDD was pre-implementation compile/contract RED, never behavioral/runtime proof | Preserved artifact, commit timestamp, `records.md:43-57`, test comments at `test/package.test.js:401-426` | None found |\n| PR validation says 274 tests and clean diff | Fresh local commands | Confirmed |\n| Historical PR-body Sol/Terra review bullets | Frozen GitHub snapshot has no public review records | Public evidence unavailable, but not verdict-material because this is a fresh exact-head gate |\n\nAbsence of a counterexample is not treated as proof beyond the inspected evidence.\n\n### Carried finding confirmation\n```json\n{\n  \"findingId\": \"SOL33-TDD-001\",\n  \"blockerKey\": \"issue22-tdd-provenance-chronology\",\n  \"gate\": \"sol\",\n  \"headOid\": \"61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\",\n  \"proposedDisposition\": \"not-applicable\",\n  \"confirmation\": \"confirmed\",\n  \"evidence\": \"/tmp/clpr33-red-evidence.json hashes to c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d. It records the exact focused command at 2026-08-09T22:20:44.240Z, exit 1 with 0/2 passing and failures against the old prompt/manifest state. The implementation commit is dated 2026-08-10T07:44:00+09:00, after that execution. The evidence therefore disproves the prior unavailable-chronology premise and supports compile/contract RED only.\"\n}\n```\n\n### Notes\n- Residual risk is intentionally bounded: prose and fixture tests do not prove runtime model compliance.\n- The prohibited `.pi` source JSONL was not inspected; confirmation uses the supplied canonical artifact and verified hash.\n\n```acceptance-report\n{\n  \"criteriaSatisfied\": [\n    {\n      \"id\": \"criterion-1\",\n      \"status\": \"satisfied\",\n      \"evidence\": \"Exact-head review completed with file/line evidence; no actionable findings were found, and residual risks are stated.\"\n    }\n  ],\n  \"changedFiles\": [\n    \"CONTRACT.md\",\n    \"prompts/tidd-issue.md\",\n    \"prompts/tidd-pr.md\",\n    \"test/closed-loop-regressions.test.js\",\n    \"test/contract-clauses.json\",\n    \"test/contract-record.test.js\",\n    \"test/issue-candidate-publication.test.js\",\n    \"test/issue-scope-freeze-candidate.test.js\",\n    \"test/package.test.js\"\n  ],\n  \"testsAddedOrUpdated\": [\n    \"test/closed-loop-regressions.test.js\",\n    \"test/contract-clauses.json\",\n    \"test/contract-record.test.js\",\n    \"test/issue-candidate-publication.test.js\",\n    \"test/issue-scope-freeze-candidate.test.js\",\n    \"test/package.test.js\"\n  ],\n  \"commandsRun\": [\n    {\n      \"command\": \"sha256sum /tmp/clpr33-red-evidence.json\",\n      \"result\": \"passed\",\n      \"summary\": \"Matched c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d.\"\n    },\n    {\n      \"command\": \"git diff --check 3138c5d5bbd353502bcde2b829bdde221ef96761..61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\",\n      \"result\": \"passed\",\n      \"summary\": \"No whitespace errors.\"\n    },\n    {\n      \"command\": \"node --test --test-name-pattern='Issue #22' test/package.test.js\",\n      \"result\": \"passed\",\n      \"summary\": \"2 tests passed.\"\n    },\n    {\n      \"command\": \"npm test\",\n      \"result\": \"passed\",\n      \"summary\": \"274 tests passed, 0 failed.\"\n    }\n  ],\n  \"validationOutput\": [\n    \"Exact head tree: 8b25a3d68dc4e95601e7810dd016bdd4c73a8802\",\n    \"Effective diff SHA-256: 09080c2242d9941d8458e9671fc59a3ce3c0689bf731af846793bf8fb7c77b2b\",\n    \"Issue specification SHA-256: 0c87c79ab3d07ddd36af8d519e1b09b12429ed0b5526d6b506d744549da3ba38\",\n    \"Canonical snapshot SHA-256: 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713\"\n  ],\n  \"residualRisks\": [\n    \"Static prose and fixture coverage does not prove runtime model compliance; the PR truthfully disclaims such proof.\"\n  ],\n  \"noStagedFiles\": true,\n  \"diffSummary\": \"Nine files changed: thin prompt entrypoints, a dated Option A authority decision, removal of four prompt clauses, and focused contract/packaging regressions.\",\n  \"reviewFindings\": [\n    \"no blockers\"\n  ],\n  \"manualNotes\": \"SOL33-TDD-001 disposition not-applicable is confirmed by the supplied preserved pre-implementation artifact.\"\n}\n```\n\n### Correlation\n```text\nrepository: tetsuh/pi-tidd-agents\npr_number: 33\nbase_oid: 3138c5d5bbd353502bcde2b829bdde221ef96761\nhead_repository: tetsuh/pi-tidd-agents\nhead_branch: refactor/issue-22-thin-prompts\npublic_head_oid: 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\nlifecycle: OPEN/non-draft\ngate: sol\nrun_wide_invocation: 1\nsnapshot_fingerprint: 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713\ncontract_input: skills/closed-loop-pr/SKILL.md + skills/closed-loop-shared/references/gate-contract.md + skills/closed-loop-shared/references/records.md + skills/closed-loop-pr/references/autofix.md at public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92\n```\n\n### Verdict\nMERGE"
+      },
+      "usage": {
+        "input": 146230,
+        "output": 11425,
+        "cacheRead": 582656,
+        "cacheWrite": 0,
+        "cost": 1.365228,
+        "turns": 13
+      }
+    },
+    "cfd6cad8": {
+      "runId": "cfd6cad8",
+      "agent": "sol-reviewer",
+      "model": "openai-codex/gpt-5.6-sol:high",
+      "launchContractDigest": "81673cd24356c9dfad636e13329723ed221e6fa3073baae1fa0842a945abac70",
+      "metadata": {
+        "sha256": "51504270c579c3b3af90dc82f5d080737ea8ead86a48cc9abd94f27137cdfc72",
+        "utf8Bytes": 5816,
+        "json": {
+          "runId": "cfd6cad8",
+          "agent": "sol-reviewer",
+          "task": "FINAL RETROSPECTIVE READ-ONLY PAYLOAD MEASUREMENT REPLAY; not a readiness gate and grants no authority. Do not edit/write/stage/commit/push/post/mutate external services, inspect repository-root .pi/.pi-subagents contents, or launch subagents. Read exactly these six current authority files in order: skills/closed-loop-issue/SKILL.md; skills/closed-loop-pr/SKILL.md; skills/closed-loop-pr/references/review-only.md; skills/closed-loop-pr/references/autofix.md; skills/closed-loop-shared/references/gate-contract.md; skills/closed-loop-shared/references/records.md. Verify raw concatenation is 98692 bytes SHA-256 7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139 and path-length framed concatenation is 98991 bytes SHA-256 eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf. The source case is exact-autofix Sol run 9b057bb3 for PR #33 at public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92. The segment below is the Option A compact projection of the same settled finding and is transmitted for measurement only.\n\nBEGIN_COMPACT_SETTLED_HISTORY\nSettled counts [fixed=0, accepted-as-designed=0, deferred=0, duplicate=0, not-applicable=1, needs-owner-decision=0]. Summary {findingId=SOL33-TDD-001; blockerKey=issue22-tdd-provenance-chronology; sourceGate=sol; raisedAgainst=61b2a925a78cb9bed65fdbdf23621d6b1e35fc92@3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713; disposition=not-applicable; confirmationEvidence=sol-confirmed:c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d}. Reopen only with materially new evidence naming why the prior disposition no longer applies.\nEND_COMPACT_SETTLED_HISTORY\n\nReport verification only. Make no whole-task causal, provider-token, runtime-compliance, or readiness claim. Final line exactly MERGE.",
+          "exitCode": 0,
+          "processSignal": "SIGTERM",
+          "usage": {
+            "input": 36366,
+            "output": 2829,
+            "cacheRead": 118784,
+            "cacheWrite": 0,
+            "cost": 0.32609200000000005,
+            "turns": 9
+          },
+          "model": "openai-codex/gpt-5.6-sol:high",
+          "attemptedModels": [
+            "openai-codex/gpt-5.6-sol:high"
+          ],
+          "modelAttempts": [
+            {
+              "model": "openai-codex/gpt-5.6-sol:high",
+              "success": true,
+              "exitCode": 0,
+              "usage": {
+                "input": 36366,
+                "output": 2829,
+                "cacheRead": 118784,
+                "cacheWrite": 0,
+                "cost": 0.32609200000000005,
+                "turns": 9
+              }
+            }
+          ],
+          "durationMs": 79173,
+          "toolCount": 8,
+          "launchContractDigest": "81673cd24356c9dfad636e13329723ed221e6fa3073baae1fa0842a945abac70",
+          "launchResolvedExtensions": {
+            "version": 1,
+            "source": "launch-resolved",
+            "disableAmbientExtensions": false,
+            "runtime": [
+              "sha256:6cf7ea1508db9754"
+            ],
+            "configured": [],
+            "effective": [
+              "sha256:6cf7ea1508db9754"
+            ],
+            "omitted": {
+              "runtime": 0,
+              "configured": 0,
+              "effective": 0
+            }
+          },
+          "acceptance": {
+            "status": "attested",
+            "evidenceStatus": "attested",
+            "explicit": false,
+            "effectiveAcceptance": {
+              "level": "attested",
+              "explicit": false,
+              "inferredReason": [
+                "read-only/reviewer-style agent"
+              ],
+              "criteria": [
+                {
+                  "id": "criterion-1",
+                  "must": "Return concrete findings with file paths and severity when applicable",
+                  "evidence": [
+                    "review-findings",
+                    "residual-risks"
+                  ],
+                  "severity": "required"
+                }
+              ],
+              "evidence": [
+                "review-findings",
+                "residual-risks"
+              ],
+              "verify": [],
+              "stopRules": []
+            },
+            "inferredReason": [
+              "read-only/reviewer-style agent"
+            ],
+            "criteria": [
+              {
+                "id": "criterion-1",
+                "must": "Return concrete findings with file paths and severity when applicable",
+                "evidence": [
+                  "review-findings",
+                  "residual-risks"
+                ],
+                "severity": "required"
+              }
+            ],
+            "runtimeChecks": [],
+            "verifyRuns": [],
+            "childReport": {
+              "criteriaSatisfied": [
+                {
+                  "id": "criterion-1",
+                  "status": "satisfied",
+                  "evidence": "All six specified files matched both expected concatenation byte counts and SHA-256 digests; no discrepancies were found."
+                }
+              ],
+              "changedFiles": [],
+              "testsAddedOrUpdated": [],
+              "commandsRun": [
+                {
+                  "command": "wc -c on the six ordered files; raw ordered cat piped to sha256sum",
+                  "result": "passed",
+                  "summary": "Raw concatenation was 98692 bytes with the expected SHA-256."
+                },
+                {
+                  "command": "Ordered path-length framing loop piped to wc -c and sha256sum",
+                  "result": "passed",
+                  "summary": "Framed concatenation was 98991 bytes with the expected SHA-256."
+                }
+              ],
+              "validationOutput": [
+                "raw: 98692 bytes; SHA-256 7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139",
+                "framed: 98991 bytes; SHA-256 eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf"
+              ],
+              "residualRisks": [
+                "none within the requested byte-level verification scope"
+              ],
+              "noStagedFiles": true,
+              "diffSummary": "No files changed; read-only verification.",
+              "reviewFindings": [
+                "no blockers or measurement discrepancies"
+              ],
+              "manualNotes": "Verification only; no readiness or whole-task causal claim."
+            }
+          },
+          "effects": {
+            "fileMutation": {
+              "status": "not-applicable",
+              "expected": false,
+              "attempted": true
+            }
+          },
+          "transcriptPath": "/home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/subagent-artifacts/cfd6cad8_sol-reviewer_0_transcript.jsonl",
+          "timestamp": 1786385075705
+        },
+        "raw": "{\n  \"runId\": \"cfd6cad8\",\n  \"agent\": \"sol-reviewer\",\n  \"task\": \"FINAL RETROSPECTIVE READ-ONLY PAYLOAD MEASUREMENT REPLAY; not a readiness gate and grants no authority. Do not edit/write/stage/commit/push/post/mutate external services, inspect repository-root .pi/.pi-subagents contents, or launch subagents. Read exactly these six current authority files in order: skills/closed-loop-issue/SKILL.md; skills/closed-loop-pr/SKILL.md; skills/closed-loop-pr/references/review-only.md; skills/closed-loop-pr/references/autofix.md; skills/closed-loop-shared/references/gate-contract.md; skills/closed-loop-shared/references/records.md. Verify raw concatenation is 98692 bytes SHA-256 7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139 and path-length framed concatenation is 98991 bytes SHA-256 eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf. The source case is exact-autofix Sol run 9b057bb3 for PR #33 at public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92. The segment below is the Option A compact projection of the same settled finding and is transmitted for measurement only.\\n\\nBEGIN_COMPACT_SETTLED_HISTORY\\nSettled counts [fixed=0, accepted-as-designed=0, deferred=0, duplicate=0, not-applicable=1, needs-owner-decision=0]. Summary {findingId=SOL33-TDD-001; blockerKey=issue22-tdd-provenance-chronology; sourceGate=sol; raisedAgainst=61b2a925a78cb9bed65fdbdf23621d6b1e35fc92@3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713; disposition=not-applicable; confirmationEvidence=sol-confirmed:c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d}. Reopen only with materially new evidence naming why the prior disposition no longer applies.\\nEND_COMPACT_SETTLED_HISTORY\\n\\nReport verification only. Make no whole-task causal, provider-token, runtime-compliance, or readiness claim. Final line exactly MERGE.\",\n  \"exitCode\": 0,\n  \"processSignal\": \"SIGTERM\",\n  \"usage\": {\n    \"input\": 36366,\n    \"output\": 2829,\n    \"cacheRead\": 118784,\n    \"cacheWrite\": 0,\n    \"cost\": 0.32609200000000005,\n    \"turns\": 9\n  },\n  \"model\": \"openai-codex/gpt-5.6-sol:high\",\n  \"attemptedModels\": [\n    \"openai-codex/gpt-5.6-sol:high\"\n  ],\n  \"modelAttempts\": [\n    {\n      \"model\": \"openai-codex/gpt-5.6-sol:high\",\n      \"success\": true,\n      \"exitCode\": 0,\n      \"usage\": {\n        \"input\": 36366,\n        \"output\": 2829,\n        \"cacheRead\": 118784,\n        \"cacheWrite\": 0,\n        \"cost\": 0.32609200000000005,\n        \"turns\": 9\n      }\n    }\n  ],\n  \"durationMs\": 79173,\n  \"toolCount\": 8,\n  \"launchContractDigest\": \"81673cd24356c9dfad636e13329723ed221e6fa3073baae1fa0842a945abac70\",\n  \"launchResolvedExtensions\": {\n    \"version\": 1,\n    \"source\": \"launch-resolved\",\n    \"disableAmbientExtensions\": false,\n    \"runtime\": [\n      \"sha256:6cf7ea1508db9754\"\n    ],\n    \"configured\": [],\n    \"effective\": [\n      \"sha256:6cf7ea1508db9754\"\n    ],\n    \"omitted\": {\n      \"runtime\": 0,\n      \"configured\": 0,\n      \"effective\": 0\n    }\n  },\n  \"acceptance\": {\n    \"status\": \"attested\",\n    \"evidenceStatus\": \"attested\",\n    \"explicit\": false,\n    \"effectiveAcceptance\": {\n      \"level\": \"attested\",\n      \"explicit\": false,\n      \"inferredReason\": [\n        \"read-only/reviewer-style agent\"\n      ],\n      \"criteria\": [\n        {\n          \"id\": \"criterion-1\",\n          \"must\": \"Return concrete findings with file paths and severity when applicable\",\n          \"evidence\": [\n            \"review-findings\",\n            \"residual-risks\"\n          ],\n          \"severity\": \"required\"\n        }\n      ],\n      \"evidence\": [\n        \"review-findings\",\n        \"residual-risks\"\n      ],\n      \"verify\": [],\n      \"stopRules\": []\n    },\n    \"inferredReason\": [\n      \"read-only/reviewer-style agent\"\n    ],\n    \"criteria\": [\n      {\n        \"id\": \"criterion-1\",\n        \"must\": \"Return concrete findings with file paths and severity when applicable\",\n        \"evidence\": [\n          \"review-findings\",\n          \"residual-risks\"\n        ],\n        \"severity\": \"required\"\n      }\n    ],\n    \"runtimeChecks\": [],\n    \"verifyRuns\": [],\n    \"childReport\": {\n      \"criteriaSatisfied\": [\n        {\n          \"id\": \"criterion-1\",\n          \"status\": \"satisfied\",\n          \"evidence\": \"All six specified files matched both expected concatenation byte counts and SHA-256 digests; no discrepancies were found.\"\n        }\n      ],\n      \"changedFiles\": [],\n      \"testsAddedOrUpdated\": [],\n      \"commandsRun\": [\n        {\n          \"command\": \"wc -c on the six ordered files; raw ordered cat piped to sha256sum\",\n          \"result\": \"passed\",\n          \"summary\": \"Raw concatenation was 98692 bytes with the expected SHA-256.\"\n        },\n        {\n          \"command\": \"Ordered path-length framing loop piped to wc -c and sha256sum\",\n          \"result\": \"passed\",\n          \"summary\": \"Framed concatenation was 98991 bytes with the expected SHA-256.\"\n        }\n      ],\n      \"validationOutput\": [\n        \"raw: 98692 bytes; SHA-256 7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139\",\n        \"framed: 98991 bytes; SHA-256 eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf\"\n      ],\n      \"residualRisks\": [\n        \"none within the requested byte-level verification scope\"\n      ],\n      \"noStagedFiles\": true,\n      \"diffSummary\": \"No files changed; read-only verification.\",\n      \"reviewFindings\": [\n        \"no blockers or measurement discrepancies\"\n      ],\n      \"manualNotes\": \"Verification only; no readiness or whole-task causal claim.\"\n    }\n  },\n  \"effects\": {\n    \"fileMutation\": {\n      \"status\": \"not-applicable\",\n      \"expected\": false,\n      \"attempted\": true\n    }\n  },\n  \"transcriptPath\": \"/home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/subagent-artifacts/cfd6cad8_sol-reviewer_0_transcript.jsonl\",\n  \"timestamp\": 1786385075705\n}"
+      },
+      "inputArtifact": {
+        "sha256": "1c255beffbdfc495fffb73fcf741839801d88da3cf79f85206ed97fe3e2a448d",
+        "utf8Bytes": 3278,
+        "text": "# Task for sol-reviewer\n\nFINAL RETROSPECTIVE READ-ONLY PAYLOAD MEASUREMENT REPLAY; not a readiness gate and grants no authority. Do not edit/write/stage/commit/push/post/mutate external services, inspect repository-root .pi/.pi-subagents contents, or launch subagents. Read exactly these six current authority files in order: skills/closed-loop-issue/SKILL.md; skills/closed-loop-pr/SKILL.md; skills/closed-loop-pr/references/review-only.md; skills/closed-loop-pr/references/autofix.md; skills/closed-loop-shared/references/gate-contract.md; skills/closed-loop-shared/references/records.md. Verify raw concatenation is 98692 bytes SHA-256 7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139 and path-length framed concatenation is 98991 bytes SHA-256 eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf. The source case is exact-autofix Sol run 9b057bb3 for PR #33 at public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92. The segment below is the Option A compact projection of the same settled finding and is transmitted for measurement only.\n\nBEGIN_COMPACT_SETTLED_HISTORY\nSettled counts [fixed=0, accepted-as-designed=0, deferred=0, duplicate=0, not-applicable=1, needs-owner-decision=0]. Summary {findingId=SOL33-TDD-001; blockerKey=issue22-tdd-provenance-chronology; sourceGate=sol; raisedAgainst=61b2a925a78cb9bed65fdbdf23621d6b1e35fc92@3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713; disposition=not-applicable; confirmationEvidence=sol-confirmed:c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d}. Reopen only with materially new evidence naming why the prior disposition no longer applies.\nEND_COMPACT_SETTLED_HISTORY\n\nReport verification only. Make no whole-task causal, provider-token, runtime-compliance, or readiness claim. Final line exactly MERGE.\n\n## Acceptance Contract\nAcceptance level: attested\nCompletion is not accepted from prose alone. End with a structured acceptance report.\n\nCriteria:\n- criterion-1: Return concrete findings with file paths and severity when applicable\n\nRequired evidence: review-findings, residual-risks\n\nFinish with a fenced JSON block tagged `acceptance-report` in this shape:\nUse empty arrays when no items apply; array fields contain strings unless object entries are shown.\n`criteriaSatisfied[].status` must be exactly one of: satisfied, not-satisfied, not-applicable.\n`commandsRun[].result` must be exactly one of: passed, failed, not-run.\n`manualNotes` and `notes` are optional strings; an empty string means no note and does not satisfy `manual-notes` evidence.\n```acceptance-report\n{\n  \"criteriaSatisfied\": [\n    {\n      \"id\": \"criterion-1\",\n      \"status\": \"satisfied\",\n      \"evidence\": \"specific proof\"\n    }\n  ],\n  \"changedFiles\": [\n    \"src/file.ts\"\n  ],\n  \"testsAddedOrUpdated\": [\n    \"test/file.test.ts\"\n  ],\n  \"commandsRun\": [\n    {\n      \"command\": \"command\",\n      \"result\": \"passed\",\n      \"summary\": \"short result\"\n    }\n  ],\n  \"validationOutput\": [\n    \"validation output or concise summary\"\n  ],\n  \"residualRisks\": [\n    \"none\"\n  ],\n  \"noStagedFiles\": true,\n  \"diffSummary\": \"short description of the diff\",\n  \"reviewFindings\": [\n    \"blocker: file.ts:12 - issue found, or no blockers\"\n  ],\n  \"manualNotes\": \"anything else the parent should know\"\n}\n```"
+      },
+      "outputArtifact": {
+        "sha256": "4d251c49b6ef46a9e34f7207b9631c96d235645340c29eb8d5f3e85899bae850",
+        "utf8Bytes": 1843,
+        "text": "## Review\n\n### Correct\n- All six authority files were read in the specified order.\n- Raw concatenation: **98,692 bytes**, SHA-256 **7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139**.\n- Path-length framed concatenation: **98,991 bytes**, SHA-256 **eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf**.\n\n### Findings\n- No blockers or discrepancies.\n\n### Notes\n- Residual risks: none within the requested byte-level verification scope.\n- No readiness or whole-task causal claim is made.\n\n### Verdict\n\n```acceptance-report\n{\n  \"criteriaSatisfied\": [\n    {\n      \"id\": \"criterion-1\",\n      \"status\": \"satisfied\",\n      \"evidence\": \"All six specified files matched both expected concatenation byte counts and SHA-256 digests; no discrepancies were found.\"\n    }\n  ],\n  \"changedFiles\": [],\n  \"testsAddedOrUpdated\": [],\n  \"commandsRun\": [\n    {\n      \"command\": \"wc -c on the six ordered files; raw ordered cat piped to sha256sum\",\n      \"result\": \"passed\",\n      \"summary\": \"Raw concatenation was 98692 bytes with the expected SHA-256.\"\n    },\n    {\n      \"command\": \"Ordered path-length framing loop piped to wc -c and sha256sum\",\n      \"result\": \"passed\",\n      \"summary\": \"Framed concatenation was 98991 bytes with the expected SHA-256.\"\n    }\n  ],\n  \"validationOutput\": [\n    \"raw: 98692 bytes; SHA-256 7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139\",\n    \"framed: 98991 bytes; SHA-256 eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf\"\n  ],\n  \"residualRisks\": [\n    \"none within the requested byte-level verification scope\"\n  ],\n  \"noStagedFiles\": true,\n  \"diffSummary\": \"No files changed; read-only verification.\",\n  \"reviewFindings\": [\n    \"no blockers or measurement discrepancies\"\n  ],\n  \"manualNotes\": \"Verification only; no readiness or whole-task causal claim.\"\n}\n```\n\nMERGE"
+      },
+      "usage": {
+        "input": 36366,
+        "output": 2829,
+        "cacheRead": 118784,
+        "cacheWrite": 0,
+        "cost": 0.32609200000000005,
+        "turns": 9
+      }
+    }
+  },
+  "measurementBinding": {
+    "measurementRecord": "test/records/issue-23-payload-measurement.json",
+    "baselineRunId": "9b057bb3",
+    "replayRunId": "cfd6cad8",
+    "baselineSettledRecordText": "Settled finding full record {findingId=SOL33-TDD-001; blockerKey=issue22-tdd-provenance-chronology; sourceGate=sol; severity=Major; raisedAgainst=public head 61b2a925a78cb9bed65fdbdf23621d6b1e35fc92 and snapshot 3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713; evidence=the prior gate said chronology evidence was unavailable; impact=the PR's pre-implementation compile/contract RED chronology could not be verified; smallestCorrection=provide preserved chronological evidence or truthfully reclassify the provenance; acceptanceTrace=Issue #22 truthful TDD provenance; disposition=not-applicable; rationale=the preserved exact command/result artifact disproves the unavailable-evidence premise; confirmationGate=sol; confirmation=confirmed; confirmationEvidence=/tmp/clpr33-red-evidence.json SHA-256 c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d records the exact pre-implementation command at 2026-08-09T22:20:44Z failing 0/2 with exit 1}. Reopen only with materially new evidence naming why the prior disposition no longer applies.",
+    "replayCompactProjectionText": "Settled counts [fixed=0, accepted-as-designed=0, deferred=0, duplicate=0, not-applicable=1, needs-owner-decision=0]. Summary {findingId=SOL33-TDD-001; blockerKey=issue22-tdd-provenance-chronology; sourceGate=sol; raisedAgainst=61b2a925a78cb9bed65fdbdf23621d6b1e35fc92@3c423fb5a7cea485c9a3b10427574421a0a11c685c0dc12b1ce0ffc9935b1713; disposition=not-applicable; confirmationEvidence=sol-confirmed:c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d}. Reopen only with materially new evidence naming why the prior disposition no longer applies.",
+    "replayTaskMustContainExactProjection": true,
+    "replayOutputMustContainAuthorityGraphVerification": {
+      "raw": "Raw concatenation: **98,692 bytes**, SHA-256 **7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139**.",
+      "framed": "Path-length framed concatenation: **98,991 bytes**, SHA-256 **eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf**."
+    }
+  },
+  "sourceContext": {
+    "baselineInputMustContain": [
+      "Carried source finding from the prior ended run: SOL33-TDD-001",
+      "Proposed disposition is not-applicable because the finding's unavailable-evidence premise is now disproved",
+      "exact timestamped command/result artifact exists and is supplied"
+    ],
+    "replayInputMarkers": [
+      "BEGIN_COMPACT_SETTLED_HISTORY",
+      "END_COMPACT_SETTLED_HISTORY"
+    ],
+    "replayOutputMarkers": [
+      "No blockers or discrepancies.",
+      "No readiness or whole-task causal claim is made."
+    ]
+  },
+  "limitations": [
+    "Sanitized source artifacts are bundled as UTF-8 for offline audit; they contain no provider secrets.",
+    "This audit proves source-artifact identity and claimed transmission evidence, not runtime model compliance."
+  ]
+}

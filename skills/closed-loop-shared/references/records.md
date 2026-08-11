@@ -17,7 +17,7 @@ needs-owner-decision
 
 For each finding record the source gate, severity, the target evidence fingerprint it was raised against, candidate or revision identity when applicable, evidence, impact, exactly one disposition, rationale, revised passage or corrective change when the disposition is `fixed`, validation evidence that the revision resolves it, and the reply/status URL or an explicit pending transport assignment. Judge findings individually; a severity label is never by itself a decision to change the specification or implementation. Record the rationale for anything intentionally left unchanged.
 
-Group reports into blockers, changes worth making now or fixes worth making now, optional improvements, pre-existing conditions or findings, and findings intentionally declined. A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**; re-raising one requires new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker and must be labelled that way.
+Group reports into blockers, changes worth making now or fixes worth making now, optional improvements, pre-existing conditions or findings, and findings intentionally declined. A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**; re-raising one requires materially new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker and must be labelled that way.
 
 ## Owner decisions (AC-DECISION)
 
