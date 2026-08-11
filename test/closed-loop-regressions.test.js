@@ -192,11 +192,23 @@ test('Issue #41 publication authority remains review-only-owned and aggregate-on
   const autofix = readText(PR_AUTOFIX);
   const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
   assert.match(reviewOnly, /Guarded owner publication artifacts \(CL-D33, Issue #41\)/);
+  assert.match(reviewOnly, /CL-D33 aggregate-summary publication is optional/);
+  assert.match(reviewOnly, /not a locally drafted correction candidate/);
+  assert.match(reviewOnly, /never blocks `MERGE_READY`/);
+  assert.match(reviewOnly, /does not create `WAITING_FOR_OWNER`/);
+  assert.match(reviewOnly, /only an outstanding readiness-relevant unpublished correction candidate has that effect/);
   assert.match(reviewOnly, /Review-only never executes the script/);
   assert.match(readText(PR_PUBLICATION_TEMPLATE), /aggregate-summary publication only|Issue #40 source-reply authority/);
   assert.match(readText(PR_PUBLICATION_TEMPLATE), /gh pr comment <full-pr-url> --body-file <review-comment\.md>/);
   assert.doesNotMatch(autofix, /publish-review\.sh|review-publication:v1/);
   assert.doesNotMatch(shared, /publish-review\.sh|review-publication:v1/);
+});
+
+test('Issue #41 optional aggregate publication does not block readiness', () => {
+  const reviewOnly = readText(PR_REVIEW_ONLY);
+  assert.match(reviewOnly, /CL-D33 aggregate-summary publication is optional[\s\S]*never blocks `MERGE_READY`[\s\S]*does not create `WAITING_FOR_OWNER`/);
+  assert.match(reviewOnly, /only an outstanding readiness-relevant unpublished correction candidate has that effect/);
+  assert.doesNotMatch(reviewOnly, /any outstanding operator publication action ends at `WAITING_FOR_OWNER`/);
 });
 
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {

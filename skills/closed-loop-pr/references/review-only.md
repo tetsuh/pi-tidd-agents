@@ -27,7 +27,7 @@ Issue workflow has no publication grant through this Skill, and PR review-only h
 
 ### Guarded owner publication artifacts (CL-D33, Issue #41)
 
-Each summary stop reads sibling `publish-review.sh` completely, copies it byte-for-byte, replaces all six exact ASCII placeholders once, and follows its Generation contract to draft exactly two UTF-8/LF artifacts in a fresh external `mktemp` directory: `review-comment.md` and `publish-review.sh`. Review-only never executes the script. Report paths/digest, repository/PR/head, exact command `bash "<path>/publish-review.sh"`, `changed head requires fresh review`, `publication_grant: review-only not-applicable`, and operator attribution. The owner executing that command is the publication grant.
+Each summary stop reads sibling `publish-review.sh` completely, copies it byte-for-byte, replaces all six exact ASCII placeholders once, and follows its Generation contract to draft exactly two UTF-8/LF artifacts in a fresh external `mktemp` directory: `review-comment.md` and `publish-review.sh`. Review-only never executes the script. CL-D33 aggregate-summary publication is optional, is not a locally drafted correction candidate, never blocks `MERGE_READY`, and does not create `WAITING_FOR_OWNER`; only an outstanding readiness-relevant unpublished correction candidate has that effect. Report paths/digest, repository/PR/head, exact command `bash "<path>/publish-review.sh"`, `changed head requires fresh review`, `publication_grant: review-only not-applicable`, and operator attribution. The owner executing that command is the publication grant.
 
 ## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 
@@ -102,7 +102,7 @@ BLOCKED
 ABORTED
 ```
 
-In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**. Review-only drafts are outside the repository and any outstanding operator publication action ends at `WAITING_FOR_OWNER`; after the operator publishes, a fresh review-only run reruns Sol, Terra, external state, and exact-head checks. A fresh run starts by revalidating the current target and external evidence.
+In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**. Here, “locally drafted candidate” means only a readiness-relevant unpublished correction candidate: review-only drafts are outside the repository and that candidate ends at `WAITING_FOR_OWNER`; the optional CL-D33 aggregate-summary publication is not a correction candidate and does not block `MERGE_READY` or create `WAITING_FOR_OWNER`. After a readiness-relevant correction candidate is published, a fresh review-only run reruns Sol, Terra, external state, and exact-head checks. A fresh run starts by revalidating the current target and external evidence.
 
 Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself.
 
