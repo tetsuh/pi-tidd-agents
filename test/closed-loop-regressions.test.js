@@ -597,12 +597,27 @@ test('Issue #23 contains self-contained invariant blocks and compacts only histo
   assert.doesNotMatch(pr, /agents\/sol-reviewer\.md/);
 });
 
-// Retrospective measurement evidence for Issue #23. This validates the recorded
-// UTF-8 projection arithmetic and provenance flags; it is not runtime compliance
-// coverage and does not independently implement the named tokenizer.
+// Retrospective measurement evidence for Issue #23. The audit bundle binds the
+// sanitized source artifacts and derives transmission/provenance assertions from
+// their exact bytes. This is review-driven regression coverage, not runtime
+// compliance or behavioral RED coverage.
 test('Issue #23 records a bounded real-run settled-history measurement', () => {
   const record = JSON.parse(readText('test/records/issue-23-payload-measurement.json'));
+  const audit = JSON.parse(readText('test/records/issue-23-real-run-provenance.json'));
+  const digest = (value) => crypto.createHash('sha256').update(Buffer.from(value, 'utf8')).digest('hex');
+  const bytes = (value) => Buffer.byteLength(value, 'utf8');
   assert.equal(record.recordVersion, 'issue23-retrospective-real-run-measurement-v1');
+  assert.equal(record.auditBundle.path, 'test/records/issue-23-real-run-provenance.json');
+  assert.equal(record.auditBundle.recordVersion, audit.recordVersion);
+  assert.equal(record.auditBundle.sha256, digest(readText(record.auditBundle.path)));
+  assert.equal(audit.recordVersion, 'issue23-real-run-provenance-audit-v1');
+  assert.equal(audit.classification, 'review-driven regression, not pre-implementation RED and not runtime-compliance proof');
+  assert.deepEqual(audit.sourceCase, {
+    repository: 'tetsuh/pi-tidd-agents', target: 'PR #33',
+    publicHeadOid: '61b2a925a78cb9bed65fdbdf23621d6b1e35fc92', findingId: 'SOL33-TDD-001',
+    sourceGate: 'sol', confirmedDisposition: 'not-applicable',
+    confirmationEvidenceSha256: 'c6020b9590ea86740337262bf7d65fc68095407d34cc992154e382cb55f6fa5d',
+  });
   assert.equal(record.classification, 'retrospective measurement, not test coverage or behavioral RED');
   assert.equal(record.sourceCase.baselineRealRunId, '9b057bb3');
   assert.equal(record.sourceCase.afterReplayRealRunId, 'cfd6cad8');
@@ -611,6 +626,49 @@ test('Issue #23 records a bounded real-run settled-history measurement', () => {
   assert.equal(record.method.wholeTaskTotalsComparable, false);
   assert.equal(record.method.providerTokenReductionClaim, false);
   assert.equal(record.method.runtimeModelComplianceClaim, false);
+  const expected = {
+    '9b057bb3': { input: 'afe5253c712ce6448dd35dd85ccc48c60e3ce6bfe509b03dbb8520ed05555363', output: '7cd43a02530be546aab39e6160d31b5a4c10613890d39001055537b6df05fe3c', meta: 'eff5d7548f62188f8eb451aea87f8cb20650a63e9f926bca2842a21c14ed50d7' },
+    'cfd6cad8': { input: '1c255beffbdfc495fffb73fcf741839801d88da3cf79f85206ed97fe3e2a448d', output: '4d251c49b6ef46a9e34f7207b9631c96b2d5f3e85899bae850', meta: '51504270c579c3b3af90dc82f5d080737ea8ead86a48cc9abd94f27137cdfc72' },
+  };
+  expected.cfd6cad8.output = '4d251c49b6ef46a9e34f7207b9631c96d235645340c29eb8d5f3e85899bae850';
+  for (const [runId, hashes] of Object.entries(expected)) {
+    const run = audit.runs[runId];
+    assert.equal(run.runId, runId);
+    assert.equal(run.metadata.sha256, hashes.meta);
+    assert.equal(digest(run.metadata.raw), hashes.meta);
+    assert.deepEqual(JSON.parse(run.metadata.raw), run.metadata.json);
+    assert.equal(run.metadata.json.runId, runId);
+    assert.equal(run.metadata.json.model, 'openai-codex/gpt-5.6-sol:high');
+    assert.equal(run.metadata.json.launchContractDigest, run.launchContractDigest);
+    for (const [kind, hash] of [['inputArtifact', hashes.input], ['outputArtifact', hashes.output]]) {
+      assert.equal(run[kind].sha256, hash);
+      assert.equal(bytes(run[kind].text), run[kind].utf8Bytes);
+      assert.equal(digest(run[kind].text), hash);
+    }
+    assert.equal(run.metadata.json.usage.input, run.usage.input);
+    assert.equal(run.metadata.json.usage.output, run.usage.output);
+  }
+  const baseline = audit.runs['9b057bb3'];
+  const replay = audit.runs.cfd6cad8;
+  for (const marker of audit.sourceContext.baselineInputMustContain) assert.ok(baseline.inputArtifact.text.includes(marker), marker);
+  assert.match(baseline.outputArtifact.text, /No blockers, major findings, or minor findings/);
+  assert.match(replay.inputArtifact.text, /BEGIN_COMPACT_SETTLED_HISTORY[\s\S]*END_COMPACT_SETTLED_HISTORY/);
+  assert.ok(replay.inputArtifact.text.includes(`BEGIN_COMPACT_SETTLED_HISTORY\n${audit.measurementBinding.replayCompactProjectionText}\nEND_COMPACT_SETTLED_HISTORY`));
+  for (const marker of audit.sourceContext.replayOutputMarkers) assert.ok(replay.outputArtifact.text.includes(marker), marker);
+  for (const value of Object.values(audit.measurementBinding.replayOutputMustContainAuthorityGraphVerification)) assert.ok(replay.outputArtifact.text.includes(value), value);
+  assert.equal(record.sourceCase.baselineRealRunId, baseline.runId);
+  assert.equal(record.sourceCase.afterReplayRealRunId, replay.runId);
+  assert.equal(record.sourceCase.model, baseline.model);
+  assert.equal(record.sourceCase.model, replay.model);
+  assert.equal(record.sourceCase.baselineLaunchContractDigest, baseline.launchContractDigest);
+  assert.equal(record.sourceCase.afterLaunchContractDigest, replay.launchContractDigest);
+  for (const [runId, observation] of [['9b057bb3', record.baselineObservation], ['cfd6cad8', record.afterObservation]]) {
+    const task = audit.runs[runId].metadata.json.task;
+    assert.equal(bytes(task), observation.actualTaskBytes);
+    assert.equal(digest(task), observation.actualTaskSha256);
+    assert.equal(audit.runs[runId].metadata.sha256, observation.metadataSha256);
+    assert.equal(audit.runs[runId].metadata.json.usage.input, observation.providerReportedInputTokensAllTurns);
+  }
   const authorityFrames = record.revisions.candidateAuthorityGraphFiles.map((file) => {
     const bytes = Buffer.from(readText(file), 'utf8');
     return Buffer.concat([Buffer.from(`${file} ${bytes.length}\n`, 'utf8'), bytes, Buffer.from('\n')]);
@@ -622,7 +680,6 @@ test('Issue #23 records a bounded real-run settled-history measurement', () => {
   assert.equal(record.revisions.candidateAuthorityFraming, 'For each listed file in order: UTF-8 path, one space, decimal raw byte length, LF, raw file bytes, LF.');
   assert.equal(authorityGraph.length, record.revisions.candidateAuthorityGraphBytes);
   assert.equal(crypto.createHash('sha256').update(authorityGraph).digest('hex'), record.revisions.candidateAuthorityGraphSha256);
-  assert.equal(record.afterObservation.candidateAuthorityGraphVerified, true);
   const before = record.controlledProjection.before;
   const after = record.controlledProjection.after;
   for (const projection of [before, after]) {
@@ -631,7 +688,6 @@ test('Issue #23 records a bounded real-run settled-history measurement', () => {
     assert.ok(Number.isSafeInteger(projection.o200kTokens) && projection.o200kTokens > 0);
   }
   assert.equal(before.actuallyTransmittedAsThisProjection, false);
-  assert.equal(after.actuallyTransmittedAsThisProjection, true);
   assert.match(before.text, /evidence=.*impact=.*smallestCorrection=.*rationale=/);
   assert.doesNotMatch(after.text, /evidence=.*impact=.*smallestCorrection=.*rationale=/);
   assert.match(after.text, /findingId=.*sourceGate=.*raisedAgainst=.*disposition=.*confirmationEvidence=/);

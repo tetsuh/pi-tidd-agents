@@ -93,5 +93,11 @@
     "Whole-task totals are reported for audit but are not comparable because the surrounding tasks differ.",
     "o200k_base is a named reproducible tokenizer, not a provider-isolated GPT-5 payload-token metric; provider-reported all-turn input usage is not used for the controlled comparison.",
     "The record measures one settled finding only and does not prove runtime instruction compliance."
-  ]
+  ],
+  "auditBundle": {
+    "path": "test/records/issue-23-real-run-provenance.json",
+    "recordVersion": "issue23-real-run-provenance-audit-v1",
+    "sha256": "d86ad20026c16dbb8c7e0d31c1ca0ed7519220cd4d361bf569e906afda4fa5a7",
+    "classification": "review-driven regression, not pre-implementation RED and not runtime-compliance proof"
+  }
 }
