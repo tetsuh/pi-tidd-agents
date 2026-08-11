@@ -159,13 +159,13 @@ function issue42RuntimeRootsSafe(value) {
   return Object.keys(roots).sort().join('\0') === RUNTIME_ROOTS.join('\0') && RUNTIME_ROOTS.every((root) =>
     ['absent', 'directory'].includes(roots[root]?.kind) && roots[root].followed === false);
 }
-function issue42OperatorSafe(value, requireBaseline = false) {
+function issue42OperatorSafe(value) {
   const op = value.operator || {};
   const baseline = value.operatorBaseline;
   return op.identity === true && op.head === 'H' && op.branchRef === 'H' &&
     op.trackedChanges.length === 0 && op.indexEntries.length === 0 && op.nonIgnoredUntracked.length === 0 &&
     op.operatorRef === 'H' && op.config === 'unchanged' && op.remoteTracking === 'unchanged' && issue42InventorySafe(op) &&
-    (!requireBaseline || (!!baseline && stable(op) === stable(baseline)));
+    !!baseline && stable(op) === stable(baseline);
 }
 function issue42GitExecutionSafe(ws) {
   return ws.cwd === 'workspace' && ws.gitEnv === 'sanitized-noninteractive' && ws.hooksPath === 'empty-run-owned' &&
@@ -195,17 +195,16 @@ function issue42ValidationSandboxSafe(artifact) {
     artifact.inAllowedPaths !== true && artifact.inEvidence !== true && artifact.inManifest !== true &&
     artifact.inCommitTree !== true && artifact.inPublishedTree !== true;
 }
-function issue42CommonBoundary(value, expectedWorkspaceHead, requireBaseline = true) {
+function issue42CommonBoundary(value, expectedWorkspaceHead) {
   const ws = value.workspace || {};
-  return issue42OperatorSafe(value, requireBaseline) && issue42RuntimeRootsSafe(value) &&
+  return issue42OperatorSafe(value) && issue42RuntimeRootsSafe(value) &&
     issue42WorkspaceSafe(value, expectedWorkspaceHead) && issue42ScopeSafe(value) &&
     !ws.partialCreation && !ws.verificationFailure && !ws.fallbackUsedAfterPartial &&
     !ws.cleanupIdentityMismatch && !ws.cleanupFailure && issue42ValidationSandboxSafe(value.validationArtifact);
 }
 function issue42WorkspaceGuard(value, phase = 'ordinary') {
-  const terminal = phase === 'post-push' || phase === 'terminal';
   const expectedWorkspaceHead = ['after-commit', 'before-push'].includes(phase) ? value.commit?.child : value.publicHead;
-  if (!expectedWorkspaceHead || !issue42CommonBoundary(value, expectedWorkspaceHead, terminal || value.checkUnchanged === true)) return { status: 'BLOCKED' };
+  if (!expectedWorkspaceHead || !issue42CommonBoundary(value, expectedWorkspaceHead)) return { status: 'BLOCKED' };
   const ws = value.workspace;
   if (phase === 'before-push' && (value.publicHead !== 'H' || ws.pushRefspec !== 'HEAD:refs/heads/pr-branch' || ws.forcePush === true || ws.localBranchMoved === true || ws.fastForward !== true || value.commit?.parent !== 'H' || value.commit?.parents !== 1)) return { status: 'BLOCKED' };
   if (phase === 'after-commit' && (value.commit?.parent !== 'H' || value.commit?.parents !== 1)) return { status: 'BLOCKED' };
@@ -225,7 +224,7 @@ function issue42ReplyBoundary(value) {
 }
 function issue42Cleanup(value) {
   const ws = value.workspace || {};
-  return ['success', 'failure'].includes(value.terminalOutcome) && value.terminalObserved === true && issue42CommonBoundary(value, value.publicHead, true) &&
+  return ['success', 'failure'].includes(value.terminalOutcome) && value.terminalObserved === true && issue42CommonBoundary(value, ws.head) &&
     ws.cleanupAuthorized === true && ws.registration === true && ws.commonGitDir === 'common' &&
     ws.cleanupCommand === 'git worktree remove' && ws.force !== true && ws.prune !== true &&
     ws.recursive !== true && ws.operatorTargeted !== true ? { status: 'pass' } : { status: 'BLOCKED' };
@@ -612,7 +611,7 @@ test('fixture: Issue #42 acceptance vectors 01–20 are explicitly modeled', () 
   });
   baseline.operatorBaseline = clone(baseline.operator);
   assert.equal(issue42WorkspaceGuard(baseline).status, 'pass');
-  assert.equal(issue42WorkspaceGuard({ ...baseline, checkUnchanged: true, operator: { ...baseline.operator, branchRef: 'C' } }).status, 'BLOCKED');
+  assert.equal(issue42WorkspaceGuard({ ...baseline, operator: { ...baseline.operator, branchRef: 'C' } }).status, 'BLOCKED');
   const cases = [
     baseline,
     { ...baseline, operator: { ...baseline.operator, ignoredInventory: [{ path: '__pycache__', kind: 'directory', followed: false }] } },
@@ -627,7 +626,7 @@ test('fixture: Issue #42 acceptance vectors 01–20 are explicitly modeled', () 
     { ...baseline, validationArtifact: { generatedByValidation: true, ignored: true, frozen: true, noFollowPresence: true, staged: true } },
     { ...baseline, publicHead: 'Q' },
     { ...baseline, workspace: { ...baseline.workspace, head: 'C', parent: 'H', child: 'C', pushRefspec: 'HEAD:refs/heads/pr-branch', fastForward: true }, transition: { operatorOid: 'H', parent: 'H', child: 'C' }, publicHead: 'H' },
-    { ...baseline, checkUnchanged: true },
+    baseline,
     { ...baseline, operator: { ...baseline.operator, head: 'H', branchRef: 'H' }, workspace: { ...baseline.workspace, head: 'C' }, publicHead: 'C', behindReport: 'H -> C', reconciled: false },
     { ...baseline, terminalOutcome: 'success', terminalObserved: true, workspace: { ...baseline.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', force: false, prune: false, recursive: false, operatorTargeted: false } },
     { ...baseline, workspace: { ...baseline.workspace, partialCreation: true, creation: 'partial' } },
@@ -638,21 +637,22 @@ test('fixture: Issue #42 acceptance vectors 01–20 are explicitly modeled', () 
   assert.equal(cases.length, ISSUE_42_VECTOR_TABLE.length);
   for (const [index, value] of cases.entries()) {
     const id = ISSUE_42_VECTOR_TABLE[index].id;
+    const candidate = { ...value, operatorBaseline: clone(value.operator) };
     if (['05', '06', '07', '09', '11', '17'].includes(id)) {
-      assert.equal(issue42WorkspaceGuard(value).status, 'BLOCKED', `vector ${id}`);
+      assert.equal(issue42WorkspaceGuard(candidate).status, 'BLOCKED', `vector ${id}`);
     } else if (id === '12') {
-      assert.equal(issue42WorkspaceGuard(value, 'before-push').status, 'BLOCKED', `vector ${id}`);
+      assert.equal(issue42WorkspaceGuard(candidate, 'before-push').status, 'BLOCKED', `vector ${id}`);
     } else if (id === '13') {
-      assert.equal(issue42PushTransition(value, 'before-push').status, 'pass', `vector ${id}`);
+      assert.equal(issue42PushTransition(candidate, 'before-push').status, 'pass', `vector ${id}`);
       assert.equal(value.workspace.pushRefspec, 'HEAD:refs/heads/pr-branch');
       assert.equal(value.workspace.forcePush, false);
     } else if (id === '15') {
-      assert.equal(issue42WorkspaceGuard(value, 'post-push').status, 'pass', `vector ${id}`);
+      assert.equal(issue42WorkspaceGuard(candidate, 'post-push').status, 'pass', `vector ${id}`);
       assert.equal(value.reconciled, false);
     } else if (id === '16') {
-      assert.equal(issue42Cleanup(value).status, 'pass', `vector ${id}`);
+      assert.equal(issue42Cleanup(candidate).status, 'pass', `vector ${id}`);
     } else {
-      assert.equal(issue42WorkspaceGuard(value).status, 'pass', `vector ${id}`);
+      assert.equal(issue42WorkspaceGuard(candidate).status, 'pass', `vector ${id}`);
     }
   }
   assert.equal(issue42WorkspaceGuard({ ...baseline, operator: { ...baseline.operator, indexEntries: ['src/a'] } }).status, 'BLOCKED');
@@ -693,6 +693,7 @@ test('fixture: Issue #42 workspace transitions are deterministic and fail closed
     { workspace: { ...base.workspace, forcePush: true } },
     { workspace: { ...base.workspace, localBranchMoved: true } },
   ]) assert.equal(issue42WorkspaceGuard({ ...base, ...bad }, 'before-push').status, 'BLOCKED');
+  assert.equal(issue42WorkspaceGuard({ ...base, operator: { ...base.operator, ignoredInventory: [{ path: 'cache/renamed', kind: 'directory', followed: false, noFollowLstat: true }] } }).status, 'BLOCKED');
   for (const bad of [
     { operator: { ...base.operator, ignoredEnumeration: 'unstable' } },
     { operator: { ...base.operator, ignoredInventory: [{ path: '../secret', kind: 'file', followed: false }] } },
@@ -723,10 +724,12 @@ test('fixture: Issue #42 workspace transitions are deterministic and fail closed
   assert.equal(issue42ReplyBoundary({ ...latestReply, runtimeRoots: { ...latestReply.runtimeRoots, '.pi': { kind: 'symlink', followed: false } } }).status, 'BLOCKED');
   assert.equal(issue42ReplyBoundary({ ...latestReply, validationArtifact: { generatedByValidation: true, ignored: true, frozen: true, noFollowPresence: true, drift: true } }).status, 'BLOCKED');
   for (const terminalFailure of ['creation_failed', 'validation_failed', 'commit_failed', 'push_rejected', 'push_outcome_unknown', 'cleanup_failed']) {
-    assert.equal(issue42OperatorSafe({ ...base, terminalFailure }, true), true, terminalFailure);
-    assert.equal(issue42OperatorSafe({ ...base, terminalFailure, operator: { ...base.operator, config: 'changed' } }, true), false, terminalFailure);
+    assert.equal(issue42OperatorSafe({ ...base, terminalFailure }), true, terminalFailure);
+    assert.equal(issue42OperatorSafe({ ...base, terminalFailure, operator: { ...base.operator, config: 'changed' } }), false, terminalFailure);
   }
   for (const terminalOutcome of ['success', 'failure']) assert.equal(issue42Cleanup({ ...base, terminalOutcome, terminalObserved: true, workspace: { ...base.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove' } }).status, 'pass');
+  const unpushedCommit = { ...base, terminalOutcome: 'failure', terminalObserved: true, publicHead: 'P', workspace: { ...base.workspace, head: 'C', cleanupAuthorized: true, cleanupCommand: 'git worktree remove' } };
+  assert.equal(issue42Cleanup(unpushedCommit).status, 'pass');
   for (const bad of [{ cleanupCommand: 'git worktree prune' }, { recursive: true }, { cleanupIdentityMismatch: true }, { operatorTargeted: true }, { gitEnv: 'inherited' }, { hooksPath: 'operator-hooks' }]) assert.equal(issue42Cleanup({ ...base, terminalOutcome: 'failure', terminalObserved: true, workspace: { ...base.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', ...bad } }).status, 'BLOCKED');
 });
 
