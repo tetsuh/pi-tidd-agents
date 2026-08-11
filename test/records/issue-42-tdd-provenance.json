@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "classification": "pre-implementation compile/contract/model RED",
+  "runtimeCompliance": false,
+  "command": "node --test test/pr-operational-cleanliness.test.js",
+  "innerExitCode": 1,
+  "summary": {
+    "tests": 33,
+    "passed": 31,
+    "failed": 2
+  },
+  "failingTests": [
+    "artifact: Issue #42 isolated-workspace contract is present and single-checkout CLEAN wording is retired",
+    "fixture: Issue #42 acceptance vectors 01–20 are explicitly modeled"
+  ],
+  "auditBundle": {
+    "path": "test/records/issue-42-tdd-audit.json",
+    "sha256": "b4744626542164e66c73ae18a4f2b030b46b02a5b4fec370adbbac6cc1fcca2a"
+  },
+  "greenValidationBundle": {
+    "path": "test/records/issue-42-validation-audit.json",
+    "sha256": "cdfe04a93f74a725a0033532fcf45053904d0553520f675b323e434124c8711f"
+  },
+  "source": {
+    "runId": "6d79ad7c-6923-4318-b0b5-4ea5b29f350f",
+    "commandSessionPath": "/home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/2026-08-11T11-30-32-902Z_019ff096-a746-740e-ba46-e0535a04e9d3.jsonl",
+    "commandLine": 3548,
+    "commandLineSha256": "c0952a04020b8a0659979eec4d9c22b29c88dba20a875c16a04ce5d5502bb18f",
+    "resultTranscriptPath": "/home/hayate/.pi/agent/sessions/--home-hayate-git-pi-tidd-agents--/subagent-artifacts/6d79ad7c-6923-4318-b0b5-4ea5b29f350f_luna-worker_transcript.jsonl",
+    "resultLine": 35,
+    "resultLineSha256": "fa7e35f6c1b4b0f59438b814075f604b806da724eb0727bf127ee5fb22bf1db0"
+  },
+  "limitations": [
+    "The repository audit bundle preserves the exact command argument and bounded result text with both failing names and the 31/2 summary; the inner exit code follows Node's documented failing-test exit semantics and the captured command wrapper.",
+    "This record does not prove filesystem isolation, Git command execution, model compliance, or runtime orchestration."
+  ]
+}

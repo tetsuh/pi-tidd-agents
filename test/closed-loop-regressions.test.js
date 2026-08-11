@@ -503,9 +503,9 @@ test('fixture: all 22 Issue #10 acceptance scenarios execute against the referen
 test('artifact assertions cover exact autofix safety records and remain non-authoritative', () => {
   const skill = readPrMode(PR_AUTOFIX);
   for (const required of [
-    '`CLEAN@H` :=', '`POST_COMMIT(C, P)` :=', '`REPLY_EXCEPTION` :=',
-    'no untracked path exists outside', 'C` has sole parent `P`',
-    'tracked worktree, index, and `unstaged` are clean', 'deliberately does not require local and public head equality',
+    '`OPERATOR_CHECKOUT@H` :=', '`AUTOFIX_WORKSPACE@H` :=', '`WORKSPACE_POST_COMMIT(C, P)` :=', '`WORKSPACE_POST_PUSH(C, O)` :=', '`OPERATOR_CHECKOUT_UNCHANGED@O` :=', '`REPLY_EXCEPTION` :=',
+    'no unexpected non-ignored untracked paths', 'C` has sole parent/current public `P`',
+    'tracked/index/unstaged state match exactly', 'public head remains `P`',
     'Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result',
     'A reply marker is bound to source identity', 'exact reply body/digest', 'exact public head',
     'required app/source identity', 'older-head thread', 'top-level status, praise, duplicate summary',
@@ -516,13 +516,13 @@ test('artifact assertions cover exact autofix safety records and remain non-auth
     'every allowed path/status/mode and staged blob identity', 'index exactly equal to the immutable manifest',
     'source kind, source ID, source URL', 'preflight every planned destination and source',
     'Order the batch deterministically by source identity', 'destination language', 'any movement expires approval',
-    'Luna repeats `CLEAN@P` immediately before its first edit',
-    '`AFTER_COMMIT` immediately after commit', '`BEFORE_PUSH` immediately before push independently repeats `POST_COMMIT(C, P)`',
-    'After verifying public head `C`, require `CLEAN@C`',
+    'Luna repeats `AUTOFIX_WORKSPACE@P` immediately before its first edit',
+    '`AFTER_COMMIT` immediately after commit', '`BEFORE_PUSH` immediately before push independently repeats `WORKSPACE_POST_COMMIT(C, P)`',
+    'After verifying public head `C`, require `AUTOFIX_WORKSPACE@C` and `WORKSPACE_POST_PUSH(C, O)`',
     'All three local dimensions remain independently guarded', 'tracked worktree, index, and untracked state outside `RUNTIME_ROOTS`',
     'pre-existing tracked unstaged edit is rejected', 'git log -1 --format=%B',
     'stored bytes/content exactly', 'expected approved message',
-    'unexpected worktree or index mutation', 'regardless of path authorization', 'zero cleanup, retry, continuation, or mutation',
+    'unexpected worktree or index mutation', 'regardless of path authorization', 'Cleanup failure is fail-closed',
     'never claims that the whole PR is ready unless final readiness has independently been reached',
     'parent must create and report the proposed aggregate final-summary body/draft',
     'The draft is not workflow state', 'declining or not posting it never blocks readiness',
@@ -669,17 +669,17 @@ test('Issue #23 records a bounded real-run settled-history measurement', () => {
     assert.equal(audit.runs[runId].metadata.sha256, observation.metadataSha256);
     assert.equal(audit.runs[runId].metadata.json.usage.input, observation.providerReportedInputTokensAllTurns);
   }
-  const authorityFrames = record.revisions.candidateAuthorityGraphFiles.map((file) => {
-    const bytes = Buffer.from(readText(file), 'utf8');
-    return Buffer.concat([Buffer.from(`${file} ${bytes.length}\n`, 'utf8'), bytes, Buffer.from('\n')]);
-  });
-  const authorityRaw = Buffer.concat(record.revisions.candidateAuthorityGraphFiles.map((file) => Buffer.from(readText(file), 'utf8')));
-  const authorityGraph = Buffer.concat(authorityFrames);
-  assert.equal(authorityRaw.length, record.revisions.candidateAuthorityRawBytes);
-  assert.equal(crypto.createHash('sha256').update(authorityRaw).digest('hex'), record.revisions.candidateAuthorityRawConcatSha256);
+  // This versioned identity is historical replay evidence, not a mutable-current-tree ceiling.
+  assert.equal(record.revisions.candidateAuthorityIdentityScope, 'immutable historical Issue #23 replay identity verified by replay cfd6cad8 output; never recomputed from later mutable authority files');
+  assert.equal(record.revisions.candidateAuthorityEvidencePath, record.auditBundle.path);
+  assert.equal(record.revisions.candidateAuthorityEvidenceSha256, digest(readText(record.revisions.candidateAuthorityEvidencePath)));
+  assert.equal(record.revisions.candidateAuthorityRawBytes, 98692);
+  assert.equal(record.revisions.candidateAuthorityRawConcatSha256, '7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139');
   assert.equal(record.revisions.candidateAuthorityFraming, 'For each listed file in order: UTF-8 path, one space, decimal raw byte length, LF, raw file bytes, LF.');
-  assert.equal(authorityGraph.length, record.revisions.candidateAuthorityGraphBytes);
-  assert.equal(crypto.createHash('sha256').update(authorityGraph).digest('hex'), record.revisions.candidateAuthorityGraphSha256);
+  assert.equal(record.revisions.candidateAuthorityGraphBytes, 98991);
+  assert.equal(record.revisions.candidateAuthorityGraphSha256, 'eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf');
+  assert.ok(replay.outputArtifact.text.includes('raw: 98692 bytes; SHA-256 7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139'));
+  assert.ok(replay.outputArtifact.text.includes('framed: 98991 bytes; SHA-256 eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf'));
   const before = record.controlledProjection.before;
   const after = record.controlledProjection.after;
   for (const projection of [before, after]) {

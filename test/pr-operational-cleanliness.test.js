@@ -12,10 +12,13 @@
 // safe and unsafe roots are classified independently.
 // npm-pack coverage is a retrospective behavioral characterization,
 // not RED evidence.
+// Issue #42 provenance is hash-bound in test/records/issue-42-tdd-provenance.json.
+// It is compile/contract/model RED only, never runtime-compliance evidence.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { readText } = require('./helpers');
+const fs = require('node:fs');
+const { readText, readJson } = require('./helpers');
 
 const CONTRACT = readText('CONTRACT.md');
 const PR_SKILL = readText('skills/closed-loop-pr/SKILL.md');
@@ -110,6 +113,122 @@ function baseState(overrides = {}) {
     publishedHead: 'P', rawDiff: '', baseEntries: [], candidateEntries: [],
     ...overrides,
   });
+}
+
+// Issue #42's model keeps owner data opaque: only sorted lexical paths and
+// no-follow lstat kinds are admissible. It intentionally models mandatory
+// boundary observations, not continuous noninterference.
+const ISSUE_42_EXPECTED_IDS = Object.freeze(Array.from({ length: 20 }, (_, i) => String(i + 1).padStart(2, '0')));
+const ISSUE_42_VECTOR_TABLE = Object.freeze([
+  { id: '01', semantic: 'ignored pytest cache proceeds' },
+  { id: '02', semantic: 'ignored Python bytecode cache proceeds' },
+  { id: '03', semantic: 'opaque application ignored directory proceeds' },
+  { id: '04', semantic: 'ignored symlink is not followed or copied' },
+  { id: '05', semantic: 'ambiguous ignored inventory blocks' },
+  { id: '06', semantic: 'tracked or indexed operator changes block' },
+  { id: '07', semantic: 'non-ignored untracked path blocks' },
+  { id: '08', semantic: 'linked detached workspace identity passes' },
+  { id: '09', semantic: 'operator ignored and untracked paths are not copied' },
+  { id: '10', semantic: 'workspace validation artifacts stay outside correction scope' },
+  { id: '11', semantic: 'staged sandbox artifact blocks' },
+  { id: '12', semantic: 'public head movement blocks before push' },
+  { id: '13', semantic: 'detached sole-parent normal push passes' },
+  { id: '14', semantic: 'operator checkout remains unchanged at boundaries' },
+  { id: '15', semantic: 'successful push reports operator behind without reconciliation' },
+  { id: '16', semantic: 'cleanup is exact and bounded' },
+  { id: '17', semantic: 'partial creation or verification failure has no fallback' },
+  { id: '18', semantic: 'ignored state is explicitly enumerated, not porcelain-only' },
+  { id: '19', semantic: 'Pi runtime roots remain separately enumerated' },
+  { id: '20', semantic: 'review-only and Issue scope remain unchanged' },
+]);
+assert.deepEqual(ISSUE_42_VECTOR_TABLE.map(({ id }) => id), ISSUE_42_EXPECTED_IDS);
+function issue42InventorySafe(value) {
+  const inventory = value.ignoredInventory;
+  if (!Array.isArray(inventory) || value.ignoredEnumeration !== 'explicit-nul' || value.inventoryStable !== true) return false;
+  if (inventory.some((entry) => {
+    if (!entry || typeof entry.path !== 'string' || entry.path.includes('\0') || entry.path.includes('\\')) return true;
+    const parts = entry.path.split('/');
+    return entry.path.startsWith('/') || parts.some((part) => part === '' || part === '.' || part === '..') ||
+      isRuntimeNamespace(entry.path) || !['directory', 'file', 'symlink', 'fifo', 'socket', 'device', 'unknown'].includes(entry.kind) ||
+      entry.followed !== false || entry.noFollowLstat === false || entry.race === true;
+  })) return false;
+  return inventory.every((entry, i) => i === 0 || inventory[i - 1].path < entry.path);
+}
+function issue42RuntimeRootsSafe(value) {
+  const roots = value.runtimeRoots || {};
+  return Object.keys(roots).sort().join('\0') === RUNTIME_ROOTS.join('\0') && RUNTIME_ROOTS.every((root) =>
+    ['absent', 'directory'].includes(roots[root]?.kind) && roots[root].followed === false);
+}
+function issue42OperatorSafe(value, requireBaseline = false) {
+  const op = value.operator || {};
+  const baseline = value.operatorBaseline;
+  return op.identity === true && op.head === 'H' && op.branchRef === 'H' &&
+    op.trackedChanges.length === 0 && op.indexEntries.length === 0 && op.nonIgnoredUntracked.length === 0 &&
+    op.operatorRef === 'H' && op.config === 'unchanged' && op.remoteTracking === 'unchanged' && issue42InventorySafe(op) &&
+    (!requireBaseline || (!!baseline && stable(op) === stable(baseline)));
+}
+function issue42GitExecutionSafe(ws) {
+  return ws.cwd === 'workspace' && ws.gitEnv === 'sanitized-noninteractive' && ws.hooksPath === 'empty-run-owned' &&
+    ws.executables === false && ws.sharedMetadataMutation === false && ws.remoteTrackingMutation === false &&
+    ws.readOnlyRemoteUpdatesTracking === false;
+}
+function issue42WorkspaceSafe(value, expectedHead = 'H') {
+  const ws = value.workspace || {};
+  const linked = ws.kind === 'linked';
+  const cloneFallback = ws.kind === 'clone';
+  const modeIdentity = linked
+    ? ws.commonGitDir === 'common' && ws.worktreeGitDir === 'registered' && ws.gitIndirection && ws.registration === true
+    : cloneFallback && ws.commonGitDir === 'clone-owned' && ws.worktreeGitDir === 'clone-owned' && ws.registration === false &&
+      ws.source === 'resolved' && ws.linkedUnavailableNoSideEffects === true;
+  return modeIdentity && ws.pathOutsideRepository === true && ws.identity === true && ws.head === expectedHead && ws.tree === 'T' &&
+    ws.origin === 'origin' && ws.detached === true && ws.canonicalPath === true && ws.repository === 'resolved' &&
+    ws.fetchUrl === 'resolved' && ws.pushUrl === 'resolved' && ws.prBranch === 'verified' &&
+    ws.copiedOperatorPaths === false && issue42GitExecutionSafe(ws) && ws.creation === 'verified' && ws.enumerationFailure !== true;
+}
+function issue42ScopeSafe(value) {
+  return value.scope?.reviewOnly === false && value.scope?.issue === false && value.scope?.exactAutofix === true;
+}
+function issue42ValidationSandboxSafe(artifact) {
+  if (!artifact) return true;
+  return artifact.generatedByValidation === true && artifact.ignored === true && artifact.frozen === true &&
+    artifact.noFollowPresence === true && artifact.drift !== true && artifact.staged !== true &&
+    artifact.inAllowedPaths !== true && artifact.inEvidence !== true && artifact.inManifest !== true &&
+    artifact.inCommitTree !== true && artifact.inPublishedTree !== true;
+}
+function issue42CommonBoundary(value, expectedWorkspaceHead, requireBaseline = true) {
+  const ws = value.workspace || {};
+  return issue42OperatorSafe(value, requireBaseline) && issue42RuntimeRootsSafe(value) &&
+    issue42WorkspaceSafe(value, expectedWorkspaceHead) && issue42ScopeSafe(value) &&
+    !ws.partialCreation && !ws.verificationFailure && !ws.fallbackUsedAfterPartial &&
+    !ws.cleanupIdentityMismatch && !ws.cleanupFailure && issue42ValidationSandboxSafe(value.validationArtifact);
+}
+function issue42WorkspaceGuard(value, phase = 'ordinary') {
+  const terminal = phase === 'post-push' || phase === 'terminal';
+  const expectedWorkspaceHead = ['after-commit', 'before-push'].includes(phase) ? value.commit?.child : value.publicHead;
+  if (!expectedWorkspaceHead || !issue42CommonBoundary(value, expectedWorkspaceHead, terminal || value.checkUnchanged === true)) return { status: 'BLOCKED' };
+  const ws = value.workspace;
+  if (phase === 'before-push' && (value.publicHead !== 'H' || ws.pushRefspec !== 'HEAD:refs/heads/pr-branch' || ws.forcePush === true || ws.localBranchMoved === true || ws.fastForward !== true || value.commit?.parent !== 'H' || value.commit?.parents !== 1)) return { status: 'BLOCKED' };
+  if (phase === 'after-commit' && (value.commit?.parent !== 'H' || value.commit?.parents !== 1)) return { status: 'BLOCKED' };
+  if (phase === 'post-push' && (value.publicHead !== 'C' || value.behindReport !== 'H -> C' || value.reconciled === true)) return { status: 'BLOCKED' };
+  return { status: 'pass' };
+}
+function issue42PushTransition(value, phase) {
+  const { operatorOid: O, parent: P, child: C } = value.transition;
+  if (!issue42CommonBoundary(value, C, true) || O !== 'H' || value.operator.head !== O || value.commit.parents !== 1 || value.commit.parent !== P || value.commit.child !== C || value.workspace.parent !== P || value.workspace.child !== C) return { status: 'BLOCKED' };
+  if (phase === 'before-push') return value.publicHead === P && value.workspace.pushRefspec === 'HEAD:refs/heads/pr-branch' && value.workspace.fastForward === true && value.workspace.forcePush === false && value.workspace.localBranchMoved === false ? { status: 'pass' } : { status: 'BLOCKED' };
+  if (phase === 'post-push') return value.publicHead === C && value.behindReport === `${O} -> ${C}` && value.reconciled === false ? { status: 'pass' } : { status: 'BLOCKED' };
+  return { status: 'BLOCKED' };
+}
+function issue42ReplyBoundary(value) {
+  const current = value.publicHead;
+  return issue42CommonBoundary(value, current, true) && value.confirmationHead === current && value.replyHead === current ? { status: 'pass' } : { status: 'BLOCKED' };
+}
+function issue42Cleanup(value) {
+  const ws = value.workspace || {};
+  return ['success', 'failure'].includes(value.terminalOutcome) && value.terminalObserved === true && issue42CommonBoundary(value, value.publicHead, true) &&
+    ws.cleanupAuthorized === true && ws.registration === true && ws.commonGitDir === 'common' &&
+    ws.cleanupCommand === 'git worktree remove' && ws.force !== true && ws.prune !== true &&
+    ws.recursive !== true && ws.operatorTargeted !== true ? { status: 'pass' } : { status: 'BLOCKED' };
 }
 function rootSafe(root, descriptor, descendants, untrackedPaths) {
   const kinds = new Set(['absent', 'directory', 'symlink', 'file', 'fifo', 'socket', 'device', 'unknown']);
@@ -406,29 +525,234 @@ function withHazard(value, hazard) {
   return next;
 }
 
+test('record: Issue #42 pre-implementation RED is hash-bound and narrowly classified', () => {
+  const record = readJson('test/records/issue-42-tdd-provenance.json');
+  assert.equal(record.classification, 'pre-implementation compile/contract/model RED');
+  assert.equal(record.runtimeCompliance, false);
+  assert.equal(record.command, 'node --test test/pr-operational-cleanliness.test.js');
+  assert.equal(record.innerExitCode, 1);
+  assert.deepEqual(record.summary, { tests: 33, passed: 31, failed: 2 });
+  assert.deepEqual(record.failingTests, [
+    'artifact: Issue #42 isolated-workspace contract is present and single-checkout CLEAN wording is retired',
+    'fixture: Issue #42 acceptance vectors 01–20 are explicitly modeled',
+  ]);
+  const auditBytes = fs.readFileSync(record.auditBundle.path);
+  assert.equal(crypto.createHash('sha256').update(auditBytes).digest('hex'), record.auditBundle.sha256);
+  const audit = JSON.parse(auditBytes);
+  assert.equal(audit.runId, record.source.runId);
+  for (const artifact of [audit.commandArtifact, audit.resultArtifact]) {
+    assert.equal(Buffer.byteLength(artifact.text, 'utf8'), artifact.utf8Bytes);
+    assert.equal(crypto.createHash('sha256').update(artifact.text).digest('hex'), artifact.sha256);
+  }
+  assert.match(audit.commandArtifact.text, /node --test test\/pr-operational-cleanliness\.test\.js/);
+  for (const marker of [...record.failingTests, 'ℹ tests 33', 'ℹ pass 31', 'ℹ fail 2']) assert.ok(audit.resultArtifact.text.includes(marker), marker);
+  assert.equal(audit.sourceLineDigests.commandEventLineSha256, record.source.commandLineSha256);
+  assert.equal(audit.sourceLineDigests.resultEventLineSha256, record.source.resultLineSha256);
+  const greenBytes = fs.readFileSync(record.greenValidationBundle.path);
+  assert.equal(crypto.createHash('sha256').update(greenBytes).digest('hex'), record.greenValidationBundle.sha256);
+  const green = JSON.parse(greenBytes);
+  assert.equal(green.classification, 'review-driven pre-binding clean-copy validation evidence, not final mutually-bound-tree attestation, pre-implementation RED, or runtime-compliance proof');
+  assert.match(green.method, /Before adding this audit hash/);
+  assert.ok(green.limitations.some((item) => item.includes('does not claim to test its own final binding')));
+  for (const artifact of [green.npmTestArtifact, green.npmPackArtifact]) {
+    assert.equal(Buffer.byteLength(artifact.text, 'utf8'), artifact.utf8Bytes);
+    assert.equal(crypto.createHash('sha256').update(artifact.text).digest('hex'), artifact.sha256);
+  }
+  assert.deepEqual(green.exitCodes, [0, 0]);
+  assert.deepEqual(green.observedSummary, { tests: 285, passed: 285, failed: 0, packFiles: 18, packBytes: 45025 });
+  for (const marker of ['ℹ tests 285', 'ℹ pass 285', 'ℹ fail 0']) assert.ok(green.npmTestArtifact.text.includes(marker), marker);
+});
+
+test('artifact: Issue #42 isolated-workspace contract is present and single-checkout CLEAN wording is retired', () => {
+  const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
+  const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
+  const invariants = section(SKILL, '### Isolated exact-autofix invariants (CL-D10, CL-D30)');
+  const preflight = section(SKILL, '### Worktree precondition (CL-D10)');
+  const phases = section(SKILL, '### Exact identity and Luna publication phases');
+  for (const text of [CONTRACT, PR_AUTOFIX]) {
+    assert.match(text, /OPERATOR_CHECKOUT@H/);
+    assert.match(text, /AUTOFIX_WORKSPACE@H/);
+    assert.match(text, /OPERATOR_CHECKOUT_UNCHANGED@O/);
+    assert.match(text, /opaque.*ignored|ignored.*opaque/i);
+    assert.match(text, /git worktree add --detach/);
+    assert.match(text, /temporary clone.*fallback/i);
+    assert.match(text, /explicitly enumerate(?:d)? ignored|ignored.*explicitly enumerate|enumerat(?:e|ed).*ignored/i);
+    assert.match(text, /(?:without (?:reading|following).*contents|never (?:read|follow).*contents|reads? no contents|contents.*never read)/i);
+  }
+  assert.match(invariants, /WORKSPACE_POST_COMMIT|POST_COMMIT.*workspace/i);
+  assert.match(preflight, /outside the repository|isolated workspace/i);
+  assert.match(phases, /workspace cwd|workspace path|AUTOFIX_WORKSPACE@H/i);
+  assert.doesNotMatch(preflight, /branch must already be checked out and satisfy `CLEAN@H`/);
+  assert.match(d30, /(?:unexpected )?non-ignored untracked.*block(?:ed|s)?/i);
+});
+
+test('fixture: Issue #42 acceptance vectors 01–20 are explicitly modeled', () => {
+  const baseline = baseState({
+    operatorBaseline: null,
+    operator: {
+      identity: true, head: 'H', branchRef: 'H', trackedChanges: [], indexEntries: [],
+      nonIgnoredUntracked: [], ignoredEnumeration: 'explicit-nul', inventoryStable: true,
+      operatorRef: 'H', config: 'unchanged', remoteTracking: 'unchanged',
+      ignoredInventory: [{ path: 'app/.pytest_cache', kind: 'directory', followed: false, noFollowLstat: true }],
+    },
+    workspace: {
+      kind: 'linked', pathOutsideRepository: true, canonicalPath: true, identity: true, head: 'H', tree: 'T', origin: 'origin',
+      repository: 'resolved', fetchUrl: 'resolved', pushUrl: 'resolved', prBranch: 'verified',
+      commonGitDir: 'common', worktreeGitDir: 'registered', cwd: 'workspace',
+      gitEnv: 'sanitized-noninteractive', hooksPath: 'empty-run-owned', executables: false,
+      sharedMetadataMutation: false, remoteTrackingMutation: false, readOnlyRemoteUpdatesTracking: false,
+      pushRefspec: 'HEAD:refs/heads/pr-branch', forcePush: false, localBranchMoved: false, fastForward: true,
+      detached: true, copiedOperatorPaths: false, gitIndirection: true, registration: true,
+      creation: 'verified', enumerationFailure: false,
+    },
+    publicHead: 'H', commit: { parent: 'H', child: 'C', parents: 1 },
+    runtimeRoots: { '.pi': { kind: 'directory', followed: false }, '.pi-subagents': { kind: 'absent', followed: false } },
+    scope: { reviewOnly: false, issue: false, exactAutofix: true },
+    validationArtifact: null,
+  });
+  baseline.operatorBaseline = clone(baseline.operator);
+  assert.equal(issue42WorkspaceGuard(baseline).status, 'pass');
+  assert.equal(issue42WorkspaceGuard({ ...baseline, checkUnchanged: true, operator: { ...baseline.operator, branchRef: 'C' } }).status, 'BLOCKED');
+  const cases = [
+    baseline,
+    { ...baseline, operator: { ...baseline.operator, ignoredInventory: [{ path: '__pycache__', kind: 'directory', followed: false }] } },
+    { ...baseline, operator: { ...baseline.operator, ignoredInventory: [{ path: 'app-local', kind: 'directory', followed: false }] } },
+    { ...baseline, operator: { ...baseline.operator, ignoredInventory: [{ path: 'secret-link', kind: 'symlink', followed: false }] } },
+    { ...baseline, operator: { ...baseline.operator, ignoredInventory: [{ path: 'unsafe-cache', kind: 'unknown', followed: false, noFollowLstat: false }] } },
+    { ...baseline, operator: { ...baseline.operator, trackedChanges: ['src/a'] } },
+    { ...baseline, operator: { ...baseline.operator, nonIgnoredUntracked: ['.claude'] } },
+    baseline,
+    { ...baseline, workspace: { ...baseline.workspace, copiedOperatorPaths: true } },
+    { ...baseline, validationArtifact: { generatedByValidation: true, ignored: true, frozen: true, noFollowPresence: true, staged: false, inAllowedPaths: false, inEvidence: false, inManifest: false, inCommitTree: false, inPublishedTree: false } },
+    { ...baseline, validationArtifact: { generatedByValidation: true, ignored: true, frozen: true, noFollowPresence: true, staged: true } },
+    { ...baseline, publicHead: 'Q' },
+    { ...baseline, workspace: { ...baseline.workspace, head: 'C', parent: 'H', child: 'C', pushRefspec: 'HEAD:refs/heads/pr-branch', fastForward: true }, transition: { operatorOid: 'H', parent: 'H', child: 'C' }, publicHead: 'H' },
+    { ...baseline, checkUnchanged: true },
+    { ...baseline, operator: { ...baseline.operator, head: 'H', branchRef: 'H' }, workspace: { ...baseline.workspace, head: 'C' }, publicHead: 'C', behindReport: 'H -> C', reconciled: false },
+    { ...baseline, terminalOutcome: 'success', terminalObserved: true, workspace: { ...baseline.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', force: false, prune: false, recursive: false, operatorTargeted: false } },
+    { ...baseline, workspace: { ...baseline.workspace, partialCreation: true, creation: 'partial' } },
+    { ...baseline, operator: { ...baseline.operator, ignoredEnumeration: 'explicit-nul', inventoryStable: true } },
+    { ...baseline, runtimeRoots: { '.pi': { kind: 'directory', followed: false }, '.pi-subagents': { kind: 'absent', followed: false } } },
+    { ...baseline, scope: { reviewOnly: false, issue: false, exactAutofix: true } },
+  ];
+  assert.equal(cases.length, ISSUE_42_VECTOR_TABLE.length);
+  for (const [index, value] of cases.entries()) {
+    const id = ISSUE_42_VECTOR_TABLE[index].id;
+    if (['05', '06', '07', '09', '11', '17'].includes(id)) {
+      assert.equal(issue42WorkspaceGuard(value).status, 'BLOCKED', `vector ${id}`);
+    } else if (id === '12') {
+      assert.equal(issue42WorkspaceGuard(value, 'before-push').status, 'BLOCKED', `vector ${id}`);
+    } else if (id === '13') {
+      assert.equal(issue42PushTransition(value, 'before-push').status, 'pass', `vector ${id}`);
+      assert.equal(value.workspace.pushRefspec, 'HEAD:refs/heads/pr-branch');
+      assert.equal(value.workspace.forcePush, false);
+    } else if (id === '15') {
+      assert.equal(issue42WorkspaceGuard(value, 'post-push').status, 'pass', `vector ${id}`);
+      assert.equal(value.reconciled, false);
+    } else if (id === '16') {
+      assert.equal(issue42Cleanup(value).status, 'pass', `vector ${id}`);
+    } else {
+      assert.equal(issue42WorkspaceGuard(value).status, 'pass', `vector ${id}`);
+    }
+  }
+  assert.equal(issue42WorkspaceGuard({ ...baseline, operator: { ...baseline.operator, indexEntries: ['src/a'] } }).status, 'BLOCKED');
+  assert.equal(issue42WorkspaceGuard({ ...baseline, validationArtifact: { generatedByValidation: true, ignored: true, frozen: true, noFollowPresence: true, inEvidence: true } }).status, 'BLOCKED');
+  assert.equal(issue42WorkspaceGuard({ ...baseline, validationArtifact: { generatedByValidation: true, ignored: true, frozen: true, noFollowPresence: true, drift: true } }).status, 'BLOCKED');
+  assert.equal(issue42WorkspaceGuard({ ...baseline, runtimeRoots: { ...baseline.runtimeRoots, '.pi': { kind: 'symlink', followed: false } } }).status, 'BLOCKED');
+  assert.equal(issue42WorkspaceGuard({ ...baseline, scope: { reviewOnly: true, issue: false, exactAutofix: false } }).status, 'BLOCKED');
+  assert.equal(issue42Cleanup(baseline).status, 'BLOCKED');
+  assert.equal(issue42Cleanup({ ...baseline, terminalOutcome: 'success', terminalObserved: true, workspace: { ...baseline.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree prune' } }).status, 'BLOCKED');
+  assert.equal(issue42Cleanup({ ...baseline, terminalOutcome: 'failure', terminalObserved: true, workspace: { ...baseline.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', force: false, prune: false, operatorTargeted: true } }).status, 'BLOCKED');
+});
+
+test('fixture: Issue #42 workspace transitions are deterministic and fail closed', () => {
+  const base = baseState({
+    operator: { identity: true, head: 'H', branchRef: 'H', operatorRef: 'H', trackedChanges: [], indexEntries: [], nonIgnoredUntracked: [], config: 'unchanged', remoteTracking: 'unchanged', ignoredEnumeration: 'explicit-nul', inventoryStable: true, ignoredInventory: [{ path: 'cache/local', kind: 'directory', followed: false, noFollowLstat: true }] },
+    workspace: { kind: 'linked', pathOutsideRepository: true, canonicalPath: true, identity: true, head: 'H', tree: 'T', origin: 'origin', repository: 'resolved', fetchUrl: 'resolved', pushUrl: 'resolved', prBranch: 'verified', commonGitDir: 'common', worktreeGitDir: 'registered', cwd: 'workspace', gitEnv: 'sanitized-noninteractive', hooksPath: 'empty-run-owned', executables: false, sharedMetadataMutation: false, remoteTrackingMutation: false, readOnlyRemoteUpdatesTracking: false, pushRefspec: 'HEAD:refs/heads/pr-branch', forcePush: false, localBranchMoved: false, fastForward: true, detached: true, copiedOperatorPaths: false, gitIndirection: true, registration: true, creation: 'verified', enumerationFailure: false },
+    publicHead: 'H', commit: { parent: 'H', child: 'C', parents: 1 },
+    runtimeRoots: { '.pi': { kind: 'directory', followed: false }, '.pi-subagents': { kind: 'absent', followed: false } },
+    scope: { reviewOnly: false, issue: false, exactAutofix: true },
+  });
+  base.operatorBaseline = clone(base.operator);
+  assert.equal(issue42WorkspaceGuard(base).status, 'pass');
+  assert.equal(issue42WorkspaceGuard(base, 'after-commit').status, 'BLOCKED');
+  assert.equal(issue42WorkspaceGuard(base, 'before-push').status, 'BLOCKED');
+  const cloneFallback = { ...base, workspace: { ...base.workspace, kind: 'clone', commonGitDir: 'clone-owned', worktreeGitDir: 'clone-owned', registration: false, gitIndirection: false, source: 'resolved', linkedUnavailableNoSideEffects: true } };
+  assert.equal(issue42WorkspaceGuard(cloneFallback).status, 'pass');
+  assert.equal(issue42WorkspaceGuard({ ...cloneFallback, workspace: { ...cloneFallback.workspace, linkedUnavailableNoSideEffects: false } }).status, 'BLOCKED');
+  for (const bad of [
+    { workspace: { ...base.workspace, commonGitDir: 'operator' } },
+    { workspace: { ...base.workspace, cwd: 'operator' } },
+    { workspace: { ...base.workspace, gitEnv: 'inherited' } },
+    { workspace: { ...base.workspace, hooksPath: 'operator-hooks' } },
+    { workspace: { ...base.workspace, sharedMetadataMutation: true } },
+    { workspace: { ...base.workspace, remoteTrackingMutation: true } },
+    { workspace: { ...base.workspace, repository: 'other' } },
+    { workspace: { ...base.workspace, kind: 'clone', source: 'unbound' } },
+    { workspace: { ...base.workspace, pushRefspec: 'HEAD:main' } },
+    { workspace: { ...base.workspace, forcePush: true } },
+    { workspace: { ...base.workspace, localBranchMoved: true } },
+  ]) assert.equal(issue42WorkspaceGuard({ ...base, ...bad }, 'before-push').status, 'BLOCKED');
+  for (const bad of [
+    { operator: { ...base.operator, ignoredEnumeration: 'unstable' } },
+    { operator: { ...base.operator, ignoredInventory: [{ path: '../secret', kind: 'file', followed: false }] } },
+    { operator: { ...base.operator, ignoredInventory: [{ path: './secret', kind: 'file', followed: false }] } },
+    { operator: { ...base.operator, ignoredInventory: [{ path: '/secret', kind: 'file', followed: false }] } },
+    { operator: { ...base.operator, ignoredInventory: [{ path: 'cache/local', kind: 'file', followed: false, race: true }] } },
+    { operator: { ...base.operator, remoteTracking: 'changed' } },
+  ]) assert.equal(issue42WorkspaceGuard({ ...base, ...bad }).status, 'BLOCKED');
+  const pushed = { ...base, workspace: { ...base.workspace, head: 'C' }, publicHead: 'C', behindReport: 'H -> C', reconciled: false };
+  assert.equal(issue42WorkspaceGuard(pushed, 'post-push').status, 'pass');
+  for (const bad of [{ reconciled: true }, { behindReport: 'updated' }, { operator: { ...base.operator, head: 'C' } }, { operator: { ...base.operator, ignoredInventory: [{ path: 'cache/new', kind: 'directory', followed: false, noFollowLstat: true }] } }, { operator: { ...base.operator, indexEntries: ['src/drift'] } }, { operator: { ...base.operator, config: 'changed' } }]) assert.equal(issue42WorkspaceGuard({ ...pushed, ...bad }, 'post-push').status, 'BLOCKED');
+  const firstPush = { ...base, transition: { operatorOid: 'H', parent: 'H', child: 'P' }, publicHead: 'H', commit: { parent: 'H', child: 'P', parents: 1 }, workspace: { ...base.workspace, head: 'P', parent: 'H', child: 'P' } };
+  assert.equal(issue42PushTransition(firstPush, 'before-push').status, 'pass');
+  assert.equal(issue42PushTransition({ ...firstPush, workspace: { ...firstPush.workspace, head: 'H' } }, 'before-push').status, 'BLOCKED');
+  assert.equal(issue42PushTransition({ ...firstPush, publicHead: 'P', behindReport: 'H -> P', reconciled: false }, 'post-push').status, 'pass');
+  const secondPush = { ...base, transition: { operatorOid: 'H', parent: 'P', child: 'C' }, publicHead: 'P', commit: { parent: 'P', child: 'C', parents: 1 }, workspace: { ...base.workspace, head: 'C', parent: 'P', child: 'C' } };
+  assert.equal(issue42PushTransition(secondPush, 'before-push').status, 'pass');
+  assert.equal(issue42PushTransition({ ...secondPush, workspace: { ...secondPush.workspace, head: 'P' } }, 'before-push').status, 'BLOCKED');
+  assert.equal(issue42PushTransition({ ...secondPush, publicHead: 'C', behindReport: 'H -> C', reconciled: false }, 'post-push').status, 'pass');
+  assert.equal(issue42PushTransition({ ...secondPush, operator: { ...base.operator, remoteTracking: 'changed' } }, 'before-push').status, 'BLOCKED');
+  assert.equal(issue42PushTransition({ ...secondPush, validationArtifact: { generatedByValidation: true, ignored: true, frozen: true, noFollowPresence: true, drift: true } }, 'before-push').status, 'BLOCKED');
+  const latestReply = { ...secondPush, publicHead: 'C', confirmationHead: 'C', replyHead: 'C' };
+  assert.equal(issue42ReplyBoundary(latestReply).status, 'pass');
+  assert.equal(issue42ReplyBoundary({ ...latestReply, confirmationHead: 'P' }).status, 'BLOCKED');
+  assert.equal(issue42ReplyBoundary({ ...latestReply, replyHead: 'P' }).status, 'BLOCKED');
+  assert.equal(issue42ReplyBoundary({ ...latestReply, workspace: { ...latestReply.workspace, head: 'P' } }).status, 'BLOCKED');
+  assert.equal(issue42ReplyBoundary({ ...latestReply, scope: { reviewOnly: true, issue: false, exactAutofix: false } }).status, 'BLOCKED');
+  assert.equal(issue42ReplyBoundary({ ...latestReply, runtimeRoots: { ...latestReply.runtimeRoots, '.pi': { kind: 'symlink', followed: false } } }).status, 'BLOCKED');
+  assert.equal(issue42ReplyBoundary({ ...latestReply, validationArtifact: { generatedByValidation: true, ignored: true, frozen: true, noFollowPresence: true, drift: true } }).status, 'BLOCKED');
+  for (const terminalFailure of ['creation_failed', 'validation_failed', 'commit_failed', 'push_rejected', 'push_outcome_unknown', 'cleanup_failed']) {
+    assert.equal(issue42OperatorSafe({ ...base, terminalFailure }, true), true, terminalFailure);
+    assert.equal(issue42OperatorSafe({ ...base, terminalFailure, operator: { ...base.operator, config: 'changed' } }, true), false, terminalFailure);
+  }
+  for (const terminalOutcome of ['success', 'failure']) assert.equal(issue42Cleanup({ ...base, terminalOutcome, terminalObserved: true, workspace: { ...base.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove' } }).status, 'pass');
+  for (const bad of [{ cleanupCommand: 'git worktree prune' }, { recursive: true }, { cleanupIdentityMismatch: true }, { operatorTargeted: true }, { gitEnv: 'inherited' }, { hooksPath: 'operator-hooks' }]) assert.equal(issue42Cleanup({ ...base, terminalOutcome: 'failure', terminalObserved: true, workspace: { ...base.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', ...bad } }).status, 'BLOCKED');
+});
+
 // Section-scoped compile/contract coverage, including forbidden stale wording.
 test('artifact: Issue #17 sections define scoped operational cleanliness', () => {
   const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
   const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
-  const invariants = section(SKILL, '### Named exact-autofix invariants (CL-D10, CL-D30)');
+  const invariants = section(SKILL, '### Isolated exact-autofix invariants (CL-D10, CL-D30)');
   const preflight = section(SKILL, '### Worktree precondition (CL-D10)');
   const phases = section(SKILL, '### Exact identity and Luna publication phases');
   const boundaries = section(SKILL, '### Public-head loop and evidence');
   const replies = section(SKILL, '### Source-finding replies and final readiness');
   for (const text of [d30, invariants]) {
     assert.match(text, /RUNTIME_ROOTS|runtime-root/);
-    assert.match(text, /real (?:repository-root )?\.pi directory|real directory/);
-    assert.match(text, /without following links|not follow/);
+    assert.match(text, /real (?:repository-root )?\.pi directory|real directory|real directory or verified clone/);
+    assert.match(text, /without following links|not follow|no-follow/);
     assert.match(text, /outside.*untracked|untracked.*outside/si);
     assert.match(text, /HEAD.*index|index.*HEAD/si);
   }
-  assert.match(d10, /`CLEAN@H`/);
-  assert.match(preflight, /`CLEAN@H`/);
-  assert.match(boundaries, /`CLEAN@H`/);
-  assert.match(boundaries, /`POST_COMMIT\(C, P\)`/);
-  assert.match(phases, /`CLEAN@P`/);
-  assert.match(phases, /`POST_COMMIT\(C, P\)`/);
-  assert.match(replies, /`CLEAN@H`/);
+  assert.match(d10, /`OPERATOR_CHECKOUT@H`/);
+  assert.match(preflight, /`OPERATOR_CHECKOUT@H`/);
+  assert.match(boundaries, /`OPERATOR_CHECKOUT@H`/);
+  assert.match(boundaries, /`WORKSPACE_POST_COMMIT\(C, P\)`/);
+  assert.match(phases, /`AUTOFIX_WORKSPACE@P`/);
+  assert.match(phases, /`WORKSPACE_POST_COMMIT\(C, P\)`/);
+  assert.match(replies, /`OPERATOR_CHECKOUT_UNCHANGED@O`/);
   assert.match(replies, /`REPLY_EXCEPTION`/);
   assert.match(replies, /safe untracked runtime-root bytes and contents are excluded from every gate payload, candidate draft, finding\/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim/i);
   const requiredDenial = /the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published\./i;
@@ -442,11 +766,12 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
     assert.doesNotMatch(text, /all three local dimensions.*completely clean/i);
   }
   assert.doesNotMatch(boundaries, /At every exact-autofix boundary.*ordinary operational cleanliness/si);
-  assert.match(boundaries, /Every ordinary exact-autofix boundary/);
+  assert.match(boundaries, /Every pre-push boundary/);
+  assert.match(boundaries, /immediately after a push require `WORKSPACE_POST_PUSH\(C, O\)`/);
   assert.match(boundaries, /Correction-overlay and staged-manifest boundaries use the named condition deltas/);
   assert.match(phases, /BEFORE_VALIDATION.*immediately before focused validation/si);
-  assert.match(phases, /AFTER_VALIDATION.*immediately after focused/si);
-  assert.match(phases, /BEFORE_STAGING.*immediately before staging/si);
+  assert.match(phases, /AFTER_VALIDATION.*requires `AUTOFIX_WORKSPACE@P`/si);
+  assert.match(phases, /BEFORE_STAGING.*requires `AUTOFIX_WORKSPACE@P`/si);
   assert.match(phases, /AFTER_STAGING.*immediately after staging/si);
   assert.match(phases, /BEFORE_COMMIT.*immediately before commit/si);
   assert.match(phases, /AFTER_COMMIT.*POST_COMMIT\(C, P\)/si);
@@ -493,23 +818,23 @@ test('artifact: Issue #20 names each invariant once and references it at every p
     return [...text.matchAll(new RegExp(`^[-*] ${'`'}${escaped}${'`'} :=`, 'gm'))].length;
   };
 
-  for (const name of ['CLEAN@H', 'POST_COMMIT(C, P)', 'REPLY_EXCEPTION']) {
+  for (const name of ['OPERATOR_CHECKOUT@H', 'AUTOFIX_WORKSPACE@H', 'WORKSPACE_POST_COMMIT(C, P)', 'WORKSPACE_POST_PUSH(C, O)', 'OPERATOR_CHECKOUT_UNCHANGED@O', 'REPLY_EXCEPTION']) {
     assert.equal(definitionCount(CONTRACT, name), 1, `${name} must be defined exactly once in CONTRACT.md`);
     assert.equal(definitionCount(SKILL, name), 1, `${name} must be defined exactly once in the PR Skill`);
   }
-  assert.match(d10, /`CLEAN@H`/);
-  assert.match(preflight, /`CLEAN@H`/);
-  assert.match(boundaries, /`CLEAN@H`/);
-  assert.match(boundaries, /`POST_COMMIT\(C, P\)`/);
+  assert.match(d10, /`OPERATOR_CHECKOUT@H`/);
+  assert.match(preflight, /`OPERATOR_CHECKOUT@H`/);
+  assert.match(boundaries, /`OPERATOR_CHECKOUT@H`/);
+  assert.match(boundaries, /`WORKSPACE_POST_COMMIT\(C, P\)`/);
   for (const guard of ['BEFORE_VALIDATION', 'AFTER_VALIDATION', 'BEFORE_STAGING', 'AFTER_STAGING', 'BEFORE_COMMIT']) {
-    const pattern = new RegExp('`' + guard + '`[^\\n]*`CLEAN@P`|`' + guard + '`[\\s\\S]{0,320}`CLEAN@P`');
+    const pattern = new RegExp('`' + guard + '`[^\\n]*`AUTOFIX_WORKSPACE@P`|`' + guard + '`[\\s\\S]{0,320}`AUTOFIX_WORKSPACE@P`');
     assert.match(phases, pattern, `${guard} must name CLEAN@P and state only its delta`);
   }
   for (const guard of ['AFTER_COMMIT', 'BEFORE_PUSH']) {
     const guardLine = phases.split('\n').find((line) => line.startsWith(`- \`${guard}\``));
     assert.ok(guardLine, `${guard} guard must exist`);
     assert.match(guardLine, /local `HEAD=C` while remote\/public head remains `P`/, `${guard} must independently state its local/public head delta`);
-    assert.match(guardLine, /`POST_COMMIT\(C, P\)`/, `${guard} must independently name POST_COMMIT(C, P)`);
+    assert.match(guardLine, /`WORKSPACE_POST_COMMIT\(C, P\)`/, `${guard} must independently name WORKSPACE_POST_COMMIT(C, P)`);
   }
   assert.match(phases, /every runtime-root path.*fails closed regardless of its mode, stage, intent-to-add, or add\/modify\/rename\/delete\/conflict status/si);
   assert.doesNotMatch(phases, /every staged mode\/stage\/intent\/add\/modify\/rename\/delete\/conflict, fails closed/i);
@@ -519,8 +844,8 @@ test('artifact: Issue #20 names each invariant once and references it at every p
   assert.ok(Buffer.byteLength(addendum) < 25022, 'the CL-D30 addendum must be smaller than its pre-refactor baseline');
 
   const retainedVectorMap = {
-    'CLEAN@H': ['01', '02', '06', '08', '09', '10', '11', '12', '13', '19', '20'],
-    'POST_COMMIT(C, P)': ['17', '18', '19', '20'],
+    'OPERATOR_CHECKOUT@H': ['01', '02', '06', '08', '09', '10', '11', '12', '13', '19', '20'],
+    'WORKSPACE_POST_COMMIT(C, P)': ['17', '18', '19', '20'],
   };
   for (const [name, ids] of Object.entries(retainedVectorMap)) {
     assert.ok(ids.length > 0, `${name} needs retained Issue #17 vector coverage`);
