@@ -269,6 +269,21 @@ The exception supersedes CL-D13, CL-D13-issue, CL-D16, CL-D28, AC-AUTOFIX, AC-GR
 
 The CL-D32 route remains prose-only orchestration with no executable controller, extension, durable resume state, retry, compensation, or provider lock. Its dormant grant permits no Terra, publication, retry, correction, transfer, replay, or further extension. It never publishes a standalone scope-freeze decision; specifically, it never publishes a standalone target-specific scope-freeze decision. The complete target-specific AC-DECISION record is transported exactly once inside the final ledger POST and observed by Snapshot C; `DEC-I15-ROUND-BUDGET-001` remains the separate repository contract decision selecting dormant-round semantics. Foreign Issues remain review-and-draft-only even when all five decision conditions hold; PR/CL-D30, legacy CL-D31, equivalent entrypoints, physical-attempt correlation, and every unlisted mutation prohibition remain unchanged. The exact affirmative response changes only logical owner-choice truth and grant state; it never changes candidate, body, diff, ledger, or decision bytes. After matching gates it preserves only CL-D31's optional current-Issue body PATCH and one exact ledger POST; it grants no additional or unlisted GitHub/provider authority and no implementation, repository-file, Git, commit, push, PR, merge, or implementation-start authority.
 
+## CL-D33 — Review-only drafts guarded owner-executed PR publication artifacts
+**Clauses:** CL-D33-boundary, CL-D33-artifacts, CL-D33-marker, CL-D33-guards, CL-D33-post, CL-D33-portability, CL-D33-status, CL-D33-packaging
+
+*Decision ID:* CL-D33
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#41` at the current Issue #41 body
+*Question:* How can PR review-only offer safe owner publication of its aggregate review summary without acquiring publication authority itself?
+*Options and trade-offs:* Keep manual copy-and-paste; let review-only post directly; or draft two external temporary artifacts with a fingerprint-bound owner-executed publisher. Manual copying is error-prone, direct posting violates the review-only boundary, and the bounded artifacts preserve non-mutation while making the owner grant explicit.
+*Recommendation:* Adopt the Issue #41 guarded `review-comment.md` and `publish-review.sh` artifacts with one exact full-URL `gh pr comment` operation.
+*Owner choice:* Implement the current Issue #41 contract: review-only drafts the artifacts but never executes or posts; the owner executing the printed Bash command supplies the publication grant.
+*Rationale:* Constrained metadata, canonical visible-body and complete-artifact digests, exact target/head checks, complete paginated duplicate detection, one-shot POST behavior, and an external receipt make the later owner action explicit and fail closed without importing source-reply authority.
+*Validity and invalidation conditions:* Applies only to PR review-only aggregate-summary publication artifacts. It never grants review-only direct provider mutation, Issue publication, source-finding replies, reviews, approvals, thread resolution, retries, reconciliation, or any autofix action. Any metadata, body, target, lifecycle, head, evidence, digest, POST, or receipt ambiguity stops the script; a later command is a fresh owner action.
+
+The implementation must preserve the exact `gh pr comment <full-pr-url> --body-file <review-comment.md>` operation, use complete UTF-8/LF bytes, and keep the template package-owned while `agents/**`, shared references, and exact autofix authority remain unchanged.
+
 ## DEC-I15-ROUND-BUDGET-001 — Bounded post-decision Sol round
 **Clauses:** DEC-I15-round-budget
 *Decision ID:* DEC-I15-ROUND-BUDGET-001

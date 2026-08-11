@@ -714,6 +714,134 @@
       ]
     },
     {
+      "id": "CL-D33-boundary",
+      "marker": "CL-D33",
+      "title": "Review-only drafts guarded owner publication artifacts",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "reads sibling `publish-review.sh` completely",
+        "copies it byte-for-byte",
+        "replaces all six exact ASCII placeholders once",
+        "exactly two UTF-8/LF artifacts",
+        "fresh external `mktemp` directory",
+        "The owner executing that command is the publication grant",
+        "Review-only never executes the script",
+        "publication_grant: review-only not-applicable"
+      ],
+      "section": "### Guarded owner publication artifacts (CL-D33, Issue #41)"
+    },
+    {
+      "id": "CL-D33-artifacts",
+      "marker": "CL-D33",
+      "title": "Publication artifacts and body provenance",
+      "files": [
+        "skills/closed-loop-pr/references/publish-review.sh"
+      ],
+      "requires": [
+        "review-comment.md",
+        "publish-review.sh",
+        "review-comment bytes are never interpolated into shell source",
+        "complete final `review-comment.md` bytes"
+      ]
+    },
+    {
+      "id": "CL-D33-marker",
+      "marker": "CL-D33",
+      "title": "Non-circular deterministic publication marker",
+      "files": [
+        "skills/closed-loop-pr/references/publish-review.sh"
+      ],
+      "requires": [
+        "pi-tidd-agents:review-publication:v1",
+        "visibleSha256=<sha256-of-canonical-visible-comment-bytes>",
+        "non-circular"
+      ]
+    },
+    {
+      "id": "CL-D33-guards",
+      "marker": "CL-D33",
+      "title": "Fail-closed publication guards",
+      "files": [
+        "skills/closed-loop-pr/references/publish-review.sh"
+      ],
+      "requires": [
+        "`gh` authentication",
+        "exact repository/PR/OPEN lifecycle/full URL",
+        "unchanged public head",
+        "complete paginated comment evidence",
+        "absence of the exact marker",
+        "publication artifacts must remain outside every repository",
+        "Inherited Git-discovery variables are untrusted",
+        "private review-comment snapshot",
+        "already active or was already attempted",
+        "Re-bracket the mutable target",
+        "Missing, malformed, incomplete, stale, duplicate, or conflicting evidence fails closed"
+      ]
+    },
+    {
+      "id": "CL-D33-post",
+      "marker": "CL-D33",
+      "title": "One-shot owner publication",
+      "files": [
+        "skills/closed-loop-pr/references/publish-review.sh"
+      ],
+      "requires": [
+        "gh pr comment <full-pr-url> --body-file <review-comment.md>",
+        "sole permitted operation",
+        "never retried automatically",
+        "stable comment URL",
+        "non-overwriting receipt outside the repository",
+        "Print the validated provider result before local receipt creation"
+      ]
+    },
+    {
+      "id": "CL-D33-portability",
+      "marker": "CL-D33",
+      "title": "Portable generated publisher",
+      "files": [
+        "skills/closed-loop-pr/references/publish-review.sh"
+      ],
+      "requires": [
+        "bash",
+        "TMPDIR:-/tmp",
+        "mktemp",
+        "sha256sum",
+        "shasum -a 256",
+        "iconv -f UTF-8 -t UTF-8",
+        "must end with one LF"
+      ]
+    },
+    {
+      "id": "CL-D33-status",
+      "marker": "CL-D33",
+      "title": "Operator status attribution",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "exact command",
+        "repository/PR/head",
+        "changed head requires fresh review",
+        "operator"
+      ],
+      "section": "### Guarded owner publication artifacts (CL-D33, Issue #41)"
+    },
+    {
+      "id": "CL-D33-packaging",
+      "marker": "CL-D33",
+      "title": "Template remains package-owned",
+      "files": [
+        "skills/closed-loop-pr/references/publish-review.sh"
+      ],
+      "requires": [
+        "Issue #41 template",
+        "gh api --paginate",
+        "review-comment.md digest"
+      ]
+    },
+    {
       "id": "CL-D13-pr",
       "marker": "CL-D13",
       "title": "The PR status block carries resumable observation and publication state",

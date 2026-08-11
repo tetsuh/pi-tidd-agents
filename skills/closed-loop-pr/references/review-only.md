@@ -11,11 +11,11 @@ For the whole review-only run:
 - do not reply to review threads;
 - do not mutate any external service.
 
-You may inspect, review, disposition findings locally, and draft proposed replies and patches. Working notes, the disposition ledger, and drafts belong in a temporary directory **outside the repository**.
+You may inspect, review, disposition findings, and draft replies/patches.
 
 ### Candidate evidence boundary (CL-D23, CL-D9)
 
-Review-only never edits any repository file or creates a working-tree candidate. Proposed patches, disposition ledgers, replies, and drafts belong outside the repository; no post-fix formal gate consumes an uncommitted overlay.
+Review-only never edits any repository file or creates a working-tree candidate. Drafts stay outside the repository; no post-fix formal gate consumes an uncommitted overlay.
 
 ### Target stability during a run (CL-D27)
 
@@ -24,6 +24,10 @@ Review-only has no publication phase and no local commit/push window. Revalidate
 ## Publication boundary (CL-D28)
 
 Issue workflow has no publication grant through this Skill, and PR review-only has no publication grant through this PR path. Issue publication authority, when present, originates only from the CL-D31 exception in the shared Issue Skill for `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>`; it does not originate from `/tidd-pr` or this Skill. Review-only never commits, pushes, posts, replies, or mutates external state. It may draft a proposed commit message, replies, and disposition summary for the operator. **Drafting is not publishing.**
+
+### Guarded owner publication artifacts (CL-D33, Issue #41)
+
+Each summary stop reads sibling `publish-review.sh` completely, copies it byte-for-byte, replaces all six exact ASCII placeholders once, and follows its Generation contract to draft exactly two UTF-8/LF artifacts in a fresh external `mktemp` directory: `review-comment.md` and `publish-review.sh`. Review-only never executes the script. Report paths/digest, repository/PR/head, exact command `bash "<path>/publish-review.sh"`, `changed head requires fresh review`, `publication_grant: review-only not-applicable`, and operator attribution. The owner executing that command is the publication grant.
 
 ## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 

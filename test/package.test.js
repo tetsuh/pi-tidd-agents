@@ -30,6 +30,7 @@ const PR_MODE_REFERENCES = {
   'review-only': 'skills/closed-loop-pr/references/review-only.md',
   autofix: 'skills/closed-loop-pr/references/autofix.md',
 };
+const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_SKILL_PRE_SPLIT_BYTES = 57160;
 const SHARED_REFERENCES = {
   'gate-contract': 'skills/closed-loop-shared/references/gate-contract.md',
@@ -116,7 +117,7 @@ function normalizedSentences(text) {
     .filter((sentence) => [...sentence].length >= 60);
 }
 
-const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
+const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_PUBLICATION_TEMPLATE, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
 const GENERIC_FALSIFICATION_EVIDENCE = 'authoritative files of the repository under review';
 const ABSENT_RECORD_RULE = 'that absence is not itself a finding';
 
@@ -158,6 +159,14 @@ test('the published file set carries every closed-loop resource', () => {
   for (const entry of ['agents', 'skills', 'prompts', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md']) {
     assert.ok(manifest.files.includes(entry), `package.json files is missing ${entry}`);
   }
+});
+
+test('Issue #41 guarded publication template is packaged without adding a package entrypoint', () => {
+  assert.ok(exists('skills/closed-loop-pr/references/publish-review.sh'));
+  assert.ok(packFileList().includes('skills/closed-loop-pr/references/publish-review.sh'));
+  assert.equal(manifest.main, undefined);
+  assert.equal(manifest.bin, undefined);
+  assert.equal(manifest.pi.extensions, undefined);
 });
 
 test('the package runs tests without any devDependency', () => {
@@ -464,7 +473,7 @@ test('Issue #13 CL-D31 legacy artifacts are packaged without a controller', () =
     assert.ok(files.includes(entry), `Issue 13 artifact missing from packed tarball: ${entry}`);
   }
   assert.ok(!files.some((file) => /(?:controller|extension)/i.test(file)));
-  const allowed = /^(?:LICENSE|README\.md|THIRD_PARTY_NOTICES\.md|package\.json|(?:agents|skills|prompts)\/[A-Za-z0-9._/-]+\.md)$/;
+  const allowed = /^(?:LICENSE|README\.md|THIRD_PARTY_NOTICES\.md|package\.json|skills\/closed-loop-pr\/references\/publish-review\.sh|(?:agents|skills|prompts)\/[A-Za-z0-9._/-]+\.md)$/;
   for (const entry of entries) {
     assert.match(entry.path, allowed, `unexpected non-prose package payload: ${entry.path}`);
     assert.equal(Number(entry.mode) & 0o111, 0, `packed entry must not be executable: ${entry.path}`);
@@ -539,7 +548,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 18, `packed file count changed: ${files.join(', ')}`);
+    assert.equal(files.length, 19, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);
@@ -623,10 +632,12 @@ test('the packed tarball excludes the authoritative development record', () => {
   );
 });
 
-test('the packed tarball ships no executable code and no tests', () => {
-  const files = packFileList();
+test('the packed tarball ships no JavaScript controller, executable-mode entry, or tests', () => {
+  const entries = packEntryList();
+  const files = entries.map((entry) => entry.path);
   const code = files.filter((file) => /\.(ts|js|mjs|cjs)$/.test(file));
-  assert.deepEqual(code, [], `the MVP must not ship executable code: ${code.join(', ')}`);
+  assert.deepEqual(code, [], `the package must not ship a JavaScript controller: ${code.join(', ')}`);
+  assert.deepEqual(entries.filter((entry) => Number(entry.mode) & 0o111), [], 'packed entries must not depend on executable mode bits');
   const tests = files.filter((file) => file.startsWith('test/'));
   assert.deepEqual(tests, [], `the test seam must not be published: ${tests.join(', ')}`);
 });

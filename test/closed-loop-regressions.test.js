@@ -127,6 +127,7 @@ test('fixture: text fingerprint serialization is newline-stable and delimiter-st
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_ARTIFACTS = [PR_SKILL, PR_REVIEW_ONLY, PR_AUTOFIX];
 const readPrMode = (reference) => [PR_SKILL, reference].map(readText).join('\n');
 const ENTRY_ARTIFACTS = [
@@ -185,6 +186,18 @@ const SUPERSEDED = [
     ], pattern: /survives (?:the check )?as (?:a )?finding/i,
     reason: 'CL-D29 makes no counterexample neither a finding nor proof' },
 ];
+
+test('Issue #41 publication authority remains review-only-owned and aggregate-only', () => {
+  const reviewOnly = readText(PR_REVIEW_ONLY);
+  const autofix = readText(PR_AUTOFIX);
+  const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
+  assert.match(reviewOnly, /Guarded owner publication artifacts \(CL-D33, Issue #41\)/);
+  assert.match(reviewOnly, /Review-only never executes the script/);
+  assert.match(readText(PR_PUBLICATION_TEMPLATE), /aggregate-summary publication only|Issue #40 source-reply authority/);
+  assert.match(readText(PR_PUBLICATION_TEMPLATE), /gh pr comment <full-pr-url> --body-file <review-comment\.md>/);
+  assert.doesNotMatch(autofix, /publish-review\.sh|review-publication:v1/);
+  assert.doesNotMatch(shared, /publish-review\.sh|review-publication:v1/);
+});
 
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   const skill = readText(PR_AUTOFIX);
@@ -669,17 +682,16 @@ test('Issue #23 records a bounded real-run settled-history measurement', () => {
     assert.equal(audit.runs[runId].metadata.sha256, observation.metadataSha256);
     assert.equal(audit.runs[runId].metadata.json.usage.input, observation.providerReportedInputTokensAllTurns);
   }
-  const authorityFrames = record.revisions.candidateAuthorityGraphFiles.map((file) => {
-    const bytes = Buffer.from(readText(file), 'utf8');
-    return Buffer.concat([Buffer.from(`${file} ${bytes.length}\n`, 'utf8'), bytes, Buffer.from('\n')]);
-  });
-  const authorityRaw = Buffer.concat(record.revisions.candidateAuthorityGraphFiles.map((file) => Buffer.from(readText(file), 'utf8')));
-  const authorityGraph = Buffer.concat(authorityFrames);
-  assert.equal(authorityRaw.length, record.revisions.candidateAuthorityRawBytes);
-  assert.equal(crypto.createHash('sha256').update(authorityRaw).digest('hex'), record.revisions.candidateAuthorityRawConcatSha256);
+  // These are historical replay identities, not mutable fingerprints of the
+  // current authority files. The hash-bound replay output attests these exact
+  // values; later contract changes must not rewrite the measurement record.
+  assert.equal(record.revisions.candidateAuthorityRawBytes, 98692);
+  assert.equal(record.revisions.candidateAuthorityRawConcatSha256, '7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139');
+  assert.equal(record.revisions.candidateAuthorityGraphBytes, 98991);
+  assert.equal(record.revisions.candidateAuthorityGraphSha256, 'eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf');
   assert.equal(record.revisions.candidateAuthorityFraming, 'For each listed file in order: UTF-8 path, one space, decimal raw byte length, LF, raw file bytes, LF.');
-  assert.equal(authorityGraph.length, record.revisions.candidateAuthorityGraphBytes);
-  assert.equal(crypto.createHash('sha256').update(authorityGraph).digest('hex'), record.revisions.candidateAuthorityGraphSha256);
+  assert.match(audit.measurementBinding.replayOutputMustContainAuthorityGraphVerification.raw, /98,692 bytes.*7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139/);
+  assert.match(audit.measurementBinding.replayOutputMustContainAuthorityGraphVerification.framed, /98,991 bytes.*eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf/);
   const before = record.controlledProjection.before;
   const after = record.controlledProjection.after;
   for (const projection of [before, after]) {
