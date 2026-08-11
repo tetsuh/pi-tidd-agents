@@ -30,8 +30,7 @@ const BASH = resolveGitBash();
 
 function gitBashPath(value) {
   if (process.platform !== 'win32') return value;
-  const cygpath = process.env.PI_CYGPATH || path.join(path.dirname(BASH), 'cygpath.exe');
-  return execFileSync(cygpath, ['-u', value], { encoding: 'utf8' }).trim();
+  return execFileSync(BASH, ['-lc', 'cygpath -u "$1"', '--', value], { encoding: 'utf8' }).trim();
 }
 
 function shellQuote(value) {
@@ -214,6 +213,15 @@ test('Issue #41 template is syntax-valid, portable, and does not source body byt
   assert.match(template, /TMPDIR:-\/tmp/);
   assert.doesNotMatch(template, /jq\s+-/);
   assert.doesNotMatch(template, /eval\b|source\s+.*review-comment|cat .*review-comment.*\|.*bash/);
+});
+
+test('Issue #41 CI scopes token permissions and uses Git Bash for Windows coverage', () => {
+  const workflow = readText('.github/workflows/test.yml');
+  const harness = readText('test/pr-review-publication.test.js');
+  assert.match(workflow, /permissions:\n  contents: read\n/);
+  assert.match(workflow, /publication-git-bash:\n    runs-on: windows-latest/);
+  assert.match(harness, /execFileSync\(BASH, \['-lc', 'cygpath -u "\$1"', '--', value\]/);
+  assert.doesNotMatch(harness, /path\.join\(path\.dirname\(BASH\), 'cygpath\.exe'\)/);
 });
 
 test('Issue #41 successful owner script posts exact bytes once and emits receipt', () => {
