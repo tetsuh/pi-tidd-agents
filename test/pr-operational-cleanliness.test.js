@@ -224,7 +224,11 @@ function issue42ReplyBoundary(value) {
 }
 function issue42Cleanup(value) {
   const ws = value.workspace || {};
-  return ['success', 'failure'].includes(value.terminalOutcome) && value.terminalObserved === true && issue42CommonBoundary(value, ws.head) &&
+  const terminal = value.terminalWorkspaceIdentity || {};
+  const identityMatches = ['head', 'tree', 'detached', 'identity', 'canonicalPath', 'commonGitDir', 'worktreeGitDir', 'registration']
+    .every((key) => ws[key] === terminal[key]);
+  return ['success', 'failure'].includes(value.terminalOutcome) && value.terminalObserved === true &&
+    issue42CommonBoundary(value, terminal.head) && identityMatches &&
     ws.cleanupAuthorized === true && ws.registration === true && ws.commonGitDir === 'common' &&
     ws.cleanupCommand === 'git worktree remove' && ws.force !== true && ws.prune !== true &&
     ws.recursive !== true && ws.operatorTargeted !== true ? { status: 'pass' } : { status: 'BLOCKED' };
@@ -628,7 +632,9 @@ test('fixture: Issue #42 acceptance vectors 01–20 are explicitly modeled', () 
     { ...baseline, workspace: { ...baseline.workspace, head: 'C', parent: 'H', child: 'C', pushRefspec: 'HEAD:refs/heads/pr-branch', fastForward: true }, transition: { operatorOid: 'H', parent: 'H', child: 'C' }, publicHead: 'H' },
     baseline,
     { ...baseline, operator: { ...baseline.operator, head: 'H', branchRef: 'H' }, workspace: { ...baseline.workspace, head: 'C' }, publicHead: 'C', behindReport: 'H -> C', reconciled: false },
-    { ...baseline, terminalOutcome: 'success', terminalObserved: true, workspace: { ...baseline.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', force: false, prune: false, recursive: false, operatorTargeted: false } },
+    { ...baseline, terminalOutcome: 'success', terminalObserved: true,
+      terminalWorkspaceIdentity: clone({ head: baseline.workspace.head, tree: baseline.workspace.tree, detached: baseline.workspace.detached, identity: baseline.workspace.identity, canonicalPath: baseline.workspace.canonicalPath, commonGitDir: baseline.workspace.commonGitDir, worktreeGitDir: baseline.workspace.worktreeGitDir, registration: baseline.workspace.registration }),
+      workspace: { ...baseline.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', force: false, prune: false, recursive: false, operatorTargeted: false } },
     { ...baseline, workspace: { ...baseline.workspace, partialCreation: true, creation: 'partial' } },
     { ...baseline, operator: { ...baseline.operator, ignoredEnumeration: 'explicit-nul', inventoryStable: true } },
     { ...baseline, runtimeRoots: { '.pi': { kind: 'directory', followed: false }, '.pi-subagents': { kind: 'absent', followed: false } } },
@@ -727,10 +733,26 @@ test('fixture: Issue #42 workspace transitions are deterministic and fail closed
     assert.equal(issue42OperatorSafe({ ...base, terminalFailure }), true, terminalFailure);
     assert.equal(issue42OperatorSafe({ ...base, terminalFailure, operator: { ...base.operator, config: 'changed' } }), false, terminalFailure);
   }
-  for (const terminalOutcome of ['success', 'failure']) assert.equal(issue42Cleanup({ ...base, terminalOutcome, terminalObserved: true, workspace: { ...base.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove' } }).status, 'pass');
-  const unpushedCommit = { ...base, terminalOutcome: 'failure', terminalObserved: true, publicHead: 'P', workspace: { ...base.workspace, head: 'C', cleanupAuthorized: true, cleanupCommand: 'git worktree remove' } };
+  const terminalIdentity = (workspace) => clone({
+    head: workspace.head, tree: workspace.tree, detached: workspace.detached, identity: workspace.identity,
+    canonicalPath: workspace.canonicalPath, commonGitDir: workspace.commonGitDir,
+    worktreeGitDir: workspace.worktreeGitDir, registration: workspace.registration,
+  });
+  for (const terminalOutcome of ['success', 'failure']) assert.equal(issue42Cleanup({
+    ...base, terminalOutcome, terminalObserved: true, terminalWorkspaceIdentity: terminalIdentity(base.workspace),
+    workspace: { ...base.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove' },
+  }).status, 'pass');
+  const unpushedCommit = {
+    ...base, terminalOutcome: 'failure', terminalObserved: true,
+    terminalWorkspaceIdentity: terminalIdentity({ ...base.workspace, head: 'C' }), publicHead: 'P',
+    workspace: { ...base.workspace, head: 'C', cleanupAuthorized: true, cleanupCommand: 'git worktree remove' },
+  };
   assert.equal(issue42Cleanup(unpushedCommit).status, 'pass');
-  for (const bad of [{ cleanupCommand: 'git worktree prune' }, { recursive: true }, { cleanupIdentityMismatch: true }, { operatorTargeted: true }, { gitEnv: 'inherited' }, { hooksPath: 'operator-hooks' }]) assert.equal(issue42Cleanup({ ...base, terminalOutcome: 'failure', terminalObserved: true, workspace: { ...base.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', ...bad } }).status, 'BLOCKED');
+  assert.equal(issue42Cleanup({ ...unpushedCommit, workspace: { ...unpushedCommit.workspace, head: 'H' } }).status, 'BLOCKED');
+  for (const bad of [{ cleanupCommand: 'git worktree prune' }, { recursive: true }, { cleanupIdentityMismatch: true }, { operatorTargeted: true }, { gitEnv: 'inherited' }, { hooksPath: 'operator-hooks' }]) assert.equal(issue42Cleanup({
+    ...base, terminalOutcome: 'failure', terminalObserved: true, terminalWorkspaceIdentity: terminalIdentity(base.workspace),
+    workspace: { ...base.workspace, cleanupAuthorized: true, cleanupCommand: 'git worktree remove', ...bad },
+  }).status, 'BLOCKED');
 });
 
 // Section-scoped compile/contract coverage, including forbidden stale wording.
