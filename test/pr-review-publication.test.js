@@ -410,8 +410,11 @@ test('Issue #41 rejects malformed or wrong-target POST output without retry', ()
 
 test('Issue #41 preserves the validated comment URL when receipt creation fails', () => {
   const f = fixture();
-  const realMktemp = execFileSync(BASH, ['-lc', 'command -v mktemp'], { encoding: 'utf8' }).trim();
-  fs.writeFileSync(path.join(f.bin, 'mktemp'), `#!/usr/bin/env bash\nif [[ "${'${1:-}'}" == '-d' ]]; then exec ${JSON.stringify(realMktemp)} "$@"; fi\nexit 1\n`, { mode: 0o700 });
+  const scriptPath = path.join(f.artifactDir, 'publish-review.sh');
+  const script = fs.readFileSync(scriptPath, 'utf8');
+  const receiptCommand = 'receipt="$(mktemp "$SCRIPT_DIR/review-publication-receipt.XXXXXX")"';
+  assert.equal(script.split(receiptCommand).length - 1, 1);
+  fs.writeFileSync(scriptPath, script.replace(receiptCommand, 'receipt="$(false)"'), { mode: 0o600 });
   let error;
   try {
     runPublisher(f);
