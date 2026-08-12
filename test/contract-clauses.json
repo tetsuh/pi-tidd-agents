@@ -308,7 +308,7 @@
       ],
       "requires": [
         "gh pr checkout",
-        "Never switch branches"
+        "Never switch, stash, reset, clean, delete, or discard operator work"
       ]
     },
     {
@@ -932,7 +932,11 @@
       "requires": [
         "This addendum is selected only when",
         "Every successful push invalidates all earlier Sol and Terra approvals",
-        "at most one correction batch"
+        "at most one correction batch",
+        "OPERATOR_CHECKOUT_UNCHANGED@O",
+        "AUTOFIX_WORKSPACE@H",
+        "WORKSPACE_POST_COMMIT(C, P)",
+        "WORKSPACE_POST_PUSH(C, O)"
       ]
     },
     {
@@ -945,18 +949,18 @@
       ],
       "requires": [
         "Before its first edit and immediately before commit",
-        "`CLEAN@P` conditions 1 and 3–6",
-        "`CLEAN@P` conditions 1 and 4–6",
+        "`AUTOFIX_WORKSPACE@P` with identity, tracked/index, and runtime-root conditions",
+        "`AUTOFIX_WORKSPACE@P` with identity, untracked, and runtime-root conditions",
         "The index is intentionally not clean",
         "sole parent `P`",
-        "After verifying public head `C`, require `CLEAN@C`",
+        "After verifying public head `C`, require `AUTOFIX_WORKSPACE@C`",
         "git log -1 --format=%B",
         "stored bytes/content exactly",
         "expected approved message",
         "no encoded backslash-n sequence",
         "unexpected worktree or index mutation",
         "regardless of path authorization",
-        "zero cleanup, retry, continuation, or mutation"
+        "Cleanup failure is fail-closed"
       ]
     },
     {
@@ -1030,10 +1034,10 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "Every ordinary exact-autofix boundary",
-        "must satisfy `CLEAN@H` for the exact published public head `H`",
-        "Correction-overlay and staged-manifest boundaries use the named condition deltas",
-        "post-commit/pre-push boundaries use `POST_COMMIT(C, P)`",
+        "Every pre-push boundary",
+        "requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` at current public `H`",
+        "immediately after a push require `WORKSPACE_POST_PUSH(C, O)`",
+        "post-commit/pre-push boundaries use `WORKSPACE_POST_COMMIT(C, P)`",
         "concurrent local edit",
         "cannot enter a gate, reply, final classification, or summary mutation"
       ]
@@ -1090,9 +1094,9 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "Before the first gate or any mutation, exact PR `autofix` requires",
-        "satisfy `CLEAN@H` for the published public head `H`",
-        "Exact autofix has no resume"
+        "Before the first gate or mutation, the operator runs `gh pr checkout` when needed",
+        "It captures `OPERATOR_CHECKOUT@H` and creates/verifies `AUTOFIX_WORKSPACE@H` outside the repository before any gate",
+        "No resume"
       ]
     },
     {
@@ -1139,9 +1143,9 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "target PR to be open and non-draft",
+        "target PR is open and non-draft",
         "head branch to be verified writable by a normal actor-authorized non-force push without branch-protection or ruleset bypass",
-        "writability result to be unambiguous",
+        "Writability result must be unambiguous",
         "fails closed before review or mutation",
         "A branch is not writable when success depends on the actor's bypass permission",
         "missing, rejected, ambiguous, unavailable, or bypass-dependent result fails closed"
@@ -1164,9 +1168,9 @@
         "every forbidden action",
         "Before its first edit and immediately before commit",
         "every intervening guard does the same",
-        "`AFTER_COMMIT` immediately after commit is the distinct post-commit/pre-push guard: local `HEAD=C` while remote/public head remains `P`; it requires `POST_COMMIT(C, P)`",
-        "`BEFORE_PUSH` immediately before push independently repeats `POST_COMMIT(C, P)` in full with the deliberate phase delta: local `HEAD=C` while remote/public head remains `P`.",
-        "After verifying public head `C`, require `CLEAN@C`",
+        "`AFTER_COMMIT` immediately after commit is the distinct post-commit/pre-push guard: local `HEAD=C` while remote/public head remains `P`; it requires `WORKSPACE_POST_COMMIT(C, P)`",
+        "`BEFORE_PUSH` immediately before push independently repeats `WORKSPACE_POST_COMMIT(C, P)` in full with the deliberate phase delta: local `HEAD=C` while remote/public head remains `P`.",
+        "After verifying public head `C`, require `AUTOFIX_WORKSPACE@C`",
         "All three local dimensions remain independently guarded",
         "tracked worktree, index, and untracked state outside `RUNTIME_ROOTS`",
         "pre-existing tracked unstaged edit is rejected"
@@ -1719,11 +1723,10 @@
         "CONTRACT.md"
       ],
       "requires": [
-        "`CLEAN@H`",
-        "All six conditions apply at preflight",
+        "`OPERATOR_CHECKOUT@H`",
         "safe no-follow classification of every enumerated `RUNTIME_ROOTS` member",
-        "absence of forbidden runtime-root entries from `H` and the index",
-        "staged deletion never cures a forbidden path in the candidate parent"
+        "Staged deletion never cures a forbidden parent path",
+        "clean tracked/index state"
       ],
       "section": "## CL-D10 — Worktree precondition for autofix"
     },
@@ -1735,15 +1738,13 @@
         "CONTRACT.md"
       ],
       "requires": [
-        "Issue #17 operational-cleanliness amendment and Issue #20 named-invariant refactor",
-        "`CLEAN@H` :=",
-        "`POST_COMMIT(C, P)` :=",
+        "Issue #17 operational-cleanliness amendment, Issue #20 named-invariant refactor, and Issue #42 isolation",
+        "`OPERATOR_CHECKOUT@H`",
+        "`WORKSPACE_POST_COMMIT(C, P)`",
         "`REPLY_EXCEPTION` :=",
-        "unfiltered raw effective diff",
-        "Runtime churn contributes no candidate, evidence, or publication bytes",
-        "the exact enumerated repository-root runtime set",
-        "Every root is classified independently",
-        "future additions require a recorded contract decision naming the producing tool, default configuration, and affected version range"
+        "`RUNTIME_ROOTS := { \".pi\", \".pi-subagents\" }` stays independently no-follow classified",
+        "every root is classified independently without following links",
+        "Runtime bytes are never claimed cleaned, preserved, validated, committed, or published"
       ],
       "section": "## CL-D30 — Exact PR autofix publishes one bounded correction per public head"
     },
@@ -1755,10 +1756,10 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "`CLEAN@H`",
-        "before each gate, route-to-Sol, post-push gate, reply, final classification",
-        "Correction-overlay and staged-manifest boundaries use the named condition deltas",
-        "post-commit/pre-push boundaries use `POST_COMMIT(C, P)`",
+        "`OPERATOR_CHECKOUT_UNCHANGED@O`",
+        "before each gate, route-to-Sol, reply, final classification",
+        "immediately after a push require `WORKSPACE_POST_PUSH(C, O)`",
+        "post-commit/pre-push boundaries use `WORKSPACE_POST_COMMIT(C, P)`",
         "unsafe root",
         "forbidden candidate/public `HEAD` or index entry",
         "runtime-root churn"
@@ -1773,10 +1774,10 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "`CLEAN@P` conditions 1 and 3–6",
-        "`CLEAN@P` conditions 1 and 4–6",
+        "`AUTOFIX_WORKSPACE@P` with identity, tracked/index, and runtime-root conditions",
+        "`AUTOFIX_WORKSPACE@P` with identity, untracked, and runtime-root conditions",
         "distinct post-commit/pre-push guard",
-        "`POST_COMMIT(C, P)`",
+        "`WORKSPACE_POST_COMMIT(C, P)`",
         "BEFORE_VALIDATION",
         "AFTER_VALIDATION",
         "BEFORE_STAGING",
@@ -1784,7 +1785,7 @@
         "BEFORE_COMMIT",
         "AFTER_COMMIT",
         "BEFORE_PUSH",
-        "Each guard independently reclassifies every `RUNTIME_ROOTS` member",
+        "every `RUNTIME_ROOTS` member without following links is reclassified",
         "Between these two guards, safe untracked runtime-root churn below each root may change",
         "descendant create, content change, rename, removal",
         "safe root transition between absent and real directory",
@@ -1792,7 +1793,7 @@
         "immutable staged manifest",
         "parent/tree/inventory/blob identities",
         "staged deletion never cures a forbidden entry in `P`",
-        "zero cleanup, retry, continuation, or mutation"
+        "no retry, continuation, or mutation follows"
       ],
       "section": "### Exact identity and Luna publication phases"
     },
@@ -1810,7 +1811,7 @@
         "the only truthful runtime-content statement permitted is that safe untracked runtime state was excluded from candidate/evidence identity and reclassified at the required boundaries without following links",
         "untracked cleanliness",
         "no cleanup, retry, compensation, or resume",
-        "reply, final-classification, post-reply, and summary boundary"
+        "every reply/final/post-reply/summary boundary"
       ],
       "section": "### Source-finding replies and final readiness"
     },
@@ -1822,14 +1823,13 @@
         "README.md"
       ],
       "requires": [
-        "In exact PR `autofix` only",
-        "untracked descendants under verified real repository-root runtime roots in the enumerated set `RUNTIME_ROOTS := { \".pi\", \".pi-subagents\" }`",
-        "Any runtime-root entry in candidate `HEAD`, the index",
-        "The AFTER_COMMIT and repeated BEFORE_PUSH guards independently reclassify the root for every `RUNTIME_ROOTS` member",
-        "safe untracked runtime-root churn",
-        "candidate, tracked/index/unstaged, manifest, commit, evidence, and public-head identity remain unchanged",
-        "Any other change stops before push",
-        "no cleanup, retry, or resume"
+        "Exact PR `autofix` separates",
+        "Runtime-root entries in candidate `HEAD`, index",
+        "`WORKSPACE_POST_COMMIT(C, P)` and `WORKSPACE_POST_PUSH(C, O)` are distinct",
+        "AFTER_COMMIT and BEFORE_PUSH independently reclassify every `RUNTIME_ROOTS` member",
+        "safe untracked churn",
+        "Every terminal result rechecks the operator",
+        "Exact PR `autofix` separates `OPERATOR_CHECKOUT@H` from `AUTOFIX_WORKSPACE@H`"
       ],
       "section": "### Autofix"
     },
@@ -1962,6 +1962,30 @@
         "sol-reviewer",
         "terra-reviewer",
         "conditionally for autofix mode, `luna-worker`"
+      ]
+    },
+    {
+      "id": "CL-D30-isolated-workspace",
+      "marker": "CL-D30",
+      "title": "Issue #42 isolated workspace and opaque ignored inventory",
+      "files": [
+        "CONTRACT.md",
+        "skills/closed-loop-pr/references/autofix.md",
+        "README.md"
+      ],
+      "requires": [
+        "OPERATOR_CHECKOUT@H",
+        "AUTOFIX_WORKSPACE@H",
+        "OPERATOR_CHECKOUT_UNCHANGED@O",
+        "opaque sorted ignored inventory explicitly enumerated",
+        "re-enumeration",
+        "git worktree add --detach",
+        "temporary clone",
+        "sanitized noninteractive",
+        "empty run-owned hooksPath",
+        "HEAD:refs/heads/<verified-pr-branch>",
+        "WORKSPACE_POST_PUSH(C, O)",
+        "non-ignored untracked path"
       ]
     }
   ]

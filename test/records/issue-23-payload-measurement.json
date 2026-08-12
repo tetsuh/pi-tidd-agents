@@ -30,7 +30,10 @@
     "candidateAuthorityGraphSha256": "eecafc552f18d9240975e49fa756cc2d0b3b46fba6616efcea5a6f9254be91cf",
     "candidateAuthorityRawBytes": 98692,
     "candidateAuthorityRawConcatSha256": "7052cc02feee1fa920f85208256d2e0a5c2d79bf6da279e3617f4a806c389139",
-    "candidateAuthorityFraming": "For each listed file in order: UTF-8 path, one space, decimal raw byte length, LF, raw file bytes, LF."
+    "candidateAuthorityFraming": "For each listed file in order: UTF-8 path, one space, decimal raw byte length, LF, raw file bytes, LF.",
+    "candidateAuthorityIdentityScope": "immutable historical Issue #23 replay identity verified by replay cfd6cad8 output; never recomputed from later mutable authority files",
+    "candidateAuthorityEvidencePath": "test/records/issue-23-real-run-provenance.json",
+    "candidateAuthorityEvidenceSha256": "d86ad20026c16dbb8c7e0d31c1ca0ed7519220cd4d361bf569e906afda4fa5a7"
   },
   "environment": {
     "pi": "0.84.1",
