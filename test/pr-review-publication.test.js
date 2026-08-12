@@ -33,6 +33,11 @@ function gitBashPath(value) {
   return execFileSync(BASH, ['-lc', 'cygpath -u "$1"', '--', value], { encoding: 'utf8' }).trim();
 }
 
+function hostPath(value) {
+  if (process.platform !== 'win32') return value;
+  return execFileSync(BASH, ['-lc', 'cygpath -w "$1"', '--', value], { encoding: 'utf8' }).trim();
+}
+
 function shellQuote(value) {
   return `'${gitBashPath(value).split("'").join("'\"'\"'")}'`;
 }
@@ -218,7 +223,7 @@ test('Issue #41 template is syntax-valid, portable, and does not source body byt
 test('Issue #41 CI scopes token permissions and uses Git Bash for Windows coverage', () => {
   const workflow = readText('.github/workflows/test.yml');
   const harness = readText('test/pr-review-publication.test.js');
-  assert.match(workflow, /permissions:\n  contents: read\n/);
+  assert.match(workflow, /permissions:\r?\n  contents: read\r?\n/);
   assert.match(workflow, /publication-git-bash:\n    runs-on: windows-latest/);
   assert.match(harness, /execFileSync\(BASH, \['-lc', 'cygpath -u "\$1"', '--', value\]/);
   assert.doesNotMatch(harness, /path\.join\(path\.dirname\(BASH\), 'cygpath\.exe'\)/);
@@ -232,9 +237,10 @@ test('Issue #41 successful owner script posts exact bytes once and emits receipt
   assert.deepEqual(fs.readFileSync(f.posted), Buffer.from(f.body));
   assert.equal(callCount(f), 5, 'auth, two identity brackets, paginated comments, and one POST are expected');
   const receipt = output.match(/receipt: (.+)\n/)?.[1];
-  assert.ok(receipt && fs.existsSync(receipt));
-  assert.equal(path.dirname(receipt), f.artifactDir);
-  assert.match(fs.readFileSync(receipt, 'utf8'), new RegExp(f.completeSha256));
+  const receiptPath = receipt && hostPath(receipt);
+  assert.ok(receiptPath && fs.existsSync(receiptPath));
+  assert.equal(path.dirname(receiptPath), f.artifactDir);
+  assert.match(fs.readFileSync(receiptPath, 'utf8'), new RegExp(f.completeSha256));
 });
 
 test('Issue #41 rejects missing authentication before any provider mutation', () => {
@@ -403,14 +409,16 @@ test('Issue #41 rejects malformed or wrong-target POST output without retry', ()
 test('Issue #41 preserves the validated comment URL when receipt creation fails', () => {
   const f = fixture();
   const realMktemp = execFileSync(BASH, ['-lc', 'command -v mktemp'], { encoding: 'utf8' }).trim();
-  fs.writeFileSync(path.join(f.bin, 'mktemp'), `#!/usr/bin/env bash\ncase "$*" in *review-publication-receipt*) exit 1;; esac\nexec ${JSON.stringify(realMktemp)} "$@"\n`, { mode: 0o700 });
+  fs.writeFileSync(path.join(f.bin, 'mktemp'), `#!/usr/bin/env bash\ncase " $* " in *' -d '*) exec ${JSON.stringify(realMktemp)} "$@";; *) exit 1;; esac\n`, { mode: 0o700 });
+  let error;
   try {
     runPublisher(f);
-    assert.fail('receipt failure must return nonzero');
-  } catch (error) {
-    const combined = `${error.stdout || ''}\n${error.stderr || ''}`;
-    assert.match(combined, /comment_url: https:\/\/github\.com\/tetsuh\/pi-tidd-agents\/pull\/41#issuecomment-99/);
-    assert.match(combined, /do not retry automatically/);
+  } catch (caught) {
+    error = caught;
   }
+  assert.ok(error, 'receipt failure must return nonzero');
+  const combined = `${error.stdout || ''}\n${error.stderr || ''}`;
+  assert.match(combined, /comment_url: https:\/\/github\.com\/tetsuh\/pi-tidd-agents\/pull\/41#issuecomment-99/);
+  assert.match(combined, /do not retry automatically/);
   assert.equal(callCount(f), 5);
 });
