@@ -721,7 +721,7 @@
         "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
-        "reads sibling `publish-review.sh` completely",
+        "read sibling `publish-review.sh` completely",
         "copies it byte-for-byte",
         "replaces all six exact ASCII placeholders once",
         "exactly two UTF-8/LF artifacts",

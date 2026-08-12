@@ -224,7 +224,7 @@ test('Issue #41 CI scopes token permissions and uses Git Bash for Windows covera
   const workflow = readText('.github/workflows/test.yml');
   const harness = readText('test/pr-review-publication.test.js');
   assert.match(workflow, /permissions:\r?\n  contents: read\r?\n/);
-  assert.match(workflow, /publication-git-bash:\n    runs-on: windows-latest/);
+  assert.match(workflow, /publication-git-bash:\r?\n    runs-on: windows-latest/);
   assert.match(harness, /execFileSync\(BASH, \['-lc', 'cygpath -u "\$1"', '--', value\]/);
   assert.doesNotMatch(harness, /path\.join\(path\.dirname\(BASH\), 'cygpath\.exe'\)/);
 });
@@ -239,7 +239,7 @@ test('Issue #41 successful owner script posts exact bytes once and emits receipt
   const receipt = output.match(/receipt: (.+)\n/)?.[1];
   const receiptPath = receipt && hostPath(receipt);
   assert.ok(receiptPath && fs.existsSync(receiptPath));
-  assert.equal(path.dirname(receiptPath), f.artifactDir);
+  assert.equal(fs.realpathSync(path.dirname(receiptPath)), fs.realpathSync(f.artifactDir));
   assert.match(fs.readFileSync(receiptPath, 'utf8'), new RegExp(f.completeSha256));
 });
 
@@ -409,7 +409,8 @@ test('Issue #41 rejects malformed or wrong-target POST output without retry', ()
 test('Issue #41 preserves the validated comment URL when receipt creation fails', () => {
   const f = fixture();
   const realMktemp = execFileSync(BASH, ['-lc', 'command -v mktemp'], { encoding: 'utf8' }).trim();
-  fs.writeFileSync(path.join(f.bin, 'mktemp'), `#!/usr/bin/env bash\ncase " $* " in *' -d '*) exec ${JSON.stringify(realMktemp)} "$@";; *) exit 1;; esac\n`, { mode: 0o700 });
+  const countFile = gitBashPath(path.join(f.root, 'mktemp count'));
+  fs.writeFileSync(path.join(f.bin, 'mktemp'), `#!/usr/bin/env bash\ncount=0\n[[ ! -f ${JSON.stringify(countFile)} ]] || count="$(cat ${JSON.stringify(countFile)})"\ncount=$((count + 1))\nprintf '%s\\n' "$count" > ${JSON.stringify(countFile)}\n[[ "$count" -eq 1 ]] || exit 1\nexec ${JSON.stringify(realMktemp)} "$@"\n`, { mode: 0o700 });
   let error;
   try {
     runPublisher(f);
