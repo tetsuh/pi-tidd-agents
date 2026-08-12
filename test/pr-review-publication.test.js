@@ -143,7 +143,7 @@ function runPublisher(fixture, extra = {}) {
   });
 }
 
-function runPublisherAsync(fixture, extra = {}) {
+function runPublisherAsync(fixture, extra = {}, onSpawn) {
   const env = {
     ...process.env,
     PATH: `${fixture.bin}${path.delimiter}${process.env.PATH}`,
@@ -163,9 +163,10 @@ function runPublisherAsync(fixture, extra = {}) {
     ...extra,
   };
   return new Promise((resolve) => {
-    execFile(BASH, [gitBashPath(path.join(fixture.artifactDir, 'publish-review.sh'))], {
+    const child = execFile(BASH, [gitBashPath(path.join(fixture.artifactDir, 'publish-review.sh'))], {
       cwd: fixture.root, env, encoding: 'utf8',
     }, (error, stdout, stderr) => resolve({ error, stdout, stderr }));
+    if (onSpawn) onSpawn(child);
   });
 }
 
@@ -390,6 +391,22 @@ test('Issue #41 permits at most one concurrent invocation', async () => {
   assert.equal(results.filter((result) => result.error).length, 1);
   assert.equal(callCount(f), 5);
   assert.deepEqual(fs.readFileSync(f.posted), Buffer.from(f.body));
+});
+
+test('Issue #41 signal termination cannot resume after releasing the lock', { skip: process.platform === 'win32' }, async () => {
+  const f = fixture();
+  const lock = path.join(f.artifactDir, '.pi-review-publication-lock');
+  let child;
+  const interrupted = runPublisherAsync(f, { GH_AUTH_DELAY: '5' }, (spawned) => { child = spawned; });
+  const deadline = Date.now() + 5000;
+  while (!fs.existsSync(lock) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.ok(fs.existsSync(lock), 'first publisher must hold the artifact lock before interruption');
+  child.kill('SIGHUP');
+  const first = await interrupted;
+  assert.ok(first.error, 'interrupted publisher must terminate nonzero');
+  assert.equal(fs.existsSync(f.posted), false);
+  assert.match(runPublisher(f), /publication succeeded/);
+  assert.equal(callCount(f), 6, 'interrupted auth plus one complete successful publication are expected');
 });
 
 test('Issue #41 uses the macOS shasum fallback when sha256sum fails', () => {

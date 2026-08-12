@@ -98,7 +98,13 @@ cleanup() {
     rmdir "$LOCK_DIR" 2>/dev/null || true
   fi
 }
-trap cleanup EXIT HUP INT TERM
+terminate() {
+  trap - EXIT HUP INT TERM
+  cleanup
+  exit 1
+}
+trap cleanup EXIT
+trap terminate HUP INT TERM
 cp "$COMMENT_FILE" "$POST_FILE" || fail 'cannot create private review-comment snapshot'
 [[ -f "$POST_FILE" && ! -L "$POST_FILE" ]] || fail 'private review-comment snapshot is unsafe'
 
