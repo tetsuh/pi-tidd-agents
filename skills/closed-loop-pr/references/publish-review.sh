@@ -58,15 +58,21 @@ readonly COMMENT_FILE="$SCRIPT_DIR/review-comment.md"
 readonly LOCK_DIR="$SCRIPT_DIR/.pi-review-publication-lock"
 [[ -f "$COMMENT_FILE" && ! -L "$COMMENT_FILE" ]] || fail 'review-comment.md is missing or is a symlink'
 command -v git >/dev/null 2>&1 || fail 'git is required to verify external artifact placement'
-# Inherited Git-discovery variables are untrusted; probe physical placement in a
-# sanitized subshell so they cannot disguise a repository-contained directory.
-if (
-  unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_CEILING_DIRECTORIES GIT_DISCOVERY_ACROSS_FILESYSTEM GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES
-  git -C "$SCRIPT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
-    git -C "$SCRIPT_DIR" rev-parse --is-inside-git-dir >/dev/null 2>&1
-); then
+# Inherited Git-discovery variables are untrusted, as is inherited configuration. Use an empty environment
+# and classify only Git's canonical outside-repository result as safe; every
+# other probe error fails closed instead of becoming outside-repository evidence.
+set +e
+placement_probe="$(env -i PATH="$PATH" LC_ALL=C GIT_CONFIG_NOSYSTEM=1 HOME= XDG_CONFIG_HOME= \
+  git -C "$SCRIPT_DIR" rev-parse --absolute-git-dir 2>&1)"
+placement_status=$?
+set -e
+if [[ "$placement_status" == 0 ]]; then
   fail 'publication artifacts must remain outside every repository'
 fi
+case "$placement_probe" in
+  "fatal: not a git repository (or any of the parent directories): .git") ;;
+  *) fail 'cannot verify that publication artifacts are outside every repository';;
+esac
 
 hash_file() {
   local digest

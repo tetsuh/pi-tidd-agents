@@ -303,6 +303,14 @@ test('Issue #41 sanitizes inherited Git discovery variables for placement checks
   assert.equal(fs.existsSync(f.posted), false);
 });
 
+test('Issue #41 fails closed on inherited Git configuration injection', () => {
+  const f = fixture();
+  execFileSync('git', ['init', '-q', f.root]);
+  assert.throws(() => runPublisher(f, { GIT_CONFIG_COUNT: 'not-a-number' }));
+  assert.equal(callCount(f), 0);
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
 test('Issue #41 rejects altered review bytes before any provider lookup', () => {
   const f = fixture();
   fs.appendFileSync(path.join(f.artifactDir, 'review-comment.md'), 'tampered\n');
