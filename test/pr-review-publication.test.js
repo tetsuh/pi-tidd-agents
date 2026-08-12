@@ -239,7 +239,9 @@ test('Issue #41 successful owner script posts exact bytes once and emits receipt
   const receipt = output.match(/receipt: (.+)\n/)?.[1];
   const receiptPath = receipt && hostPath(receipt);
   assert.ok(receiptPath && fs.existsSync(receiptPath));
-  assert.equal(fs.realpathSync(path.dirname(receiptPath)), fs.realpathSync(f.artifactDir));
+  const receiptDir = fs.statSync(path.dirname(receiptPath));
+  const artifactDir = fs.statSync(f.artifactDir);
+  assert.deepEqual([receiptDir.dev, receiptDir.ino], [artifactDir.dev, artifactDir.ino]);
   assert.match(fs.readFileSync(receiptPath, 'utf8'), new RegExp(f.completeSha256));
 });
 
@@ -409,8 +411,7 @@ test('Issue #41 rejects malformed or wrong-target POST output without retry', ()
 test('Issue #41 preserves the validated comment URL when receipt creation fails', () => {
   const f = fixture();
   const realMktemp = execFileSync(BASH, ['-lc', 'command -v mktemp'], { encoding: 'utf8' }).trim();
-  const countFile = gitBashPath(path.join(f.root, 'mktemp count'));
-  fs.writeFileSync(path.join(f.bin, 'mktemp'), `#!/usr/bin/env bash\ncount=0\n[[ ! -f ${JSON.stringify(countFile)} ]] || count="$(cat ${JSON.stringify(countFile)})"\ncount=$((count + 1))\nprintf '%s\\n' "$count" > ${JSON.stringify(countFile)}\n[[ "$count" -eq 1 ]] || exit 1\nexec ${JSON.stringify(realMktemp)} "$@"\n`, { mode: 0o700 });
+  fs.writeFileSync(path.join(f.bin, 'mktemp'), `#!/usr/bin/env bash\nif [[ "${'${1:-}'}" == '-d' ]]; then exec ${JSON.stringify(realMktemp)} "$@"; fi\nexit 1\n`, { mode: 0o700 });
   let error;
   try {
     runPublisher(f);
