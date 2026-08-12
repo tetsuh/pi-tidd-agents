@@ -11,11 +11,11 @@ For the whole review-only run:
 - do not reply to review threads;
 - do not mutate any external service.
 
-You may inspect, review, disposition findings locally, and draft proposed replies and patches. Working notes, the disposition ledger, and drafts belong in a temporary directory **outside the repository**.
+You may inspect, review, disposition findings, and draft replies/patches.
 
 ### Candidate evidence boundary (CL-D23, CL-D9)
 
-Review-only never edits any repository file or creates a working-tree candidate. Proposed patches, disposition ledgers, replies, and drafts belong outside the repository; no post-fix formal gate consumes an uncommitted overlay.
+Review-only never edits any repository file or creates a working-tree candidate. Drafts stay outside the repository; no post-fix formal gate consumes an uncommitted overlay.
 
 ### Target stability during a run (CL-D27)
 
@@ -24,6 +24,10 @@ Review-only has no publication phase and no local commit/push window. Revalidate
 ## Publication boundary (CL-D28)
 
 Issue workflow has no publication grant through this Skill, and PR review-only has no publication grant through this PR path. Issue publication authority, when present, originates only from the CL-D31 exception in the shared Issue Skill for `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>`; it does not originate from `/tidd-pr` or this Skill. Review-only never commits, pushes, posts, replies, or mutates external state. It may draft a proposed commit message, replies, and disposition summary for the operator. **Drafting is not publishing.**
+
+### Guarded owner publication artifacts (CL-D33, Issue #41)
+
+At each summary stop, read sibling `publish-review.sh` completely, copies it byte-for-byte, replaces all six exact ASCII placeholders once, and follows its Generation contract. Draft exactly two UTF-8/LF artifacts—`review-comment.md` and `publish-review.sh`—in a fresh external `mktemp` directory; Review-only never executes the script. CL-D33 aggregate-summary publication is optional, not a locally drafted correction candidate, never blocks `MERGE_READY`, and does not create `WAITING_FOR_OWNER`; only an outstanding readiness-relevant unpublished correction candidate has that effect. Report paths/digest, repository/PR/head, exact command `bash "<path>/publish-review.sh"`, `changed head requires fresh review`, `publication_grant: review-only not-applicable`, and operator attribution. The owner executing that command is the publication grant; artifacts remain external drafts.
 
 ## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 
@@ -69,13 +73,13 @@ Observation policy, which this MVP reports against rather than enforces:
 - a **fifteen-minute** maximum observation window per head, measured from that initial snapshot (a new head starts a new origin);
 - a new head resets both.
 
-**External evidence is never carried across runs.** A resumed or later run takes its own snapshot and reprocesses what it sees; nothing external is read from a pasted status block. The window and quiet period are therefore reported for the current run's observation only, and the report says so rather than implying a longer continuous watch. These are current-process snapshots for this review-only run.
+**External evidence is never carried across runs.** Each run takes its own snapshot; no pasted status resumes it. Report quiet/window only for this run, as current-process snapshots.
 
-This is a narrowing of `DEC-EXT-SNAPSHOT-001`, which kept the origin and compared findings by stable identity. Making that work needs a **provider-native finding identity** for reviews, inline review comments, issue comments, check runs and commit statuses, plus edit timestamps and head association per source. That is provider correlation logic, and it belongs to the external-review integration issue rather than to this MVP's prose — the same boundary CL-D28 drew for publication.
+This narrows `DEC-EXT-SNAPSHOT-001`: **provider-native finding identity** for reviews, inline review comments, issue comments, check runs and commit statuses, with edit timestamps/head association, belongs to external-review integration, not this prose; CL-D28 draws the same publication boundary.
 
 When an external state cannot be determined — a provider that exposes no usable identity, a missing timestamp, a record with no head association — report it as **unknown, not complete**, and stay `WAITING_EXTERNAL_REVIEW`. An undetermined provider is never a passing one.
 
-In PR review-only, findings the workflow raises itself carry across resumptions: Sol and Terra findings have identities this workflow assigns, so the status block lists each with its disposition. The review-only initial snapshot is not polling and does not delay internal review. Review-only has no timers and **must not busy-poll** or spend turns waiting; when processing has not completed, report `WAITING_EXTERNAL_REVIEW` with a status block and let the operator resume.
+Workflow findings carry across resumptions with assigned identities and status dispositions. The initial snapshot is not polling. Review-only has no timers and **must not busy-poll**; incomplete processing reports `WAITING_EXTERNAL_REVIEW` with a status block for resume.
 
 Treat CodeRabbit and SonarCloud as required once detected. Process GitHub Copilot review findings when observed, but never block merely because an optional Copilot review is absent. Human `Changes requested` and required approvals are a separate repository-policy gate.
 
@@ -98,7 +102,7 @@ BLOCKED
 ABORTED
 ```
 
-In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**. Review-only drafts are outside the repository and any outstanding operator publication action ends at `WAITING_FOR_OWNER`; after the operator publishes, a fresh review-only run reruns Sol, Terra, external state, and exact-head checks. A fresh run starts by revalidating the current target and external evidence.
+In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**; this means a readiness-relevant correction candidate and stops at `WAITING_FOR_OWNER`. Once published, a fresh run revalidates the target and external evidence, then reruns Sol, Terra, external state, and exact-head checks.
 
 Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself.
 

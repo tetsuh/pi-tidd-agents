@@ -121,6 +121,8 @@ The bounded attempt may perform at most one optional body update in the current 
 
 Reviews the pull request without editing files, changing git state, committing, pushing, posting to GitHub, or touching any external service. Replies and patches are drafted for you to review, not published.
 
+When a publishable aggregate summary is available, review-only may also draft `review-comment.md` and `publish-review.sh` in a temporary directory outside the repository. It prints the exact owner command `bash "<path>/publish-review.sh"`; review-only never executes it. The generated publisher rechecks the exact repository, open PR, reviewed head, complete body digest, and all paginated duplicate-marker evidence before one owner-authorized `gh pr comment` operation. Any head change requires a fresh review, and failed or ambiguous publication is never retried automatically.
+
 ### Autofix
 
 Issue #42 isolated-workspace authority applies to exact autofix.

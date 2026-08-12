@@ -127,6 +127,7 @@ test('fixture: text fingerprint serialization is newline-stable and delimiter-st
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_ARTIFACTS = [PR_SKILL, PR_REVIEW_ONLY, PR_AUTOFIX];
 const readPrMode = (reference) => [PR_SKILL, reference].map(readText).join('\n');
 const ENTRY_ARTIFACTS = [
@@ -185,6 +186,23 @@ const SUPERSEDED = [
     ], pattern: /survives (?:the check )?as (?:a )?finding/i,
     reason: 'CL-D29 makes no counterexample neither a finding nor proof' },
 ];
+
+test('Issue #41 publication authority remains review-only-owned and aggregate-only', () => {
+  const reviewOnly = readText(PR_REVIEW_ONLY);
+  const autofix = readText(PR_AUTOFIX);
+  const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
+  assert.match(reviewOnly, /Guarded owner publication artifacts \(CL-D33, Issue #41\)/);
+  assert.match(reviewOnly, /CL-D33 aggregate-summary publication is optional/);
+  assert.match(reviewOnly, /not a locally drafted correction candidate/);
+  assert.match(reviewOnly, /never blocks `MERGE_READY`/);
+  assert.match(reviewOnly, /does not create `WAITING_FOR_OWNER`/);
+  assert.match(reviewOnly, /only an outstanding readiness-relevant unpublished correction candidate has that effect/);
+  assert.match(reviewOnly, /Review-only never executes the script/);
+  assert.match(readText(PR_PUBLICATION_TEMPLATE), /aggregate-summary publication only|Issue #40 source-reply authority/);
+  assert.match(readText(PR_PUBLICATION_TEMPLATE), /gh pr comment <full-pr-url> --body-file <review-comment\.md>/);
+  assert.doesNotMatch(autofix, /publish-review\.sh|review-publication:v1/);
+  assert.doesNotMatch(shared, /publish-review\.sh|review-publication:v1/);
+});
 
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   const skill = readText(PR_AUTOFIX);
