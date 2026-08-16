@@ -86,8 +86,12 @@ test('Issue #55 every mapped operation names its required request fields', () =>
   for (const [operation, required] of Object.entries(cliSchemas())) {
     const matching = rows.filter((row) => backticked(row.operation).includes(operation));
     assert.ok(matching.length > 0, `no map row names ${operation}`);
-    for (const field of required) {
-      assert.ok(matching.some((row) => backticked(row.data).includes(field)), `map row for ${operation} omits required field ${field}`);
+    // Every row mapping the operation must carry its complete required set. Checking fields
+    // across rows, or requiring only one complete row, would let a multi-row operation split
+    // its schema between individually incomplete rows.
+    for (const row of matching) {
+      const missing = required.filter((field) => !backticked(row.data).includes(field));
+      assert.deepEqual(missing, [], `map row for ${operation} (${row.phase}) omits required fields: ${missing.join(', ')}`);
     }
   }
 });
@@ -118,14 +122,21 @@ test('Issue #55 clean-only workspace verification is not mapped to a guard that 
 // The contract enumerates its own pre-push boundaries. Parsing that enumeration instead of
 // restating it here is what stops the map from drifting: three review rounds of this PR
 // found the map naming a subset of them, so the list is derived, never hand-maintained.
+// Comparison is by exact token, never substring: `phase.includes('reply')` would otherwise
+// be satisfied by `post-reply` alone.
+const LEADING = /^(?:and\s+)?(?:immediately\s+)?(?:before|at|after|in)?\s*(?:each|every|the first|any)?\s*/i;
+function enumerationTokens(text) {
+  return new Set(text.split(/,|\band\b|\u2014|--/)
+    .map((term) => term.trim().replace(LEADING, '').trim().replace(/\.$/, ''))
+    .filter(Boolean));
+}
+
 function prePushBoundaries() {
-  const text = readText(PR_AUTOFIX);
-  const sentence = text.match(/Every pre-push boundary[\u2014-]([^\u2014]+)[\u2014-]requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H`/);
+  const sentence = readText(PR_AUTOFIX).match(/Every pre-push boundary[\u2014-]([^\u2014]+)[\u2014-]requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H`/);
   assert.ok(sentence, 'could not locate the pre-push boundary enumeration in the contract');
-  const terms = sentence[1].split(/,|\band\b/).map((term) => term.trim()).filter(Boolean)
-    // The map cites the snapshot boundary by its short name, as the contract does elsewhere.
-    .map((term) => term.replace(/^before each /, '').replace(/^post-reply snapshot$/, 'post-reply'));
-  assert.ok(terms.length >= 6, `expected at least six pre-push boundaries, parsed ${terms.length}`);
+  // The map cites the snapshot boundary by its short name, as the contract does elsewhere.
+  const terms = new Set([...enumerationTokens(sentence[1])].map((term) => term.replace(/^post-reply snapshot$/, 'post-reply')));
+  assert.ok(terms.size >= 6, `expected at least six pre-push boundaries, parsed ${terms.size}`);
   return terms;
 }
 
@@ -134,18 +145,18 @@ test('Issue #55 both pre-push invariants are mapped at every boundary the contra
   for (const operation of ['workspace_verify', 'operator_revalidate']) {
     const rows = mapRows(section).filter((row) => backticked(row.operation).includes(operation) && !backticked(row.data).includes('transition'));
     assert.ok(rows.length > 0, `no non-transition row maps ${operation}`);
-    const phase = rows.map((row) => row.phase).join(' ');
+    const named = enumerationTokens(rows.map((row) => row.phase).join(', '));
     for (const boundary of prePushBoundaries()) {
-      assert.ok(phase.includes(boundary), `${operation} phase cell omits the ${boundary} pre-push boundary`);
+      assert.ok(named.has(boundary), `${operation} phase cell omits the ${boundary} pre-push boundary; parsed tokens: ${[...named].join(' | ')}`);
     }
   }
 });
 
 test('Issue #55 snapshot refresh is mapped at every boundary the contract requires', () => {
-  const section = mapSection();
-  const phase = mapRows(section).filter((row) => backticked(row.operation).includes('snapshot')).map((row) => row.phase).join(' ');
-  for (const boundary of ['Sol/Terra invocation', 'reply', 'final classification', 'post-reply', 'summary']) {
-    assert.ok(phase.includes(boundary), `snapshot phase cell omits the ${boundary} boundary`);
+  const rows = mapRows(mapSection()).filter((row) => backticked(row.operation).includes('snapshot'));
+  const named = enumerationTokens(rows.map((row) => row.phase).join(', '));
+  for (const boundary of ['Sol/Terra invocation', 'reply', 'reply batch', 'final classification', 'post-reply', 'summary mutation']) {
+    assert.ok(named.has(boundary), `snapshot phase cell omits the ${boundary} boundary; parsed tokens: ${[...named].join(' | ')}`);
   }
 });
 

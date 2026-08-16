@@ -30,7 +30,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Preflight, before any gate or mutation | `operator_capture` | `cwd`, `identity` |
 | Preflight writability | `writability` | `owner`, `repo`, `branchRef`, `enterprisePolicyComplete`, `enterpriseRulesets` |
 | Workspace creation at public `H` | `workspace_create` | `cwd`, `head`, `tree` |
-| Evidence before every Sol/Terra invocation, before the first reply and every reply batch, at final classification, post-reply, and before any approved aggregate-summary action | `snapshot` | `owner`, `repo`, `number` |
+| Snapshot refresh — before each Sol/Terra invocation, before the first reply, each reply batch, final classification, post-reply, summary mutation | `snapshot` | `owner`, `repo`, `number` |
 | CL-D9 `issue_spec` | `fingerprint_issue_spec` | `body`, `comments` |
 | CL-D9 `pr_base` | `fingerprint_pr_base` | `oid` |
 | CL-D9 `pr_tree` | `fingerprint_pr_tree` | `oid` |
