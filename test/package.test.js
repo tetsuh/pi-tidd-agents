@@ -272,8 +272,9 @@ test('Issue #24 shared-reference literal matching rejects malformed prefixes', (
 
 test('Issue #24 six authority files remain below the published baseline', () => {
   // Review-driven regression: this raw-byte ceiling protects the reviewed authority graph.
+  // CL-D34 raised the Issue #24 baseline from 99,182 to 104,000 bytes by owner decision.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 99182, `six authority files total ${total} bytes, expected less than 99182`);
+  assert.ok(total < 104000, `six authority files total ${total} bytes, expected less than 104000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.

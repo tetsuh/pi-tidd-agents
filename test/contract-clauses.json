@@ -1987,6 +1987,116 @@
         "WORKSPACE_POST_PUSH(C, O)",
         "non-ignored untracked path"
       ]
+    },
+    {
+      "id": "CL-D34-anchor",
+      "marker": "CL-D34",
+      "title": "Blocking findings are anchored to criteria, clauses, or invariants",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Finding anchoring and threat-model bound (AC-ANCHOR, CL-D34)",
+      "requires": [
+        "Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant",
+        "`reword` finding",
+        "owner edit of the body, never an implementation blocker",
+        "`follow-up` finding reported with a proposed issue title",
+        "unless an acceptance criterion names that condition",
+        "Bounding applies to severity and disposition only"
+      ]
+    },
+    {
+      "id": "CL-D34-payload",
+      "marker": "CL-D34",
+      "title": "Every Sol payload carries the anchoring bound",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
+      "requires": [
+        "Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant it falsifies",
+        "`reword` finding corrected by owner body edit, not an implementation blocker",
+        "`follow-up` finding with a proposed issue title unless an acceptance criterion names that condition (CL-D34)"
+      ]
+    },
+    {
+      "id": "CL-D34-classes",
+      "marker": "CL-D34",
+      "title": "Anchoring classes are labelled separately from the closed disposition vocabulary",
+      "files": [
+        "skills/closed-loop-shared/references/records.md"
+      ],
+      "section": "## Finding anchoring classes (AC-ANCHOR, CL-D34)",
+      "requires": [
+        "exactly one anchoring class before its disposition",
+        "criterion-anchored",
+        "reword",
+        "follow-up",
+        "disposition `fixed` on the body revision or `accepted-as-designed`",
+        "disposition `deferred` with a proposed issue title",
+        "every cited counterexample is still reported"
+      ]
+    },
+    {
+      "id": "CL-D34-threat-model",
+      "marker": "CL-D34",
+      "title": "Exact autofix declares its cooperative operator assumptions",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Exact-autofix threat model (CL-D34)",
+      "requires": [
+        "assumes these operator conditions cooperative unless an Issue acceptance criterion names one",
+        "resolve outside the operator checkout",
+        "not mutated by a third party during the run",
+        "not concurrently hostile",
+        "schema-valid responses for supported endpoints",
+        "another writer against the same checkout or workspace",
+        "Helpers that detect a violated assumption still fail closed",
+        "`follow-up` finding under AC-ANCHOR (CL-D34)",
+        "a claim only in PR-body prose is `reword`"
+      ]
+    },
+    {
+      "id": "CL-D34-normalization",
+      "marker": "CL-D34",
+      "title": "New blocker keys are normalized against the settled ledger",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Findings, no-progress, and deterministic status",
+      "requires": [
+        "normalizes the finding against the settled ledger by counterexample class",
+        "same helper or clause, same invariant, different input",
+        "reopen of the settled key requiring materially new evidence, never as a new key (CL-D34)"
+      ]
+    },
+    {
+      "id": "CL-D34-readme",
+      "marker": "CL-D34",
+      "title": "README states the anchoring bound",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "Under CL-D34, every blocking Sol finding is anchored to an acceptance criterion, contract clause, or fail-stop invariant",
+        "`reword` finding",
+        "`follow-up` findings",
+        "bounds severity without weakening falsification"
+      ]
+    },
+    {
+      "id": "CL-D34-baseline",
+      "marker": "CL-D34",
+      "title": "The six-file authority baseline is raised by owner decision",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model",
+      "requires": [
+        "raise the six-file authority baseline from 99,182 to 104,000 bytes",
+        "the byte baseline is a review guard, not a target"
+      ]
     }
   ]
 }

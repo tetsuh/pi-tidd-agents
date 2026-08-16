@@ -220,7 +220,7 @@ Sol treats the exact issue or pull-request body, the current authoritative decis
 
 A finding requires an actual cited counterexample disproving the claim, or a verdict-material claim that cannot be verified because required evidence is unavailable. Sol never invents a counterexample: no counterexample is neither a finding nor proof. Authoritative comments are restricted consistently with CL-D9 to non-bot authors with `author_association` `OWNER`, `MEMBER`, or `COLLABORATOR`; superseded comments from #3 are not revived.
 
-Both Skills bind the full procedure to every initial and re-invocation Sol payload because `inheritSkills: false`. The separate agent's primary benefit is model-family diversity; it may also add independent context, system-prompt, and failure boundaries. This is an existing Sol gate only: CL-D29 adds no gate, agent, mode, verdict, status token, round budget, prompt, package, or agent-file change.
+Both Skills bind the full procedure to every initial and re-invocation Sol payload because `inheritSkills: false`. The separate agent's primary benefit is model-family diversity; it may also add independent context, system-prompt, and failure boundaries. This is an existing Sol gate only: CL-D29 adds no gate, agent, mode, verdict, status token, round budget, prompt, package, or agent-file change. CL-D34 bounds the severity and disposition of the findings this procedure produces without narrowing the search.
 
 ## CL-D30 — Exact PR autofix publishes one bounded correction per public head
 **Clauses:** CL-D30-loop, CL-D30-publication, CL-D30-circuit, CL-D30-replies, CL-D30-clean-boundaries, CL-D30-readme-mode, CL-D30-mode-safety, CL-D30-language-boundary, CL-D30-precondition, CL-D30-readiness, CL-D30-gate-correlation, CL-D30-preconditions, CL-D30-luna-authorization, CL-D30-manifest, CL-D30-source-schema, CL-D30-snapshot-routing, CL-D30-reply-safety, CL-D30-summary-safety, CL-D30-breaker-boundaries, CL-D30-pi-contract, CL-D30-pi-boundaries, CL-D30-pi-publication, CL-D30-pi-replies, CL-D30-pi-readme, CL-D30-pi-fixtures, CL-D30-pi-packaging, CL-D30-isolated-workspace
@@ -287,6 +287,19 @@ The CL-D32 route remains prose-only orchestration with no executable controller,
 *Validity and invalidation conditions:* Applies only to PR review-only aggregate-summary publication artifacts. It never grants review-only direct provider mutation, Issue publication, source-finding replies, reviews, approvals, thread resolution, retries, reconciliation, or any autofix action. Any metadata, body, target, lifecycle, head, evidence, digest, POST, or receipt ambiguity stops the script; a later command is a fresh owner action.
 
 The implementation must preserve the exact `gh pr comment <full-pr-url> --body-file <review-comment.md>` operation, use complete UTF-8/LF bytes, and keep the template package-owned while `agents/**`, shared references, and exact autofix authority remain unchanged.
+
+## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model
+**Clauses:** CL-D34-anchor, CL-D34-payload, CL-D34-classes, CL-D34-threat-model, CL-D34-normalization, CL-D34-readme, CL-D34-baseline
+
+*Decision ID:* CL-D34
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#51` at the current Issue #51 body, motivated by the PR #48 review trajectory
+*Question:* How can Sol keep attempting adversarial falsification without letting body-only absolute wording or environment-hostile counterexamples reopen a bounded PR indefinitely?
+*Options and trade-offs:* Leave CL-D29 unbounded; drop the adversarial check; or keep the search unbounded but anchor severity and disposition to acceptance criteria, contract clauses, fail-stop invariants, and a mode-declared threat model. Unbounded severity produced one new blocker per fresh run on PR #48 after four `MERGE` verdicts; dropping the check loses falsification; anchoring keeps every counterexample reported while bounding what can block.
+*Recommendation:* Adopt anchoring classes `criterion-anchored`, `reword`, and `follow-up`, an exact-autofix threat model, and settled-ledger normalization of new blocker keys.
+*Owner choice:* Adopt CL-D34 as recommended for every Sol route, with the threat model declared only by exact PR `autofix`; raise the six-file authority baseline from 99,182 to 104,000 bytes because the previous ceiling left eight bytes and the anchoring, class, and threat-model prose belongs inside the reviewed authority graph rather than in an unreviewed reference.
+*Rationale:* CL-D29's procedure is preserved verbatim; only severity and disposition are bounded. `Blocker`/`Major` findings must name what they falsify, `reword` returns body prose to the owner, `follow-up` routes assumption-violating counterexamples to `deferred` with a proposed issue title, and the parent maps a same-class counterexample to the settled key instead of minting a new one, so the third-observation breaker can fire. The disposition vocabulary stays closed; anchoring is a class, not a disposition. Agent files, review-only, and Issue routes gain no threat model.
+*Validity and invalidation conditions:* Applies to every Sol invocation composed under CL-D29 and to exact-autofix blocker-key assignment. It grants no new mutation, retry, resume, or publication authority and changes no round budget. A criterion that names an operator condition removes that condition from the threat-model exclusion. Any later owner decision to widen or narrow the threat model, add a class, or change the baseline requires a new record; the byte baseline is a review guard, not a target.
 
 ## DEC-I15-ROUND-BUDGET-001 — Bounded post-decision Sol round
 **Clauses:** DEC-I15-round-budget

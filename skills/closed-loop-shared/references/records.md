@@ -19,6 +19,18 @@ For each finding record the source gate, severity, the target evidence fingerpri
 
 Group reports into blockers, changes worth making now or fixes worth making now, optional improvements, pre-existing conditions or findings, and findings intentionally declined. A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**; re-raising one requires materially new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker and must be labelled that way.
 
+## Finding anchoring classes (AC-ANCHOR, CL-D34)
+
+Label every finding with exactly one anchoring class before its disposition:
+
+```text
+criterion-anchored
+reword
+follow-up
+```
+
+`criterion-anchored` names the acceptance criterion, contract clause, or fail-stop invariant the counterexample falsifies and may carry any severity. `reword` traces only to target-body prose: the owner edits the body; disposition `fixed` on the body revision or `accepted-as-designed`; never an implementation blocker. `follow-up` requires violating an assumed operator condition that the selected mode's threat model declares cooperative: disposition `deferred` with a proposed issue title; never a blocker unless an acceptance criterion names that condition. Anchoring bounds severity and disposition only; every cited counterexample is still reported.
+
 ## Owner decisions (AC-DECISION)
 
 Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, and ADR acceptance. Routine details already settled by an approved contract remain implementation judgments.
