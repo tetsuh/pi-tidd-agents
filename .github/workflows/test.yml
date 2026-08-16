@@ -22,6 +22,19 @@ jobs:
       - name: Run contract and packaging tests
         run: npm test
 
+  helper-node:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run packaged helper tests
+        run: node --test test/issue-47-helpers.test.js
+
   publication-git-bash:
     runs-on: windows-latest
     steps:
