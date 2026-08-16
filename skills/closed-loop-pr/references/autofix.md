@@ -38,9 +38,9 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | CL-D9 `pr_commits` | `fingerprint_pr_commits` | `commits` |
 | CL-D9 `pr_head` | `fingerprint_pr_head` | `oid` |
 | Snapshot fingerprint for that evidence | `fingerprint_snapshot` | `snapshot` |
-| `AUTOFIX_WORKSPACE@H`/`@P` before any edit: each gate boundary, immediately before delegating Luna, and every reply, final-classification, post-reply, and summary boundary | `workspace_verify` | `cwd`, `expected` |
+| `AUTOFIX_WORKSPACE@H`/`@P` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and before any edit, including immediately before delegating Luna | `workspace_verify` | `cwd`, `expected` |
 | Sole-parent transition evidence toward `WORKSPACE_POST_COMMIT(C, P)`, `WORKSPACE_POST_PUSH(C, O)` | `workspace_verify` | `cwd`, `expected`, `transition` |
-| `OPERATOR_CHECKOUT_UNCHANGED@O` at every reply, final-classification, post-reply, summary, and terminal recheck | `operator_revalidate` | `captured`, `cwd` |
+| `OPERATOR_CHECKOUT_UNCHANGED@O` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and every terminal recheck | `operator_revalidate` | `captured`, `cwd` |
 | Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt`, `cwd` |
 
 `workspace_verify` requires clean tracked and index state, so it does not serve `BEFORE_VALIDATION`, `AFTER_VALIDATION`, `BEFORE_STAGING`, `AFTER_STAGING`, or `BEFORE_COMMIT`: those guards keep their phase-specific frozen-overlay and staged-manifest delta checks, which this map does not reassign. Its transition form supplies only clean workspace identity, current `HEAD`, and a verified sole-parent transition; current public-head equality, staged manifest/tree/blob identity, and linked remote-tracking equality remain phase-specific checks this map does not reassign. After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality. A helper envelope is supplied evidence in the gate payload: it never substitutes for a gate verdict and grants no commit, push, reply, or provider authority.

@@ -115,24 +115,38 @@ test('Issue #55 clean-only workspace verification is not mapped to a guard that 
   assert.ok(mapRows(section).some((row) => backticked(row.operation).includes('workspace_verify') && /before any edit/.test(row.phase)));
 });
 
-// autofix.md requires a refreshed snapshot, `AUTOFIX_WORKSPACE@H`, and
-// `OPERATOR_CHECKOUT_UNCHANGED@O` at reply, final-classification, post-reply, and summary
-// boundaries, not only at gate boundaries. A map that names gates alone silently drops them.
-const MANDATORY_BOUNDARIES = ['reply', 'final classification', 'final-classification', 'post-reply', 'summary'];
-const boundaryPhase = (section, operation) => mapRows(section).filter((row) => backticked(row.operation).includes(operation) && !/transition/.test(row.data)).map((row) => row.phase).join(' ');
+// The contract enumerates its own pre-push boundaries. Parsing that enumeration instead of
+// restating it here is what stops the map from drifting: three review rounds of this PR
+// found the map naming a subset of them, so the list is derived, never hand-maintained.
+function prePushBoundaries() {
+  const text = readText(PR_AUTOFIX);
+  const sentence = text.match(/Every pre-push boundary[\u2014-]([^\u2014]+)[\u2014-]requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H`/);
+  assert.ok(sentence, 'could not locate the pre-push boundary enumeration in the contract');
+  const terms = sentence[1].split(/,|\band\b/).map((term) => term.trim()).filter(Boolean)
+    // The map cites the snapshot boundary by its short name, as the contract does elsewhere.
+    .map((term) => term.replace(/^before each /, '').replace(/^post-reply snapshot$/, 'post-reply'));
+  assert.ok(terms.length >= 6, `expected at least six pre-push boundaries, parsed ${terms.length}`);
+  return terms;
+}
 
-test('Issue #55 non-gate mandatory boundaries are mapped, not only gate boundaries', () => {
+test('Issue #55 both pre-push invariants are mapped at every boundary the contract enumerates', () => {
   const section = mapSection();
-  for (const operation of ['snapshot', 'workspace_verify', 'operator_revalidate']) {
-    const phase = boundaryPhase(section, operation);
-    assert.ok(phase, `no non-transition row maps ${operation}`);
-    for (const marker of ['reply', 'final classification', 'final-classification', 'post-reply', 'summary']) {
-      if (marker === 'final classification' && phase.includes('final-classification')) continue;
-      if (marker === 'final-classification' && phase.includes('final classification')) continue;
-      assert.ok(phase.includes(marker), `${operation} phase cell omits the ${marker} boundary`);
+  for (const operation of ['workspace_verify', 'operator_revalidate']) {
+    const rows = mapRows(section).filter((row) => backticked(row.operation).includes(operation) && !backticked(row.data).includes('transition'));
+    assert.ok(rows.length > 0, `no non-transition row maps ${operation}`);
+    const phase = rows.map((row) => row.phase).join(' ');
+    for (const boundary of prePushBoundaries()) {
+      assert.ok(phase.includes(boundary), `${operation} phase cell omits the ${boundary} pre-push boundary`);
     }
   }
-  assert.ok(MANDATORY_BOUNDARIES.length > 0);
+});
+
+test('Issue #55 snapshot refresh is mapped at every boundary the contract requires', () => {
+  const section = mapSection();
+  const phase = mapRows(section).filter((row) => backticked(row.operation).includes('snapshot')).map((row) => row.phase).join(' ');
+  for (const boundary of ['Sol/Terra invocation', 'reply', 'final classification', 'post-reply', 'summary']) {
+    assert.ok(phase.includes(boundary), `snapshot phase cell omits the ${boundary} boundary`);
+  }
 });
 
 test('Issue #55 the transition form is described as partial invariant evidence', () => {
