@@ -583,6 +583,12 @@ test('artifact: Issue #42 isolated-workspace contract is present and single-chec
     assert.match(text, /(?:without (?:reading|following).*contents|never (?:read|follow).*contents|reads? no contents|contents.*never read)/i);
   }
   assert.match(invariants, /WORKSPACE_POST_COMMIT|POST_COMMIT.*workspace/i);
+  assert.match(invariants, /linked permits only verified remote-tracking `O -> C`, clone operator stays `O`/);
+  for (const text of [CONTRACT, PR_AUTOFIX, README]) assert.match(text, /verified remote-tracking[^.\n]*(?:ref `C`|`O -> C`)/);
+  assert.match(PR_AUTOFIX, /After public\/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality/);
+  assert.match(CONTRACT, /Only linked after public\/workspace verification may `operator_revalidate` receive `postPushHead: C`/);
+  assert.match(README, /only then may `operator_revalidate` receive `postPushHead: C`/);
+  assert.doesNotMatch(CONTRACT, /neither mode mutates[^.\n]*remote-tracking state/i);
   assert.match(preflight, /outside the repository|isolated workspace/i);
   assert.match(phases, /workspace cwd|workspace path|AUTOFIX_WORKSPACE@H/i);
   assert.doesNotMatch(preflight, /branch must already be checked out and satisfy `CLEAN@H`/);

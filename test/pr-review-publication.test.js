@@ -399,8 +399,9 @@ test('Issue #41 signal termination cannot resume after releasing the lock', { sk
   let child;
   const interrupted = runPublisherAsync(f, { GH_AUTH_DELAY: '5' }, (spawned) => { child = spawned; });
   const deadline = Date.now() + 5000;
-  while (!fs.existsSync(lock) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
+  while ((!fs.existsSync(lock) || callCount(f) < 1) && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 10));
   assert.ok(fs.existsSync(lock), 'first publisher must hold the artifact lock before interruption');
+  assert.equal(callCount(f), 1, 'first publisher must enter the delayed auth call before interruption');
   child.kill('SIGHUP');
   const first = await interrupted;
   assert.ok(first.error, 'interrupted publisher must terminate nonzero');

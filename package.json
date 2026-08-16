@@ -17,6 +17,7 @@
     "agents",
     "skills",
     "prompts",
+    "skills/closed-loop-pr/helpers",
     "README.md",
     "LICENSE",
     "THIRD_PARTY_NOTICES.md"
