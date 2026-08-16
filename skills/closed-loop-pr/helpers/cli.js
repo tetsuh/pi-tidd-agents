@@ -20,6 +20,7 @@ const SCHEMAS = Object.freeze({
   workspace_create: { required: ['cwd', 'head', 'tree'], optional: ['runRoot', 'allowCloneFallback'] },
   workspace_verify: { required: ['cwd', 'expected'], optional: ['transition'] },
   workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
+  gate_result_validate: { required: ['result', 'expected'], optional: [] },
 });
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function invalid(message) { const error = new Error(message); error.code = 'invalid_request'; error.phase = 'cli'; throw error; }
@@ -61,6 +62,7 @@ async function dispatch(request) {
     case 'workspace_create': return wrap(operation, helpers.createWorkspace(data));
     case 'workspace_verify': return wrap(operation, helpers.verifyWorkspace(data.cwd, data.expected, data.transition));
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
+    case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
     default: invalid('unknown operation');
   }
 }
