@@ -115,6 +115,35 @@ test('Issue #55 clean-only workspace verification is not mapped to a guard that 
   assert.ok(mapRows(section).some((row) => backticked(row.operation).includes('workspace_verify') && /before any edit/.test(row.phase)));
 });
 
+// autofix.md requires a refreshed snapshot, `AUTOFIX_WORKSPACE@H`, and
+// `OPERATOR_CHECKOUT_UNCHANGED@O` at reply, final-classification, post-reply, and summary
+// boundaries, not only at gate boundaries. A map that names gates alone silently drops them.
+const MANDATORY_BOUNDARIES = ['reply', 'final classification', 'final-classification', 'post-reply', 'summary'];
+const boundaryPhase = (section, operation) => mapRows(section).filter((row) => backticked(row.operation).includes(operation) && !/transition/.test(row.data)).map((row) => row.phase).join(' ');
+
+test('Issue #55 non-gate mandatory boundaries are mapped, not only gate boundaries', () => {
+  const section = mapSection();
+  for (const operation of ['snapshot', 'workspace_verify', 'operator_revalidate']) {
+    const phase = boundaryPhase(section, operation);
+    assert.ok(phase, `no non-transition row maps ${operation}`);
+    for (const marker of ['reply', 'final classification', 'final-classification', 'post-reply', 'summary']) {
+      if (marker === 'final classification' && phase.includes('final-classification')) continue;
+      if (marker === 'final-classification' && phase.includes('final classification')) continue;
+      assert.ok(phase.includes(marker), `${operation} phase cell omits the ${marker} boundary`);
+    }
+  }
+  assert.ok(MANDATORY_BOUNDARIES.length > 0);
+});
+
+test('Issue #55 the transition form is described as partial invariant evidence', () => {
+  const section = mapSection();
+  const row = mapRows(section).find((r) => backticked(r.data).includes('transition'));
+  assert.ok(row, 'no row maps the transition form');
+  assert.match(row.phase, /Sole-parent transition evidence toward/, 'the transition row must not claim to establish the full invariants');
+  assert.match(section, /Its transition form supplies only clean workspace identity, current `HEAD`, and a verified sole-parent transition/);
+  assert.match(section, /current public-head equality, staged manifest\/tree\/blob identity, and linked remote-tracking equality remain phase-specific checks this map does not reassign/);
+});
+
 test('Issue #55 the map preserves the linked/clone postPushHead distinction and grants no authority', () => {
   const section = mapSection();
   // The exact literal is pinned elsewhere by test/pr-operational-cleanliness.test.js; the
