@@ -2106,6 +2106,32 @@
         "raise the six-file authority baseline from 99,182 to 108,000 bytes",
         "the byte baseline is a review guard with deliberate headroom, not a target"
       ]
+    },
+    {
+      "id": "CL-D35-freeze",
+      "marker": "CL-D35",
+      "title": "The agents/ freeze admits only capability-reducing removal",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "## Gate verdicts (CL-D1)",
+      "requires": [
+        "Do not modify any file under `agents/`",
+        "CL-D35 is the only exception: a tool the runtime does not provide may be removed from an allowlist",
+        "nothing may be added"
+      ]
+    },
+    {
+      "id": "CL-D35-readme",
+      "marker": "CL-D35",
+      "title": "README states the narrowed freeze",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "Agent files remain frozen apart from CL-D35",
+        "never permits adding one"
+      ]
     }
   ]
 }
