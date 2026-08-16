@@ -2110,15 +2110,15 @@
     {
       "id": "CL-D35-freeze",
       "marker": "CL-D35",
-      "title": "The agents/ freeze admits only capability-reducing removal",
+      "title": "The agents/ freeze admits one approved Issue #49 removal",
       "files": [
         "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "section": "## Gate verdicts (CL-D1)",
       "requires": [
         "Do not modify any file under `agents/`",
-        "CL-D35 is the only exception: a tool the runtime does not provide may be removed from an allowlist",
-        "nothing may be added"
+        "CL-D35 is a single approved exception for the Issue #49 `intercom` removal, not a standing permission",
+        "every other agent-file change, and every addition, still requires its own owner decision"
       ]
     },
     {
@@ -2129,8 +2129,8 @@
         "README.md"
       ],
       "requires": [
-        "Agent files remain frozen apart from CL-D35",
-        "never permits adding one"
+        "Agent files remain frozen; CL-D35 approves one removal of an unloaded tool for Issue #49",
+        "grants no standing permission to change them"
       ]
     }
   ]

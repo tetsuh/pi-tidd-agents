@@ -70,24 +70,29 @@ test('Issue #49 every agent keeps its native supervisor coordination guidance', 
 
 test('Issue #49 CL-D35 narrows the agents/** freeze without reopening it', () => {
   const contract = readText('CONTRACT.md');
-  const section = sectionOf(contract, '## CL-D35 — Agent tool allowlists may drop a tool the runtime does not provide');
+  const section = sectionOf(contract, '## CL-D35 — One-time removal of the unloaded intercom tool from the six agent allowlists');
   assert.ok(section, 'CL-D35 decision is missing');
   assert.match(section, /^\*\*Clauses:\*\* CL-D35-freeze, CL-D35-readme$/m);
   assert.match(section, /^\*Decision ID:\* CL-D35$/m);
   assert.match(section, /tetsuh\/pi-tidd-agents#49/);
   assert.match(section, /strict allowlist; it does not load extension code/);
-  assert.match(section, /removing a tool the runtime does not provide/);
+  assert.match(section, /Adopt CL-D35 as a single approved change, not a standing rule/);
   assert.match(section, /name, model, role, verdict contract, and every remaining tool stay frozen/);
   assert.match(section, /no agent gains a tool, an authority, or a verdict contract/);
+  // The exception is one-time: it must not read as a general permission.
+  assert.match(section, /authorizes no other removal and creates no general permission to drop a runtime-unprovided tool; a later removal requires its own owner decision/);
+  assert.match(section, /It expires on merge of that change and authorizes nothing further/);
+  for (const name of AGENTS) assert.ok(section.includes(`\`${name}\``), `CL-D35 must name agents/${name}.md explicitly`);
 
   const cl1 = sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files');
-  assert.match(cl1, /CL-D35 permits only the removal of a tool the runtime does not provide/);
+  assert.match(cl1, /CL-D35 approves one capability-reducing removal for Issue #49[^.]*grants no further permission/);
   const dec23 = sectionOf(contract, '## DEC-I23-PAYLOAD-COMPACTION-001 — Option A payload history compaction');
   assert.match(dec23, /CL-D35 records the owner decision this clause requires for the Issue #49 tool-allowlist removal/);
 
   const shared = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '## Gate verdicts (CL-D1)');
   assert.match(shared, /\*\*Do not modify any file under `agents\/`\*\*/, 'the CL-D1 freeze literal must survive');
-  assert.match(shared, /CL-D35 is the only exception: a tool the runtime does not provide may be removed from an allowlist/);
+  assert.match(shared, /CL-D35 is a single approved exception for the Issue #49 `intercom` removal, not a standing permission/);
+  assert.match(shared, /every other agent-file change, and every addition, still requires its own owner decision/);
 
   const manifest = readJson('test/contract-clauses.json');
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D35').map((clause) => clause.id).sort(), ['CL-D35-freeze', 'CL-D35-readme']);
@@ -95,4 +100,5 @@ test('Issue #49 CL-D35 narrows the agents/** freeze without reopening it', () =>
   // addition the freeze forbids, so the allowlists above are pinned by exact comparison.
   assert.deepEqual(manifest.clauses.filter((clause) => clause.files.some((file) => file.startsWith('agents/'))), []);
   assert.match(section, /stamping a `CL-D35` marker into an agent file would itself be an addition the freeze forbids/);
+  assert.match(readText('README.md'), /CL-D35 approves one removal of an unloaded tool for Issue #49 and grants no standing permission/);
 });

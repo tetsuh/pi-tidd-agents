@@ -58,7 +58,7 @@ Every gate must end with a verdict line using exactly this vocabulary:
 MERGE | FIX BEFORE MERGE | NEEDS DECISION
 ```
 
-Require that verdict line in every invocation payload rather than relying on an agent to supply one. Only the parsed verdict decides whether a gate passed. Never read approval into prose. **Do not modify any file under `agents/`**: existing agents must stay unchanged and independently usable. CL-D35 is the only exception: a tool the runtime does not provide may be removed from an allowlist, together with the prompt text that instructed it; nothing may be added.
+Require that verdict line in every invocation payload rather than relying on an agent to supply one. Only the parsed verdict decides whether a gate passed. Never read approval into prose. **Do not modify any file under `agents/`**: existing agents must stay unchanged and independently usable. CL-D35 is a single approved exception for the Issue #49 `intercom` removal, not a standing permission; every other agent-file change, and every addition, still requires its own owner decision.
 
 A missing or unparsable verdict is a tool-level failure. Ordinary workflow-specific retry and fail-stop behavior belongs to the selected owning workflow or mode reference; shared policy does not grant a retry, publication, or mutation. `ROUND_LIMIT_REACHED` is the round-budget outcome when the applicable gate reaches its limit.
 
