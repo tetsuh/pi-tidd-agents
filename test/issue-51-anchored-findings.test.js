@@ -46,6 +46,8 @@ test('Issue #51 shared gate contract anchors blocking findings to criteria, clau
   assert.match(anchor, /a clause or invariant anchor is sufficient/);
   assert.match(anchor, /naming none of the three is an out-of-scope improvement rather than a blocker/);
   assert.match(anchor, /the threat model no longer excludes it and the finding is `criterion-anchored` at its own severity/);
+  // SOL-53-001 round 2: three anchoring classes only; out-of-scope stays the residual label.
+  assert.match(anchor, /Label every finding that is not an out-of-scope improvement with exactly one of the three anchoring classes `criterion-anchored`, `reword`, or `follow-up`; `out-of-scope` remains the pre-existing residual label outside that set and is unchanged by CL-D34/);
   assert.match(anchor, /still reports every cited counterexample/);
   // The bound lives inside the adversarial section so it is read with the procedure it bounds.
   const adversarial = sectionOf(shared, '## Sol adversarial consistency check (AC-ADVERSARIAL, CL-D29)');
@@ -59,7 +61,7 @@ test('Issue #51 Sol-only payload block carries the anchoring bound verbatim for 
   assert.match(sol, /Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant it falsifies/);
   assert.match(sol, /a claim found only in target-body prose naming none of the three is a `reword` finding corrected by owner body edit, not an implementation blocker/);
   assert.match(sol, /a counterexample requiring violation of an assumed operator condition declared cooperative by the selected mode's threat model is a `follow-up` finding with a proposed issue title, and is instead `criterion-anchored` at its own severity when a criterion, clause, or invariant names that condition/);
-  assert.match(sol, /label every finding with exactly one of `criterion-anchored`, `reword`, `follow-up`, or `out-of-scope`/);
+  assert.match(sol, /label every finding that is not an out-of-scope improvement with exactly one of the three anchoring classes `criterion-anchored`, `reword`, or `follow-up`, leaving the pre-existing out-of-scope residual label outside that set/);
   assert.match(sol, /names no acceptance criterion, contract clause, or fail-stop invariant is an out-of-scope improvement rather than a blocker/);
   assert.match(sol, /\(CL-D34\)/);
   // The unbounded procedure is preserved: bounding changes severity and disposition, not the search.
@@ -72,14 +74,14 @@ test('Issue #51 records reference defines exactly three anchoring classes and ke
   const records = readText(RECORDS);
   const classes = sectionOf(records, '## Finding anchoring classes (AC-ANCHOR, CL-D34)');
   assert.ok(classes, 'anchoring class section is missing');
-  assert.match(classes, /Label every finding with exactly one anchoring class before its disposition/);
-  assert.match(classes, /```text\ncriterion-anchored\nreword\nfollow-up\nout-of-scope\n```/);
+  assert.match(classes, /```text\ncriterion-anchored\nreword\nfollow-up\n```/);
+  assert.match(classes, /Label every finding that is not an out-of-scope improvement with exactly one anchoring class/);
   assert.match(classes, /`reword` traces only to target-body prose/);
   assert.match(classes, /disposition `fixed` on the body revision or `accepted-as-designed`/);
   assert.match(classes, /`follow-up` requires violating an assumed operator condition/);
   assert.match(classes, /disposition `deferred` with a proposed issue title/);
   // SOL-53-001: out-of-scope improvements stay representable under the exactly-one rule.
-  assert.match(classes, /`out-of-scope` is the residual improvement that names none of the three anchors and is neither `reword` nor `follow-up`: never a blocker/);
+  assert.match(classes, /keeps the pre-existing out-of-scope label above, which stays outside the three anchoring classes and is unchanged by CL-D34/);
   assert.match(classes, /the exclusion does not apply and the finding is `criterion-anchored` instead/);
   const dispositions = sectionOf(records, '## Finding dispositions (AC-DISPOSITION)');
   assert.match(dispositions, /```text\nfixed\naccepted-as-designed\ndeferred\nduplicate\nnot-applicable\nneeds-owner-decision\n```/);
@@ -127,7 +129,9 @@ function classify(finding) {
   if (finding.violatesAssumption && !anchored) return { anchoring: 'follow-up', canBlock: false, disposition: 'deferred' };
   if (anchored) return { anchoring: 'criterion-anchored', canBlock: true, disposition: 'fixed' };
   if (finding.bodyProseOnly) return { anchoring: 'reword', canBlock: false, disposition: 'fixed' };
-  return { anchoring: 'out-of-scope', canBlock: false, disposition: 'deferred' };
+  // Residual improvements keep the pre-existing out-of-scope label, which CL-D34 leaves
+  // outside the three anchoring classes.
+  return { anchoring: null, label: 'out-of-scope', canBlock: false, disposition: 'deferred' };
 }
 
 const ANCHORING_FIXTURES = [
@@ -157,9 +161,9 @@ const ANCHORING_FIXTURES = [
     expected: { anchoring: 'criterion-anchored', canBlock: true, disposition: 'fixed' },
   },
   {
-    name: 'an improvement anchored to nothing remains representable as out-of-scope',
+    name: 'an improvement anchored to nothing keeps the pre-existing out-of-scope label',
     finding: { claim: 'these helpers could be smaller' },
-    expected: { anchoring: 'out-of-scope', canBlock: false, disposition: 'deferred' },
+    expected: { anchoring: null, label: 'out-of-scope', canBlock: false, disposition: 'deferred' },
   },
 ];
 
@@ -173,8 +177,11 @@ test('Issue #51 anchoring fixtures cover every documented class and only blockin
   const records = readText(RECORDS);
   const block = sectionOf(records, '## Finding anchoring classes (AC-ANCHOR, CL-D34)').match(/```text\n([\s\S]*?)```/)[1];
   const documented = block.trim().split('\n');
-  const covered = [...new Set(ANCHORING_FIXTURES.map((fixture) => fixture.expected.anchoring))].sort();
-  assert.deepEqual(covered, documented.slice().sort(), 'fixtures must cover exactly the documented anchoring classes');
+  assert.deepEqual(documented.slice().sort(), ['criterion-anchored', 'follow-up', 'reword']);
+  assert.ok(!documented.includes('out-of-scope'), 'CL-D34 adopts three anchoring classes; out-of-scope stays the pre-existing residual label');
+  const classed = ANCHORING_FIXTURES.filter((fixture) => fixture.expected.anchoring !== null);
+  assert.deepEqual([...new Set(classed.map((fixture) => fixture.expected.anchoring))].sort(), documented.slice().sort(), 'fixtures must cover exactly the documented anchoring classes');
+  assert.ok(ANCHORING_FIXTURES.some((fixture) => fixture.expected.label === 'out-of-scope'), 'the residual out-of-scope label must stay representable');
   for (const fixture of ANCHORING_FIXTURES) {
     assert.equal(fixture.expected.canBlock, fixture.expected.anchoring === 'criterion-anchored', `${fixture.name}: only criterion-anchored findings may block`);
   }

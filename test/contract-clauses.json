@@ -2019,7 +2019,7 @@
         "Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant it falsifies",
         "`reword` finding corrected by owner body edit, not an implementation blocker",
         "`follow-up` finding with a proposed issue title, and is instead `criterion-anchored` at its own severity when a criterion, clause, or invariant names that condition",
-        "label every finding with exactly one of `criterion-anchored`, `reword`, `follow-up`, or `out-of-scope` (CL-D34)"
+        "label every finding that is not an out-of-scope improvement with exactly one of the three anchoring classes `criterion-anchored`, `reword`, or `follow-up`, leaving the pre-existing out-of-scope residual label outside that set (CL-D34)"
       ]
     },
     {
@@ -2038,8 +2038,8 @@
         "disposition `fixed` on the body revision or `accepted-as-designed`",
         "disposition `deferred` with a proposed issue title",
         "every cited counterexample is still reported",
-        "out-of-scope",
-        "`out-of-scope` is the residual improvement that names none of the three anchors"
+        "keeps the pre-existing out-of-scope label above, which stays outside the three anchoring classes and is unchanged by CL-D34",
+        "Label every finding that is not an out-of-scope improvement with exactly one anchoring class"
       ]
     },
     {
