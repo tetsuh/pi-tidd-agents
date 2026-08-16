@@ -86,13 +86,33 @@ test('Issue #55 every mapped operation names its required request fields', () =>
   for (const [operation, required] of Object.entries(cliSchemas())) {
     const matching = rows.filter((row) => backticked(row.operation).includes(operation));
     assert.ok(matching.length > 0, `no map row names ${operation}`);
-    // Fingerprint rows are grouped, so their per-operation fields stay documented by the
-    // CLI schema itself; identity, policy, and workspace rows must spell their fields out.
-    if (operation.startsWith('fingerprint_')) continue;
     for (const field of required) {
       assert.ok(matching.some((row) => backticked(row.data).includes(field)), `map row for ${operation} omits required field ${field}`);
     }
   }
+});
+
+// The packaged `workspace_verify` rejects any tracked or index change as
+// `workspace_not_clean` (helpers/workspace.js `verifyWorkspaceState`). Luna's post-edit
+// guards deliberately carry a frozen overlay or a staged-manifest delta, so mapping them to
+// this operation would fail every non-empty correction before validation or commit.
+const DIRTY_GUARDS = ['BEFORE_VALIDATION', 'AFTER_VALIDATION', 'BEFORE_STAGING', 'AFTER_STAGING', 'BEFORE_COMMIT'];
+
+test('Issue #55 clean-only workspace verification is not mapped to a guard that permits dirt', () => {
+  const section = mapSection();
+  for (const row of mapRows(section)) {
+    if (!backticked(row.operation).includes('workspace_verify')) continue;
+    for (const guard of DIRTY_GUARDS) {
+      assert.ok(!row.phase.includes(guard), `${guard} permits a frozen overlay or staged-manifest delta and must not be mapped to clean-only workspace_verify`);
+    }
+  }
+  assert.match(section, /`workspace_verify` requires clean tracked and index state/);
+  for (const guard of DIRTY_GUARDS) {
+    assert.ok(section.includes(`\`${guard}\``), `the map must name ${guard} as keeping its phase-specific check`);
+  }
+  assert.match(section, /keep their phase-specific frozen-overlay and staged-manifest delta checks, which this map does not reassign/);
+  // The clean-state row must still exist for the pre-edit boundaries it does serve.
+  assert.ok(mapRows(section).some((row) => backticked(row.operation).includes('workspace_verify') && /before any edit/.test(row.phase)));
 });
 
 test('Issue #55 the map preserves the linked/clone postPushHead distinction and grants no authority', () => {

@@ -31,13 +31,19 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Preflight writability | `writability` | `owner`, `repo`, `branchRef`, `enterprisePolicyComplete`, `enterpriseRulesets` |
 | Workspace creation at public `H` | `workspace_create` | `cwd`, `head`, `tree` |
 | Evidence per gate payload | `snapshot` | `owner`, `repo`, `number` |
-| CL-D9 identity for it | `fingerprint_issue_spec`, `fingerprint_pr_base`, `fingerprint_pr_tree`, `fingerprint_pr_diff`, `fingerprint_pr_commits`, `fingerprint_pr_head`, `fingerprint_snapshot` | per operation |
-| Every `AUTOFIX_WORKSPACE@P` guard | `workspace_verify` | `cwd`, `expected` |
+| CL-D9 `issue_spec` | `fingerprint_issue_spec` | `body`, `comments` |
+| CL-D9 `pr_base` | `fingerprint_pr_base` | `oid` |
+| CL-D9 `pr_tree` | `fingerprint_pr_tree` | `oid` |
+| CL-D9 `pr_diff`, the exact binary effective diff | `fingerprint_pr_diff` | `base64` |
+| CL-D9 `pr_commits` | `fingerprint_pr_commits` | `commits` |
+| CL-D9 `pr_head` | `fingerprint_pr_head` | `oid` |
+| Snapshot fingerprint for that evidence | `fingerprint_snapshot` | `snapshot` |
+| `AUTOFIX_WORKSPACE@H`/`@P` before any edit: each gate boundary and immediately before delegating Luna | `workspace_verify` | `cwd`, `expected` |
 | `WORKSPACE_POST_COMMIT(C, P)`, `WORKSPACE_POST_PUSH(C, O)` | `workspace_verify` | `cwd`, `expected`, `transition` |
 | `OPERATOR_CHECKOUT_UNCHANGED@O`, every terminal recheck | `operator_revalidate` | `captured`, `cwd` |
 | Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt`, `cwd` |
 
-After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality. A helper envelope is supplied evidence in the gate payload: it never substitutes for a gate verdict and grants no commit, push, reply, or provider authority.
+`workspace_verify` requires clean tracked and index state, so it does not serve `BEFORE_VALIDATION`, `AFTER_VALIDATION`, `BEFORE_STAGING`, `AFTER_STAGING`, or `BEFORE_COMMIT`: those guards keep their phase-specific frozen-overlay and staged-manifest delta checks, which this map does not reassign. After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality. A helper envelope is supplied evidence in the gate payload: it never substitutes for a gate verdict and grants no commit, push, reply, or provider authority.
 
 ### Worktree precondition (CL-D10)
 
