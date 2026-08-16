@@ -44,6 +44,8 @@ test('Issue #51 shared gate contract anchors blocking findings to criteria, clau
   // criterion that names an operator condition removes it from the threat-model exclusion.
   assert.match(anchor, /that anchor set replaces the older acceptance-criterion-only test/);
   assert.match(anchor, /a clause or invariant anchor is sufficient/);
+  // SOL-53-004: both CL-D29 finding bases are anchorable.
+  assert.match(anchor, /that its cited counterexample falsifies or that unavailable required evidence prevents verifying, matching the two finding bases CL-D29 admits/);
   assert.match(anchor, /naming none of the three is an out-of-scope improvement rather than a blocker/);
   assert.match(anchor, /the threat model no longer excludes it and the finding is `criterion-anchored` at its own severity/);
   // SOL-53-001 round 2: three anchoring classes only; out-of-scope stays the residual label.
@@ -58,7 +60,7 @@ test('Issue #51 Sol-only payload block carries the anchoring bound verbatim for 
   const shared = readText(GATE_CONTRACT);
   const sol = sectionOf(shared, '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)');
   assert.ok(sol);
-  assert.match(sol, /Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant it falsifies/);
+  assert.match(sol, /Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant it falsifies, or that unavailable required evidence prevents verifying, matching the two finding bases CL-D29 admits/);
   assert.match(sol, /a claim found only in target-body prose naming none of the three is a `reword` finding corrected by owner body edit, not an implementation blocker/);
   assert.match(sol, /a counterexample requiring violation of an assumed operator condition declared cooperative by the selected mode's threat model is a `follow-up` finding with a proposed issue title, and is instead `criterion-anchored` at its own severity when a criterion, clause, or invariant names that condition/);
   assert.match(sol, /label every finding that is not an out-of-scope improvement with exactly one of the three anchoring classes `criterion-anchored`, `reword`, or `follow-up`, leaving the pre-existing out-of-scope residual label outside that set/);
@@ -76,6 +78,7 @@ test('Issue #51 records reference defines exactly three anchoring classes and ke
   assert.ok(classes, 'anchoring class section is missing');
   assert.match(classes, /```text\ncriterion-anchored\nreword\nfollow-up\n```/);
   assert.match(classes, /Label every finding that is not an out-of-scope improvement with exactly one anchoring class/);
+  assert.match(classes, /`criterion-anchored` names the acceptance criterion, contract clause, or fail-stop invariant that the cited counterexample falsifies or that unavailable required evidence prevents verifying, covering both finding bases CL-D29 admits/);
   assert.match(classes, /`reword` traces only to target-body prose/);
   assert.match(classes, /disposition `fixed` on the body revision or `accepted-as-designed`/);
   assert.match(classes, /`follow-up` requires violating an assumed operator condition/);
@@ -125,6 +128,8 @@ test('Issue #51 leaves review-only, Issue, and agent files without a threat mode
 // fixture is a finding shape Sol can actually produce, and the expected class and severity
 // ceiling come from the contract text asserted above. Review-driven regression.
 function classify(finding) {
+  // CL-D29 admits exactly two finding bases; a shape carrying neither is not a finding.
+  assert.ok(['counterexample', 'unavailable-evidence'].includes(finding.basis), `finding needs a CL-D29 basis: ${finding.claim}`);
   const anchored = Boolean(finding.criterion || finding.clause || finding.invariant);
   if (finding.violatesAssumption && !anchored) return { anchoring: 'follow-up', canBlock: false, disposition: 'deferred' };
   if (anchored) return { anchoring: 'criterion-anchored', canBlock: true, disposition: 'fixed' };
@@ -137,32 +142,39 @@ function classify(finding) {
 const ANCHORING_FIXTURES = [
   {
     name: 'absolute PR-body claim with no criterion is reword',
-    finding: { claim: 'the helpers fail closed conservatively', bodyProseOnly: true },
+    finding: { claim: 'the helpers fail closed conservatively', basis: 'counterexample', bodyProseOnly: true },
     expected: { anchoring: 'reword', canBlock: false, disposition: 'fixed' },
   },
   {
     name: 'TMPDIR-inside-checkout counterexample excluded by the threat model is follow-up',
-    finding: { claim: 'no mutation before workspace creation', violatesAssumption: 'temp-outside-checkout', bodyProseOnly: true },
+    finding: { claim: 'no mutation before workspace creation', basis: 'counterexample', violatesAssumption: 'temp-outside-checkout', bodyProseOnly: true },
     expected: { anchoring: 'follow-up', canBlock: false, disposition: 'deferred' },
   },
   {
     name: 'criterion-anchored counterexample still blocks',
-    finding: { claim: 'nonapplicable rulesets are not blockers', criterion: 'Rulesets that do not apply to the target branch are not treated as blockers' },
+    finding: { claim: 'nonapplicable rulesets are not blockers', basis: 'counterexample', criterion: 'Rulesets that do not apply to the target branch are not treated as blockers' },
     expected: { anchoring: 'criterion-anchored', canBlock: true, disposition: 'fixed' },
   },
   {
     name: 'a criterion naming the operator condition removes the threat-model exclusion',
-    finding: { claim: 'no mutation before workspace creation', violatesAssumption: 'temp-outside-checkout', criterion: 'No repository or GitHub mutation occurs before isolated-workspace creation' },
+    finding: { claim: 'no mutation before workspace creation', basis: 'counterexample', violatesAssumption: 'temp-outside-checkout', criterion: 'No repository or GitHub mutation occurs before isolated-workspace creation' },
     expected: { anchoring: 'criterion-anchored', canBlock: true, disposition: 'fixed' },
   },
   {
     name: 'a clause anchor alone is sufficient to block',
-    finding: { claim: 'only luna-worker may publish corrections', clause: 'CL-D3' },
+    finding: { claim: 'only luna-worker may publish corrections', basis: 'counterexample', clause: 'CL-D3' },
+    expected: { anchoring: 'criterion-anchored', canBlock: true, disposition: 'fixed' },
+  },
+  {
+    // SOL-53-004: CL-D29 admits a verdict-material finding when required evidence is
+    // unavailable and no counterexample exists; that finding must still be anchorable.
+    name: 'unavailable evidence blocking an anchor is criterion-anchored without a counterexample',
+    finding: { claim: 'required checks are enforced on the base branch', basis: 'unavailable-evidence', invariant: 'WORKSPACE_POST_PUSH(C, O)' },
     expected: { anchoring: 'criterion-anchored', canBlock: true, disposition: 'fixed' },
   },
   {
     name: 'an improvement anchored to nothing keeps the pre-existing out-of-scope label',
-    finding: { claim: 'these helpers could be smaller' },
+    finding: { claim: 'these helpers could be smaller', basis: 'counterexample' },
     expected: { anchoring: null, label: 'out-of-scope', canBlock: false, disposition: 'deferred' },
   },
 ];
@@ -182,6 +194,7 @@ test('Issue #51 anchoring fixtures cover every documented class and only blockin
   const classed = ANCHORING_FIXTURES.filter((fixture) => fixture.expected.anchoring !== null);
   assert.deepEqual([...new Set(classed.map((fixture) => fixture.expected.anchoring))].sort(), documented.slice().sort(), 'fixtures must cover exactly the documented anchoring classes');
   assert.ok(ANCHORING_FIXTURES.some((fixture) => fixture.expected.label === 'out-of-scope'), 'the residual out-of-scope label must stay representable');
+  assert.deepEqual([...new Set(ANCHORING_FIXTURES.map((fixture) => fixture.finding.basis))].sort(), ['counterexample', 'unavailable-evidence'], 'fixtures must exercise both CL-D29 finding bases');
   for (const fixture of ANCHORING_FIXTURES) {
     assert.equal(fixture.expected.canBlock, fixture.expected.anchoring === 'criterion-anchored', `${fixture.name}: only criterion-anchored findings may block`);
   }
@@ -196,7 +209,7 @@ test('Issue #51 CONTRACT.md records CL-D34 with its clauses, the raised authorit
   assert.match(section, /^\*Kind:\* contract$/m);
   assert.match(section, /tetsuh\/pi-tidd-agents#51/);
   assert.match(section, /PR #48/);
-  assert.match(section, /104,000/);
+  assert.match(section, /108,000/);
   assert.match(section, /99,182/);
   const manifest = readJson('test/contract-clauses.json');
   const ids = manifest.clauses.filter((clause) => clause.marker === 'CL-D34').map((clause) => clause.id).sort();
