@@ -185,6 +185,14 @@ const SUPERSEDED = [
       'CONTRACT.md',
     ], pattern: /survives (?:the check )?as (?:a )?finding/i,
     reason: 'CL-D29 makes no counterexample neither a finding nor proof' },
+  { files: [
+      'skills/closed-loop-issue/SKILL.md',
+      ...PR_ARTIFACTS,
+      'skills/closed-loop-shared/references/gate-contract.md',
+      'skills/closed-loop-shared/references/records.md',
+      'CONTRACT.md',
+    ], pattern: /traces to no acceptance criterion/i,
+    reason: 'CL-D34 anchors findings to an acceptance criterion, contract clause, or fail-stop invariant, not to a criterion alone' },
 ];
 
 test('Issue #41 publication authority remains review-only-owned and aggregate-only', () => {

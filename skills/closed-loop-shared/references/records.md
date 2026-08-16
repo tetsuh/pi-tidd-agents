@@ -17,7 +17,19 @@ needs-owner-decision
 
 For each finding record the source gate, severity, the target evidence fingerprint it was raised against, candidate or revision identity when applicable, evidence, impact, exactly one disposition, rationale, revised passage or corrective change when the disposition is `fixed`, validation evidence that the revision resolves it, and the reply/status URL or an explicit pending transport assignment. Judge findings individually; a severity label is never by itself a decision to change the specification or implementation. Record the rationale for anything intentionally left unchanged.
 
-Group reports into blockers, changes worth making now or fixes worth making now, optional improvements, pre-existing conditions or findings, and findings intentionally declined. A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**; re-raising one requires materially new evidence, not a restatement. A finding that traces to no acceptance criterion is an out-of-scope improvement rather than a blocker and must be labelled that way.
+Group reports into blockers, changes worth making now or fixes worth making now, optional improvements, pre-existing conditions or findings, and findings intentionally declined. A finding dispositioned `accepted-as-designed`, `deferred`, or `not-applicable` is **settled**; re-raising one requires materially new evidence, not a restatement. A finding that names no acceptance criterion, contract clause, or fail-stop invariant is an out-of-scope improvement rather than a blocker and must be labelled that way.
+
+## Finding anchoring classes (AC-ANCHOR, CL-D34)
+
+Label every finding that is not an out-of-scope improvement with exactly one anchoring class before its disposition:
+
+```text
+criterion-anchored
+reword
+follow-up
+```
+
+`criterion-anchored` names the acceptance criterion, contract clause, or fail-stop invariant that the cited counterexample falsifies or that unavailable required evidence prevents verifying, covering both finding bases CL-D29 admits, and may carry any severity. `reword` traces only to target-body prose: the owner edits the body; disposition `fixed` on the body revision or `accepted-as-designed`; never an implementation blocker. `follow-up` requires violating an assumed operator condition that the selected mode's threat model declares cooperative: disposition `deferred` with a proposed issue title; never a blocker. When a criterion, clause, or invariant names that operator condition, the exclusion does not apply and the finding is `criterion-anchored` instead. An improvement that names none of the three anchors and is neither `reword` nor `follow-up` keeps the pre-existing out-of-scope label above, which stays outside the three anchoring classes and is unchanged by CL-D34. Anchoring bounds severity and disposition only; every cited counterexample is still reported.
 
 ## Owner decisions (AC-DECISION)
 
