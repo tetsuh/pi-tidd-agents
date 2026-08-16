@@ -2001,8 +2001,10 @@
         "`reword` finding",
         "owner edit of the body, never an implementation blocker",
         "`follow-up` finding reported with a proposed issue title",
-        "unless an acceptance criterion names that condition",
-        "Bounding applies to severity and disposition only"
+        "the threat model no longer excludes it and the finding is `criterion-anchored` at its own severity",
+        "Bounding applies to severity and disposition only",
+        "that anchor set replaces the older acceptance-criterion-only test",
+        "naming none of the three is an out-of-scope improvement rather than a blocker"
       ]
     },
     {
@@ -2016,7 +2018,8 @@
       "requires": [
         "Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant it falsifies",
         "`reword` finding corrected by owner body edit, not an implementation blocker",
-        "`follow-up` finding with a proposed issue title unless an acceptance criterion names that condition (CL-D34)"
+        "`follow-up` finding with a proposed issue title, and is instead `criterion-anchored` at its own severity when a criterion, clause, or invariant names that condition",
+        "label every finding with exactly one of `criterion-anchored`, `reword`, `follow-up`, or `out-of-scope` (CL-D34)"
       ]
     },
     {
@@ -2034,7 +2037,9 @@
         "follow-up",
         "disposition `fixed` on the body revision or `accepted-as-designed`",
         "disposition `deferred` with a proposed issue title",
-        "every cited counterexample is still reported"
+        "every cited counterexample is still reported",
+        "out-of-scope",
+        "`out-of-scope` is the residual improvement that names none of the three anchors"
       ]
     },
     {
@@ -2054,7 +2059,8 @@
         "another writer against the same checkout or workspace",
         "Helpers that detect a violated assumption still fail closed",
         "`follow-up` finding under AC-ANCHOR (CL-D34)",
-        "a claim only in PR-body prose is `reword`"
+        "A claim only in PR-body prose is `reword`",
+        "when a criterion, clause, or invariant names that condition it is `criterion-anchored` instead"
       ]
     },
     {
