@@ -21,9 +21,26 @@ The exact PR `autofix` token itself selects and approves only the bounded CL-D30
 
 After any success/failure terminal observation, linked mode alone permits exact identity-reverified non-force `git worktree remove` with unchanged path/registration/per-worktree/common-Git-dir binding. Cleanup identity mismatch/failure is `BLOCKED` with no further action; recovery, compensation, force, prune, recursive deletion, clean, clone deletion, and operator cleanup are forbidden.
 
+### Packaged helper invocation map (CL-D30, Issue #47)
+
+Obtain every check below from the packaged CLI, `node <package>/skills/closed-loop-pr/helpers/cli.js`: one JSON v1 request on stdin as `{"version":1,"operation":<name>,"data":{...}}`, one JSON v1 envelope on stdout. Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL. An unknown operation, unknown or missing field, or `ok:false` envelope stops the run at that phase with its `code` and `phase`; no retry.
+
+| Phase | Operation | Required data |
+|---|---|---|
+| Preflight, before any gate or mutation | `operator_capture` | `cwd`, `identity` |
+| Preflight writability | `writability` | `owner`, `repo`, `branchRef`, `enterprisePolicyComplete`, `enterpriseRulesets` |
+| Workspace creation at public `H` | `workspace_create` | `cwd`, `head`, `tree` |
+| Evidence per gate payload | `snapshot` | `owner`, `repo`, `number` |
+| CL-D9 identity for it | `fingerprint_issue_spec`, `fingerprint_pr_base`, `fingerprint_pr_tree`, `fingerprint_pr_diff`, `fingerprint_pr_commits`, `fingerprint_pr_head`, `fingerprint_snapshot` | per operation |
+| Every `AUTOFIX_WORKSPACE@P` guard | `workspace_verify` | `cwd`, `expected` |
+| `WORKSPACE_POST_COMMIT(C, P)`, `WORKSPACE_POST_PUSH(C, O)` | `workspace_verify` | `cwd`, `expected`, `transition` |
+| `OPERATOR_CHECKOUT_UNCHANGED@O`, every terminal recheck | `operator_revalidate` | `captured`, `cwd` |
+| Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt`, `cwd` |
+
+After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality. A helper envelope is supplied evidence in the gate payload: it never substitutes for a gate verdict and grants no commit, push, reply, or provider authority.
+
 ### Worktree precondition (CL-D10)
 
-Use packaged `helpers/cli.js` v1; errors stop. After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality.
 Before the first gate or mutation, the operator runs `gh pr checkout` when needed. Exact PR `autofix` then verifies the target PR is open and non-draft, and requires the head branch to be verified writable by a normal actor-authorized non-force push without branch-protection or ruleset bypass. It captures `OPERATOR_CHECKOUT@H` and creates/verifies `AUTOFIX_WORKSPACE@H` outside the repository before any gate. Writability result must be unambiguous; a missing, rejected, ambiguous, unavailable, or bypass-dependent result fails closed before review or mutation. A branch is not writable when success depends on the actor's bypass permission. Publication is exactly `git -C <AUTOFIX_WORKSPACE> push origin HEAD:refs/heads/<verified-pr-branch>` with the bound identities, normal fast-forward semantics, no force, and no local PR-ref movement. Operator tracked/index change or any unexpected non-ignored untracked path blocks; ignored owner paths and `RUNTIME_ROOTS` use the rules above. No resume; every terminal success/failure performs a terminal operator recheck. Never switch, stash, reset, clean, delete, or discard operator work.
 
 ### The writer (CL-D3)

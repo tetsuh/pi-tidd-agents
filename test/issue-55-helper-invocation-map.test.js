@@ -45,9 +45,20 @@ function sectionOf(text, heading) {
 }
 
 const mapSection = () => sectionOf(readText(PR_AUTOFIX), MAP_HEADING);
-// Backtick-quoted snake_case names are the operation mentions; other inline code in the
-// map (request fields such as `cwd`, JSON literals) never matches this shape.
-const namedOperations = (text) => new Set((text.match(/`([a-z][a-z0-9]*(?:_[a-z0-9]+)+)`/g) || []).map((token) => token.slice(1, -1)));
+// Read the Operation column only. Scanning the whole section would both miss nothing and
+// pick up request fields such as `cwd`, so the column boundary is what makes the
+// both-directions check meaningful.
+function mapRows(section) {
+  return section.split('\n')
+    .filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Phase \|/.test(line))
+    .map((line) => {
+      const cells = line.split('|').slice(1, -1).map((cell) => cell.trim());
+      assert.equal(cells.length, 3, `map row must have three columns: ${line}`);
+      return { phase: cells[0], operation: cells[1], data: cells[2] };
+    });
+}
+const backticked = (cell) => (cell.match(/`([^`]+)`/g) || []).map((token) => token.slice(1, -1));
+const namedOperations = (section) => new Set(mapRows(section).flatMap((row) => backticked(row.operation)).filter((token) => /^[a-z][a-z0-9_]*$/.test(token)));
 
 test('Issue #55 the exact-autofix reference carries a packaged helper invocation map', () => {
   const section = mapSection();
@@ -71,23 +82,25 @@ test('Issue #55 the map and the CLI schema table agree in both directions', () =
 
 test('Issue #55 every mapped operation names its required request fields', () => {
   const section = mapSection();
+  const rows = mapRows(section);
   for (const [operation, required] of Object.entries(cliSchemas())) {
-    const row = section.split('\n').find((line) => line.includes(`\`${operation}\``));
-    assert.ok(row, `no map row names ${operation}`);
-    // Fingerprint rows are grouped, so their per-operation fields are documented by the CLI
-    // schema itself; identity, policy, and workspace rows must spell their fields out.
+    const matching = rows.filter((row) => backticked(row.operation).includes(operation));
+    assert.ok(matching.length > 0, `no map row names ${operation}`);
+    // Fingerprint rows are grouped, so their per-operation fields stay documented by the
+    // CLI schema itself; identity, policy, and workspace rows must spell their fields out.
     if (operation.startsWith('fingerprint_')) continue;
     for (const field of required) {
-      assert.ok(row.includes(`\`${field}\``), `map row for ${operation} omits required field ${field}`);
+      assert.ok(matching.some((row) => backticked(row.data).includes(field)), `map row for ${operation} omits required field ${field}`);
     }
   }
 });
 
 test('Issue #55 the map preserves the linked/clone postPushHead distinction and grants no authority', () => {
   const section = mapSection();
-  assert.match(section, /linked[^.]*`postPushHead: C`/);
-  assert.match(section, /clone omits it and requires `O` equality/);
-  assert.match(section, /supplied evidence/);
+  // The exact literal is pinned elsewhere by test/pr-operational-cleanliness.test.js; the
+  // map must carry it verbatim rather than a reworded variant.
+  assert.match(section, /After public\/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality/);
+  assert.match(section, /supplied evidence in the gate payload/);
   assert.match(section, /never substitutes for a gate verdict/);
   assert.match(section, /grants no commit, push, reply, or provider authority/);
 });
