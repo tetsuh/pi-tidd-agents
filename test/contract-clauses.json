@@ -2148,6 +2148,10 @@
         "never parse a verdict, correlation field, or finding record out of Markdown",
         "still ends with the required final-line verdict token",
         "parent supplies its own assigned finding set",
+        "gate-scoped fresh finding namespace",
+        "after intake the parent assigns `blockerKey`",
+        "supplies the exact required evidence-attestation set",
+        "Sol must return at least one complete adversarial-result record",
         "is a tool failure that consumes no counter and is never a verdict"
       ]
     },

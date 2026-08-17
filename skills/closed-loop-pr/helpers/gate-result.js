@@ -31,17 +31,17 @@ const CORRELATION = closed({
   snapshotFingerprint: SHA256,
 }, ['repository', 'number', 'baseOid', 'headRepository', 'headBranch', 'headOid', 'lifecycle', 'draft', 'gate', 'invocation', 'contractInput', 'snapshotFingerprint']);
 
-// AC-DISPOSITION record fields, plus the CL-D30 blockerKey/confirmation identity and the
-// CL-D34 anchoring class. Conditional fields are enforced in checkFindings, not by the
-// grammar, because the grammar has no dependent-required keyword.
+// Conditional finding duties are enforced below.
 const FINDING = closed({
   findingId: TEXT,
+  origin: { type: 'string', enum: ['assigned', 'fresh'] },
   blockerKey: TEXT,
   gate: { type: 'string', enum: GATES },
   headOid: OID,
   raisedAgainstFingerprint: SHA256,
   severity: { type: 'string', enum: SEVERITIES },
   anchoring: { type: 'string', enum: ANCHORING },
+  outOfScope: { type: 'boolean' },
   anchor: TEXT,
   proposedIssueTitle: TEXT,
   proposedDisposition: { type: 'string', enum: DISPOSITIONS },
@@ -51,45 +51,20 @@ const FINDING = closed({
   correction: TEXT,
   validationEvidence: TEXT,
   transport: TEXT,
-}, ['findingId', 'blockerKey', 'gate', 'headOid', 'raisedAgainstFingerprint', 'severity', 'anchoring', 'proposedDisposition', 'evidence', 'impact', 'rationale', 'transport']);
+}, ['findingId', 'origin', 'gate', 'headOid', 'raisedAgainstFingerprint', 'severity', 'proposedDisposition', 'evidence', 'impact', 'rationale', 'correction', 'transport']);
 
-const CONFIRMATION = closed({
-  findingId: TEXT,
-  gate: { type: 'string', enum: GATES },
-  headOid: OID,
-  confirmation: { type: 'string', enum: CONFIRMATIONS },
-  evidence: TEXT,
-}, ['findingId', 'gate', 'headOid', 'confirmation', 'evidence']);
-
-// AC-DECISION's nine canonical fields. `ownerChoice` is absent while the decision is pending.
-const DECISION = closed({
-  decisionId: TEXT,
-  kind: TEXT,
-  targetAndRevision: TEXT,
-  question: TEXT,
-  options: TEXT,
-  recommendation: TEXT,
-  ownerChoice: TEXT,
-  rationale: TEXT,
-  validity: TEXT,
-  status: { type: 'string', enum: ['pending', 'recorded'] },
-}, ['decisionId', 'kind', 'targetAndRevision', 'question', 'options', 'recommendation', 'rationale', 'validity', 'status']);
-
-// CL-D2 requires complete reads of the supplied authority; an attestation names what was
-// read and whether it was read completely, so a partial read cannot pass as a full one.
-const EVIDENCE = closed({
-  source: TEXT,
-  kind: { type: 'string', enum: EVIDENCE_KINDS },
-  identity: TEXT,
-  readCompletely: { type: 'boolean' },
-}, ['source', 'kind', 'identity', 'readCompletely']);
-
-const ADVERSARIAL = closed({
-  claim: TEXT,
-  searched: TEXT,
-  outcome: { type: 'string', enum: ADVERSARIAL_OUTCOMES },
-  evidence: TEXT,
-}, ['claim', 'searched', 'outcome']);
+const CONFIRMATION = closed({ findingId: TEXT, gate: { type: 'string', enum: GATES }, headOid: OID,
+  confirmation: { type: 'string', enum: CONFIRMATIONS }, evidence: TEXT },
+['findingId', 'gate', 'headOid', 'confirmation', 'evidence']);
+const DECISION = closed({ decisionId: TEXT, kind: TEXT, targetAndRevision: TEXT, question: TEXT,
+  options: TEXT, recommendation: TEXT, ownerChoice: TEXT, rationale: TEXT, validity: TEXT,
+  status: { type: 'string', enum: ['pending', 'recorded'] } },
+['decisionId', 'kind', 'targetAndRevision', 'question', 'options', 'recommendation', 'rationale', 'validity', 'status']);
+const EVIDENCE = closed({ source: TEXT, kind: { type: 'string', enum: EVIDENCE_KINDS }, identity: TEXT,
+  readCompletely: { type: 'boolean' } }, ['source', 'kind', 'identity', 'readCompletely']);
+const ADVERSARIAL = closed({ claim: TEXT, searched: TEXT,
+  outcome: { type: 'string', enum: ADVERSARIAL_OUTCOMES }, evidence: TEXT },
+['claim', 'searched', 'outcome', 'evidence']);
 
 const SCHEMA = closed({
   schemaVersion: { type: 'integer', const: 1 },
@@ -105,9 +80,7 @@ const SCHEMA = closed({
 const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 
-// A deliberately small closed-grammar checker: the envelope uses only the keywords declared
-// above, so a general JSON Schema implementation would add a dependency without widening
-// what this validates.
+// Closed-grammar checker for the keywords declared above.
 function check(schema, value, path) {
   const where = path || 'envelope';
   if (schema.type === 'array') {
@@ -139,71 +112,100 @@ function check(schema, value, path) {
 }
 
 function checkCorrelation(actual, expected) {
-  for (const key of CORRELATION.required) {
-    if (actual[key] !== expected[key]) fail('correlation_mismatch', `correlation ${key} does not match the expected invocation`);
-  }
+  for (const key of CORRELATION.required) if (actual[key] !== expected[key]) fail('correlation_mismatch', `correlation ${key} does not match expected`);
 }
 
-// Conditional record obligations that the flat grammar cannot express.
-function checkFindings(findings, correlation) {
+function checkEvidence(value, required) {
+  const bad = (message) => fail('evidence_records_invalid', message);
+  if (!Array.isArray(required) || !required.length) fail('invalid_request', 'requiredEvidence missing');
+  const key = (entry) => JSON.stringify([entry.source, entry.kind, entry.identity]);
+  for (const entry of required) {
+    if (!plain(entry) || Object.keys(entry).length !== 3 || !['source', 'kind', 'identity'].every((field) => typeof entry[field] === 'string' && entry[field])) fail('invalid_request', 'bad requiredEvidence');
+    if (!EVIDENCE_KINDS.includes(entry.kind)) fail('invalid_request', 'bad evidence kind');
+  }
+  const expected = required.map(key), actual = value.evidenceRead.map(key);
+  if (new Set(expected).size !== expected.length) fail('invalid_request', 'duplicate requiredEvidence');
+  if (new Set(actual).size !== actual.length) bad('duplicate evidence');
+  if (value.evidenceRead.some((entry) => !entry.readCompletely)) bad('incomplete evidence');
+  for (const identity of expected) if (!actual.includes(identity)) bad('required evidence omitted');
+  for (const identity of actual) if (!expected.includes(identity)) bad('unexpected evidence');
+  if (value.correlation.gate === 'sol' && !value.adversarialResults.length) bad('Sol adversarialResults missing');
+}
+
+function checkFindings(findings, correlation, assigned, freshPrefix) {
+  const bad = (message) => fail('finding_records_invalid', message);
+  const ids = findings.map((entry) => entry.findingId);
+  if (new Set(ids).size !== ids.length) bad('duplicate findingId');
   for (const entry of findings) {
-    if (entry.gate !== correlation.gate) fail('finding_records_invalid', `finding ${entry.findingId} names another gate`);
-    if (entry.headOid !== correlation.headOid) fail('finding_records_invalid', `finding ${entry.findingId} names another head`);
-    if (entry.anchoring === 'criterion-anchored' && !entry.anchor) fail('finding_records_invalid', `criterion-anchored finding ${entry.findingId} must name its anchor`);
-    if (entry.anchoring === 'follow-up' && !entry.proposedIssueTitle) fail('finding_records_invalid', `follow-up finding ${entry.findingId} must propose an issue title`);
-    if (entry.proposedDisposition === 'fixed' && !(entry.correction && entry.validationEvidence)) fail('finding_records_invalid', `fixed finding ${entry.findingId} must carry its correction and validation evidence`);
+    if (entry.gate !== correlation.gate) bad(`${entry.findingId}: gate mismatch`);
+    if (entry.headOid !== correlation.headOid) bad(`${entry.findingId}: head mismatch`);
+    const residual = entry.outOfScope === true;
+    if (residual === Boolean(entry.anchoring)) bad(`${entry.findingId}: classification mismatch`);
+    if (entry.anchoring === 'criterion-anchored' && !entry.anchor) bad(`${entry.findingId}: anchor missing`);
+    if (entry.anchoring === 'follow-up' && (!entry.proposedIssueTitle || entry.proposedDisposition !== 'deferred' || entry.severity === 'Blocker')) bad(`${entry.findingId}: invalid follow-up`);
+    if (residual && (entry.severity !== 'Minor' || !['accepted-as-designed', 'deferred', 'not-applicable'].includes(entry.proposedDisposition))) bad(`${entry.findingId}: invalid out-of-scope`);
+    if (entry.origin === 'assigned') {
+      if (!assigned.includes(entry.findingId)) bad(`result falsely labels unassigned finding ${entry.findingId} as assigned`);
+      if (!entry.blockerKey) bad(`${entry.findingId}: blockerKey missing`);
+      if (entry.proposedDisposition === 'fixed' && !entry.validationEvidence) bad(`${entry.findingId}: validation missing`);
+    } else {
+      if (assigned.includes(entry.findingId)) bad(`${entry.findingId}: assigned ID is fresh`);
+      const suffix = entry.findingId.slice(freshPrefix.length);
+      if (!entry.findingId.startsWith(freshPrefix) || !/^[A-Z0-9][A-Z0-9._-]*$/.test(suffix)) bad(`${entry.findingId}: namespace mismatch`);
+      if (entry.blockerKey) bad(`${entry.findingId}: fresh blockerKey`);
+    }
   }
+  for (const id of assigned) if (!findings.some((entry) => entry.findingId === id && entry.origin === 'assigned')) fail('confirmation_records_invalid', `result omits assigned finding ${id}`);
 }
 
-// CL-D30: exactly one confirmation record per finding the parent assigned. The assigned set
-// comes from the parent, never from the result, so an omitted assignment cannot pass.
 function checkConfirmations(findings, confirmations, assigned, correlation) {
-  const reported = findings.map((entry) => entry.findingId);
-  if (new Set(reported).size !== reported.length) fail('confirmation_records_invalid', 'findings repeat a findingId');
-  for (const findingId of assigned) if (!reported.includes(findingId)) fail('confirmation_records_invalid', `result omits assigned finding ${findingId}`);
-  for (const findingId of reported) if (!assigned.includes(findingId)) fail('confirmation_records_invalid', `result reports unassigned finding ${findingId}`);
-
+  const bad = (message) => fail('confirmation_records_invalid', message);
+  const reported = findings.filter((entry) => entry.origin === 'assigned').map((entry) => entry.findingId);
   const seen = new Map();
   for (const record of confirmations) {
-    if (seen.has(record.findingId)) fail('confirmation_records_invalid', `duplicate confirmation for ${record.findingId}`);
-    if (record.gate !== correlation.gate) fail('confirmation_records_invalid', `confirmation for ${record.findingId} names another gate`);
-    if (record.headOid !== correlation.headOid) fail('confirmation_records_invalid', `confirmation for ${record.findingId} names a stale head`);
+    if (seen.has(record.findingId)) bad(`duplicate ${record.findingId}`);
+    if (!assigned.includes(record.findingId)) bad(`unexpected ${record.findingId}`);
+    if (record.gate !== correlation.gate) bad(`${record.findingId}: gate mismatch`);
+    if (record.headOid !== correlation.headOid) bad(`${record.findingId}: head mismatch`);
     seen.set(record.findingId, record);
   }
-  for (const findingId of reported) if (!seen.has(findingId)) fail('confirmation_records_invalid', `missing confirmation for ${findingId}`);
-  for (const findingId of seen.keys()) if (!reported.includes(findingId)) fail('confirmation_records_invalid', `unexpected confirmation for ${findingId}`);
+  for (const id of reported) if (!seen.has(id)) bad(`missing ${id}`);
+  for (const id of seen.keys()) if (!reported.includes(id)) bad(`unexpected ${id}`);
   return seen;
 }
 
 function checkVerdict(value, confirmed) {
-  const unresolved = value.findings.filter((entry) => confirmed.get(entry.findingId).confirmation !== 'confirmed');
+  const bad = (message) => fail('verdict_inconsistent', message);
   const pending = value.decisions.filter((entry) => entry.status === 'pending');
+  if (new Set(value.decisions.map((entry) => entry.decisionId)).size !== value.decisions.length) bad('duplicate decisionId');
   for (const entry of value.decisions) {
-    if (entry.status === 'recorded' && !entry.ownerChoice) fail('verdict_inconsistent', `recorded decision ${entry.decisionId} must carry the owner choice`);
-    if (entry.status === 'pending' && entry.ownerChoice) fail('verdict_inconsistent', `pending decision ${entry.decisionId} cannot carry an owner choice`);
+    if (entry.status === 'recorded' && !entry.ownerChoice) bad(`${entry.decisionId}: owner choice missing`);
+    if (entry.status === 'pending' && entry.ownerChoice) bad(`${entry.decisionId}: pending choice present`);
   }
-  if (value.verdict === 'MERGE') {
-    if (unresolved.length) fail('verdict_inconsistent', 'MERGE cannot carry an unresolved finding');
-    if (pending.length) fail('verdict_inconsistent', 'MERGE cannot carry a pending decision');
-  }
-  if (value.verdict === 'FIX BEFORE MERGE') {
-    if (!value.findings.length) fail('verdict_inconsistent', 'FIX BEFORE MERGE requires at least one finding');
-    if (pending.length) fail('verdict_inconsistent', 'a pending decision requires NEEDS DECISION');
-  }
-  if (value.verdict === 'NEEDS DECISION' && pending.length !== 1) fail('verdict_inconsistent', 'NEEDS DECISION requires exactly one pending decision');
+  const ownerNeeded = value.findings.some((entry) => entry.proposedDisposition === 'needs-owner-decision');
+  const unresolved = value.findings.filter((entry) => entry.origin === 'assigned'
+    ? confirmed.get(entry.findingId).confirmation !== 'confirmed' || entry.proposedDisposition === 'needs-owner-decision'
+    : entry.outOfScope !== true && !(entry.anchoring === 'follow-up' && entry.proposedDisposition === 'deferred'));
+  if (ownerNeeded && (value.verdict !== 'NEEDS DECISION' || pending.length !== 1)) bad('owner decision state mismatch');
+  if (value.verdict === 'MERGE' && (unresolved.length || pending.length)) bad('MERGE has unresolved state');
+  if (value.verdict === 'FIX BEFORE MERGE' && (!unresolved.length || pending.length)) bad('FIX state mismatch');
+  if (value.verdict === 'NEEDS DECISION' && pending.length !== 1) bad('NEEDS DECISION count mismatch');
 }
 
 function validateGateResult(value, expected) {
   try {
     check(SCHEMA, value, 'envelope');
-    if (!plain(expected) || !plain(expected.correlation)) fail('invalid_request', 'expected correlation is required');
-    if (!Array.isArray(expected.assignedFindingIds) || expected.assignedFindingIds.some((id) => typeof id !== 'string' || !id)) fail('invalid_request', 'expected assignedFindingIds must be an array of non-empty strings');
-    if (new Set(expected.assignedFindingIds).size !== expected.assignedFindingIds.length) fail('invalid_request', 'expected assignedFindingIds must be unique');
+    if (!plain(expected) || !plain(expected.correlation)) fail('invalid_request', 'correlation missing');
+    if (!Array.isArray(expected.assignedFindingIds) || expected.assignedFindingIds.some((id) => typeof id !== 'string' || !id)) fail('invalid_request', 'bad assignedFindingIds');
+    if (new Set(expected.assignedFindingIds).size !== expected.assignedFindingIds.length) fail('invalid_request', 'duplicate assignedFindingIds');
     checkCorrelation(value.correlation, expected.correlation);
-    checkFindings(value.findings, value.correlation);
+    const prefix = `${value.correlation.gate === 'sol' ? 'SOL' : 'TERRA'}-${value.correlation.number}-`;
+    if (expected.freshFindingIdPrefix !== prefix) fail('invalid_request', 'freshFindingIdPrefix mismatch');
+    checkEvidence(value, expected.requiredEvidence);
+    checkFindings(value.findings, value.correlation, expected.assignedFindingIds, expected.freshFindingIdPrefix);
     const confirmed = checkConfirmations(value.findings, value.confirmations, expected.assignedFindingIds, value.correlation);
     checkVerdict(value, confirmed);
-    return createResult('gate_result_validate', { verdict: value.verdict, correlation: value.correlation, findings: value.findings, confirmations: value.confirmations, decisions: value.decisions });
+    return createResult('gate_result_validate', { verdict: value.verdict, correlation: value.correlation, evidenceRead: value.evidenceRead, findings: value.findings, confirmations: value.confirmations, decisions: value.decisions, adversarialResults: value.adversarialResults });
   } catch (error) {
     return createError('gate_result_validate', error.code || 'gate_result_invalid', error.message, 'gate_result_validate');
   }
