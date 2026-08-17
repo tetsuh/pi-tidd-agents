@@ -33,7 +33,7 @@ follow-up
 
 ## Owner decisions (AC-DECISION)
 
-Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, and ADR acceptance. Routine details already settled by an approved contract remain implementation judgments.
+Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, and ADR acceptance. Routine details already settled by an approved contract remain implementation judgments. While an owner decision or owner action is pending, the state is `WAITING_FOR_OWNER`.
 
 Ask **one question at a time**, with options and a recommendation. Record durable decisions as exactly this schema:
 

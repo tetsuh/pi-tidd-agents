@@ -406,10 +406,14 @@ test('falsification guidance does not require a package-specific development rec
       `${file} names an unpackaged repository-specific record as falsification evidence`,
     );
   }
+  // Issue #58 moved this guidance out of both workflow roots into the shared gate contract
+  // that each root loads, so the generic phrasing is asserted where the rule now lives. The
+  // negative assertion above still covers every artifact, including both roots.
+  const shared = readText(SHARED_REFERENCES['gate-contract']);
+  assert.match(shared, new RegExp(GENERIC_FALSIFICATION_EVIDENCE));
+  assert.match(shared, new RegExp(ABSENT_RECORD_RULE, 'i'));
   for (const file of Object.values(SKILLS)) {
-    const text = readText(file);
-    assert.match(text, new RegExp(GENERIC_FALSIFICATION_EVIDENCE));
-    assert.match(text, new RegExp(ABSENT_RECORD_RULE, 'i'));
+    assert.doesNotMatch(readText(file), new RegExp(GENERIC_FALSIFICATION_EVIDENCE), `${file} restates shared falsification guidance`);
   }
 });
 

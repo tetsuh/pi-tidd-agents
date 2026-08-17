@@ -8,13 +8,13 @@ Accept a full GitHub URL, `#123`, `123`, `Issue #123`, `PR #123`, or `PR123`.
 
 The prompt template passes the complete raw argument vector (`$@`) to the workflow Skill. Parse the complete raw argument vector before calling `gh`: recognize `Issue`/`PR` followed by `#123` as one two-token reference, recognize the other forms as one token, and consume only that target reference. The two-token reference is consumed greedily. Remaining-token handling belongs to the workflow root: Issue rejects remaining tokens; PR applies CL-D6 mode parsing and then rejects leftovers and near-misses. The target is **never inferred from the current branch**.
 
-A target in another repository may be reviewed, but publication and local implementation authority remain bound to the repository of the current checkout. Verify that the resolved target is the expected kind after this shared parse; the workflow root applies its wrong-kind rejection and foreign-target boundary. The target is never inferred from the current branch.
+A target in another repository may be reviewed, but publication and local implementation authority remain bound to the repository of the current checkout. Verify that the resolved target is the expected kind after this shared parse; the workflow root applies its wrong-kind rejection and foreign-target boundary. The target is never inferred from the current branch. Each root resolves its reference only after this shared grammar has consumed the target reference, and runs only against an explicit target supplied by the operator (CL-D20).
 
 ## Name-level agent resolution (CL-D22, CL-D5)
 
 Preflight begins by confirming that subagent execution comes from `pi-subagents`. If `pi-subagents` is unavailable, stop and report `BLOCKED` with installation guidance. Never substitute local execution for a formal gate.
 
-Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name through name-level override guidance. Naming a model here would remove that escape hatch. Each workflow root retains its own required runtime-agent set and routing.
+Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name through name-level override guidance. Naming a model here would remove that escape hatch. Each workflow root retains its own required runtime-agent set and routing. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path.
 
 ## Language Profile (CL-D16)
 
@@ -49,6 +49,10 @@ Limit authoritative comments consistently with CL-D9: accept only comments by a 
 ### Finding anchoring and threat-model bound (AC-ANCHOR, CL-D34)
 
 Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant that its cited counterexample falsifies or that unavailable required evidence prevents verifying, matching the two finding bases CL-D29 admits; that anchor set replaces the older acceptance-criterion-only test, so a clause or invariant anchor is sufficient and a finding naming none of the three is an out-of-scope improvement rather than a blocker. A claim that appears only in target-body prose and names none of the three is a `reword` finding: its correction is an owner edit of the body, never an implementation blocker. A counterexample that requires violating an assumed operator condition declared cooperative by the selected mode's threat model is a `follow-up` finding reported with a proposed issue title; it is not a blocker. When an acceptance criterion, contract clause, or fail-stop invariant names that operator condition, the threat model no longer excludes it and the finding is `criterion-anchored` at its own severity. Label every finding that is not an out-of-scope improvement with exactly one of the three anchoring classes `criterion-anchored`, `reword`, or `follow-up`; `out-of-scope` remains the pre-existing residual label outside that set and is unchanged by CL-D34. Bounding applies to severity and disposition only: Sol still reads implementation and tests completely and still reports every cited counterexample.
+
+## Evidence fingerprints (CL-D9)
+
+An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**. Every other comment is advisory context and stays out of the fingerprint. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved. Each root owns its own fingerprint list and byte serialization.
 
 ## Gate verdicts (CL-D1)
 
