@@ -2144,14 +2144,22 @@
       "requires": [
         "Every formal Sol and Terra invocation in both workflow roots",
         "`outputSchema`",
-        "sole verdict, correlation, finding, confirmation, and decision authority",
-        "never parse a verdict, correlation field, or finding record out of Markdown",
-        "still ends with the required final-line verdict token",
-        "parent supplies its own assigned finding set",
-        "gate-scoped fresh finding namespace",
-        "after intake the parent assigns `blockerKey`",
-        "supplies the exact required evidence-attestation set",
-        "Sol must return at least one complete adversarial-result record",
+        "every Issue, PR review-only, and exact-autofix route passes the envelope",
+        "packaged `gate_result_validate` before reading any field",
+        "`outputSchema` alone is insufficient",
+        "parent's verdict, correlation, finding, confirmation, and decision authority",
+        "never parse those fields from Markdown",
+        "final-line token `MERGE | FIX BEFORE MERGE | NEEDS DECISION`",
+        "complete assigned `{findingId, blockerKey}` tuples",
+        "fresh finding namespace whose nonempty suffix matches `[A-Z0-9._-]+`",
+        "after validated intake the parent assigns `blockerKey`",
+        "Issue records carry only candidate identity, fixed revised passage, and snapshot assignment",
+        "PR records select `gate | body | issue-comment | review | inline-comment | check | status`",
+        "incompatible variant fields fail closed",
+        "exact required evidence-attestation set",
+        "each counterexample or unavailable-evidence result links to its finding",
+        "material evidence cannot simultaneously confirm that finding as fixed",
+        "without weakening CL-D34's explicitly non-blocking follow-up/out-of-scope classes",
         "is a tool failure that consumes no counter and is never a verdict"
       ]
     },
@@ -2160,10 +2168,12 @@
       "marker": "CL-D36",
       "title": "The packaged validator is bound to every gate result",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
+      "section": "### Structured gate result transport (CL-D36)",
       "requires": [
-        "`gate_result_validate`"
+        "every Issue, PR review-only, and exact-autofix route",
+        "packaged `gate_result_validate` before reading any field"
       ]
     },
     {

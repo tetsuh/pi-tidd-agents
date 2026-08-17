@@ -1,214 +1,176 @@
 'use strict';
 
 const { createResult, createError } = require('./protocol');
+const words = (s) => s.split(' ');
+const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'], GATES = ['sol', 'terra'], ROOTS = ['issue', 'pr'];
+const SEVERITIES = ['Blocker', 'Major', 'Minor'], ANCHORING = ['criterion-anchored', 'reword', 'follow-up'];
+const DISPOSITIONS = words('fixed accepted-as-designed deferred duplicate not-applicable needs-owner-decision');
+const CONFIRMS = words('confirmed rejected unverifiable'), KINDS = words('file git github snapshot');
+const OUTCOMES = words('counterexample unavailable-evidence no-counterexample');
+const EXTERNAL = words('sourceUrl bodyDigest createdAt updatedAt');
+const SRC_X = { gate: [], body: EXTERNAL, 'issue-comment': EXTERNAL, review: [...EXTERNAL, 'reviewCommitOid'],
+  'inline-comment': [...EXTERNAL, 'reviewCommitOid', 'path', 'line'], check: EXTERNAL, status: EXTERNAL };
+const SOURCES = Object.keys(SRC_X);
+const OID = { type: 'string', pattern: '^[0-9a-f]{40}(?:[0-9a-f]{24})?$' }, SHA256 = { type: 'string', pattern: '^[0-9a-f]{64}$' };
+const TEXT = { type: 'string', minLength: 1 }, NWO = { type: 'string', pattern: '^[^/\\s]+/[^/\\s]+$' };
+const closed = (properties, required = []) => ({ type: 'object', additionalProperties: false, properties, required });
+const list = (items) => ({ type: 'array', items }), choice = (enumValues) => ({ type: 'string', enum: enumValues });
+const fields = (s) => Object.fromEntries(words(s).map((key) => [key, TEXT]));
 
-const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'];
-const GATES = ['sol', 'terra'];
-const SEVERITIES = ['Blocker', 'Major', 'Minor'];
-const ANCHORING = ['criterion-anchored', 'reword', 'follow-up'];
-const DISPOSITIONS = ['fixed', 'accepted-as-designed', 'deferred', 'duplicate', 'not-applicable', 'needs-owner-decision'];
-const CONFIRMATIONS = ['confirmed', 'rejected', 'unverifiable'];
-const EVIDENCE_KINDS = ['file', 'git', 'github', 'snapshot'];
-const ADVERSARIAL_OUTCOMES = ['counterexample', 'unavailable-evidence', 'no-counterexample'];
-const OID = { type: 'string', pattern: '^[0-9a-f]{40}(?:[0-9a-f]{24})?$' };
-const SHA256 = { type: 'string', pattern: '^[0-9a-f]{64}$' };
-const TEXT = { type: 'string', minLength: 1 };
-const NWO = { type: 'string', pattern: '^[^/\\s]+/[^/\\s]+$' };
-const closed = (properties, required) => ({ type: 'object', additionalProperties: false, properties, required });
+const CORR_REQ = words('repository number baseOid headRepository headBranch headOid lifecycle draft gate invocation contractInput snapshotFingerprint');
+const CORR = closed({ ...fields('headBranch'), repository: NWO, number: { type: 'integer', minimum: 1 }, baseOid: OID,
+  headRepository: NWO, headOid: OID, lifecycle: choice(words('open closed merged')), draft: { type: 'boolean' },
+  gate: choice(GATES), invocation: { type: 'integer', minimum: 1 }, contractInput: SHA256, snapshotFingerprint: SHA256 }, CORR_REQ);
+const RECORD = closed({ ...fields('candidateIdentity revisedPassage snapshotAssignment sourceId sourceUrl authorIdentity authorType createdAt updatedAt path correctiveChange replyUrl'),
+  sourceKind: choice(SOURCES), bodyDigest: SHA256, reviewCommitOid: OID, line: { type: 'integer', minimum: 1 },
+  observedHeadOid: OID, fingerprint: SHA256, semanticFingerprint: SHA256 });
+const FINDING = closed({ ...fields('findingId blockerKey anchor proposedIssueTitle evidence impact rationale correction validationEvidence transport'),
+  origin: choice(words('assigned fresh')), gate: choice(GATES), headOid: OID, raisedAgainstFingerprint: SHA256,
+  severity: choice(SEVERITIES), anchoring: choice(ANCHORING), outOfScope: { type: 'boolean' },
+  proposedDisposition: choice(DISPOSITIONS), workflowRecord: RECORD },
+  words('findingId origin gate headOid raisedAgainstFingerprint severity proposedDisposition evidence impact rationale correction transport workflowRecord'));
+const CONFIRM = closed({ ...fields('findingId evidence'), gate: choice(GATES), headOid: OID,
+  confirmation: choice(CONFIRMS) }, words('findingId gate headOid confirmation evidence'));
+const DEC = closed({ ...fields('decisionId kind targetAndRevision question options recommendation ownerChoice rationale validity'),
+  status: choice(words('pending recorded')) }, words('decisionId kind targetAndRevision question options recommendation rationale validity status'));
+const EVID = closed({ ...fields('source identity'), kind: choice(KINDS), readCompletely: { type: 'boolean' } }, words('source kind identity readCompletely'));
+const ADV = closed({ ...fields('claim searched evidence findingId'), outcome: choice(OUTCOMES) }, words('claim searched outcome evidence'));
+const SCHEMA = closed({ schemaVersion: { type: 'integer', const: 1 }, correlation: CORR, verdict: choice(VERDICTS),
+  evidenceRead: list(EVID), findings: list(FINDING), confirmations: list(CONFIRM), decisions: list(DEC),
+  adversarialResults: list(ADV) }, words('schemaVersion correlation verdict evidenceRead findings confirmations decisions adversarialResults'));
 
-const CORRELATION = closed({
-  repository: NWO,
-  number: { type: 'integer', minimum: 1 },
-  baseOid: OID,
-  headRepository: NWO,
-  headBranch: TEXT,
-  headOid: OID,
-  lifecycle: { type: 'string', enum: ['open', 'closed', 'merged'] },
-  draft: { type: 'boolean' },
-  gate: { type: 'string', enum: GATES },
-  invocation: { type: 'integer', minimum: 1 },
-  contractInput: SHA256,
-  snapshotFingerprint: SHA256,
-}, ['repository', 'number', 'baseOid', 'headRepository', 'headBranch', 'headOid', 'lifecycle', 'draft', 'gate', 'invocation', 'contractInput', 'snapshotFingerprint']);
-
-// Conditional finding duties are enforced below.
-const FINDING = closed({
-  findingId: TEXT,
-  origin: { type: 'string', enum: ['assigned', 'fresh'] },
-  blockerKey: TEXT,
-  gate: { type: 'string', enum: GATES },
-  headOid: OID,
-  raisedAgainstFingerprint: SHA256,
-  severity: { type: 'string', enum: SEVERITIES },
-  anchoring: { type: 'string', enum: ANCHORING },
-  outOfScope: { type: 'boolean' },
-  anchor: TEXT,
-  proposedIssueTitle: TEXT,
-  proposedDisposition: { type: 'string', enum: DISPOSITIONS },
-  evidence: TEXT,
-  impact: TEXT,
-  rationale: TEXT,
-  correction: TEXT,
-  validationEvidence: TEXT,
-  transport: TEXT,
-}, ['findingId', 'origin', 'gate', 'headOid', 'raisedAgainstFingerprint', 'severity', 'proposedDisposition', 'evidence', 'impact', 'rationale', 'correction', 'transport']);
-
-const CONFIRMATION = closed({ findingId: TEXT, gate: { type: 'string', enum: GATES }, headOid: OID,
-  confirmation: { type: 'string', enum: CONFIRMATIONS }, evidence: TEXT },
-['findingId', 'gate', 'headOid', 'confirmation', 'evidence']);
-const DECISION = closed({ decisionId: TEXT, kind: TEXT, targetAndRevision: TEXT, question: TEXT,
-  options: TEXT, recommendation: TEXT, ownerChoice: TEXT, rationale: TEXT, validity: TEXT,
-  status: { type: 'string', enum: ['pending', 'recorded'] } },
-['decisionId', 'kind', 'targetAndRevision', 'question', 'options', 'recommendation', 'rationale', 'validity', 'status']);
-const EVIDENCE = closed({ source: TEXT, kind: { type: 'string', enum: EVIDENCE_KINDS }, identity: TEXT,
-  readCompletely: { type: 'boolean' } }, ['source', 'kind', 'identity', 'readCompletely']);
-const ADVERSARIAL = closed({ claim: TEXT, searched: TEXT,
-  outcome: { type: 'string', enum: ADVERSARIAL_OUTCOMES }, evidence: TEXT },
-['claim', 'searched', 'outcome', 'evidence']);
-
-const SCHEMA = closed({
-  schemaVersion: { type: 'integer', const: 1 },
-  correlation: CORRELATION,
-  verdict: { type: 'string', enum: VERDICTS },
-  evidenceRead: { type: 'array', items: EVIDENCE },
-  findings: { type: 'array', items: FINDING },
-  confirmations: { type: 'array', items: CONFIRMATION },
-  decisions: { type: 'array', items: DECISION },
-  adversarialResults: { type: 'array', items: ADVERSARIAL },
-}, ['schemaVersion', 'correlation', 'verdict', 'evidenceRead', 'findings', 'confirmations', 'decisions', 'adversarialResults']);
-
-const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
-
-// Closed-grammar checker for the keywords declared above.
-function check(schema, value, path) {
-  const where = path || 'envelope';
-  if (schema.type === 'array') {
-    if (!Array.isArray(value)) fail('schema_invalid', `${where} must be an array`);
-    value.forEach((entry, index) => check(schema.items, entry, `${where}[${index}]`));
-    return;
+function check(s, v, p = 'envelope') {
+  if (s.type === 'array') {
+    if (!Array.isArray(v)) fail('schema_invalid', `${p}: array`);
+    v.forEach((x, i) => check(s.items, x, `${p}[${i}]`)); return;
   }
-  if (schema.type === 'object') {
-    if (!plain(value)) fail('schema_invalid', `${where} must be an object`);
-    for (const key of Object.keys(value)) if (!Object.hasOwn(schema.properties, key)) fail('unknown_field', `${where} has unknown field ${key}`);
-    for (const key of schema.required) if (!Object.hasOwn(value, key)) fail('schema_invalid', `${where} is missing required field ${key}`);
-    for (const [key, entry] of Object.entries(value)) check(schema.properties[key], entry, `${where}.${key}`);
-    return;
+  if (s.type === 'object') {
+    if (!plain(v)) fail('schema_invalid', `${p}: object`);
+    for (const k of Object.keys(v)) if (!Object.hasOwn(s.properties, k)) fail('unknown_field', `${p}: unknown ${k}`);
+    for (const k of s.required) if (!Object.hasOwn(v, k)) fail('schema_invalid', `${p}: missing ${k}`);
+    for (const [k, x] of Object.entries(v)) check(s.properties[k], x, `${p}.${k}`); return;
   }
-  if (schema.type === 'integer') {
-    if (!Number.isSafeInteger(value)) fail('schema_invalid', `${where} must be an integer`);
-    if (Object.hasOwn(schema, 'const') && value !== schema.const) fail('unknown_version', `${where} must equal ${schema.const}`);
-    if (Object.hasOwn(schema, 'minimum') && value < schema.minimum) fail('schema_invalid', `${where} must be at least ${schema.minimum}`);
-    return;
+  if (s.type === 'integer') {
+    if (!Number.isSafeInteger(v)) fail('schema_invalid', `${p}: integer`);
+    if (Object.hasOwn(s, 'const') && v !== s.const) fail('unknown_version', `${p}: version`);
+    if (s.minimum && v < s.minimum) fail('schema_invalid', `${p}: minimum`); return;
   }
-  if (schema.type === 'boolean') {
-    if (typeof value !== 'boolean') fail('schema_invalid', `${where} must be a boolean`);
-    return;
-  }
-  if (typeof value !== 'string') fail('schema_invalid', `${where} must be a string`);
-  if (schema.enum && !schema.enum.includes(value)) fail('unknown_enum', `${where} must be one of ${schema.enum.join(', ')}`);
-  if (schema.pattern && !new RegExp(schema.pattern).test(value)) fail('schema_invalid', `${where} does not match ${schema.pattern}`);
-  if (schema.minLength !== undefined && value.length < schema.minLength) fail('schema_invalid', `${where} must be non-empty`);
+  if (s.type === 'boolean') { if (typeof v !== 'boolean') fail('schema_invalid', `${p}: boolean`); return; }
+  if (typeof v !== 'string') fail('schema_invalid', `${p}: string`);
+  if (s.enum && !s.enum.includes(v)) fail('unknown_enum', `${p}: enum`);
+  if (s.pattern && !new RegExp(s.pattern).test(v)) fail('schema_invalid', `${p}: pattern`);
+  if (s.minLength && !v.length) fail('schema_invalid', `${p}: empty`);
 }
-
-function checkCorrelation(actual, expected) {
-  for (const key of CORRELATION.required) if (actual[key] !== expected[key]) fail('correlation_mismatch', `correlation ${key} does not match expected`);
+function expectedState(e) {
+  if (!plain(e) || !plain(e.correlation) || !ROOTS.includes(e.workflow)) fail('invalid_request', 'bad expected root');
+  const a = e.assignedFindings;
+  if (!Array.isArray(a) || a.some((x) => !plain(x) || Object.keys(x).sort().join() !== 'blockerKey,findingId'
+    || !words('findingId blockerKey').every((k) => typeof x[k] === 'string' && x[k]))) fail('invalid_request', 'bad assignments');
+  const ids = a.map((x) => x.findingId), keys = a.map((x) => x.blockerKey);
+  if (new Set(ids).size !== ids.length || new Set(keys).size !== keys.length) fail('invalid_request', 'duplicate assignment');
+  return new Map(a.map((x) => [x.findingId, x.blockerKey]));
 }
-
-function checkEvidence(value, required) {
-  const bad = (message) => fail('evidence_records_invalid', message);
-  if (!Array.isArray(required) || !required.length) fail('invalid_request', 'requiredEvidence missing');
-  const key = (entry) => JSON.stringify([entry.source, entry.kind, entry.identity]);
-  for (const entry of required) {
-    if (!plain(entry) || Object.keys(entry).length !== 3 || !['source', 'kind', 'identity'].every((field) => typeof entry[field] === 'string' && entry[field])) fail('invalid_request', 'bad requiredEvidence');
-    if (!EVIDENCE_KINDS.includes(entry.kind)) fail('invalid_request', 'bad evidence kind');
+function checkCorrelation(a, e) {
+  for (const k of CORR_REQ) if (a[k] !== e[k]) fail('correlation_mismatch', `${k} mismatch`);
+}
+function checkEvidence(v, req) {
+  const bad = (m) => fail('evidence_records_invalid', m), key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
+  if (!Array.isArray(req) || !req.length) fail('invalid_request', 'evidence missing');
+  for (const x of req) if (!plain(x) || Object.keys(x).sort().join() !== 'identity,kind,source'
+    || !words('source identity').every((k) => typeof x[k] === 'string' && x[k]) || !KINDS.includes(x.kind)) fail('invalid_request', 'bad requiredEvidence');
+  const e = req.map(key), a = v.evidenceRead.map(key);
+  if (new Set(e).size !== e.length) fail('invalid_request', 'duplicate expected evidence');
+  if (new Set(a).size !== a.length) bad('duplicate evidence');
+  if (v.evidenceRead.some((x) => !x.readCompletely)) bad('incomplete evidence');
+  if (e.some((x) => !a.includes(x))) bad('required evidence omitted');
+  if (a.some((x) => !e.includes(x))) bad('unexpected evidence');
+  if (v.correlation.gate === 'sol' && !v.adversarialResults.length) bad('Sol adversarial missing');
+  const ids = new Set(v.findings.map((x) => x.findingId)), material = new Set();
+  for (const x of v.adversarialResults) {
+    if ((x.outcome !== 'no-counterexample') !== Boolean(x.findingId) || (x.findingId && !ids.has(x.findingId))) bad('adversarial linkage');
+    if (x.findingId) material.add(x.findingId);
   }
-  const expected = required.map(key), actual = value.evidenceRead.map(key);
-  if (new Set(expected).size !== expected.length) fail('invalid_request', 'duplicate requiredEvidence');
-  if (new Set(actual).size !== actual.length) bad('duplicate evidence');
-  if (value.evidenceRead.some((entry) => !entry.readCompletely)) bad('incomplete evidence');
-  for (const identity of expected) if (!actual.includes(identity)) bad('required evidence omitted');
-  for (const identity of actual) if (!expected.includes(identity)) bad('unexpected evidence');
-  if (value.correlation.gate === 'sol' && !value.adversarialResults.length) bad('Sol adversarialResults missing');
+  return material;
 }
-
-function checkFindings(findings, correlation, assigned, freshPrefix) {
-  const bad = (message) => fail('finding_records_invalid', message);
-  const ids = findings.map((entry) => entry.findingId);
+const ISSUE = words('candidateIdentity revisedPassage snapshotAssignment');
+const PR_REQ = words('sourceKind sourceId observedHeadOid fingerprint semanticFingerprint authorIdentity authorType');
+function checkWorkflowRecord(x, root) {
+  const bad = (m) => fail('finding_records_invalid', `${x.findingId}: ${m}`), r = x.workflowRecord;
+  if (root === 'issue') {
+    if (Object.keys(r).some((k) => !ISSUE.includes(k)) || !r.candidateIdentity || !r.snapshotAssignment) bad('Issue record');
+    if (x.proposedDisposition === 'fixed' && !r.revisedPassage) bad('revised passage');
+    return;
+  }
+  const extra = SRC_X[r.sourceKind] || [], allowed = new Set([...PR_REQ, ...extra, 'correctiveChange', 'replyUrl']);
+  if (Object.keys(r).some((k) => !allowed.has(k)) || PR_REQ.some((k) => !r[k]) || extra.some((k) => !r[k])) bad('PR record');
+  if (r.observedHeadOid !== x.headOid) bad('PR head mismatch');
+  if (x.proposedDisposition === 'fixed' && !r.correctiveChange) bad('corrective change');
+}
+function checkFindings(findings, corr, assigned, prefix, root) {
+  const bad = (m) => fail('finding_records_invalid', m), ids = findings.map((x) => x.findingId);
   if (new Set(ids).size !== ids.length) bad('duplicate findingId');
-  for (const entry of findings) {
-    if (entry.gate !== correlation.gate) bad(`${entry.findingId}: gate mismatch`);
-    if (entry.headOid !== correlation.headOid) bad(`${entry.findingId}: head mismatch`);
-    const residual = entry.outOfScope === true;
-    if (residual === Boolean(entry.anchoring)) bad(`${entry.findingId}: classification mismatch`);
-    if (entry.anchoring === 'criterion-anchored' && !entry.anchor) bad(`${entry.findingId}: anchor missing`);
-    if (entry.anchoring === 'follow-up' && (!entry.proposedIssueTitle || entry.proposedDisposition !== 'deferred' || entry.severity === 'Blocker')) bad(`${entry.findingId}: invalid follow-up`);
-    if (residual && (entry.severity !== 'Minor' || !['accepted-as-designed', 'deferred', 'not-applicable'].includes(entry.proposedDisposition))) bad(`${entry.findingId}: invalid out-of-scope`);
-    if (entry.origin === 'assigned') {
-      if (!assigned.includes(entry.findingId)) bad(`result falsely labels unassigned finding ${entry.findingId} as assigned`);
-      if (!entry.blockerKey) bad(`${entry.findingId}: blockerKey missing`);
-      if (entry.proposedDisposition === 'fixed' && !entry.validationEvidence) bad(`${entry.findingId}: validation missing`);
+  for (const x of findings) {
+    if (x.gate !== corr.gate || x.headOid !== corr.headOid) bad(`${x.findingId}: gate/head mismatch`);
+    if (Object.hasOwn(x, 'outOfScope') && x.outOfScope !== true) bad(`${x.findingId}: false outOfScope`);
+    const residual = x.outOfScope === true;
+    if (residual === Boolean(x.anchoring)) bad(`${x.findingId}: classification`);
+    if (x.anchoring === 'criterion-anchored' && !x.anchor) bad(`${x.findingId}: anchor`);
+    if (x.anchoring === 'reword' && (x.severity === 'Blocker' || !['fixed', 'accepted-as-designed'].includes(x.proposedDisposition))) bad(`${x.findingId}: reword`);
+    if (x.anchoring === 'follow-up' && (!x.proposedIssueTitle || x.proposedDisposition !== 'deferred' || x.severity === 'Blocker')) bad(`${x.findingId}: follow-up`);
+    if (residual && (x.severity !== 'Minor' || !['accepted-as-designed', 'deferred', 'not-applicable'].includes(x.proposedDisposition))) bad(`${x.findingId}: out-of-scope`);
+    if (x.origin === 'assigned') {
+      if (assigned.get(x.findingId) !== x.blockerKey) bad(`assigned tuple mismatch for ${x.findingId}`);
+      if (x.proposedDisposition === 'fixed' && !x.validationEvidence) bad(`${x.findingId}: validation`);
     } else {
-      if (assigned.includes(entry.findingId)) bad(`${entry.findingId}: assigned ID is fresh`);
-      const suffix = entry.findingId.slice(freshPrefix.length);
-      if (!entry.findingId.startsWith(freshPrefix) || !/^[A-Z0-9][A-Z0-9._-]*$/.test(suffix)) bad(`${entry.findingId}: namespace mismatch`);
-      if (entry.blockerKey) bad(`${entry.findingId}: fresh blockerKey`);
+      if (assigned.has(x.findingId)) bad(`${x.findingId}: assigned ID is fresh`);
+      if (!x.findingId.startsWith(prefix) || !/^[A-Z0-9._-]+$/.test(x.findingId.slice(prefix.length))) bad(`${x.findingId}: namespace`);
+      if (x.blockerKey) bad(`${x.findingId}: fresh blockerKey`);
     }
+    checkWorkflowRecord(x, root);
   }
-  for (const id of assigned) if (!findings.some((entry) => entry.findingId === id && entry.origin === 'assigned')) fail('confirmation_records_invalid', `result omits assigned finding ${id}`);
+  for (const id of assigned.keys()) if (!findings.some((x) => x.findingId === id && x.origin === 'assigned')) fail('confirmation_records_invalid', `result omits assigned finding ${id}`);
 }
-
-function checkConfirmations(findings, confirmations, assigned, correlation) {
-  const bad = (message) => fail('confirmation_records_invalid', message);
-  const reported = findings.filter((entry) => entry.origin === 'assigned').map((entry) => entry.findingId);
-  const seen = new Map();
-  for (const record of confirmations) {
-    if (seen.has(record.findingId)) bad(`duplicate ${record.findingId}`);
-    if (!assigned.includes(record.findingId)) bad(`unexpected ${record.findingId}`);
-    if (record.gate !== correlation.gate) bad(`${record.findingId}: gate mismatch`);
-    if (record.headOid !== correlation.headOid) bad(`${record.findingId}: head mismatch`);
-    seen.set(record.findingId, record);
+function checkConfirmations(findings, confirmations, assigned, corr) {
+  const bad = (m) => fail('confirmation_records_invalid', m), reported = findings.filter((x) => x.origin === 'assigned').map((x) => x.findingId), seen = new Map();
+  for (const x of confirmations) {
+    if (seen.has(x.findingId) || !assigned.has(x.findingId)) bad(`unexpected/duplicate ${x.findingId}`);
+    if (x.gate !== corr.gate || x.headOid !== corr.headOid) bad(`${x.findingId}: gate/head`);
+    seen.set(x.findingId, x);
   }
   for (const id of reported) if (!seen.has(id)) bad(`missing ${id}`);
-  for (const id of seen.keys()) if (!reported.includes(id)) bad(`unexpected ${id}`);
   return seen;
 }
-
-function checkVerdict(value, confirmed) {
-  const bad = (message) => fail('verdict_inconsistent', message);
-  const pending = value.decisions.filter((entry) => entry.status === 'pending');
-  if (new Set(value.decisions.map((entry) => entry.decisionId)).size !== value.decisions.length) bad('duplicate decisionId');
-  for (const entry of value.decisions) {
-    if (entry.status === 'recorded' && !entry.ownerChoice) bad(`${entry.decisionId}: owner choice missing`);
-    if (entry.status === 'pending' && entry.ownerChoice) bad(`${entry.decisionId}: pending choice present`);
+function checkVerdict(v, confirmed, material) {
+  const bad = (m) => fail('verdict_inconsistent', m), pending = v.decisions.filter((x) => x.status === 'pending');
+  if (new Set(v.decisions.map((x) => x.decisionId)).size !== v.decisions.length) bad('duplicate decisionId');
+  for (const x of v.decisions) {
+    if (x.status === 'recorded' && !x.ownerChoice) bad(`${x.decisionId}: owner choice`);
+    if (x.status === 'pending' && x.ownerChoice) bad(`${x.decisionId}: pending choice`);
   }
-  const ownerNeeded = value.findings.some((entry) => entry.proposedDisposition === 'needs-owner-decision');
-  const unresolved = value.findings.filter((entry) => entry.origin === 'assigned'
-    ? confirmed.get(entry.findingId).confirmation !== 'confirmed' || entry.proposedDisposition === 'needs-owner-decision'
-    : entry.outOfScope !== true && !(entry.anchoring === 'follow-up' && entry.proposedDisposition === 'deferred'));
-  if (ownerNeeded && (value.verdict !== 'NEEDS DECISION' || pending.length !== 1)) bad('owner decision state mismatch');
-  if (value.verdict === 'MERGE' && (unresolved.length || pending.length)) bad('MERGE has unresolved state');
-  if (value.verdict === 'FIX BEFORE MERGE' && (!unresolved.length || pending.length)) bad('FIX state mismatch');
-  if (value.verdict === 'NEEDS DECISION' && pending.length !== 1) bad('NEEDS DECISION count mismatch');
+  const owner = v.findings.some((x) => x.proposedDisposition === 'needs-owner-decision');
+  const unresolved = v.findings.filter((x) => x.origin === 'assigned'
+    ? confirmed.get(x.findingId).confirmation !== 'confirmed' || x.proposedDisposition === 'needs-owner-decision'
+      || (x.proposedDisposition === 'fixed' && material.has(x.findingId))
+    : x.outOfScope !== true && !(x.anchoring === 'follow-up' && x.proposedDisposition === 'deferred'));
+  if (owner && (v.verdict !== 'NEEDS DECISION' || pending.length !== 1)) bad('owner state');
+  if (v.verdict === 'MERGE' && (unresolved.length || pending.length)) bad('MERGE state');
+  if (v.verdict === 'FIX BEFORE MERGE' && (!unresolved.length || pending.length)) bad('FIX state');
+  if (v.verdict === 'NEEDS DECISION' && pending.length !== 1) bad('decision count');
 }
-
-function validateGateResult(value, expected) {
+function validateGateResult(v, e) {
   try {
-    check(SCHEMA, value, 'envelope');
-    if (!plain(expected) || !plain(expected.correlation)) fail('invalid_request', 'correlation missing');
-    if (!Array.isArray(expected.assignedFindingIds) || expected.assignedFindingIds.some((id) => typeof id !== 'string' || !id)) fail('invalid_request', 'bad assignedFindingIds');
-    if (new Set(expected.assignedFindingIds).size !== expected.assignedFindingIds.length) fail('invalid_request', 'duplicate assignedFindingIds');
-    checkCorrelation(value.correlation, expected.correlation);
-    const prefix = `${value.correlation.gate === 'sol' ? 'SOL' : 'TERRA'}-${value.correlation.number}-`;
-    if (expected.freshFindingIdPrefix !== prefix) fail('invalid_request', 'freshFindingIdPrefix mismatch');
-    checkEvidence(value, expected.requiredEvidence);
-    checkFindings(value.findings, value.correlation, expected.assignedFindingIds, expected.freshFindingIdPrefix);
-    const confirmed = checkConfirmations(value.findings, value.confirmations, expected.assignedFindingIds, value.correlation);
-    checkVerdict(value, confirmed);
-    return createResult('gate_result_validate', { verdict: value.verdict, correlation: value.correlation, evidenceRead: value.evidenceRead, findings: value.findings, confirmations: value.confirmations, decisions: value.decisions, adversarialResults: value.adversarialResults });
-  } catch (error) {
-    return createError('gate_result_validate', error.code || 'gate_result_invalid', error.message, 'gate_result_validate');
-  }
+    check(SCHEMA, v); const assigned = expectedState(e);
+    checkCorrelation(v.correlation, e.correlation);
+    const prefix = `${v.correlation.gate === 'sol' ? 'SOL' : 'TERRA'}-${v.correlation.number}-`;
+    if (e.freshFindingIdPrefix !== prefix) fail('invalid_request', 'prefix mismatch');
+    const material = checkEvidence(v, e.requiredEvidence);
+    checkFindings(v.findings, v.correlation, assigned, prefix, e.workflow);
+    const confirmed = checkConfirmations(v.findings, v.confirmations, assigned, v.correlation);
+    checkVerdict(v, confirmed, material);
+    return createResult('gate_result_validate', { verdict: v.verdict, correlation: v.correlation, evidenceRead: v.evidenceRead,
+      findings: v.findings, confirmations: v.confirmations, decisions: v.decisions, adversarialResults: v.adversarialResults });
+  } catch (error) { return createError('gate_result_validate', error.code || 'gate_result_invalid', error.message, 'gate_result_validate'); }
 }
-
-module.exports = { SCHEMA, VERDICTS, GATES, SEVERITIES, ANCHORING, DISPOSITIONS, CONFIRMATIONS, EVIDENCE_KINDS, ADVERSARIAL_OUTCOMES, validateGateResult };
+module.exports = { SCHEMA, validateGateResult };

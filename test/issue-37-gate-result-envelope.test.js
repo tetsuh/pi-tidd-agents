@@ -61,6 +61,11 @@ const finding = (over = {}) => ({
   correction: 'narrow the row',
   validationEvidence: 'npm test 400/400',
   transport: 'pending',
+  workflowRecord: {
+    sourceKind: 'gate', sourceId: 'SOL-56-001', authorIdentity: 'sol-reviewer', authorType: 'Agent',
+    observedHeadOid: correlation().headOid, fingerprint: '1'.repeat(64),
+    semanticFingerprint: '2'.repeat(64), correctiveChange: 'narrowed the row',
+  },
   ...over,
 });
 const confirmation = (over = {}) => ({ findingId: 'SOL-56-001', gate: 'sol', headOid: correlation().headOid, confirmation: 'confirmed', evidence: 'reread at head', ...over });
@@ -85,7 +90,8 @@ const expect = (over = {}) => {
   const expectedCorrelation = over.correlation || correlation();
   return {
     correlation: expectedCorrelation,
-    assignedFindingIds: [],
+    workflow: 'pr',
+    assignedFindings: [],
     freshFindingIdPrefix: `${expectedCorrelation.gate === 'sol' ? 'SOL' : 'TERRA'}-${expectedCorrelation.number}-`,
     requiredEvidence: [{ source: attestation().source, kind: attestation().kind, identity: attestation().identity }],
     ...over,
@@ -156,13 +162,36 @@ test('Issue #37 evidence attestations are parent-bound and Sol adversarial resul
   const missingExpected = gateResult.validateGateResult(envelope(), { ...expect(), requiredEvidence: [] });
   assert.equal(missingExpected.ok, false);
   assert.equal(missingExpected.error.code, 'invalid_request');
+  const typedExpected = gateResult.validateGateResult(envelope(), { ...expect(), assignedFindings: [{ findingId: 1, blockerKey: 'key' }] });
+  assert.equal(typedExpected.ok, false, 'parent assignment fields must be nonempty strings');
+  assert.equal(typedExpected.error.code, 'invalid_request');
+  const typedEvidence = gateResult.validateGateResult(envelope(), { ...expect(), requiredEvidence: [{ source: 1, kind: 'file', identity: 'x' }] });
+  assert.equal(typedEvidence.ok, false, 'parent evidence identity fields must be nonempty strings');
+  assert.equal(typedEvidence.error.code, 'invalid_request');
   const wrongNamespace = gateResult.validateGateResult(envelope(), { ...expect(), freshFindingIdPrefix: 'SOL-999-' });
   assert.equal(wrongNamespace.ok, false);
   assert.equal(wrongNamespace.error.code, 'invalid_request');
+  for (const value of [
+    envelope({ adversarialResults: [adversarial({ outcome: 'counterexample' })] }),
+    envelope({ adversarialResults: [adversarial({ outcome: 'unavailable-evidence', findingId: 'SOL-56-404' })] }),
+    envelope({ adversarialResults: [adversarial({ findingId: 'SOL-56-001' })] }),
+  ]) {
+    const result = gateResult.validateGateResult(value, expect());
+    assert.equal(result.ok, false, 'material adversarial results and finding linkage must agree');
+    assert.equal(result.error.code, 'evidence_records_invalid');
+  }
+  const linked = freshFinding();
+  const linkedEnvelope = envelope({ verdict: 'FIX BEFORE MERGE', findings: [linked], adversarialResults: [adversarial({ outcome: 'counterexample', findingId: linked.findingId })] });
+  assert.equal(gateResult.validateGateResult(linkedEnvelope, expect()).ok, true, 'a material adversarial result may link to its finding');
+  const assigned = expect({ assignedFindings: [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }] });
+  const contradictedFix = envelope({ findings: [finding()], confirmations: [confirmation()], adversarialResults: [adversarial({ outcome: 'counterexample', findingId: 'SOL-56-001' })] });
+  const contradictedResult = gateResult.validateGateResult(contradictedFix, assigned);
+  assert.equal(contradictedResult.ok, false, 'material evidence cannot coexist with a confirmed fixed finding under MERGE');
+  assert.equal(contradictedResult.error.code, 'verdict_inconsistent');
 });
 
 test('Issue #37 exactly one confirmation record is required per assigned finding', () => {
-  const expected = expect({ assignedFindingIds: ['SOL-56-001'] });
+  const expected = expect({ assignedFindings: [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }] });
   const withFinding = (confirmations) => envelope({ verdict: 'MERGE', findings: [finding()], confirmations });
 
   assert.equal(gateResult.validateGateResult(withFinding([confirmation()]), expected).ok, true);
@@ -178,7 +207,7 @@ test('Issue #37 exactly one confirmation record is required per assigned finding
 });
 
 test('Issue #37 verdict-dependent invariants hold', () => {
-  const expected = expect({ assignedFindingIds: ['SOL-56-001'] });
+  const expected = expect({ assignedFindings: [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }] });
   // MERGE has no unresolved blocker.
   const unresolved = envelope({ verdict: 'MERGE', findings: [finding()], confirmations: [confirmation({ confirmation: 'rejected' })] });
   const mergeResult = gateResult.validateGateResult(unresolved, expected);
@@ -197,7 +226,7 @@ test('Issue #37 verdict-dependent invariants hold', () => {
 
 // SOL-57-002/SOL-57-006: assigned confirmations stay strict while fresh findings remain reportable.
 test('Issue #37 assigned findings are bound and fresh findings round-trip separately', () => {
-  const assigned = expect({ assignedFindingIds: ['SOL-56-001'] });
+  const assigned = expect({ assignedFindings: [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }] });
   const omittedResult = gateResult.validateGateResult(envelope(), assigned);
   assert.equal(omittedResult.ok, false, 'a result omitting an assigned finding must be rejected');
   assert.match(omittedResult.error.message, /omits assigned finding SOL-56-001/);
@@ -213,7 +242,11 @@ test('Issue #37 assigned findings are bound and fresh findings round-trip separa
   const falselyAssigned = envelope({ verdict: 'FIX BEFORE MERGE', findings: [finding()], confirmations: [confirmation()] });
   const falseResult = gateResult.validateGateResult(falselyAssigned, expect());
   assert.equal(falseResult.ok, false, 'a model cannot label an unassigned ID as assigned');
-  assert.match(falseResult.error.message, /falsely labels unassigned finding/);
+  assert.match(falseResult.error.message, /assigned tuple mismatch/);
+  const forgedTuple = envelope({ verdict: 'MERGE', findings: [finding({ blockerKey: 'forged' })], confirmations: [confirmation()] });
+  const forgedResult = gateResult.validateGateResult(forgedTuple, assigned);
+  assert.equal(forgedResult.ok, false, 'the complete parent-owned finding tuple must match');
+  assert.match(forgedResult.error.message, /assigned tuple mismatch/);
 
   for (const [label, value] of [
     ['assigned ID mislabeled fresh', envelope({ verdict: 'FIX BEFORE MERGE', findings: [freshFinding({ findingId: 'SOL-56-001' })] })],
@@ -227,12 +260,67 @@ test('Issue #37 assigned findings are bound and fresh findings round-trip separa
     assert.equal(result.error.code, 'finding_records_invalid');
   }
 
+  for (const suffix of ['_X', '.X', '-X']) {
+    const value = envelope({ verdict: 'FIX BEFORE MERGE', findings: [freshFinding({ findingId: `SOL-56-${suffix}` })] });
+    assert.equal(gateResult.validateGateResult(value, expect()).ok, true, `declared suffix ${suffix} must be accepted`);
+  }
   for (const [label, over] of [['wrong gate', { gate: 'terra' }], ['stale head', { headOid: 'c'.repeat(40) }]]) {
     const value = envelope({ verdict: 'MERGE', findings: [finding()], confirmations: [confirmation(over)] });
     const result = gateResult.validateGateResult(value, assigned);
     assert.equal(result.ok, false, `a confirmation with a ${label} must be rejected`);
     assert.equal(result.error.code, 'confirmation_records_invalid');
   }
+});
+
+test('Issue #37 workflow records round-trip with root-specific completeness checks', () => {
+  const assigned = [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }];
+  const issueRecord = { candidateIdentity: 'candidate-sha256', revisedPassage: 'revised requirement', snapshotAssignment: 'snapshot C pending' };
+  const issueFinding = finding({ workflowRecord: issueRecord });
+  const issueExpected = expect({ workflow: 'issue', assignedFindings: assigned });
+  assert.equal(gateResult.validateGateResult(envelope({ findings: [issueFinding], confirmations: [confirmation()] }), issueExpected).ok, true);
+  for (const [label, workflowRecord] of [
+    ['Issue candidate missing', { revisedPassage: 'x', snapshotAssignment: 'C' }],
+    ['Issue fixed passage missing', { candidateIdentity: 'c', snapshotAssignment: 'C' }],
+    ['Issue carrying PR fields', { candidateIdentity: 'c', revisedPassage: 'x', snapshotAssignment: 'C', sourceKind: 'gate' }],
+  ]) {
+    const result = gateResult.validateGateResult(envelope({ findings: [finding({ workflowRecord })], confirmations: [confirmation()] }), issueExpected);
+    assert.equal(result.ok, false, label);
+    assert.equal(result.error.code, 'finding_records_invalid');
+  }
+  const freshIssue = freshFinding({ workflowRecord: { candidateIdentity: 'c', snapshotAssignment: 'C' } });
+  const freshIssueResult = gateResult.validateGateResult(envelope({ verdict: 'FIX BEFORE MERGE', findings: [freshIssue] }), expect({ workflow: 'issue' }));
+  assert.equal(freshIssueResult.ok, false, 'fresh fixed Issue records need a proposed revised passage');
+  for (const key of ['sourceKind', 'sourceId', 'observedHeadOid', 'fingerprint', 'semanticFingerprint', 'authorIdentity', 'authorType']) {
+    const workflowRecord = { ...finding().workflowRecord }; delete workflowRecord[key];
+    const result = gateResult.validateGateResult(envelope({ findings: [finding({ workflowRecord })], confirmations: [confirmation()] }), expect({ assignedFindings: assigned }));
+    assert.equal(result.ok, false, `PR ${key} must be required`);
+    assert.equal(result.error.code, 'finding_records_invalid');
+  }
+  const crossRoot = { ...finding().workflowRecord, candidateIdentity: 'not allowed' };
+  assert.equal(gateResult.validateGateResult(envelope({ findings: [finding({ workflowRecord: crossRoot })], confirmations: [confirmation()] }), expect({ assignedFindings: assigned })).ok, false);
+  const freshPrRecord = { ...freshFinding().workflowRecord }; delete freshPrRecord.correctiveChange;
+  assert.equal(gateResult.validateGateResult(envelope({ verdict: 'FIX BEFORE MERGE', findings: [freshFinding({ workflowRecord: freshPrRecord })] }), expect()).ok, false, 'fresh fixed PR records need a proposed corrective change');
+  const unknownSource = { ...finding().workflowRecord, sourceKind: 'unknown' };
+  const unknownResult = gateResult.validateGateResult(envelope({ findings: [finding({ workflowRecord: unknownSource })], confirmations: [confirmation()] }), expect({ assignedFindings: assigned }));
+  assert.equal(unknownResult.ok, false, 'unknown PR source kinds fail closed');
+  const sourceRecord = (sourceKind) => {
+    const record = { ...finding().workflowRecord, sourceKind };
+    if (sourceKind !== 'gate') Object.assign(record, { sourceUrl: 'https://example.test/source', bodyDigest: '3'.repeat(64), createdAt: '2026-08-17T00:00:00Z', updatedAt: '2026-08-17T00:01:00Z' });
+    if (['review', 'inline-comment'].includes(sourceKind)) record.reviewCommitOid = correlation().headOid;
+    if (sourceKind === 'inline-comment') Object.assign(record, { path: 'src/example.js', line: 7 });
+    return record;
+  };
+  for (const sourceKind of ['gate', 'body', 'issue-comment', 'review', 'inline-comment', 'check', 'status']) {
+    const value = envelope({ findings: [finding({ workflowRecord: sourceRecord(sourceKind) })], confirmations: [confirmation()] });
+    assert.equal(gateResult.validateGateResult(value, expect({ assignedFindings: assigned })).ok, true, `complete ${sourceKind} source must round-trip`);
+  }
+  for (const [sourceKind, key] of [['body', 'sourceUrl'], ['issue-comment', 'bodyDigest'], ['review', 'reviewCommitOid'], ['inline-comment', 'path'], ['inline-comment', 'line'], ['check', 'createdAt'], ['status', 'updatedAt']]) {
+    const record = sourceRecord(sourceKind); delete record[key];
+    const value = envelope({ findings: [finding({ workflowRecord: record })], confirmations: [confirmation()] });
+    assert.equal(gateResult.validateGateResult(value, expect({ assignedFindings: assigned })).ok, false, `${sourceKind} must require ${key}`);
+  }
+  const incompatibleGate = sourceRecord('gate'); incompatibleGate.sourceUrl = 'https://example.test/source';
+  assert.equal(gateResult.validateGateResult(envelope({ findings: [finding({ workflowRecord: incompatibleGate })], confirmations: [confirmation()] }), expect({ assignedFindings: assigned })).ok, false, 'source variants reject incompatible fields');
 });
 
 // SOL-57-003: record schemas carry the AC-DISPOSITION, AC-DECISION, CL-D29, and CL-D2 fields.
@@ -255,6 +343,7 @@ test('Issue #37 record schemas are closed and carry their contract fields', () =
   assert.deepEqual(evidenceRead.items.required.slice().sort(), ['identity', 'kind', 'readCompletely', 'source']);
   assert.equal(adversarialResults.items.additionalProperties, false);
   assert.ok(adversarialResults.items.required.includes('evidence'));
+  assert.ok(Object.hasOwn(adversarialResults.items.properties, 'findingId'));
   assert.deepEqual(adversarialResults.items.properties.outcome.enum, ['counterexample', 'unavailable-evidence', 'no-counterexample']);
   const stringEvidence = gateResult.validateGateResult(envelope({ evidenceRead: ['skills/closed-loop-pr/SKILL.md'] }), expect());
   assert.equal(stringEvidence.ok, false, 'a bare string evidence entry must be rejected');
@@ -262,7 +351,7 @@ test('Issue #37 record schemas are closed and carry their contract fields', () =
 
 // SOL-57-003 conditional obligations, enforced outside the flat grammar.
 test('Issue #37 conditional finding obligations are enforced', () => {
-  const assigned = expect({ assignedFindingIds: ['SOL-56-001'] });
+  const assigned = expect({ assignedFindings: [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }] });
   const withFinding = (over) => envelope({ verdict: 'FIX BEFORE MERGE', findings: [finding(over)], confirmations: [confirmation()] });
   for (const [label, over] of [
     ['criterion-anchored without an anchor', { anchor: undefined }],
@@ -271,6 +360,8 @@ test('Issue #37 conditional finding obligations are enforced', () => {
     ['fixed assigned finding without validation evidence', { validationEvidence: undefined }],
     ['finding with both anchoring and out-of-scope labels', { outOfScope: true }],
     ['finding without anchoring or out-of-scope label', { anchoring: undefined }],
+    ['Blocker reword', { anchoring: 'reword' }],
+    ['deferred reword', { severity: 'Major', anchoring: 'reword', proposedDisposition: 'deferred' }],
     ['a finding naming another gate', { gate: 'terra' }],
     ['a finding naming another head', { headOid: 'c'.repeat(40) }],
   ]) {
@@ -285,7 +376,7 @@ test('Issue #37 conditional finding obligations are enforced', () => {
 
 // SOL-57-004: the verdict matrix rejects the states the contract cannot represent.
 test('Issue #37 the verdict matrix rejects inconsistent states', () => {
-  const assigned = expect({ assignedFindingIds: ['SOL-56-001'] });
+  const assigned = expect({ assignedFindings: [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }] });
   const minorUnresolved = envelope({ verdict: 'MERGE', findings: [finding({ severity: 'Minor' })], confirmations: [confirmation({ confirmation: 'unverifiable' })] });
   const minor = gateResult.validateGateResult(minorUnresolved, assigned);
   assert.equal(minor.ok, false, 'an unresolved Minor finding must still block MERGE');
@@ -317,8 +408,12 @@ test('Issue #37 the verdict matrix rejects inconsistent states', () => {
 
   const followUp = freshFinding({ severity: 'Major', anchoring: 'follow-up', proposedIssueTitle: 'Track the cooperative race', proposedDisposition: 'deferred' });
   assert.equal(gateResult.validateGateResult(envelope({ findings: [followUp] }), expect()).ok, true, 'a deferred follow-up is non-blocking');
+  const confirmedReword = finding({ severity: 'Major', anchoring: 'reword' });
+  assert.equal(gateResult.validateGateResult(envelope({ findings: [confirmedReword], confirmations: [confirmation()] }), assigned).ok, true, 'a confirmed fixed reword is non-blocking');
   const residual = freshFinding({ severity: 'Minor', anchoring: undefined, outOfScope: true, proposedDisposition: 'deferred' });
   assert.equal(gateResult.validateGateResult(envelope({ findings: [residual] }), expect()).ok, true, 'an out-of-scope residual is representable and non-blocking');
+  const residualEvidence = envelope({ findings: [residual], adversarialResults: [adversarial({ outcome: 'counterexample', findingId: residual.findingId })] });
+  assert.equal(gateResult.validateGateResult(residualEvidence, expect()).ok, true, 'CL-D34 keeps a linked out-of-scope counterexample non-blocking');
   for (const [label, entry] of [
     ['Blocker follow-up', freshFinding({ anchoring: 'follow-up', proposedIssueTitle: 'Follow up', proposedDisposition: 'deferred' })],
     ['non-deferred follow-up', freshFinding({ severity: 'Major', anchoring: 'follow-up', proposedIssueTitle: 'Follow up' })],
@@ -332,7 +427,7 @@ test('Issue #37 the verdict matrix rejects inconsistent states', () => {
 });
 
 test('Issue #37 packaged CLI accepts mixed findings and exits nonzero on forged fresh identity', () => {
-  const request = (value) => ({ version: 1, operation: 'gate_result_validate', data: { result: value, expected: expect({ assignedFindingIds: ['SOL-56-001'] }) } });
+  const request = (value) => ({ version: 1, operation: 'gate_result_validate', data: { result: value, expected: expect({ assignedFindings: [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }] }) } });
   const mixed = envelope({ verdict: 'FIX BEFORE MERGE', findings: [finding(), freshFinding()], confirmations: [confirmation()] });
   const success = spawnSync(process.execPath, [repoPath('skills/closed-loop-pr/helpers/cli.js')], { input: JSON.stringify(request(mixed)), encoding: 'utf8' });
   assert.equal(success.status, 0, success.stderr || success.stdout);
@@ -352,6 +447,8 @@ test('Issue #37 packaged CLI accepts mixed findings and exits nonzero on forged 
 test('Issue #37 findings separate assigned identity, fresh identity, and the out-of-scope residual label', () => {
   const record = gateResult.SCHEMA.properties.findings.items;
   assert.equal(record.additionalProperties, false);
+  assert.equal(record.properties.workflowRecord.additionalProperties, false);
+  for (const key of ['candidateIdentity', 'revisedPassage', 'snapshotAssignment', 'sourceKind', 'sourceId', 'sourceUrl', 'authorIdentity', 'authorType', 'bodyDigest', 'createdAt', 'updatedAt', 'reviewCommitOid', 'path', 'line', 'observedHeadOid', 'fingerprint', 'semanticFingerprint', 'correctiveChange', 'replyUrl']) assert.ok(Object.hasOwn(record.properties.workflowRecord.properties, key), `workflow record must represent ${key}`);
   for (const key of ['findingId', 'origin', 'gate', 'headOid', 'severity', 'proposedDisposition', 'evidence', 'correction']) {
     assert.ok(record.required.includes(key), `finding record must require ${key}`);
   }
@@ -369,20 +466,26 @@ test('Issue #37 the shared gate contract requires the structured transport for b
   assert.ok(section, 'CL-D36 must own the transport rule in the shared gate contract, not one mode reference');
   assert.match(section, /Every formal Sol and Terra invocation in both workflow roots/);
   assert.match(section, /`outputSchema`/);
-  assert.match(section, /sole verdict, correlation, finding, confirmation, and decision authority/);
-  assert.match(section, /never parse a verdict, correlation field, or finding record out of Markdown/i);
-  assert.match(section, /still ends with the required final-line verdict token/);
-  assert.match(section, /MERGE \| FIX BEFORE MERGE \| NEEDS DECISION/);
-  assert.match(section, /parent supplies its own assigned finding set/);
-  assert.match(section, /fresh finding namespace/);
-  assert.match(section, /after intake[^.]*assigns `blockerKey`/);
+  assert.match(section, /every Issue, PR review-only, and exact-autofix route passes the envelope/);
+  assert.match(section, /packaged `gate_result_validate` before reading any field/);
+  assert.match(section, /`outputSchema` alone is insufficient/);
+  assert.match(section, /parent's verdict, correlation, finding, confirmation, and decision authority/);
+  assert.match(section, /never parse those fields from Markdown/i);
+  assert.match(section, /final-line token `MERGE \| FIX BEFORE MERGE \| NEEDS DECISION`/);
+  assert.match(section, /complete assigned `\{findingId, blockerKey\}` tuples/);
+  assert.match(section, /fresh finding namespace whose nonempty suffix matches `\[A-Z0-9\._-\]\+`/);
+  assert.match(section, /after validated intake[^.]*assigns `blockerKey`/);
   assert.match(section, /exact required evidence-attestation set/);
-  assert.match(section, /Sol must return at least one complete adversarial-result record/);
-  assert.match(section, /structured-output startup, schema-validation, or transport failure is a tool failure that consumes no counter and is never a verdict/);
-  // The rule lives in one place; the mode reference binds only the packaged operation.
+  assert.match(section, /Issue records carry only candidate identity, fixed revised passage, and snapshot assignment/);
+  assert.match(section, /PR records select `gate \| body \| issue-comment \| review \| inline-comment \| check \| status`/);
+  assert.match(section, /material evidence cannot simultaneously confirm that finding as fixed/);
+  assert.match(section, /without weakening CL-D34's explicitly non-blocking follow-up\/out-of-scope classes/);
+  assert.match(section, /Sol returns at least one complete adversarial-result record/);
+  assert.match(section, /semantic-validation[^.]*tool failure that consumes no counter and is never a verdict/);
+  for (const root of ['skills/closed-loop-issue/SKILL.md', 'skills/closed-loop-pr/SKILL.md']) assert.match(readText(root), /\.\.\/closed-loop-shared\/references\/gate-contract\.md/, `${root} must load the shared validator binding`);
   const autofix = readText(PR_AUTOFIX);
-  assert.match(autofix, /`gate_result_validate`/, 'the packaged validator must stay bound in the invocation map');
-  assert.doesNotMatch(autofix, /sole verdict, correlation, finding, confirmation, and decision authority/, 'the normative rule must not be restated in the mode reference');
+  assert.match(autofix, /`gate_result_validate`/, 'the exact-autofix invocation map must retain the operation');
+  assert.doesNotMatch(autofix, /outputSchema` alone is insufficient/, 'the normative all-route rule must not be restated by one mode');
 });
 
 test('Issue #37 CONTRACT.md records CL-D36 and the raised authority baseline', () => {
@@ -401,6 +504,10 @@ test('Issue #37 CONTRACT.md records CL-D36 and the raised authority baseline', (
   assert.match(section, /DEC-PR57-FRESH-FINDING-001/);
   assert.match(section, /exact live response `Aで進めて`/);
   assert.match(section, /fresh findings use a parent-scoped ID namespace/);
+  assert.match(section, /DEC-PR57-COMPLETE-RESULT-002/);
+  assert.match(section, /exact live response `Aで続けて`/);
+  assert.match(section, /parent-owned `\{findingId, blockerKey\}` tuples/);
+  assert.match(section, /nonempty fresh-ID suffix matching `\[A-Z0-9\._-\]\+`/);
   const manifest = readJson('test/contract-clauses.json');
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D36').map((clause) => clause.id).sort(), ['CL-D36-baseline', 'CL-D36-transport', 'CL-D36-validator']);
 });

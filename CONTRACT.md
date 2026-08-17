@@ -338,6 +338,17 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Rationale:* The rejected Sol envelope demonstrated that the prior schema forced either CL-D29 omission or a tool-level validation failure. Separating source discovery from parent routing resolves that contradiction without granting the gate final ledger ownership.
 *Validity and invalidation conditions:* Valid for PR #57's CL-D36 schema while assigned/fresh identity, strict collision and correlation rejection, and parent post-intake routing remain intact. A gate-assigned `blockerKey`, weakened assigned confirmation check, new mutation authority, retry, or schema-version change requires another owner decision.
 
+### DEC-PR57-COMPLETE-RESULT-002 — Complete semantic validation across workflow roots
+*Decision ID:* DEC-PR57-COMPLETE-RESULT-002
+*Kind:* structured result schema and shared workflow-authority correction
+*Target and revision:* PR #57 at `fed163d23489007c67737f39acc340db7a4ee986` after validated Sol invocation 1
+*Question:* Should the reopened all-route, assigned-tuple, root-record, classification, and namespace findings be corrected together or split from Issue #37?
+*Options and trade-offs:* Correct them as one bounded contract-coherent batch while preserving the helper ceiling; or stop and split/re-scope, leaving the current PR unable to satisfy Issue #37's both-root and complete-record requirements.
+*Recommendation:* One consolidated correction because the findings share the same semantic validator boundary.
+*Owner choice:* Option A, approved by the exact live response `Aで続けて`: bind every formal Issue and PR gate route to semantic validation after `outputSchema`, validate parent-owned `{findingId, blockerKey}` tuples, represent and validate root-specific finding records, close the reword matrix and accept exactly a nonempty fresh-ID suffix matching `[A-Z0-9._-]+`, preserve the 100,000-byte helper ceiling, then use normal commit/push and fresh readiness.
+*Rationale:* Runtime `outputSchema` validates the closed shape but cannot enforce cross-record or root-specific semantics. Keeping the checks in one package-owned semantic validator prevents route drift and prose parsing without adding mutation or retry authority.
+*Validity and invalidation conditions:* Applies to this PR #57 correction and faithful later use of CL-D36. It grants no schema-version change, retry, mutation, publication, merge, or helper-ceiling increase; weakening semantic validation or changing workflow record ownership requires another owner decision.
+
 ## DEC-I15-ROUND-BUDGET-001 — Bounded post-decision Sol round
 **Clauses:** DEC-I15-round-budget
 *Decision ID:* DEC-I15-ROUND-BUDGET-001
