@@ -68,8 +68,8 @@ function expectedState(e) {
   const a = e.assignedFindings;
   if (!Array.isArray(a) || a.some((x) => !plain(x) || Object.keys(x).sort().join() !== 'blockerKey,findingId'
     || !words('findingId blockerKey').every((k) => typeof x[k] === 'string' && x[k]))) fail('invalid_request', 'bad assignments');
-  const ids = a.map((x) => x.findingId), keys = a.map((x) => x.blockerKey);
-  if (new Set(ids).size !== ids.length || new Set(keys).size !== keys.length) fail('invalid_request', 'duplicate assignment');
+  const ids = a.map((x) => x.findingId);
+  if (new Set(ids).size !== ids.length) fail('invalid_request', 'duplicate assignment');
   return new Map(a.map((x) => [x.findingId, x.blockerKey]));
 }
 function checkCorrelation(a, e) {

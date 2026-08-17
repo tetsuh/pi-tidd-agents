@@ -190,6 +190,21 @@ test('Issue #37 evidence attestations are parent-bound and Sol adversarial resul
   assert.equal(contradictedResult.error.code, 'verdict_inconsistent');
 });
 
+test('Issue #37 permits distinct assigned findings to share a normalized blockerKey', () => {
+  const sharedKey = 'normalized-shared-key';
+  const first = finding({ blockerKey: sharedKey });
+  const second = finding({ findingId: 'SOL-56-002', blockerKey: sharedKey,
+    workflowRecord: { ...finding().workflowRecord, sourceId: 'SOL-56-002', semanticFingerprint: '3'.repeat(64) } });
+  const expected = expect({ assignedFindings: [
+    { findingId: first.findingId, blockerKey: sharedKey },
+    { findingId: second.findingId, blockerKey: sharedKey },
+  ] });
+  const result = gateResult.validateGateResult(envelope({ findings: [first, second], confirmations: [
+    confirmation(), confirmation({ findingId: second.findingId }),
+  ] }), expected);
+  assert.equal(result.ok, true, 'distinct source findings may normalize to one parent blockerKey');
+});
+
 test('Issue #37 exactly one confirmation record is required per assigned finding', () => {
   const expected = expect({ assignedFindings: [{ findingId: 'SOL-56-001', blockerKey: 'example-key' }] });
   const withFinding = (confirmations) => envelope({ verdict: 'MERGE', findings: [finding()], confirmations });
