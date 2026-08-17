@@ -124,16 +124,20 @@ test('Issue #37 a valid Sol and a valid Terra envelope round-trip', () => {
 });
 
 test('Issue #37 unknown fields, unknown versions, and unknown enums fail closed', () => {
+  // Pin the exact code per case. Asserting only `ok:false` passed for the wrong reason:
+  // with the unknown-field guard removed, an unknown key made the walker dereference an
+  // absent subschema and the resulting TypeError surfaced as generic `gate_result_invalid`.
   const cases = [
-    ['unknown_field', envelope({ extra: true })],
-    ['unknown_version', envelope({ schemaVersion: 2 })],
-    ['unknown_verdict', envelope({ verdict: 'LGTM' })],
-    ['unknown_gate', envelope({ correlation: { ...correlation(), gate: 'luna' } })],
+    ['unknown_field', envelope({ extra: true }), 'unknown_field'],
+    ['unknown_version', envelope({ schemaVersion: 2 }), 'unknown_version'],
+    ['unknown_verdict', envelope({ verdict: 'LGTM' }), 'unknown_enum'],
+    ['unknown_gate', envelope({ correlation: { ...correlation(), gate: 'luna' } }), 'unknown_enum'],
+    ['unknown_nested_field', envelope({ evidenceRead: [{ ...attestation(), extra: true }] }), 'unknown_field'],
   ];
-  for (const [label, value] of cases) {
+  for (const [label, value, code] of cases) {
     const result = gateResult.validateGateResult(value, expect());
     assert.equal(result.ok, false, `${label} must be rejected`);
-    assert.equal(typeof result.error.code, 'string');
+    assert.equal(result.error.code, code, `${label} must be rejected as ${code}, not ${result.error.code}`);
   }
 });
 
