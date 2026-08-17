@@ -32,7 +32,7 @@ const PR_MODE_REFERENCES = {
 };
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
-const PR_HELPER_FILES = ['cli.js', 'fingerprints.js', 'index.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
+const PR_HELPER_FILES = ['cli.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
 const PR_SKILL_PRE_SPLIT_BYTES = 57160;
 const SHARED_REFERENCES = {
   'gate-contract': 'skills/closed-loop-shared/references/gate-contract.md',
@@ -272,9 +272,11 @@ test('Issue #24 shared-reference literal matching rejects malformed prefixes', (
 
 test('Issue #24 six authority files remain below the published baseline', () => {
   // Review-driven regression: this raw-byte ceiling protects the reviewed authority graph.
-  // CL-D34 raised the Issue #24 baseline from 99,182 to 108,000 bytes by owner decision.
+  // CL-D34 raised the Issue #24 baseline to 108,000 bytes; CL-D36 raised it to 112,000 to
+  // hold the shared structured-transport rule. Reducing prose duplicated between the two
+  // workflow roots is tracked separately and is expected to return headroom.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 108000, `six authority files total ${total} bytes, expected less than 108000`);
+  assert.ok(total < 112000, `six authority files total ${total} bytes, expected less than 112000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.
@@ -566,7 +568,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 29, `packed file count changed: ${files.join(', ')}`);
+    assert.equal(files.length, 30, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);

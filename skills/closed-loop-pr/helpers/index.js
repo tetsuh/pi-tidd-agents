@@ -6,6 +6,7 @@ module.exports = {
   ...require('./fingerprints'),
   ...require('./writability'),
   ...require('./paths'),
+  ...require('./gate-result'),
   ...require('./protocol'),
   protocol: require('./protocol'),
 };
