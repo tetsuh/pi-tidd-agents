@@ -44,7 +44,7 @@ Treat the exact Issue or pull-request body, the current authoritative decision r
 
 Attempt falsification against the authoritative files of the repository under review — its contract or decision records where they exist, implementation, and tests — together with available Git/GitHub evidence. When a named authoritative record is absent, that absence is not itself a finding; report a claim as unverifiable only when the evidence needed to check that specific claim is unavailable. A finding requires either an actual cited counterexample that disproves the claim or a verdict-material claim that cannot be verified because required evidence is unavailable. Never invent a counterexample. No counterexample is neither a finding nor proof that the claim is correct.
 
-Limit authoritative comments consistently with CL-D9: accept only comments by a non-bot author with `author_association` `OWNER`, `MEMBER`, or `COLLABORATOR`, and do not revive superseded comments from #3. Report the claim, evidence searched, and the cited counterexample or unavailable evidence.
+Limit authoritative comments to the CL-D9 definition below, and do not revive superseded comments from #3. Report the claim, evidence searched, and the cited counterexample or unavailable evidence.
 
 ### Finding anchoring and threat-model bound (AC-ANCHOR, CL-D34)
 

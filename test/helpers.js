@@ -55,4 +55,15 @@ function lineCount(text) {
   return text.replace(/\r\n/g, '\n').replace(/\n$/, '').split('\n').length;
 }
 
-module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount };
+// The measured authority set. The CL-D24/CL-D34/CL-D36 byte ceiling and the Issue #58
+// duplication guard must measure exactly the same files, so both import this one list.
+const AUTHORITY_FILES = [
+  'skills/closed-loop-issue/SKILL.md',
+  'skills/closed-loop-pr/SKILL.md',
+  'skills/closed-loop-pr/references/review-only.md',
+  'skills/closed-loop-pr/references/autofix.md',
+  'skills/closed-loop-shared/references/gate-contract.md',
+  'skills/closed-loop-shared/references/records.md',
+];
+
+module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES };

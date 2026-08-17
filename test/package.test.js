@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter } = require('./helpers');
+const { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, AUTHORITY_FILES } = require('./helpers');
 
 const manifest = readJson('package.json');
 const contractManifest = readJson('test/contract-clauses.json');
@@ -38,14 +38,6 @@ const SHARED_REFERENCES = {
   'gate-contract': 'skills/closed-loop-shared/references/gate-contract.md',
   records: 'skills/closed-loop-shared/references/records.md',
 };
-const AUTHORITY_FILES = [
-  SKILLS['closed-loop-issue'],
-  SKILLS['closed-loop-pr'],
-  PR_MODE_REFERENCES['review-only'],
-  PR_MODE_REFERENCES.autofix,
-  SHARED_REFERENCES['gate-contract'],
-  SHARED_REFERENCES.records,
-];
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const markdownLiteral = (value) => new RegExp('`' + escapeRegExp(value) + '`', 'g');
 
@@ -413,7 +405,9 @@ test('falsification guidance does not require a package-specific development rec
   assert.match(shared, new RegExp(GENERIC_FALSIFICATION_EVIDENCE));
   assert.match(shared, new RegExp(ABSENT_RECORD_RULE, 'i'));
   for (const file of Object.values(SKILLS)) {
-    assert.doesNotMatch(readText(file), new RegExp(GENERIC_FALSIFICATION_EVIDENCE), `${file} restates shared falsification guidance`);
+    const root = readText(file);
+    assert.doesNotMatch(root, new RegExp(GENERIC_FALSIFICATION_EVIDENCE), `${file} restates shared falsification guidance`);
+    assert.doesNotMatch(root, new RegExp(ABSENT_RECORD_RULE, 'i'), `${file} restates the shared absent-record rule`);
   }
 });
 

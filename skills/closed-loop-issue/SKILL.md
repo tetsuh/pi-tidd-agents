@@ -31,7 +31,7 @@ Do not infer a target, do not scan for candidate issues, and do not start any ga
 
 ## Preflight (CL-D22, CL-D5)
 
-Before the first gate, confirm the workflow-specific required agents resolve: `sol-reviewer` and `terra-oracle`. Do not begin a gate that cannot finish. A preflight failure is not a review round.
+Before the first gate, confirm the workflow-specific required agents resolve: `sol-reviewer` and `terra-oracle`. If one does not resolve, apply the shared `BLOCKED` rule in `gate-contract.md`. Do not begin a gate that cannot finish. A preflight failure is not a review round.
 
 ## Workflow target-kind boundary (CL-D7, CL-D8)
 

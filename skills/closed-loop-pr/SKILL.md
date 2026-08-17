@@ -42,13 +42,13 @@ A near-miss token signals intent to mutate, so it must surface as an error rathe
 ## Preflight (CL-D22, CL-D5)
 
 1. Confirm that the workflow-specific required agents resolve: `sol-reviewer`, `terra-reviewer`, and, conditionally for autofix mode, `luna-worker`.
-2. Do not begin a gate that cannot finish.
+2. If one does not resolve, apply the shared `BLOCKED` rule in `gate-contract.md`; do not begin a gate that cannot finish.
 
 A preflight failure is not a review round.
 
 ## Workflow target-kind boundary (CL-D7, CL-D8)
 
-CL-D6 then consumes only a final exact `autofix` token; reject any leftover token or near-miss. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`.
+The shared grammar consumes the target reference first. CL-D6 then consumes only a final exact `autofix` token; reject any leftover token or near-miss. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`.
 
 A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. The same GitHub API evidence path is available to a same-repository review-only target when local Git objects are absent; this requires no fetch, checkout, or git-state mutation. Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 

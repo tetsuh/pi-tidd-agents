@@ -224,7 +224,8 @@
       "requires": [
         "sha256",
         "canonical UTF-8 bytes"
-      ]
+      ],
+      "section": "## Evidence fingerprints (CL-D9)"
     },
     {
       "id": "CL-D9-issue",
