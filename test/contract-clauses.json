@@ -2132,6 +2132,48 @@
         "Agent files remain frozen; CL-D35 approves one removal of an unloaded tool for Issue #49",
         "grants no standing permission to change them"
       ]
+    },
+    {
+      "id": "CL-D36-transport",
+      "marker": "CL-D36",
+      "title": "Formal gate results travel as a structured envelope",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Structured gate result transport (CL-D36)",
+      "requires": [
+        "Every formal Sol and Terra invocation in both workflow roots",
+        "`outputSchema`",
+        "sole verdict, correlation, finding, confirmation, and decision authority",
+        "never parse a verdict, correlation field, or finding record out of Markdown",
+        "still ends with the required final-line verdict token",
+        "parent supplies its own assigned finding set",
+        "is a tool failure that consumes no counter and is never a verdict"
+      ]
+    },
+    {
+      "id": "CL-D36-validator",
+      "marker": "CL-D36",
+      "title": "The packaged validator is bound to every gate result",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "`gate_result_validate`"
+      ]
+    },
+    {
+      "id": "CL-D36-baseline",
+      "marker": "CL-D36",
+      "title": "The authority baseline is raised by owner decision",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D36 — Formal gate results travel as a strict structured envelope",
+      "requires": [
+        "Raise the six-file authority baseline from 108,000 to 112,000 bytes",
+        "The byte baseline is a review guard, not a target"
+      ]
     }
   ]
 }

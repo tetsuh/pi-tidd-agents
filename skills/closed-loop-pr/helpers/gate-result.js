@@ -8,16 +8,19 @@ const SEVERITIES = ['Blocker', 'Major', 'Minor'];
 const ANCHORING = ['criterion-anchored', 'reword', 'follow-up'];
 const DISPOSITIONS = ['fixed', 'accepted-as-designed', 'deferred', 'duplicate', 'not-applicable', 'needs-owner-decision'];
 const CONFIRMATIONS = ['confirmed', 'rejected', 'unverifiable'];
+const EVIDENCE_KINDS = ['file', 'git', 'github', 'snapshot'];
+const ADVERSARIAL_OUTCOMES = ['counterexample', 'unavailable-evidence', 'no-counterexample'];
 const OID = { type: 'string', pattern: '^[0-9a-f]{40}(?:[0-9a-f]{24})?$' };
 const SHA256 = { type: 'string', pattern: '^[0-9a-f]{64}$' };
 const TEXT = { type: 'string', minLength: 1 };
+const NWO = { type: 'string', pattern: '^[^/\\s]+/[^/\\s]+$' };
 const closed = (properties, required) => ({ type: 'object', additionalProperties: false, properties, required });
 
 const CORRELATION = closed({
-  repository: { type: 'string', pattern: '^[^/\\s]+/[^/\\s]+$' },
+  repository: NWO,
   number: { type: 'integer', minimum: 1 },
   baseOid: OID,
-  headRepository: { type: 'string', pattern: '^[^/\\s]+/[^/\\s]+$' },
+  headRepository: NWO,
   headBranch: TEXT,
   headOid: OID,
   lifecycle: { type: 'string', enum: ['open', 'closed', 'merged'] },
@@ -28,17 +31,27 @@ const CORRELATION = closed({
   snapshotFingerprint: SHA256,
 }, ['repository', 'number', 'baseOid', 'headRepository', 'headBranch', 'headOid', 'lifecycle', 'draft', 'gate', 'invocation', 'contractInput', 'snapshotFingerprint']);
 
+// AC-DISPOSITION record fields, plus the CL-D30 blockerKey/confirmation identity and the
+// CL-D34 anchoring class. Conditional fields are enforced in checkFindings, not by the
+// grammar, because the grammar has no dependent-required keyword.
 const FINDING = closed({
   findingId: TEXT,
   blockerKey: TEXT,
   gate: { type: 'string', enum: GATES },
   headOid: OID,
+  raisedAgainstFingerprint: SHA256,
   severity: { type: 'string', enum: SEVERITIES },
   anchoring: { type: 'string', enum: ANCHORING },
   anchor: TEXT,
+  proposedIssueTitle: TEXT,
   proposedDisposition: { type: 'string', enum: DISPOSITIONS },
   evidence: TEXT,
-}, ['findingId', 'blockerKey', 'gate', 'headOid', 'severity', 'anchoring', 'proposedDisposition', 'evidence']);
+  impact: TEXT,
+  rationale: TEXT,
+  correction: TEXT,
+  validationEvidence: TEXT,
+  transport: TEXT,
+}, ['findingId', 'blockerKey', 'gate', 'headOid', 'raisedAgainstFingerprint', 'severity', 'anchoring', 'proposedDisposition', 'evidence', 'impact', 'rationale', 'transport']);
 
 const CONFIRMATION = closed({
   findingId: TEXT,
@@ -46,20 +59,35 @@ const CONFIRMATION = closed({
   headOid: OID,
   confirmation: { type: 'string', enum: CONFIRMATIONS },
   evidence: TEXT,
-}, ['findingId', 'gate', 'headOid', 'confirmation']);
+}, ['findingId', 'gate', 'headOid', 'confirmation', 'evidence']);
 
+// AC-DECISION's nine canonical fields. `ownerChoice` is absent while the decision is pending.
 const DECISION = closed({
   decisionId: TEXT,
+  kind: TEXT,
+  targetAndRevision: TEXT,
   question: TEXT,
   options: TEXT,
   recommendation: TEXT,
+  ownerChoice: TEXT,
+  rationale: TEXT,
+  validity: TEXT,
   status: { type: 'string', enum: ['pending', 'recorded'] },
-}, ['decisionId', 'question', 'options', 'recommendation', 'status']);
+}, ['decisionId', 'kind', 'targetAndRevision', 'question', 'options', 'recommendation', 'rationale', 'validity', 'status']);
+
+// CL-D2 requires complete reads of the supplied authority; an attestation names what was
+// read and whether it was read completely, so a partial read cannot pass as a full one.
+const EVIDENCE = closed({
+  source: TEXT,
+  kind: { type: 'string', enum: EVIDENCE_KINDS },
+  identity: TEXT,
+  readCompletely: { type: 'boolean' },
+}, ['source', 'kind', 'identity', 'readCompletely']);
 
 const ADVERSARIAL = closed({
   claim: TEXT,
   searched: TEXT,
-  outcome: { type: 'string', enum: ['counterexample', 'unavailable-evidence', 'no-counterexample'] },
+  outcome: { type: 'string', enum: ADVERSARIAL_OUTCOMES },
   evidence: TEXT,
 }, ['claim', 'searched', 'outcome']);
 
@@ -67,7 +95,7 @@ const SCHEMA = closed({
   schemaVersion: { type: 'integer', const: 1 },
   correlation: CORRELATION,
   verdict: { type: 'string', enum: VERDICTS },
-  evidenceRead: { type: 'array', items: TEXT },
+  evidenceRead: { type: 'array', items: EVIDENCE },
   findings: { type: 'array', items: FINDING },
   confirmations: { type: 'array', items: CONFIRMATION },
   decisions: { type: 'array', items: DECISION },
@@ -77,9 +105,9 @@ const SCHEMA = closed({
 const plain = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 
-// A deliberately small closed-schema checker: the envelope grammar uses only the keywords
-// declared above, so a general JSON Schema implementation would add a dependency without
-// widening what this validates.
+// A deliberately small closed-grammar checker: the envelope uses only the keywords declared
+// above, so a general JSON Schema implementation would add a dependency without widening
+// what this validates.
 function check(schema, value, path) {
   const where = path || 'envelope';
   if (schema.type === 'array') {
@@ -116,25 +144,52 @@ function checkCorrelation(actual, expected) {
   }
 }
 
-// CL-D30: every gate result carries exactly one confirmation record per assigned finding.
-function checkConfirmations(findings, confirmations) {
-  const assigned = findings.map((entry) => entry.findingId);
-  if (new Set(assigned).size !== assigned.length) fail('confirmation_records_invalid', 'findings repeat a findingId');
+// Conditional record obligations that the flat grammar cannot express.
+function checkFindings(findings, correlation) {
+  for (const entry of findings) {
+    if (entry.gate !== correlation.gate) fail('finding_records_invalid', `finding ${entry.findingId} names another gate`);
+    if (entry.headOid !== correlation.headOid) fail('finding_records_invalid', `finding ${entry.findingId} names another head`);
+    if (entry.anchoring === 'criterion-anchored' && !entry.anchor) fail('finding_records_invalid', `criterion-anchored finding ${entry.findingId} must name its anchor`);
+    if (entry.anchoring === 'follow-up' && !entry.proposedIssueTitle) fail('finding_records_invalid', `follow-up finding ${entry.findingId} must propose an issue title`);
+    if (entry.proposedDisposition === 'fixed' && !(entry.correction && entry.validationEvidence)) fail('finding_records_invalid', `fixed finding ${entry.findingId} must carry its correction and validation evidence`);
+  }
+}
+
+// CL-D30: exactly one confirmation record per finding the parent assigned. The assigned set
+// comes from the parent, never from the result, so an omitted assignment cannot pass.
+function checkConfirmations(findings, confirmations, assigned, correlation) {
+  const reported = findings.map((entry) => entry.findingId);
+  if (new Set(reported).size !== reported.length) fail('confirmation_records_invalid', 'findings repeat a findingId');
+  for (const findingId of assigned) if (!reported.includes(findingId)) fail('confirmation_records_invalid', `result omits assigned finding ${findingId}`);
+  for (const findingId of reported) if (!assigned.includes(findingId)) fail('confirmation_records_invalid', `result reports unassigned finding ${findingId}`);
+
   const seen = new Map();
   for (const record of confirmations) {
     if (seen.has(record.findingId)) fail('confirmation_records_invalid', `duplicate confirmation for ${record.findingId}`);
+    if (record.gate !== correlation.gate) fail('confirmation_records_invalid', `confirmation for ${record.findingId} names another gate`);
+    if (record.headOid !== correlation.headOid) fail('confirmation_records_invalid', `confirmation for ${record.findingId} names a stale head`);
     seen.set(record.findingId, record);
   }
-  for (const findingId of assigned) if (!seen.has(findingId)) fail('confirmation_records_invalid', `missing confirmation for ${findingId}`);
-  for (const findingId of seen.keys()) if (!assigned.includes(findingId)) fail('confirmation_records_invalid', `unexpected confirmation for ${findingId}`);
+  for (const findingId of reported) if (!seen.has(findingId)) fail('confirmation_records_invalid', `missing confirmation for ${findingId}`);
+  for (const findingId of seen.keys()) if (!reported.includes(findingId)) fail('confirmation_records_invalid', `unexpected confirmation for ${findingId}`);
   return seen;
 }
 
 function checkVerdict(value, confirmed) {
-  const unresolved = value.findings.filter((entry) => entry.severity !== 'Minor' && confirmed.get(entry.findingId).confirmation !== 'confirmed');
+  const unresolved = value.findings.filter((entry) => confirmed.get(entry.findingId).confirmation !== 'confirmed');
   const pending = value.decisions.filter((entry) => entry.status === 'pending');
-  if (value.verdict === 'MERGE' && unresolved.length) fail('verdict_inconsistent', 'MERGE cannot carry an unresolved blocker');
-  if (value.verdict === 'MERGE' && pending.length) fail('verdict_inconsistent', 'MERGE cannot carry a pending decision');
+  for (const entry of value.decisions) {
+    if (entry.status === 'recorded' && !entry.ownerChoice) fail('verdict_inconsistent', `recorded decision ${entry.decisionId} must carry the owner choice`);
+    if (entry.status === 'pending' && entry.ownerChoice) fail('verdict_inconsistent', `pending decision ${entry.decisionId} cannot carry an owner choice`);
+  }
+  if (value.verdict === 'MERGE') {
+    if (unresolved.length) fail('verdict_inconsistent', 'MERGE cannot carry an unresolved finding');
+    if (pending.length) fail('verdict_inconsistent', 'MERGE cannot carry a pending decision');
+  }
+  if (value.verdict === 'FIX BEFORE MERGE') {
+    if (!value.findings.length) fail('verdict_inconsistent', 'FIX BEFORE MERGE requires at least one finding');
+    if (pending.length) fail('verdict_inconsistent', 'a pending decision requires NEEDS DECISION');
+  }
   if (value.verdict === 'NEEDS DECISION' && pending.length !== 1) fail('verdict_inconsistent', 'NEEDS DECISION requires exactly one pending decision');
 }
 
@@ -142,8 +197,11 @@ function validateGateResult(value, expected) {
   try {
     check(SCHEMA, value, 'envelope');
     if (!plain(expected) || !plain(expected.correlation)) fail('invalid_request', 'expected correlation is required');
+    if (!Array.isArray(expected.assignedFindingIds) || expected.assignedFindingIds.some((id) => typeof id !== 'string' || !id)) fail('invalid_request', 'expected assignedFindingIds must be an array of non-empty strings');
+    if (new Set(expected.assignedFindingIds).size !== expected.assignedFindingIds.length) fail('invalid_request', 'expected assignedFindingIds must be unique');
     checkCorrelation(value.correlation, expected.correlation);
-    const confirmed = checkConfirmations(value.findings, value.confirmations);
+    checkFindings(value.findings, value.correlation);
+    const confirmed = checkConfirmations(value.findings, value.confirmations, expected.assignedFindingIds, value.correlation);
     checkVerdict(value, confirmed);
     return createResult('gate_result_validate', { verdict: value.verdict, correlation: value.correlation, findings: value.findings, confirmations: value.confirmations, decisions: value.decisions });
   } catch (error) {
@@ -151,4 +209,4 @@ function validateGateResult(value, expected) {
   }
 }
 
-module.exports = { SCHEMA, VERDICTS, GATES, SEVERITIES, ANCHORING, DISPOSITIONS, CONFIRMATIONS, validateGateResult };
+module.exports = { SCHEMA, VERDICTS, GATES, SEVERITIES, ANCHORING, DISPOSITIONS, CONFIRMATIONS, EVIDENCE_KINDS, ADVERSARIAL_OUTCOMES, validateGateResult };

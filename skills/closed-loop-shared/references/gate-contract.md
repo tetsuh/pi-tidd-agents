@@ -62,6 +62,10 @@ Require that verdict line in every invocation payload rather than relying on an 
 
 A missing or unparsable verdict is a tool-level failure. Ordinary workflow-specific retry and fail-stop behavior belongs to the selected owning workflow or mode reference; shared policy does not grant a retry, publication, or mutation. `ROUND_LIMIT_REACHED` is the round-budget outcome when the applicable gate reaches its limit.
 
+### Structured gate result transport (CL-D36)
+
+Every formal Sol and Terra invocation in both workflow roots requests the packaged closed result schema through its `outputSchema` and returns that structured envelope. The validated envelope is the parent's sole verdict, correlation, finding, confirmation, and decision authority; never parse a verdict, correlation field, or finding record out of Markdown. The human-readable report is generated from the envelope and still ends with the required final-line verdict token, which remains `MERGE | FIX BEFORE MERGE | NEEDS DECISION`. The parent supplies its own assigned finding set, so a result that omits an assigned finding, reports an unassigned one, or confirms one for another gate or head fails closed. A structured-output startup, schema-validation, or transport failure is a tool failure that consumes no counter and is never a verdict.
+
 ## Invocation payload (CL-D2)
 
 Every agent in this package sets `inheritSkills: false`, so nothing in a workflow Skill reaches a subagent automatically. The payload must name the exact issue body or exact pull-request body under review as applicable. **Nothing may rely on a child inheriting this skill.**
