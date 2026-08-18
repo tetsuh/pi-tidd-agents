@@ -2200,6 +2200,24 @@
         "Raise the six-file authority baseline from 108,000 to 112,000 bytes",
         "The byte baseline is a review guard, not a target"
       ]
+    },
+    {
+      "id": "CL-D37-helper-boundary",
+      "marker": "CL-D37",
+      "title": "The packaged helper boundary is structural with byte smoke alarms",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D37 — Bounded helper surface is structural",
+      "requires": [
+        "no package `main`, `bin`, `exports`, or `pi.extensions`",
+        "no commit, push, merge, reply, approval, or thread-resolution CLI operation",
+        "no durable workflow state or scheduling",
+        "no persistent state written outside a validated external run root",
+        "140,000-byte aggregate smoke alarm",
+        "30,000-byte per-file smoke alarm",
+        "not a size budget"
+      ]
     }
   ]
 }

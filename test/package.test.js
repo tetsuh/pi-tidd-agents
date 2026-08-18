@@ -142,10 +142,13 @@ test('Issue #47 packaged helper surface is allowlisted without an entrypoint', (
   for (const file of PR_HELPER_FILES) assert.ok(exists(file), `missing helper: ${file}`);
   const packed = packFileList();
   for (const file of PR_HELPER_FILES) assert.ok(packed.includes(file), `helper is not packaged: ${file}`);
-  const helperBytes = PR_HELPER_FILES.reduce((total, file) => total + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(helperBytes < 100000, `bounded Issue #47 helper surface is unexpectedly large: ${helperBytes} bytes`);
+  const helperSizes = PR_HELPER_FILES.map((file) => [file, fs.statSync(repoPath(file)).size]);
+  const helperBytes = helperSizes.reduce((total, [, size]) => total + size, 0);
+  assert.ok(helperBytes < 140000, `Issue #59 aggregate helper smoke alarm exceeded: ${helperBytes} bytes`);
+  for (const [file, size] of helperSizes) assert.ok(size < 30000, `Issue #59 per-file helper smoke alarm exceeded: ${file} is ${size} bytes`);
   assert.equal(manifest.main, undefined);
   assert.equal(manifest.bin, undefined);
+  assert.equal(manifest.exports, undefined);
   assert.equal(manifest.pi.extensions, undefined);
 });
 
