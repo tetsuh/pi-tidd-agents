@@ -199,22 +199,33 @@
     },
     {
       "id": "CL-D9",
-      "title": "Authoritative comments and fingerprints",
+      "title": "Authoritative comments and digest honesty are shared",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-shared/references/gate-contract.md"
       ],
+      "section": "## Evidence fingerprints (CL-D9)",
       "requires": [
         "author_association",
         "OWNER",
         "MEMBER",
         "COLLABORATOR",
         "is not a bot",
-        "issue_spec",
-        "sha256",
-        "canonical UTF-8 bytes",
         "Never estimate or invent a digest value"
       ]
+    },
+    {
+      "id": "CL-D9-roots",
+      "marker": "CL-D9",
+      "title": "Each root owns its fingerprint list and serialization",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "sha256",
+        "canonical UTF-8 bytes"
+      ],
+      "section": "## Evidence fingerprints (CL-D9)"
     },
     {
       "id": "CL-D9-issue",
@@ -611,7 +622,8 @@
         "skills/closed-loop-shared/references/records.md"
       ],
       "requires": [
-        "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions"
+        "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions",
+        "While an owner decision or owner action is pending, the state is `WAITING_FOR_OWNER`."
       ]
     },
     {
@@ -1909,7 +1921,7 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, and ADR acceptance."
+        "The shared AC-DECISION triggers and pending state apply unchanged; this Issue root adds no trigger of its own."
       ]
     },
     {
@@ -1921,7 +1933,7 @@
         "skills/closed-loop-pr/SKILL.md"
       ],
       "requires": [
-        "Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, ADR acceptance, dangerous operations, and ship decisions."
+        "The shared AC-DECISION triggers and pending state apply; this PR root additionally pauses on dangerous operations, and ship decisions."
       ]
     },
     {

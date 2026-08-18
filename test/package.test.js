@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter } = require('./helpers');
+const { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, AUTHORITY_FILES } = require('./helpers');
 
 const manifest = readJson('package.json');
 const contractManifest = readJson('test/contract-clauses.json');
@@ -38,14 +38,6 @@ const SHARED_REFERENCES = {
   'gate-contract': 'skills/closed-loop-shared/references/gate-contract.md',
   records: 'skills/closed-loop-shared/references/records.md',
 };
-const AUTHORITY_FILES = [
-  SKILLS['closed-loop-issue'],
-  SKILLS['closed-loop-pr'],
-  PR_MODE_REFERENCES['review-only'],
-  PR_MODE_REFERENCES.autofix,
-  SHARED_REFERENCES['gate-contract'],
-  SHARED_REFERENCES.records,
-];
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const markdownLiteral = (value) => new RegExp('`' + escapeRegExp(value) + '`', 'g');
 
@@ -406,10 +398,16 @@ test('falsification guidance does not require a package-specific development rec
       `${file} names an unpackaged repository-specific record as falsification evidence`,
     );
   }
+  // Issue #58 moved this guidance out of both workflow roots into the shared gate contract
+  // that each root loads, so the generic phrasing is asserted where the rule now lives. The
+  // negative assertion above still covers every artifact, including both roots.
+  const shared = readText(SHARED_REFERENCES['gate-contract']);
+  assert.match(shared, new RegExp(GENERIC_FALSIFICATION_EVIDENCE));
+  assert.match(shared, new RegExp(ABSENT_RECORD_RULE, 'i'));
   for (const file of Object.values(SKILLS)) {
-    const text = readText(file);
-    assert.match(text, new RegExp(GENERIC_FALSIFICATION_EVIDENCE));
-    assert.match(text, new RegExp(ABSENT_RECORD_RULE, 'i'));
+    const root = readText(file);
+    assert.doesNotMatch(root, new RegExp(GENERIC_FALSIFICATION_EVIDENCE), `${file} restates shared falsification guidance`);
+    assert.doesNotMatch(root, new RegExp(ABSENT_RECORD_RULE, 'i'), `${file} restates the shared absent-record rule`);
   }
 });
 

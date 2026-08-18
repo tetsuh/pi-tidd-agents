@@ -12,7 +12,7 @@ You are the orchestrator. Formal gates run as read-only subagents. This skill ne
 
 ## Shared references (Issue #24)
 
-Before workflow-specific rules, read both common references relative to this Skill directory. The shared Sol procedure searches authoritative files of the repository under review; that absence is not itself a finding.
+Before workflow-specific rules, read both common references relative to this Skill directory.
 
 - `../closed-loop-shared/references/gate-contract.md`
 - `../closed-loop-shared/references/records.md`
@@ -20,8 +20,6 @@ Before workflow-specific rules, read both common references relative to this Ski
 The shared files supply common Issue/PR grammar, evidence, and record taxonomy; this Issue Skill remains authoritative for Issue target rejection, agents, gates, status, publication, and CL-D31/CL-D32 behavior.
 
 ## Precondition guard (CL-D20)
-
-This skill runs only against an explicit target supplied by the operator.
 
 If no issue reference was supplied, stop and print usage:
 
@@ -33,11 +31,11 @@ Do not infer a target, do not scan for candidate issues, and do not start any ga
 
 ## Preflight (CL-D22, CL-D5)
 
-Before the first gate, confirm the workflow-specific required agents resolve: `sol-reviewer` and `terra-oracle`. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path. Do not begin a gate that cannot finish. A preflight failure is not a review round.
+Before the first gate, confirm the workflow-specific required agents resolve: `sol-reviewer` and `terra-oracle`. If one does not resolve, apply the shared `BLOCKED` rule in `gate-contract.md`. Do not begin a gate that cannot finish. A preflight failure is not a review round.
 
 ## Workflow target-kind boundary (CL-D7, CL-D8)
 
-Resolve the reference after the shared target grammar has consumed the target reference. Reject any remaining argument before calling `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence, so a number alone does not identify the kind. If the reference resolves to a pull request, stop and tell the operator to use `/tidd-pr`.
+Reject any remaining argument before calling `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence, so a number alone does not identify the kind. If the reference resolves to a pull request, stop and tell the operator to use `/tidd-pr`.
 
 A target in **another repository** may be reviewed, but nothing may be published to it and no local work may be started for it. Publication authority is bound to the repository of the current checkout.
 
@@ -47,9 +45,7 @@ Record the identity of what you reviewed, so later evidence is invalidated only 
 
 - `issue_spec` — `sha256` over canonical UTF-8 bytes consisting of the issue body record followed by each authoritative comment rendered as `<id>:<updatedAt>:<body>`, ordered by comment id ascending, with records joined by one LF (`0x0a`) and no trailing separator. Normalize CRLF and CR in text fields to LF before encoding. Do not let shell locale, Git configuration, or platform newline conversion alter the bytes.
 
-Use `LC_ALL=C`, `printf '%s'`, explicit UTF-8 input, and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute the digest. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
-
-An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**. Every other comment is advisory context and stays out of the fingerprint.
+Use `LC_ALL=C`, `printf '%s'`, explicit UTF-8 input, and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute the digest.
 
 Outside the CL-D31 candidate-publication phase, recompute `issue_spec` before declaring readiness; if it changed since a gate passed, that gate is stale and must run again. During CL-D31, gates are bound to the base `issue_spec` and exact frozen candidate; the separately computed snapshot-C final `issue_spec` may establish readiness without duplicate gates only through the byte/content-identity proof below.
 
@@ -88,7 +84,7 @@ For each finding record the source gate, severity, the `issue_spec` it was raise
 
 ### Issue owner-decision scope (AC-DECISION)
 
-Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, and ADR acceptance. Routine details that an approved contract already settles are yours to decide. While an owner decision or owner action is pending, the state is `WAITING_FOR_OWNER`.
+The shared AC-DECISION triggers and pending state apply unchanged; this Issue root adds no trigger of its own.
 
 ### Issue AC-TDD quality gate (AC-TDD)
 

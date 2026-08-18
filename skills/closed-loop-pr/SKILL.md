@@ -12,7 +12,7 @@ You are the orchestrator. Formal gates run as read-only subagents, at most one w
 
 ## Shared references (Issue #24)
 
-Before PR-specific rules, read both common references relative to this Skill directory. The shared Sol procedure searches authoritative files of the repository under review; that absence is not itself a finding.
+Before PR-specific rules, read both common references relative to this Skill directory.
 
 - `../closed-loop-shared/references/gate-contract.md`
 - `../closed-loop-shared/references/records.md`
@@ -21,7 +21,7 @@ These references own only policy that is identical across Issue and PR workflows
 
 ## Precondition guard (CL-D20)
 
-This skill runs only against an explicit target supplied by the operator. If no pull-request reference was supplied, stop and print usage:
+If no pull-request reference was supplied, stop and print usage:
 
 ```text
 /tidd-pr <pr-ref> [autofix]
@@ -42,13 +42,13 @@ A near-miss token signals intent to mutate, so it must surface as an error rathe
 ## Preflight (CL-D22, CL-D5)
 
 1. Confirm that the workflow-specific required agents resolve: `sol-reviewer`, `terra-reviewer`, and, conditionally for autofix mode, `luna-worker`.
-2. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path. Do not begin a gate that cannot finish.
+2. If one does not resolve, apply the shared `BLOCKED` rule in `gate-contract.md`; do not begin a gate that cannot finish.
 
 A preflight failure is not a review round.
 
 ## Workflow target-kind boundary (CL-D7, CL-D8)
 
-Resolve the reference after the shared target grammar has consumed the target reference. CL-D6 then consumes only a final exact `autofix` token; reject any leftover token or near-miss. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`.
+The shared grammar consumes the target reference first. CL-D6 then consumes only a final exact `autofix` token; reject any leftover token or near-miss. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`.
 
 A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. The same GitHub API evidence path is available to a same-repository review-only target when local Git objects are absent; this requires no fetch, checkout, or git-state mutation. Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 
@@ -82,9 +82,7 @@ Canonicalize JSON records before hashing. Both local and foreign paths hash the 
 
 **Bracket API evidence collection**, and every gate that consumes it, with a fresh base/head read taken before and after. Independent calls are separate requests against a moving target, so without bracketing a single collection can mix OIDs, diff, and commit sequence from different revisions. If either value changed, review-only may discard the evidence and retry under its baseline policy. Exact PR `autofix` instead discards the evidence, fails closed, and stops without retry; a stale-target failure has no gate or mutation authority.
 
-Use `printf '%s'` or an equivalent exact-byte pipeline and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute every digest. **Never estimate or invent a digest value**: a digest you did not actually compute makes the resume check meaningless, and an unstable value raises false "target changed" alarms on a target that never moved.
-
-An **authoritative comment** is one whose `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR` and whose author **is not a bot**.
+Use `printf '%s'` or an equivalent exact-byte pipeline and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute every digest.
 
 A code review may be carried forward across a **metadata-only rewrite** only when `pr_tree` and `pr_diff` are unchanged, and the carry-forward note must name which evidence was preserved and which was invalidated. Any change to `pr_head` always invalidates CI and exact-head external evidence, even when the tree is identical.
 
@@ -114,7 +112,7 @@ For each PR finding record the complete stable source identity when available: s
 
 ### PR owner-decision scope (AC-DECISION)
 
-Pause for the owner on public contracts and APIs, architecture, scope, compatibility and risk trade-offs, policy exceptions, ADR acceptance, dangerous operations, and ship decisions. Routine details already settled by an approved contract remain implementation judgments. While an owner decision or owner action is pending, the state is `WAITING_FOR_OWNER`.
+The shared AC-DECISION triggers and pending state apply; this PR root additionally pauses on dangerous operations, and ship decisions.
 - PR external-review applicability, provider mutation boundaries, mode status, retry, no-resume, and final-readiness behavior remain in the selected mode reference.
 
 ## Mode dispatch (CL-D19)
