@@ -1,9 +1,10 @@
 'use strict';
 
-// Issue #34 / CL-D39: the owner retained Option A, the universal pre-mutation stop rule.
-// The decision is only defensible because the failure classes Option B would have recovered
-// were removed structurally by #47, #55, and #37 rather than made recoverable. This guard
-// pins both halves: the rule itself, and the structural properties that justify keeping it.
+// Issue #34 / CL-D39: the owner retained Option A for exact PR autofix only. Review found
+// the first draft of this record overstated its basis, so the guard now pins what is actually
+// true: exact autofix has no recovery path, the other two modes keep their existing single
+// malformed-verdict retry, and the narrowing mechanisms that support the decision stay in
+// place without being claimed to make any failure class impossible.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -29,33 +30,49 @@ function sectionOf(text, heading) {
   return lines.slice(start, end).join('\n');
 }
 
-test('Issue #34 the universal stop rule is retained verbatim and gains no recovery path', () => {
+test('Issue #34 the exact-autofix stop rule is retained verbatim and gains no recovery path', () => {
   const text = readText(PR_AUTOFIX);
   assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop\./);
+  assert.match(text, /This stop is CL-D39 and applies to exact autofix at every phase: no phase has a recovery path\./);
   // Option B would have introduced a bounded local retry. No such escape may exist.
   for (const forbidden of [/recovery budget/i, /one local recovery/i, /prevalidated operation/i, /recoverable pre-mutation/i]) {
     assert.doesNotMatch(text, forbidden, `the mode reference must not carry an Option B recovery path: ${forbidden}`);
   }
 });
 
-test('Issue #34 CL-D39 records Option A with the evidence that makes it defensible', () => {
-  const section = sectionOf(readText(CONTRACT), '## CL-D39 — Pre-mutation tooling failures remain universally terminal');
+test('Issue #34 CL-D39 is scoped to exact autofix and claims only what holds', () => {
+  const section = sectionOf(readText(CONTRACT), '## CL-D39 — Exact-autofix tooling failures remain terminal without recovery');
   assert.ok(section, 'CL-D39 decision is missing');
   assert.match(section, /^\*\*Clauses:\*\* CL-D39-stop, CL-D39-structural$/m);
   assert.match(section, /^\*Decision ID:\* CL-D39$/m);
   assert.match(section, /tetsuh\/pi-tidd-agents#34/);
-  assert.match(section, /Option A/);
-  // The decision must record why the issue's own recommendation was not taken.
-  assert.match(section, /Issue #34 recommended Option B/);
-  assert.match(section, /three of the five failure classes it names are now structurally impossible/);
-  assert.match(section, /Both occur after Luna's edit, where `CLEAN@H` no longer holds/);
-  assert.match(section, /Option B would recover approximately nothing/);
-  assert.match(section, /make the remaining classes impossible rather than recoverable/);
+  assert.match(section, /Option A, scoped to exact PR `autofix`/);
+  assert.match(section, /Issue and PR review-only keep their existing single malformed-verdict retry unchanged/);
+  // The withdrawn claims must not return: review established each was unsupported.
+  for (const withdrawn of [
+    /structurally impossible/,
+    /Both occur after Luna's edit/,
+    /recover approximately nothing/,
+    /in every mode and at every phase/,
+  ]) assert.doesNotMatch(section, withdrawn, `CL-D39 must not restate a withdrawn claim: ${withdrawn}`);
+  // and the corrected evidence must be recorded instead
+  assert.match(section, /rejects unknown fields without preventing selection of the wrong known field/);
+  assert.match(section, /all accept an `oid` so a same-typed cross-domain mix-up remains reachable/);
+  assert.match(section, /the staged-manifest comparison is still performed by orchestrator logic/);
+  assert.match(section, /reachable before any edit and a recovery path would not be empty/);
 });
 
-test('Issue #34 the three structurally removed failure classes stay removed', () => {
-  // Each assertion pins the mechanism that replaced a class Option B would have recovered.
-  // If one regresses, the basis for Option A regresses with it and CL-D39 must be revisited.
+test('Issue #34 the other two modes keep the retry CL-D39 does not touch', () => {
+  // CL-D39 is scoped to exact autofix precisely because these two contracts already retry.
+  for (const file of ['skills/closed-loop-pr/references/review-only.md', 'skills/closed-loop-issue/SKILL.md']) {
+    assert.match(readText(file), /retry the invocation once, and if it fails again report `BLOCKED`/, `${file} must keep its existing single retry`);
+  }
+});
+
+test('Issue #34 the narrowing mechanisms behind the decision stay in place', () => {
+  // These mechanisms narrow the surface that produces incidental defects. They do not make
+  // any failure class impossible, and CL-D39 no longer claims they do; they are pinned
+  // because weakening them would weaken the basis for taking Option A now.
   assert.match(readText(PR_AUTOFIX), /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/,
     'malformed run-time shell/jq is prevented by the invocation map');
   assert.match(readText(GATE_CONTRACT), /never parse those fields from Markdown/,
@@ -76,12 +93,10 @@ test('Issue #34 the three structurally removed failure classes stay removed', ()
   assert.ok(single, 'every fingerprint operation must declare its own input domain');
 });
 
-test('Issue #34 the two surviving classes are named and routed to follow-up, not to recovery', () => {
-  const section = sectionOf(readText(CONTRACT), '## CL-D39 — Pre-mutation tooling failures remain universally terminal');
-  for (const surviving of ['validation harness', 'staged-manifest assertion']) {
-    assert.ok(section.includes(surviving), `CL-D39 must name the surviving class: ${surviving}`);
-  }
-  assert.match(section, /neither is recoverable under Option B's own conditions/);
+test('Issue #34 the surviving classes are routed to follow-up, not to recovery', () => {
+  const section = sectionOf(readText(CONTRACT), '## CL-D39 — Exact-autofix tooling failures remain terminal without recovery');
+  assert.match(section, /tracked in #64/, 'the structural follow-up must be named');
+  assert.match(section, /whether it should is reopened separately with that corrected evidence/);
 
   const manifest = readJson('test/contract-clauses.json');
   assert.deepEqual(

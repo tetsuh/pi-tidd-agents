@@ -2264,16 +2264,17 @@
     {
       "id": "CL-D39-structural",
       "marker": "CL-D39",
-      "title": "Option A rests on named structural mechanisms",
+      "title": "CL-D39 is scoped to exact autofix and states its real basis",
       "files": [
         "CONTRACT.md"
       ],
-      "section": "## CL-D39 — Pre-mutation tooling failures remain universally terminal",
+      "section": "## CL-D39 — Exact-autofix tooling failures remain terminal without recovery",
       "requires": [
-        "three of the five failure classes it names are now structurally impossible",
-        "Both occur after Luna's edit, where `CLEAN@H` no longer holds",
-        "Option B would recover approximately nothing",
-        "make the remaining classes impossible rather than recoverable"
+        "Option A, scoped to exact PR `autofix`",
+        "Issue and PR review-only keep their existing single malformed-verdict retry unchanged",
+        "rejects unknown fields without preventing selection of the wrong known field",
+        "all accept an `oid` so a same-typed cross-domain mix-up remains reachable",
+        "reachable before any edit and a recovery path would not be empty"
       ]
     }
   ]
