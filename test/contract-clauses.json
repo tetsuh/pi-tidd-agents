@@ -2258,23 +2258,23 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop."
+        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the one CL-D39 recovery below."
       ]
     },
     {
-      "id": "CL-D39-structural",
+      "id": "CL-D39-recovery",
       "marker": "CL-D39",
-      "title": "CL-D39 is scoped to exact autofix and states its real basis",
+      "title": "Exact autofix owns one bounded pre-writer recovery",
       "files": [
-        "CONTRACT.md"
+        "skills/closed-loop-pr/references/autofix.md"
       ],
-      "section": "## CL-D39 — Exact-autofix tooling failures remain terminal without recovery",
+      "section": "### Bounded pre-writer recovery (CL-D39)",
       "requires": [
-        "Option A, scoped to exact PR `autofix`",
-        "Issue and PR review-only keep their existing single malformed-verdict retry unchanged",
-        "rejects unknown fields without preventing selection of the wrong known field",
-        "all accept an `oid` so a same-typed cross-domain mix-up remains reachable",
-        "reachable before any edit and a recovery path would not be empty"
+        "One recovery is permitted for a deterministic local tooling failure",
+        "no Luna task, commit, push, or reply exists",
+        "the budget is exactly one per operation and phase",
+        "A second failure of the same operation and phase is terminal",
+        "Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts"
       ]
     }
   ]
