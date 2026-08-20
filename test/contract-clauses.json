@@ -2249,6 +2249,32 @@
         "any tracked change, index change, ref movement, unsafe root, or non-validation untracked path still stops the run as `BLOCKED`",
         "grants no cleanup, publication, commit, push, or reply authority"
       ]
+    },
+    {
+      "id": "CL-D39-stop",
+      "marker": "CL-D39",
+      "title": "Every tooling failure stays terminal",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop."
+      ]
+    },
+    {
+      "id": "CL-D39-structural",
+      "marker": "CL-D39",
+      "title": "Option A rests on named structural mechanisms",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D39 — Pre-mutation tooling failures remain universally terminal",
+      "requires": [
+        "three of the five failure classes it names are now structurally impossible",
+        "Both occur after Luna's edit, where `CLEAN@H` no longer holds",
+        "Option B would recover approximately nothing",
+        "make the remaining classes impossible rather than recoverable"
+      ]
     }
   ]
 }

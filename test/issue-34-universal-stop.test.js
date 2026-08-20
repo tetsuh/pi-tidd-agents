@@ -48,7 +48,7 @@ test('Issue #34 CL-D39 records Option A with the evidence that makes it defensib
   // The decision must record why the issue's own recommendation was not taken.
   assert.match(section, /Issue #34 recommended Option B/);
   assert.match(section, /three of the five failure classes it names are now structurally impossible/);
-  assert.match(section, /the remaining two occur after Luna's edit, where `CLEAN@H` no longer holds/);
+  assert.match(section, /Both occur after Luna's edit, where `CLEAN@H` no longer holds/);
   assert.match(section, /Option B would recover approximately nothing/);
   assert.match(section, /make the remaining classes impossible rather than recoverable/);
 });
