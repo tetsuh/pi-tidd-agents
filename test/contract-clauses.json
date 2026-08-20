@@ -2218,6 +2218,37 @@
         "30,000-byte per-file smoke alarm",
         "not a size budget"
       ]
+    },
+    {
+      "id": "CL-D38-definition",
+      "marker": "CL-D38",
+      "title": "The PR root defines the validation sandbox delta once",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "section": "### Validation sandbox delta (CL-D38)",
+      "requires": [
+        "`VALIDATION_SANDBOX_DELTA` :=",
+        "ignored paths that this run's own validation created",
+        "frozen by path, type, and no-follow presence",
+        "never read, followed, deleted, pruned, or restored",
+        "never enters evidence, a fingerprint, a draft, or a status block",
+        "permits only that exact presence delta"
+      ]
+    },
+    {
+      "id": "CL-D38-review-only",
+      "marker": "CL-D38",
+      "title": "Review-only permits only the delta its validation created",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "section": "### Validation sandbox boundary (CL-D38)",
+      "requires": [
+        "Every later boundary permits only that exact presence delta",
+        "any tracked change, index change, ref movement, unsafe root, or non-validation untracked path still stops the run as `BLOCKED`",
+        "grants no cleanup, publication, commit, push, or reply authority"
+      ]
     }
   ]
 }

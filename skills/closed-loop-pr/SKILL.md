@@ -97,6 +97,10 @@ Copy exactly one of these owning-root blocks verbatim into each PR gate payload:
 
 Every PR review-only Sol/Terra invocation and every exact-autofix Sol/Terra invocation composes the shared Every-gate invariant payload block verbatim, the shared Sol-only adversarial invariant payload block verbatim for Sol (including every post-push Sol), exactly one selected PR gate role-authority block verbatim, and the volatile envelope/history projection. Review-only and exact-autofix mode references must not restate the retired all-history requirement; mode-specific correlation and safety duties remain in their owning references.
 
+### Validation sandbox delta (CL-D38)
+
+`VALIDATION_SANDBOX_DELTA` := the ignored paths that this run's own validation created, frozen by path, type, and no-follow presence at the boundary that observes them. Both PR modes use this one definition. The delta is observed only: its members are never read, followed, deleted, pruned, or restored, and its content never enters evidence, a fingerprint, a draft, or a status block. Freezing it grants no cleanup, publication, or mutation authority, and every boundary after the freeze permits only that exact presence delta.
+
 ## PR-specific record obligations
 
 The PR workflow retains workflow- and mode-specific duties outside the shared references:

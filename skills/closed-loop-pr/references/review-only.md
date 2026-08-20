@@ -4,7 +4,7 @@
 
 For the whole review-only run:
 
-- do not edit any file in the repository, tracked or untracked;
+- do not edit any file in the repository, tracked or untracked, apart from `VALIDATION_SANDBOX_DELTA` below;
 - do not change git state;
 - do not commit or push;
 - do not post to GitHub;
@@ -12,6 +12,10 @@ For the whole review-only run:
 - do not mutate any external service.
 
 You may inspect, review, disposition findings, and draft replies/patches.
+
+### Validation sandbox boundary (CL-D38)
+
+Review-only runs in the operator checkout and runs validation there, so validation may create ignored caches. Freeze them as `VALIDATION_SANDBOX_DELTA` at the boundary that first observes them. Every later boundary permits only that exact presence delta: any tracked change, index change, ref movement, unsafe root, or non-validation untracked path still stops the run as `BLOCKED`. Review-only creates the delta by running validation and nothing else; the freeze grants no cleanup, publication, commit, push, or reply authority, so the observed caches are left exactly as validation left them.
 
 ### Candidate evidence boundary (CL-D23, CL-D9)
 
