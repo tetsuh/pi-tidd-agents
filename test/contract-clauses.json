@@ -2258,7 +2258,7 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the one CL-D39 recovery below."
+        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above."
       ]
     },
     {
@@ -2272,12 +2272,11 @@
       "requires": [
         "One recovery is permitted for a deterministic local tooling failure",
         "no Luna task, commit, push, or reply exists",
-        "the budget is exactly one per operation and phase",
-        "A second failure of the same operation and phase is terminal",
-        "Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts",
+        "the budget is exactly one per key",
         "one canonical `operation@phase` key",
-        "The replacement retains that key",
-        "invalidates only the failed operation's own output"
+        "The replacement retains the key",
+        "invalidates only the failed operation's own output",
+        "Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts"
       ]
     },
     {
@@ -2290,7 +2289,7 @@
       "section": "## CL-D39 — Exact autofix gains one bounded pre-writer recovery",
       "requires": [
         "raises the six-file authority baseline from 112,000 to 116,000 bytes",
-        "no trim could fund it"
+        "the shortfall is funded by the raise rather than by a trim"
       ]
     }
   ]

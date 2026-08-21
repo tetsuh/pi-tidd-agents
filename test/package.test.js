@@ -270,7 +270,8 @@ test('Issue #24 six authority files remain below the published baseline', () => 
   // CL-D34 raised the Issue #24 baseline to 108,000 bytes; CL-D36 raised it to 112,000 for
   // the shared structured-transport rule; CL-D39 raised it to 116,000 for the closed
   // recovery mapping that Issue #34's own acceptance criteria require. Issue #58 already
-  // harvested cross-file duplication, so the remaining in-file redundancy is ~117 bytes.
+  // harvested cross-file duplication; after the mapping's own restatements were removed the
+  // six files measured 112,720 bytes, so the shortfall is funded by the raise.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
   assert.ok(total < 116000, `six authority files total ${total} bytes, expected less than 116000`);
 });

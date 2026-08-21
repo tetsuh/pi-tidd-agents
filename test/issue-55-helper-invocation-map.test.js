@@ -9,40 +9,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText } = require('./helpers');
+const { readText, sectionOf, cliSchemas } = require('./helpers');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
-const PR_CLI = 'skills/closed-loop-pr/helpers/cli.js';
 
-// `cli.js` runs its own main on require and blocks on stdin, so the operation surface is
-// read from its source rather than imported. Parsing the frozen SCHEMAS table keeps this
-// check bound to the shipped code instead of to a second copy of the operation list.
-function cliSchemas() {
-  const source = readText(PR_CLI);
-  const table = source.match(/const SCHEMAS = Object\.freeze\(\{([\s\S]*?)\n\}\);/);
-  assert.ok(table, `could not locate the SCHEMAS table in ${PR_CLI}`);
-  const schemas = {};
-  for (const [, operation, required] of table[1].matchAll(/^\s*([a-z][a-z0-9_]*):\s*\{\s*required:\s*\[([^\]]*)\]/gm)) {
-    schemas[operation] = (required.match(/'([^']+)'/g) || []).map((field) => field.slice(1, -1));
-  }
-  assert.ok(Object.keys(schemas).length > 0, 'parsed no operations from the CLI schema table');
-  return schemas;
-}
 const MAP_HEADING = '### Packaged helper invocation map (CL-D30, Issue #47)';
 
-function sectionOf(text, heading) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  const start = lines.findIndex((line) => line.trim() === heading);
-  if (start === -1) return null;
-  const depth = heading.match(/^#+/)[0].length;
-  let end = start + 1;
-  while (end < lines.length) {
-    const match = lines[end].match(/^(#+)\s/);
-    if (match && match[1].length <= depth) break;
-    end += 1;
-  }
-  return lines.slice(start, end).join('\n');
-}
 
 const mapSection = () => sectionOf(readText(PR_AUTOFIX), MAP_HEADING);
 // Read the Operation column only. Scanning the whole section would both miss nothing and

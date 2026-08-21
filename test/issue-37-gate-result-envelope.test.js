@@ -9,25 +9,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 
-const { readText, readJson, repoPath } = require('./helpers');
+const { readText, readJson, repoPath, sectionOf } = require('./helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 
-function sectionOf(text, heading) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  const start = lines.findIndex((line) => line.trim() === heading);
-  if (start === -1) return null;
-  const depth = heading.match(/^#+/)[0].length;
-  let end = start + 1;
-  while (end < lines.length) {
-    const match = lines[end].match(/^(#+)\s/);
-    if (match && match[1].length <= depth) break;
-    end += 1;
-  }
-  return lines.slice(start, end).join('\n');
-}
 const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'];
 
 const correlation = () => ({

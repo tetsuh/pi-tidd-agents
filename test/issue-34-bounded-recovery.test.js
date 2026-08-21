@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson } = require('./helpers');
+const { readText, readJson, sectionOf, cliSchemas } = require('./helpers');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
@@ -20,19 +20,6 @@ const CLI = 'skills/closed-loop-pr/helpers/cli.js';
 const CONTRACT = 'CONTRACT.md';
 const RECOVERY_HEADING = '### Bounded pre-writer recovery (CL-D39)';
 
-function sectionOf(text, heading) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  const start = lines.findIndex((line) => line.trim() === heading);
-  if (start === -1) return null;
-  const depth = heading.match(/^#+/)[0].length;
-  let end = start + 1;
-  while (end < lines.length) {
-    const match = lines[end].match(/^(#+)\s/);
-    if (match && match[1].length <= depth) break;
-    end += 1;
-  }
-  return lines.slice(start, end).join('\n');
-}
 
 test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   const section = sectionOf(readText(PR_AUTOFIX), RECOVERY_HEADING);
@@ -42,14 +29,17 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved/);
   // CLEAN@H was retired by Issue #42 and is not a live invariant; it must not return.
   assert.doesNotMatch(section, /CLEAN@H/, 'the recovery must bind to live invariants only');
-  assert.match(section, /the budget is exactly one per operation and phase/);
-  assert.match(section, /A second failure of the same operation and phase is terminal/);
+  assert.match(section, /the budget is exactly one per key/);
+  // The key vocabulary is grounded in the CLI operation names and the file's own phase model.
+  assert.match(section, /The operation part is the packaged CLI operation that failed, so each `fingerprint_\*` operation is its own key/);
+  assert.match(section, /The phase part is `preflight`, `gate_launch`, `gate_result`, or `normalize` before any edit, and the guard or step name from Luna's batch sequence after/);
+  assert.match(section, /a replacement failure is the second failure of that key and is terminal/);
   assert.match(section, /Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts/);
 
   // The mapping must be closed over every Issue #34 failure, each with a canonical key, a
   // prevalidated replacement, an outcome, and explicit evidence handling.
   assert.match(section, /one canonical `operation@phase` key/);
-  assert.match(section, /The replacement retains that key, so a replacement failure is the second failure of the same key and is terminal/);
+  assert.match(section, /The replacement retains the key/);
   assert.match(section, /preserves evidence already proved unchanged and invalidates only the failed operation's own output/);
 
   const rows = section.split('\n')
@@ -59,29 +49,38 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   for (const row of rows) assert.equal(row.length, 5, `each row needs failure, key, replacement, outcome, evidence: ${row.join(' | ')}`);
   const byKey = new Map(rows.map((row) => [row[1], row]));
   assert.deepEqual([...byKey.keys()].sort(), [
-    '`envelope_read@normalize`', '`fingerprint@normalize`', '`manifest_compare@after_staging`',
-    '`report_verify@normalize`', '`validation_harness@preflight`',
+    '`envelope_read@normalize`', '`fingerprint_<op>@normalize`', '`manifest_compare@AFTER_STAGING`',
+    '`report_verify@normalize`', '`validation_harness@focused_validation`',
   ], 'every failure needs its own canonical key');
-  // The post-writer failure is the one that must stay terminal, with no replacement.
-  const manifest = byKey.get('`manifest_compare@after_staging`');
-  assert.equal(manifest[2], 'none', 'a post-writer failure has no prevalidated replacement');
-  assert.equal(manifest[3], 'terminal');
+  // Both post-writer failures stay terminal with no replacement: the manifest assertion, and
+  // the harness error, which in the shipped phase model only occurs inside Luna's focused
+  // validation or a gate child.
+  const terminalKeys = ['`manifest_compare@AFTER_STAGING`', '`validation_harness@focused_validation`'];
+  for (const key of terminalKeys) {
+    const row = byKey.get(key);
+    assert.equal(row[2], 'none', `${key} has no prevalidated replacement`);
+    assert.equal(row[3], 'terminal', `${key} must be terminal`);
+  }
   for (const [key, row] of byKey) {
-    if (key === '`manifest_compare@after_staging`') continue;
+    if (terminalKeys.includes(key)) continue;
     assert.equal(row[3], 'recoverable', `${key} should be recoverable`);
     assert.notEqual(row[2], 'none', `${key} needs a concrete prevalidated replacement`);
     assert.ok(row[4].length > 0, `${key} must state its evidence handling`);
   }
-  // Every phase not in the mapping stays terminal, named explicitly.
-  assert.match(section, /Every other phase is terminal for every failure/);
-  for (const phase of ['preflight and gate launch', 'a gate result', 'normalization', 'Luna guards, commit, push, reply, final policy, and summary']) {
-    assert.ok(section.includes(phase), `the terminal sweep must name ${phase}`);
+  // Every key not listed is terminal, swept by the file's own phase tokens.
+  assert.match(section, /Every key not listed is terminal/);
+  for (const token of ['`preflight` and `gate_launch`', '`gate_result`', '`normalize`', 'from the first Luna task onward']) {
+    assert.ok(section.includes(token), `the terminal sweep must name ${token}`);
   }
 });
 
 test('Issue #34 the stop rule keeps its wording and names the single exception', () => {
   const text = readText(PR_AUTOFIX);
-  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the one CL-D39 recovery below\./);
+  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above\./);
+  // The invocation-map sentence must not contradict the recovery it now defers to.
+  assert.match(text, /no retry beyond the CL-D39 recovery defined above/);
+  // The recovery section really is above the stop rule.
+  assert.ok(text.indexOf('### Bounded pre-writer recovery (CL-D39)') < text.indexOf('except for the CL-D39 recovery defined above'));
 });
 
 test('Issue #34 no shared prose forks and no shared sentence gains a mode exception', () => {
@@ -101,8 +100,9 @@ test('Issue #34 no shared prose forks and no shared sentence gains a mode except
   }
   // The other two modes keep their own rule, untouched and unqualified.
   for (const file of [REVIEW_ONLY, ISSUE_SKILL]) {
-    assert.match(readText(file), /retry the invocation once, and if it fails again report `BLOCKED`/, `${file} must keep its existing single retry`);
-    assert.doesNotMatch(readText(file), /CL-D39/, `${file} must not be conditionalised by the autofix decision`);
+    const text = readText(file);
+    assert.match(text, /retry the invocation once, and if it fails again report `BLOCKED`/, `${file} must keep its existing single retry`);
+    assert.doesNotMatch(text, /CL-D39/, `${file} must not be conditionalised by the autofix decision`);
   }
 });
 
@@ -121,8 +121,11 @@ test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   assert.match(section, /all accept an `oid` so a same-typed cross-domain mix-up remains reachable/);
   // The retired invariant and the funded baseline are both recorded.
   assert.match(section, /`CLEAN@H` is not used because Issue #42 retired it/);
+  assert.equal((section.match(/CLEAN@H/g) || []).length, 1, 'CLEAN@H may appear only in the sentence retiring it');
+  assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved/);
+  assert.match(section, /that row is terminal here and its structural removal stays with #64/);
   assert.match(section, /raises the six-file authority baseline from 112,000 to 116,000 bytes/);
-  assert.match(section, /no trim could fund it/);
+  assert.match(section, /the shortfall is funded by the raise rather than by a trim/);
 
   const manifest = readJson('test/contract-clauses.json');
   assert.deepEqual(
@@ -131,16 +134,15 @@ test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   );
 });
 
+test('Issue #34 user-facing and CL-D30 summaries acknowledge the bounded exception', () => {
+  assert.match(readText('README.md'), /apart from the one bounded pre-writer recovery CL-D39 defines, it has no retry, resume/);
+  assert.match(sectionOf(readText(CONTRACT), '## CL-D30 — Exact PR autofix publishes one bounded correction per public head'), /CL-D39 later adds one bounded pre-writer recovery and nothing else/);
+});
+
 test('Issue #34 the partial-narrowing evidence in the record still matches the code', () => {
   // CL-D39 cites these as reasons the case is not closed; if the code changes, the record
   // must be revisited rather than silently drifting.
-  const table = readText(CLI).match(/const SCHEMAS = Object\.freeze\(\{([\s\S]*?)\n\}\);/);
-  assert.ok(table, 'could not locate the CLI schema table');
-  const domains = new Map();
-  for (const [, operation, required] of table[1].matchAll(/^\s*(fingerprint_[a-z0-9_]+):\s*\{\s*required:\s*\[([^\]]*)\]/gm)) {
-    domains.set(operation, (required.match(/'([^']+)'/g) || []).map((field) => field.slice(1, -1)));
-  }
-  const sharingOid = [...domains.entries()].filter(([, fields]) => fields.length === 1 && fields[0] === 'oid').map(([name]) => name).sort();
+  const sharingOid = Object.entries(cliSchemas()).filter(([name, fields]) => name.startsWith('fingerprint_') && fields.length === 1 && fields[0] === 'oid').map(([name]) => name).sort();
   assert.deepEqual(sharingOid, ['fingerprint_pr_base', 'fingerprint_pr_head', 'fingerprint_pr_tree'],
     'the record cites these three as sharing an oid input; a change here invalidates that rationale');
   assert.match(readText(PR_AUTOFIX), /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/);
