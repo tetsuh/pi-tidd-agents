@@ -26,6 +26,10 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   assert.ok(section, `${PR_AUTOFIX} must own the bounded recovery rule`);
   assert.match(section, /One recovery is permitted for a deterministic local tooling failure/);
   assert.match(section, /no Luna task, commit, push, or reply exists/);
+  // DEC-PR65-CLD39-WORKSPACE-MUTATION-001: workspace creation is authorized Git administration
+  // that AUTOFIX_WORKSPACE@H presupposes, so the guard exempts exactly those setup effects.
+  assert.match(section, /other than the already-authorized `workspace_create` setup effects, namely the external run root, linked-worktree registration or clone, and receipt/);
+  assert.match(section, /no correction, publication, provider, target, or operator mutation exists/);
   assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved/);
   // CLEAN@H was retired by Issue #42 and is not a live invariant; it must not return.
   assert.doesNotMatch(section, /CLEAN@H/, 'the recovery must bind to live invariants only');
@@ -157,6 +161,7 @@ test('Issue #34 the partial-narrowing evidence in the record still matches the c
 // prose is checked for decidability, not only for presence. Outcomes per key are parsed from
 // the shipped mapping so prose drift fails here; the eight guards and the per-key budget are
 // the rule's own conditions. This models the parent's decision; it is not a packaged helper.
+// `noMutationAttempted` means no mutation beyond the enumerated workspace_create setup effects.
 const GUARDS = ['noMutationAttempted', 'noLunaTask', 'operatorUnchanged', 'workspaceVerified', 'identityUnchanged', 'fingerprintsUnchanged', 'deterministicLocal', 'replacementPrevalidated'];
 const allGuardsTrue = () => Object.fromEntries(GUARDS.map((guard) => [guard, true]));
 function mappingOutcomes() {
@@ -170,6 +175,12 @@ function mappingOutcomes() {
   assert.ok(fingerprintOps.length > 0, 'the CLI must expose fingerprint operations');
   const expand = (key) => key.replace(/`/g, '').replace('fingerprint_<op>', `(?:${fingerprintOps.join('|')})`);
   return rows.map(([, key, , outcome]) => ({ pattern: new RegExp('^' + expand(key) + '$'), outcome }));
+}
+// Setup effects are modelled explicitly so the exemption is decidable, not implied.
+const SETUP_EFFECTS = ['externalRunRoot', 'linkedWorktreeOrClone', 'receipt'];
+function mutationGuard(events) {
+  // true when every attempted mutation is an authorized setup effect
+  return events.every((event) => SETUP_EFFECTS.includes(event));
 }
 function decide(key, guards, ledger) {
   // An operation the packaged CLI does not expose cannot carry a recoverable key at all.
@@ -240,6 +251,17 @@ test('Issue #34 decision model: an invented fingerprint operation is terminal an
   // and every real fingerprint operation still reaches recovery once
   for (const operation of Object.keys(cliSchemas()).filter((name) => name.startsWith('fingerprint_'))) {
     assert.equal(decide(`${operation}@normalize`, allGuardsTrue(), new Map()), 'recover', `${operation} is a packaged operation and must be recoverable`);
+  }
+});
+
+test('Issue #34 decision model: workspace setup effects do not block recovery but any other mutation does', () => {
+  // post-workspace: the workspace exists, so its authorized setup effects have happened
+  assert.equal(mutationGuard(['externalRunRoot', 'linkedWorktreeOrClone', 'receipt']), true);
+  assert.equal(decide(FAILURE_KEYS.envelope, { ...allGuardsTrue(), noMutationAttempted: mutationGuard(SETUP_EFFECTS), workspaceVerified: true }, new Map()), 'recover',
+    'a freshly verified workspace with only setup effects must still allow recovery');
+  for (const mutation of ['commit', 'push', 'reply', 'providerMutation', 'targetMutation', 'operatorMutation', 'correctionEdit']) {
+    const guards = { ...allGuardsTrue(), noMutationAttempted: mutationGuard([...SETUP_EFFECTS, mutation]) };
+    assert.equal(decide(FAILURE_KEYS.envelope, guards, new Map()), 'terminal', `${mutation} must keep recovery unreachable`);
   }
 });
 
