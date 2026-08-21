@@ -161,9 +161,19 @@ function mappingOutcomes() {
   const section = sectionOf(readText(PR_AUTOFIX), RECOVERY_HEADING);
   const rows = section.split('\n').filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
     .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()));
-  return rows.map(([, key, , outcome]) => ({ pattern: new RegExp('^' + key.replace(/`/g, '').replace('<op>', '[a-z_]+') + '$'), outcome }));
+  // `fingerprint_<op>` expands only to the fingerprint operations the packaged CLI actually
+  // exposes. An unrestricted wildcard let an invented operation reach recovery; the contract
+  // says the operation part is the packaged CLI operation that failed, so bind it to the table.
+  const fingerprintOps = Object.keys(cliSchemas()).filter((name) => name.startsWith('fingerprint_'));
+  assert.ok(fingerprintOps.length > 0, 'the CLI must expose fingerprint operations');
+  const expand = (key) => key.replace(/`/g, '').replace('fingerprint_<op>', `(?:${fingerprintOps.join('|')})`);
+  return rows.map(([, key, , outcome]) => ({ pattern: new RegExp('^' + expand(key) + '$'), outcome }));
 }
 function decide(key, guards, ledger) {
+  // An operation the packaged CLI does not expose cannot carry a recoverable key at all.
+  const [operation] = key.split('@');
+  const knownOperation = Object.hasOwn(cliSchemas(), operation) || ['envelope_read', 'report_verify', 'validation_harness', 'manifest_compare'].includes(operation);
+  if (!knownOperation) return 'terminal';
   const row = mappingOutcomes().find((entry) => entry.pattern.test(key));
   if (!row || row.outcome !== 'recoverable') return 'terminal';
   if (GUARDS.some((guard) => guards[guard] !== true)) return 'terminal';
@@ -217,6 +227,18 @@ test('Issue #34 decision model: per-key budget is isolated and a second failure 
   assert.equal(decide(FAILURE_KEYS.envelope, allGuardsTrue(), ledger), 'terminal');
   // the budget is never refreshed by a different key succeeding
   assert.equal(decide(FAILURE_KEYS.fingerprintBase, allGuardsTrue(), ledger), 'terminal');
+});
+
+test('Issue #34 decision model: an invented fingerprint operation is terminal and consumes no budget', () => {
+  const ledger = new Map();
+  for (const key of ['fingerprint_not_packaged@normalize', 'fingerprint_@normalize', 'fingerprint_pr_base_extra@normalize']) {
+    assert.equal(decide(key, allGuardsTrue(), ledger), 'terminal', `${key} names no packaged operation and must be terminal`);
+  }
+  assert.equal(ledger.size, 0, 'an unknown operation must not consume budget');
+  // and every real fingerprint operation still reaches recovery once
+  for (const operation of Object.keys(cliSchemas()).filter((name) => name.startsWith('fingerprint_'))) {
+    assert.equal(decide(`${operation}@normalize`, allGuardsTrue(), new Map()), 'recover', `${operation} is a packaged operation and must be recoverable`);
+  }
 });
 
 test('Issue #34 decision model: a budget entry does not change a terminal row into a recoverable one', () => {
