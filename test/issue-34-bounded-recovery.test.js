@@ -129,6 +129,8 @@ test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   assert.match(section, /that row is terminal here and its structural removal stays with #64/);
   assert.match(section, /raises the six-file authority baseline from 112,000 to 116,000 bytes/);
   assert.match(section, /the shortfall is funded by the raise rather than by a trim/);
+  // The recorded measurement is revision-qualified so it cannot read as a running total.
+  assert.match(section, /measured 112,720 bytes at `f7f3ff9`, when the raise was decided/);
 
   const manifest = readJson('test/contract-clauses.json');
   assert.deepEqual(

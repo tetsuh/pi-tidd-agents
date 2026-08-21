@@ -271,7 +271,9 @@ test('Issue #24 six authority files remain below the published baseline', () => 
   // the shared structured-transport rule; CL-D39 raised it to 116,000 for the closed
   // recovery mapping that Issue #34's own acceptance criteria require. Issue #58 already
   // harvested cross-file duplication; after the mapping's own restatements were removed the
-  // six files measured 112,720 bytes, so the shortfall is funded by the raise.
+  // six files measured 112,720 bytes at f7f3ff9, when the raise was decided, so the shortfall
+  // is funded by the raise. The assertion below is the live measurement; the figure here is
+  // revision-qualified and is not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
   assert.ok(total < 116000, `six authority files total ${total} bytes, expected less than 116000`);
 });
