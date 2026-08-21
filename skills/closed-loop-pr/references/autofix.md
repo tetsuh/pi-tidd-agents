@@ -46,6 +46,24 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 
 `workspace_verify` requires clean tracked and index state, so it does not serve `BEFORE_VALIDATION`, `AFTER_VALIDATION`, `BEFORE_STAGING`, `AFTER_STAGING`, or `BEFORE_COMMIT`: those guards keep their phase-specific frozen-overlay and staged-manifest delta checks, which this map does not reassign. Its transition form supplies only clean workspace identity, current `HEAD`, and a verified sole-parent transition; current public-head equality, staged manifest/tree/blob identity, and linked remote-tracking equality remain phase-specific checks this map does not reassign. After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality. A helper envelope is supplied evidence in the gate payload: it never substitutes for a gate verdict and grants no commit, push, reply, or provider authority.
 
+### Bounded pre-writer recovery (CL-D39)
+
+One recovery is permitted for a deterministic local tooling failure, and only when all hold: no repository, Git, GitHub, provider, or external mutation was attempted; no Luna task, commit, push, or reply exists; `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved; identity and every applicable fingerprint are unchanged; the failure was local parsing, rendering, schema access, or report verification; the failed operation is replaced by a prevalidated one, never repeated blindly; and the budget is exactly one per operation and phase, tracked run-locally.
+
+Each recoverable failure has one canonical `operation@phase` key. The replacement retains that key, so a replacement failure is the second failure of the same key and is terminal. Recovering preserves evidence already proved unchanged and invalidates only the failed operation's own output.
+
+| Failure | Key | Prevalidated replacement | Outcome | Evidence |
+|---|---|---|---|---|
+| wrong key read from an evidence envelope | `envelope_read@normalize` | reread through the operation's declared field | recoverable | envelope preserved; derived value invalidated |
+| malformed local inspection command | `report_verify@normalize` | packaged CLI operation, never run-time shell | recoverable | inputs preserved; report invalidated |
+| digest computed from the wrong domain | `fingerprint@normalize` | the operation declaring that domain | recoverable | source bytes preserved; digest invalidated |
+| validation harness could not run | `validation_harness@preflight` | harness re-resolved, not the same invocation | recoverable | nothing proved yet; no evidence to invalidate |
+| over-specific staged-manifest assertion | `manifest_compare@after_staging` | none | terminal | post-writer; all evidence stands |
+
+Every other phase is terminal for every failure: identity, writability, workspace, API, and child startup at preflight and gate launch; malformed verdict, correlation mismatch, and stale target at a gate result; evidence movement during normalization; and every failure at Luna guards, commit, push, reply, final policy, and summary.
+
+A second failure of the same operation and phase is terminal. Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts.
+
 ### Worktree precondition (CL-D10)
 
 Before the first gate or mutation, the operator runs `gh pr checkout` when needed. Exact PR `autofix` then verifies the target PR is open and non-draft, and requires the head branch to be verified writable by a normal actor-authorized non-force push without branch-protection or ruleset bypass. It captures `OPERATOR_CHECKOUT@H` and creates/verifies `AUTOFIX_WORKSPACE@H` outside the repository before any gate. Writability result must be unambiguous; a missing, rejected, ambiguous, unavailable, or bypass-dependent result fails closed before review or mutation. A branch is not writable when success depends on the actor's bypass permission. Publication is exactly `git -C <AUTOFIX_WORKSPACE> push origin HEAD:refs/heads/<verified-pr-branch>` with the bound identities, normal fast-forward semantics, no force, and no local PR-ref movement. Operator tracked/index change or any unexpected non-ignored untracked path blocks; ignored owner paths and `RUNTIME_ROOTS` use the rules above. No resume; every terminal success/failure performs a terminal operator recheck. Never switch, stash, reset, clean, delete, or discard operator work.
@@ -167,19 +185,6 @@ A correctly correlated, parsable verdict-bearing invocation is one completed gat
 Apply this deterministic action order and primary status precedence: before a gate invocation when the completed gate counter is already 15, stop `ROUND_LIMIT_REACHED(reason=gate_limit)` without invoking; before a correction when the successful-push counter is already 5, stop `ROUND_LIMIT_REACHED(reason=push_limit)` without editing; before any mutation, identity/scope/safety failure is `BLOCKED`; after a verdict, the third no-progress observation is `ROUND_LIMIT_REACHED(reason=no_progress)` immediately before choosing a successor; after a verdict with no earlier safety or no-progress stop, owner decision is `WAITING_FOR_OWNER(reason=owner_decision_required)`; final policy pending is `WAITING_EXTERNAL_REVIEW`; final policy failed or ambiguous is `BLOCKED`. The 15th invocation and fifth successful push may complete their current action; the guards prevent only the 16th invocation and sixth push. The first reached limit is primary while additional informational limits are recorded. Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the one CL-D39 recovery below. Exact autofix malformed or unparsable verdict stops on first failure.
 
 Exact autofix uses only `MERGE_READY`, `WAITING_EXTERNAL_REVIEW`, `WAITING_FOR_OWNER`, `ROUND_LIMIT_REACHED`, `BLOCKED`, and `ABORTED`, with precise reasons including `validation_failed`, `local_commit_unpushed`, `push_outcome_unknown`, `reply_outcome_unknown`, `gate_limit`, `push_limit`, `no_progress`, `owner_decision_required`, and `required_checks_pending`. There are maximum 15 gate invocations, 5 successful correction pushes, and stop on the third observation of one unresolved blockerKey × breakerOwner. No exact-autofix run resumes after interruption, failure, owner decision, or limit; a later explicit command is a fresh run.
-
-### Bounded pre-writer recovery (CL-D39)
-
-One recovery is permitted for a deterministic local tooling failure, and only when all hold: no repository, Git, GitHub, provider, or external mutation was attempted; no Luna task, commit, push, or reply exists; `OPERATOR_CHECKOUT_UNCHANGED@O` and `CLEAN@H` are freshly re-proved; identity and every applicable fingerprint are unchanged; the failure was local parsing, rendering, schema access, or report verification; the failed operation is replaced by a prevalidated one, never repeated blindly; and the budget is exactly one per operation and phase, tracked run-locally.
-
-| Phase | Recoverable | Terminal |
-|---|---|---|
-| Preflight, gate launch | local render/parse defect | identity, writability, workspace, API, child startup |
-| Gate result | none | malformed verdict, correlation mismatch, stale target |
-| Local normalization before any edit | schema access, report verification | evidence movement |
-| Luna guards, commit, push, reply, final policy, summary | none | every failure |
-
-A second failure of the same operation and phase is terminal. Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts.
 
 ### Source-finding replies and final readiness
 

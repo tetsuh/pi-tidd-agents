@@ -39,21 +39,44 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   assert.ok(section, `${PR_AUTOFIX} must own the bounded recovery rule`);
   assert.match(section, /One recovery is permitted for a deterministic local tooling failure/);
   assert.match(section, /no Luna task, commit, push, or reply exists/);
-  assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `CLEAN@H` are freshly re-proved/);
+  assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved/);
+  // CLEAN@H was retired by Issue #42 and is not a live invariant; it must not return.
+  assert.doesNotMatch(section, /CLEAN@H/, 'the recovery must bind to live invariants only');
   assert.match(section, /the budget is exactly one per operation and phase/);
   assert.match(section, /A second failure of the same operation and phase is terminal/);
   assert.match(section, /Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts/);
 
-  // Every post-writer phase must appear in the matrix as recoverable: none.
-  const rows = section.split('\n').filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Phase \|/.test(line))
+  // The mapping must be closed over every Issue #34 failure, each with a canonical key, a
+  // prevalidated replacement, an outcome, and explicit evidence handling.
+  assert.match(section, /one canonical `operation@phase` key/);
+  assert.match(section, /The replacement retains that key, so a replacement failure is the second failure of the same key and is terminal/);
+  assert.match(section, /preserves evidence already proved unchanged and invalidates only the failed operation's own output/);
+
+  const rows = section.split('\n')
+    .filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
     .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()));
-  assert.ok(rows.length >= 4, `the phase matrix must cover every phase, found ${rows.length} rows`);
-  const postWriter = rows.find(([phase]) => /Luna guards, commit, push, reply, final policy, summary/.test(phase));
-  assert.ok(postWriter, 'the matrix must name the post-writer phases');
-  assert.equal(postWriter[1], 'none', 'no post-writer phase may be recoverable');
-  assert.equal(postWriter[2], 'every failure');
-  const gateResult = rows.find(([phase]) => /^Gate result$/.test(phase));
-  assert.ok(gateResult && gateResult[1] === 'none', 'a gate result failure must stay terminal');
+  assert.equal(rows.length, 5, `the mapping must cover all five Issue #34 failures, found ${rows.length}`);
+  for (const row of rows) assert.equal(row.length, 5, `each row needs failure, key, replacement, outcome, evidence: ${row.join(' | ')}`);
+  const byKey = new Map(rows.map((row) => [row[1], row]));
+  assert.deepEqual([...byKey.keys()].sort(), [
+    '`envelope_read@normalize`', '`fingerprint@normalize`', '`manifest_compare@after_staging`',
+    '`report_verify@normalize`', '`validation_harness@preflight`',
+  ], 'every failure needs its own canonical key');
+  // The post-writer failure is the one that must stay terminal, with no replacement.
+  const manifest = byKey.get('`manifest_compare@after_staging`');
+  assert.equal(manifest[2], 'none', 'a post-writer failure has no prevalidated replacement');
+  assert.equal(manifest[3], 'terminal');
+  for (const [key, row] of byKey) {
+    if (key === '`manifest_compare@after_staging`') continue;
+    assert.equal(row[3], 'recoverable', `${key} should be recoverable`);
+    assert.notEqual(row[2], 'none', `${key} needs a concrete prevalidated replacement`);
+    assert.ok(row[4].length > 0, `${key} must state its evidence handling`);
+  }
+  // Every phase not in the mapping stays terminal, named explicitly.
+  assert.match(section, /Every other phase is terminal for every failure/);
+  for (const phase of ['preflight and gate launch', 'a gate result', 'normalization', 'Luna guards, commit, push, reply, final policy, and summary']) {
+    assert.ok(section.includes(phase), `the terminal sweep must name ${phase}`);
+  }
 });
 
 test('Issue #34 the stop rule keeps its wording and names the single exception', () => {
@@ -86,7 +109,7 @@ test('Issue #34 no shared prose forks and no shared sentence gains a mode except
 test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   const section = sectionOf(readText(CONTRACT), '## CL-D39 — Exact autofix gains one bounded pre-writer recovery');
   assert.ok(section, 'CL-D39 decision is missing');
-  assert.match(section, /^\*\*Clauses:\*\* CL-D39-stop, CL-D39-recovery$/m);
+  assert.match(section, /^\*\*Clauses:\*\* CL-D39-stop, CL-D39-recovery, CL-D39-baseline$/m);
   assert.match(section, /^\*Decision ID:\* CL-D39$/m);
   assert.match(section, /tetsuh\/pi-tidd-agents#34/);
   assert.match(section, /Option B for exact PR `autofix`/);
@@ -96,11 +119,15 @@ test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   // The corrected evidence stays recorded: the narrowing is partial, not closing.
   assert.match(section, /rejects unknown fields without preventing selection of the wrong known field/);
   assert.match(section, /all accept an `oid` so a same-typed cross-domain mix-up remains reachable/);
+  // The retired invariant and the funded baseline are both recorded.
+  assert.match(section, /`CLEAN@H` is not used because Issue #42 retired it/);
+  assert.match(section, /raises the six-file authority baseline from 112,000 to 116,000 bytes/);
+  assert.match(section, /no trim could fund it/);
 
   const manifest = readJson('test/contract-clauses.json');
   assert.deepEqual(
     manifest.clauses.filter((clause) => clause.marker === 'CL-D39').map((clause) => clause.id).sort(),
-    ['CL-D39-recovery', 'CL-D39-stop'],
+    ['CL-D39-baseline', 'CL-D39-recovery', 'CL-D39-stop'],
   );
 });
 

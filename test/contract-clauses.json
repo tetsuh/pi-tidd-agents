@@ -2274,7 +2274,23 @@
         "no Luna task, commit, push, or reply exists",
         "the budget is exactly one per operation and phase",
         "A second failure of the same operation and phase is terminal",
-        "Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts"
+        "Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts",
+        "one canonical `operation@phase` key",
+        "The replacement retains that key",
+        "invalidates only the failed operation's own output"
+      ]
+    },
+    {
+      "id": "CL-D39-baseline",
+      "marker": "CL-D39",
+      "title": "The authority baseline is raised for the closed mapping",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D39 — Exact autofix gains one bounded pre-writer recovery",
+      "requires": [
+        "raises the six-file authority baseline from 112,000 to 116,000 bytes",
+        "no trim could fund it"
       ]
     }
   ]
