@@ -55,7 +55,7 @@ Each failure has one canonical `operation@phase` key. The operation part is the 
 | Failure | Key | Prevalidated replacement | Outcome | Evidence |
 |---|---|---|---|---|
 | wrong key read from an evidence envelope | `envelope_read@normalize` | reread through the operation's declared field | recoverable | envelope preserved; derived value invalidated |
-| malformed local inspection command | `report_verify@normalize` | packaged CLI operation, never run-time shell | recoverable | inputs preserved; report invalidated |
+| malformed local inspection command | `report_verify@normalize` | the operation named in the report envelope's own `operation` field, read directly as `envelope_read`; never run-time shell | recoverable | inputs preserved; report invalidated |
 | digest computed from the wrong domain | `fingerprint_<op>@normalize` | the operation declaring that domain | recoverable | source bytes preserved; digest invalidated |
 | validation harness could not run | `validation_harness@focused_validation` | none | terminal | post-writer; all evidence stands |
 | over-specific staged-manifest assertion | `manifest_compare@AFTER_STAGING` | none | terminal | post-writer; all evidence stands |

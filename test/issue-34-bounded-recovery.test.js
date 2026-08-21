@@ -61,6 +61,9 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
     assert.equal(row[2], 'none', `${key} has no prevalidated replacement`);
     assert.equal(row[3], 'terminal', `${key} must be terminal`);
   }
+  // SOL-65-RECOVERY-SPEC: the report replacement is selected by the envelope's own
+  // `operation` field, which every packaged envelope carries, so it is deterministic.
+  assert.match(byKey.get('`report_verify@normalize`')[2], /the operation named in the report envelope's own `operation` field, read directly as `envelope_read`/);
   for (const [key, row] of byKey) {
     if (terminalKeys.includes(key)) continue;
     assert.equal(row[3], 'recoverable', `${key} should be recoverable`);
@@ -146,4 +149,78 @@ test('Issue #34 the partial-narrowing evidence in the record still matches the c
   assert.deepEqual(sharingOid, ['fingerprint_pr_base', 'fingerprint_pr_head', 'fingerprint_pr_tree'],
     'the record cites these three as sharing an oid input; a change here invalidates that rationale');
   assert.match(readText(PR_AUTOFIX), /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/);
+});
+
+// Executable decision model. Review-driven regression: the CL-D39 rule expressed as code so the
+// prose is checked for decidability, not only for presence. Outcomes per key are parsed from
+// the shipped mapping so prose drift fails here; the eight guards and the per-key budget are
+// the rule's own conditions. This models the parent's decision; it is not a packaged helper.
+const GUARDS = ['noMutationAttempted', 'noLunaTask', 'operatorUnchanged', 'workspaceVerified', 'identityUnchanged', 'fingerprintsUnchanged', 'deterministicLocal', 'replacementPrevalidated'];
+const allGuardsTrue = () => Object.fromEntries(GUARDS.map((guard) => [guard, true]));
+function mappingOutcomes() {
+  const section = sectionOf(readText(PR_AUTOFIX), RECOVERY_HEADING);
+  const rows = section.split('\n').filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
+    .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()));
+  return rows.map(([, key, , outcome]) => ({ pattern: new RegExp('^' + key.replace(/`/g, '').replace('<op>', '[a-z_]+') + '$'), outcome }));
+}
+function decide(key, guards, ledger) {
+  const row = mappingOutcomes().find((entry) => entry.pattern.test(key));
+  if (!row || row.outcome !== 'recoverable') return 'terminal';
+  if (GUARDS.some((guard) => guards[guard] !== true)) return 'terminal';
+  const used = ledger.get(key) || 0;
+  if (used >= 1) return 'terminal';
+  ledger.set(key, used + 1);
+  return 'recover';
+}
+
+const FAILURE_KEYS = {
+  envelope: 'envelope_read@normalize',
+  report: 'report_verify@normalize',
+  fingerprintBase: 'fingerprint_pr_base@normalize',
+  fingerprintTree: 'fingerprint_pr_tree@normalize',
+  harness: 'validation_harness@focused_validation',
+  manifest: 'manifest_compare@AFTER_STAGING',
+};
+
+test('Issue #34 decision model: permitted and forbidden siblings for every mapped failure', () => {
+  const cases = [
+    ['envelope read, all guards, first time', FAILURE_KEYS.envelope, {}, 'recover'],
+    ['report verify, all guards, first time', FAILURE_KEYS.report, {}, 'recover'],
+    ['fingerprint pr_base, all guards, first time', FAILURE_KEYS.fingerprintBase, {}, 'recover'],
+    ['harness failure is post-writer', FAILURE_KEYS.harness, {}, 'terminal'],
+    ['manifest assertion is post-writer', FAILURE_KEYS.manifest, {}, 'terminal'],
+    ['unlisted key: gate result malformed verdict', 'gate_result_validate@gate_result', {}, 'terminal'],
+    ['unlisted key: writability at preflight', 'writability@preflight', {}, 'terminal'],
+  ];
+  for (const [name, key, override, expected] of cases) {
+    assert.equal(decide(key, { ...allGuardsTrue(), ...override }, new Map()), expected, name);
+  }
+});
+
+test('Issue #34 decision model: each guard independently false is terminal', () => {
+  for (const guard of GUARDS) {
+    for (const key of [FAILURE_KEYS.envelope, FAILURE_KEYS.report, FAILURE_KEYS.fingerprintBase]) {
+      const guards = { ...allGuardsTrue(), [guard]: false };
+      assert.equal(decide(key, guards, new Map()), 'terminal', `${key} with ${guard}=false must be terminal`);
+    }
+  }
+});
+
+test('Issue #34 decision model: per-key budget is isolated and a second failure of the same key is terminal', () => {
+  const ledger = new Map();
+  assert.equal(decide(FAILURE_KEYS.fingerprintBase, allGuardsTrue(), ledger), 'recover');
+  // replacement failure = second failure of the same key
+  assert.equal(decide(FAILURE_KEYS.fingerprintBase, allGuardsTrue(), ledger), 'terminal', 'replacement failure must be terminal');
+  // a different fingerprint operation is a different key and keeps its own budget
+  assert.equal(decide(FAILURE_KEYS.fingerprintTree, allGuardsTrue(), ledger), 'recover', 'budget is per key, not per family');
+  assert.equal(decide(FAILURE_KEYS.envelope, allGuardsTrue(), ledger), 'recover');
+  assert.equal(decide(FAILURE_KEYS.envelope, allGuardsTrue(), ledger), 'terminal');
+  // the budget is never refreshed by a different key succeeding
+  assert.equal(decide(FAILURE_KEYS.fingerprintBase, allGuardsTrue(), ledger), 'terminal');
+});
+
+test('Issue #34 decision model: a budget entry does not change a terminal row into a recoverable one', () => {
+  const ledger = new Map();
+  assert.equal(decide(FAILURE_KEYS.manifest, allGuardsTrue(), ledger), 'terminal');
+  assert.equal(ledger.size, 0, 'terminal outcomes must not consume budget');
 });
