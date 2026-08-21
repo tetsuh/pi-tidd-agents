@@ -2271,7 +2271,7 @@
       "section": "### Bounded pre-writer recovery (CL-D39)",
       "requires": [
         "One recovery is permitted for a deterministic local tooling failure",
-        "other than the already-authorized `workspace_create` setup effects",
+        "process-isolation root `pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, and `system.gitconfig`",
         "no Luna task, commit, push, or reply exists",
         "the budget is exactly one per key",
         "one canonical `operation@phase` key",

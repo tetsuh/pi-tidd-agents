@@ -28,7 +28,8 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   assert.match(section, /no Luna task, commit, push, or reply exists/);
   // DEC-PR65-CLD39-WORKSPACE-MUTATION-001: workspace creation is authorized Git administration
   // that AUTOFIX_WORKSPACE@H presupposes, so the guard exempts exactly those setup effects.
-  assert.match(section, /other than the already-authorized `workspace_create` setup effects, namely the external run root, linked-worktree registration or clone, and receipt/);
+  assert.match(section, /namely `workspace_create`'s external run root, linked-worktree registration or clone, and receipt/);
+  assert.match(section, /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, and `system.gitconfig`/);
   assert.match(section, /no correction, publication, provider, target, or operator mutation exists/);
   assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved/);
   // CLEAN@H was retired by Issue #42 and is not a live invariant; it must not return.
@@ -79,6 +80,25 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   for (const token of ['`preflight` and `gate_launch`', '`gate_result`', '`normalize`', 'from the first Luna task onward']) {
     assert.ok(section.includes(token), `the terminal sweep must name ${token}`);
   }
+});
+
+// DEC-PR65-CLD39-PROCESS-ISOLATION-002: the exemption is pinned against the helper source. Every
+// path the isolation root creates must be named in the exemption; a new helper write fails here
+// until the exemption is revisited, which is what stops a third enumeration gap.
+test('Issue #34 the setup-effect exemption names every process-isolation write the helpers perform', () => {
+  const source = readText('skills/closed-loop-pr/helpers/process.js');
+  const body = source.slice(source.indexOf('function isolationPaths()'));
+  const fn = body.slice(0, body.indexOf('\n}\n') + 3);
+  const prefix = fn.match(/mkdtempSync\(path\.join\([^,]+, '([^']+)'\)\)/);
+  assert.ok(prefix, 'isolationPaths must create its root with a fixed prefix');
+  const names = [...fn.matchAll(/path\.join\(root, '([^']+)'\)/g)].map((m) => m[1]);
+  assert.ok(names.length >= 4, `expected the isolation writes to be enumerable from source, found ${names.length}`);
+  const section = sectionOf(readText(PR_AUTOFIX), RECOVERY_HEADING);
+  assert.ok(section.includes('`' + prefix[1] + '*`'), `exemption must name the isolation root prefix ${prefix[1]}*`);
+  for (const name of names) assert.ok(section.includes('`' + name + '`'), `exemption must name the isolation write ${name}`);
+  // and it must not over-exempt: nothing beyond what the source actually writes
+  const exempted = [...section.matchAll(/`(home|hooks|[a-z]+\.gitconfig|[a-z-]+)`/g)].map((m) => m[1]).filter((t) => ['home', 'hooks'].includes(t) || t.endsWith('.gitconfig'));
+  for (const t of new Set(exempted)) assert.ok(names.includes(t), `exemption names ${t}, which the helper does not write`);
 });
 
 test('Issue #34 the stop rule keeps its wording and names the single exception', () => {
@@ -177,7 +197,7 @@ function mappingOutcomes() {
   return rows.map(([, key, , outcome]) => ({ pattern: new RegExp('^' + expand(key) + '$'), outcome }));
 }
 // Setup effects are modelled explicitly so the exemption is decidable, not implied.
-const SETUP_EFFECTS = ['externalRunRoot', 'linkedWorktreeOrClone', 'receipt'];
+const SETUP_EFFECTS = ['externalRunRoot', 'linkedWorktreeOrClone', 'receipt', 'isolationRoot', 'isolationHome', 'isolationHooks', 'isolationGlobalGitconfig', 'isolationSystemGitconfig'];
 function mutationGuard(events) {
   // true when every attempted mutation is an authorized setup effect
   return events.every((event) => SETUP_EFFECTS.includes(event));
@@ -257,6 +277,7 @@ test('Issue #34 decision model: an invented fingerprint operation is terminal an
 test('Issue #34 decision model: workspace setup effects do not block recovery but any other mutation does', () => {
   // post-workspace: the workspace exists, so its authorized setup effects have happened
   assert.equal(mutationGuard(['externalRunRoot', 'linkedWorktreeOrClone', 'receipt']), true);
+  assert.equal(mutationGuard(['isolationRoot', 'isolationHome', 'isolationHooks', 'isolationGlobalGitconfig', 'isolationSystemGitconfig']), true, 'process-isolation writes precede every helper Git call and are exempt');
   assert.equal(decide(FAILURE_KEYS.envelope, { ...allGuardsTrue(), noMutationAttempted: mutationGuard(SETUP_EFFECTS), workspaceVerified: true }, new Map()), 'recover',
     'a freshly verified workspace with only setup effects must still allow recovery');
   for (const mutation of ['commit', 'push', 'reply', 'providerMutation', 'targetMutation', 'operatorMutation', 'correctionEdit']) {
