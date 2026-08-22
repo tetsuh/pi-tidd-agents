@@ -9,7 +9,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, sectionOf, cliSchemas } = require('./helpers');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const { readText, readJson, sectionOf, cliSchemas, repoPath } = require('./helpers');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
@@ -82,23 +87,73 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   }
 });
 
-// DEC-PR65-CLD39-PROCESS-ISOLATION-002: the exemption is pinned against the helper source. Every
-// path the isolation root creates must be named in the exemption; a new helper write fails here
-// until the exemption is revisited, which is what stops a third enumeration gap.
-test('Issue #34 the setup-effect exemption names every process-isolation write the helpers perform', () => {
-  const source = readText('skills/closed-loop-pr/helpers/process.js');
+// DEC-PR65-CLD39-PROCESS-ISOLATION-002: the exemption is pinned against what the helper
+// actually writes, not against the names it declares. isolationPaths() runs in a fresh child
+// under a private temp parent, the created tree is walked without following links, and the
+// exact relative tree must equal the prose-derived exemption. A nested write such as
+// home/helper-extra changes the tree and fails here even though no declared name changed.
+const PROCESS_HELPER = 'skills/closed-loop-pr/helpers/process.js';
+function exemptedIsolationNames() {
+  const section = sectionOf(readText(PR_AUTOFIX), RECOVERY_HEADING);
+  const clause = section.match(/process-isolation root `([^`]+)\*` with its ((?:`[^`]+`(?:, and | and |, )?)+)/);
+  assert.ok(clause, 'the exemption must name the isolation root prefix and its writes');
+  return { prefix: clause[1], names: [...clause[2].matchAll(/`([^`]+)`/g)].map((m) => m[1]).sort() };
+}
+function observedIsolationTree() {
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'issue34-isolation-'));
+  const script = `
+    const fs = require('node:fs'); const path = require('node:path');
+    const { isolationPaths } = require(${JSON.stringify(repoPath(PROCESS_HELPER))});
+    const iso = isolationPaths();
+    const entries = [];
+    (function walk(dir, rel) {
+      for (const name of fs.readdirSync(dir).sort()) {
+        const full = path.join(dir, name); const st = fs.lstatSync(full);
+        const type = st.isSymbolicLink() ? 'symlink' : st.isDirectory() ? 'dir' : st.isFile() ? 'file' : 'other';
+        entries.push({ rel: rel ? rel + '/' + name : name, type });
+        if (type === 'dir') walk(full, rel ? rel + '/' + name : name);
+      }
+    })(iso.root, '');
+    process.stdout.write(JSON.stringify({ root: path.basename(iso.root), parent: path.dirname(iso.root), entries }));
+  `;
+  const result = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env: { ...process.env, TMPDIR: parent, TEMP: parent, TMP: parent } });
+  assert.equal(result.status, 0, `isolationPaths child failed: ${result.stderr}`);
+  const observed = JSON.parse(result.stdout);
+  assert.equal(path.resolve(observed.parent), path.resolve(parent), 'the isolation root must be created under the supplied temp parent');
+  return observed;
+}
+
+test('Issue #34 the exemption equals the exact no-follow tree isolationPaths actually creates', () => {
+  const { prefix, names } = exemptedIsolationNames();
+  const observed = observedIsolationTree();
+  assert.ok(observed.root.startsWith(prefix), `isolation root ${observed.root} must carry the exempted prefix ${prefix}`);
+  assert.deepEqual(observed.entries.filter((e) => e.type === 'symlink'), [], 'the isolation tree must contain no symlink');
+  assert.deepEqual(observed.entries.map((e) => e.rel).sort(), names, 'the created tree must equal the exempted names exactly — nothing nested, nothing extra, nothing missing');
+  const types = Object.fromEntries(observed.entries.map((e) => [e.rel, e.type]));
+  assert.equal(types.home, 'dir'); assert.equal(types.hooks, 'dir');
+  assert.equal(types['global.gitconfig'], 'file'); assert.equal(types['system.gitconfig'], 'file');
+});
+
+test('Issue #34 isolationPaths performs no filesystem mutation outside its declared writes', () => {
+  // Source-level complement to the execution check: every fs call inside isolationPaths must
+  // be one of the recognised creation calls and must target a declared name.
+  const source = readText(PROCESS_HELPER);
   const body = source.slice(source.indexOf('function isolationPaths()'));
   const fn = body.slice(0, body.indexOf('\n}\n') + 3);
-  const prefix = fn.match(/mkdtempSync\(path\.join\([^,]+, '([^']+)'\)\)/);
-  assert.ok(prefix, 'isolationPaths must create its root with a fixed prefix');
-  const names = [...fn.matchAll(/path\.join\(root, '([^']+)'\)/g)].map((m) => m[1]);
-  assert.ok(names.length >= 4, `expected the isolation writes to be enumerable from source, found ${names.length}`);
-  const section = sectionOf(readText(PR_AUTOFIX), RECOVERY_HEADING);
-  assert.ok(section.includes('`' + prefix[1] + '*`'), `exemption must name the isolation root prefix ${prefix[1]}*`);
-  for (const name of names) assert.ok(section.includes('`' + name + '`'), `exemption must name the isolation write ${name}`);
-  // and it must not over-exempt: nothing beyond what the source actually writes
-  const exempted = [...section.matchAll(/`(home|hooks|[a-z]+\.gitconfig|[a-z-]+)`/g)].map((m) => m[1]).filter((t) => ['home', 'hooks'].includes(t) || t.endsWith('.gitconfig'));
-  for (const t of new Set(exempted)) assert.ok(names.includes(t), `exemption names ${t}, which the helper does not write`);
+  const calls = [...fn.matchAll(/fs\.([A-Za-z]+)\(([^;]*)\)/g)].map((m) => ({ method: m[1], args: m[2] }));
+  assert.ok(calls.length >= 5, `expected the isolation writes to be visible in source, found ${calls.length}`);
+  const allowed = { mkdtempSync: 1, mkdirSync: 2, writeFileSync: 2 };
+  const declared = new Set(['home', 'hooks', 'emptyGlobal', 'emptySystem']);
+  const counts = {};
+  for (const { method, args } of calls) {
+    assert.ok(Object.hasOwn(allowed, method), `unrecognised filesystem call in isolationPaths: fs.${method}(${args})`);
+    counts[method] = (counts[method] || 0) + 1;
+    if (method !== 'mkdtempSync') {
+      const target = args.split(',')[0].trim();
+      assert.ok(declared.has(target), `fs.${method} targets ${target}, which is not a declared isolation path`);
+    }
+  }
+  assert.deepEqual(counts, allowed, 'the set of creation calls must match the declared tree exactly');
 });
 
 test('Issue #34 the stop rule keeps its wording and names the single exception', () => {
