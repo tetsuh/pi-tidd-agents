@@ -99,10 +99,27 @@ function exemptedIsolationNames() {
   assert.ok(clause, 'the exemption must name the isolation root prefix and its writes');
   return { prefix: clause[1], names: [...clause[2].matchAll(/`([^`]+)`/g)].map((m) => m[1]).sort() };
 }
-function observedIsolationTree() {
+// Syntax-independent observation. Two complementary views inside a fresh child:
+//  1. every mutating method on `fs` and `fs.promises` is wrapped before the helper is loaded,
+//     so a direct, computed (`fs['writeFileSync']`), aliased, or promise-based call is recorded
+//     with its destination regardless of how the source spells it;
+//  2. after the call, the entire private temp parent is walked without following links, so a
+//     write beside the root is seen as well as one inside it.
+// The regex over source text that preceded this could be evaded by computed calls; it is gone.
+const FS_MUTATORS = ['mkdir', 'mkdtemp', 'writeFile', 'appendFile', 'rename', 'symlink', 'link', 'copyFile', 'cp', 'rm', 'rmdir', 'unlink', 'truncate', 'chmod', 'chown', 'utimes', 'open'];
+function observedIsolation() {
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'issue34-isolation-'));
   const script = `
     const fs = require('node:fs'); const path = require('node:path');
+    const parent = ${JSON.stringify(parent)};
+    const calls = [];
+    const wrap = (target, name, label) => {
+      const original = target[name]; if (typeof original !== 'function') return;
+      target[name] = function (...args) { calls.push({ method: label, destination: String(args[0]) }); return original.apply(this, args); };
+    };
+    for (const name of ${JSON.stringify(FS_MUTATORS)}) {
+      wrap(fs, name, name); wrap(fs, name + 'Sync', name + 'Sync'); wrap(fs.promises, name, 'promises.' + name);
+    }
     const { isolationPaths } = require(${JSON.stringify(repoPath(PROCESS_HELPER))});
     const iso = isolationPaths();
     const entries = [];
@@ -113,47 +130,46 @@ function observedIsolationTree() {
         entries.push({ rel: rel ? rel + '/' + name : name, type });
         if (type === 'dir') walk(full, rel ? rel + '/' + name : name);
       }
-    })(iso.root, '');
-    process.stdout.write(JSON.stringify({ root: path.basename(iso.root), parent: path.dirname(iso.root), entries }));
+    })(parent, '');
+    process.stdout.write(JSON.stringify({ root: path.basename(iso.root), rootDir: path.dirname(iso.root), parent, entries, calls }));
   `;
   const result = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env: { ...process.env, TMPDIR: parent, TEMP: parent, TMP: parent } });
   assert.equal(result.status, 0, `isolationPaths child failed: ${result.stderr}`);
-  const observed = JSON.parse(result.stdout);
-  assert.equal(path.resolve(observed.parent), path.resolve(parent), 'the isolation root must be created under the supplied temp parent');
-  return observed;
+  return JSON.parse(result.stdout);
 }
 
-test('Issue #34 the exemption equals the exact no-follow tree isolationPaths actually creates', () => {
+test('Issue #34 the whole private temp parent holds exactly one isolation root with exactly the exempted tree', () => {
   const { prefix, names } = exemptedIsolationNames();
-  const observed = observedIsolationTree();
-  assert.ok(observed.root.startsWith(prefix), `isolation root ${observed.root} must carry the exempted prefix ${prefix}`);
-  assert.deepEqual(observed.entries.filter((e) => e.type === 'symlink'), [], 'the isolation tree must contain no symlink');
-  assert.deepEqual(observed.entries.map((e) => e.rel).sort(), names, 'the created tree must equal the exempted names exactly — nothing nested, nothing extra, nothing missing');
-  const types = Object.fromEntries(observed.entries.map((e) => [e.rel, e.type]));
+  const o = observedIsolation();
+  assert.equal(path.resolve(o.rootDir), path.resolve(o.parent), 'the isolation root must be created directly under the supplied temp parent');
+  assert.ok(o.root.startsWith(prefix), `isolation root ${o.root} must carry the exempted prefix ${prefix}`);
+  const topLevel = o.entries.filter((e) => !e.rel.includes('/'));
+  assert.deepEqual(topLevel.map((e) => e.rel), [o.root], 'nothing may be written beside the isolation root inside the temp parent');
+  const inside = o.entries.filter((e) => e.rel.startsWith(o.root + '/')).map((e) => ({ rel: e.rel.slice(o.root.length + 1), type: e.type }));
+  assert.deepEqual(inside.filter((e) => e.type === 'symlink'), [], 'the isolation tree must contain no symlink');
+  assert.deepEqual(inside.map((e) => e.rel).sort(), names, 'the created tree must equal the exempted names exactly — nothing nested, nothing extra, nothing missing');
+  const types = Object.fromEntries(inside.map((e) => [e.rel, e.type]));
   assert.equal(types.home, 'dir'); assert.equal(types.hooks, 'dir');
   assert.equal(types['global.gitconfig'], 'file'); assert.equal(types['system.gitconfig'], 'file');
 });
 
-test('Issue #34 isolationPaths performs no filesystem mutation outside its declared writes', () => {
-  // Source-level complement to the execution check: every fs call inside isolationPaths must
-  // be one of the recognised creation calls and must target a declared name.
-  const source = readText(PROCESS_HELPER);
-  const body = source.slice(source.indexOf('function isolationPaths()'));
-  const fn = body.slice(0, body.indexOf('\n}\n') + 3);
-  const calls = [...fn.matchAll(/fs\.([A-Za-z]+)\(([^;]*)\)/g)].map((m) => ({ method: m[1], args: m[2] }));
-  assert.ok(calls.length >= 5, `expected the isolation writes to be visible in source, found ${calls.length}`);
-  const allowed = { mkdtempSync: 1, mkdirSync: 2, writeFileSync: 2 };
-  const declared = new Set(['home', 'hooks', 'emptyGlobal', 'emptySystem']);
-  const counts = {};
-  for (const { method, args } of calls) {
-    assert.ok(Object.hasOwn(allowed, method), `unrecognised filesystem call in isolationPaths: fs.${method}(${args})`);
-    counts[method] = (counts[method] || 0) + 1;
-    if (method !== 'mkdtempSync') {
-      const target = args.split(',')[0].trim();
-      assert.ok(declared.has(target), `fs.${method} targets ${target}, which is not a declared isolation path`);
-    }
+test('Issue #34 every filesystem mutation isolationPaths performs, however spelled, targets the exempted tree', () => {
+  const { names } = exemptedIsolationNames();
+  const o = observedIsolation();
+  const rootPath = path.join(o.parent, o.root);
+  assert.ok(o.calls.length >= 5, `expected the isolation writes to be observed through instrumentation, found ${o.calls.length}`);
+  const allowedDestinations = new Set([path.resolve(o.parent), rootPath, ...names.map((n) => path.join(rootPath, n))]);
+  for (const call of o.calls) {
+    const dest = path.resolve(call.destination);
+    // mkdtemp receives the prefix path, not the final root; everything else must hit the tree.
+    const ok = call.method.startsWith('mkdtemp') ? path.dirname(dest) === path.resolve(o.parent) : allowedDestinations.has(dest);
+    assert.ok(ok, `fs.${call.method} wrote to ${call.destination}, outside the exempted isolation tree`);
   }
-  assert.deepEqual(counts, allowed, 'the set of creation calls must match the declared tree exactly');
+  // Only creation of the declared tree is permitted: no rename/symlink/remove/chmod of anything.
+  // `open` appears only as writeFile's implementation and is bound by the destination check above.
+  const families = new Set(o.calls.map((c) => c.method.replace(/^promises\./, '').replace(/Sync$/, '')));
+  for (const family of families) assert.ok(['mkdir', 'mkdtemp', 'writeFile', 'open'].includes(family), `isolationPaths used an unexpected filesystem operation: ${family}`);
+  for (const required of ['mkdir', 'mkdtemp', 'writeFile']) assert.ok(families.has(required), `instrumentation must observe ${required}`);
 });
 
 test('Issue #34 the stop rule keeps its wording and names the single exception', () => {
