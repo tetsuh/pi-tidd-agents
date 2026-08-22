@@ -9,26 +9,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson } = require('./helpers');
+const { readText, readJson, sectionOf } = require('./helpers');
 
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const CONTRACT = 'CONTRACT.md';
 
-function sectionOf(text, heading) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  const start = lines.findIndex((line) => line.trim() === heading);
-  if (start === -1) return null;
-  const depth = heading.match(/^#+/)[0].length;
-  let end = start + 1;
-  while (end < lines.length) {
-    const match = lines[end].match(/^(#+)\s/);
-    if (match && match[1].length <= depth) break;
-    end += 1;
-  }
-  return lines.slice(start, end).join('\n');
-}
 
 test('Issue #61 the PR root defines the validation sandbox delta once for both modes', () => {
   // Both PR modes load the root plus their mode reference, so the definition belongs to the

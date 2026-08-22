@@ -267,11 +267,15 @@ test('Issue #24 shared-reference literal matching rejects malformed prefixes', (
 
 test('Issue #24 six authority files remain below the published baseline', () => {
   // Review-driven regression: this raw-byte ceiling protects the reviewed authority graph.
-  // CL-D34 raised the Issue #24 baseline to 108,000 bytes; CL-D36 raised it to 112,000 to
-  // hold the shared structured-transport rule. Reducing prose duplicated between the two
-  // workflow roots is tracked separately and is expected to return headroom.
+  // CL-D34 raised the Issue #24 baseline to 108,000 bytes; CL-D36 raised it to 112,000 for
+  // the shared structured-transport rule; CL-D39 raised it to 116,000 for the closed
+  // recovery mapping that Issue #34's own acceptance criteria require. Issue #58 already
+  // harvested cross-file duplication; after the mapping's own restatements were removed the
+  // six files measured 112,720 bytes at f7f3ff9, when the raise was decided, so the shortfall
+  // is funded by the raise. The assertion below is the live measurement; the figure here is
+  // revision-qualified and is not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 112000, `six authority files total ${total} bytes, expected less than 112000`);
+  assert.ok(total < 116000, `six authority files total ${total} bytes, expected less than 116000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.

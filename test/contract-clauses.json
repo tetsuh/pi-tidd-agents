@@ -2249,6 +2249,49 @@
         "any tracked change, index change, ref movement, unsafe root, or non-validation untracked path still stops the run as `BLOCKED`",
         "grants no cleanup, publication, commit, push, or reply authority"
       ]
+    },
+    {
+      "id": "CL-D39-stop",
+      "marker": "CL-D39",
+      "title": "Every tooling failure stays terminal",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above."
+      ]
+    },
+    {
+      "id": "CL-D39-recovery",
+      "marker": "CL-D39",
+      "title": "Exact autofix owns one bounded pre-writer recovery",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Bounded pre-writer recovery (CL-D39)",
+      "requires": [
+        "One recovery is permitted for a deterministic local tooling failure",
+        "process-isolation root `pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, and `system.gitconfig`",
+        "no Luna task, commit, push, or reply exists",
+        "the budget is exactly one per key",
+        "one canonical `operation@phase` key",
+        "The replacement retains the key",
+        "invalidates only the failed operation's own output",
+        "Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts"
+      ]
+    },
+    {
+      "id": "CL-D39-baseline",
+      "marker": "CL-D39",
+      "title": "The authority baseline is raised for the closed mapping",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D39 — Exact autofix gains one bounded pre-writer recovery",
+      "requires": [
+        "raises the six-file authority baseline from 112,000 to 116,000 bytes",
+        "the shortfall is funded by the raise rather than by a trim"
+      ]
     }
   ]
 }

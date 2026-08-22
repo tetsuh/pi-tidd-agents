@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, parseFrontmatter } = require('./helpers');
+const { readText, readJson, parseFrontmatter, sectionOf } = require('./helpers');
 
 const REVIEWERS = ['sol-reviewer', 'terra-reviewer', 'terra-oracle'];
 const WORKERS = ['luna-worker', 'glm-worker', 'terra-worker'];
@@ -19,19 +19,6 @@ const WORKER_TOOLS = ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write', 'co
 
 const toolsOf = (name) => parseFrontmatter(readText(`agents/${name}.md`)).tools.split(',').map((tool) => tool.trim());
 
-function sectionOf(text, heading) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  const start = lines.findIndex((line) => line.trim() === heading);
-  if (start === -1) return null;
-  const depth = heading.match(/^#+/)[0].length;
-  let end = start + 1;
-  while (end < lines.length) {
-    const match = lines[end].match(/^(#+)\s/);
-    if (match && match[1].length <= depth) break;
-    end += 1;
-  }
-  return lines.slice(start, end).join('\n');
-}
 
 test('Issue #49 no agent requests the unloaded intercom tool', () => {
   for (const name of AGENTS) {

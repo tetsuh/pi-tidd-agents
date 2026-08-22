@@ -7,7 +7,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson } = require('./helpers');
+const { readText, readJson, sectionOf } = require('./helpers');
 
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
@@ -16,19 +16,6 @@ const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
 const AGENT_FILES = ['agents/sol-reviewer.md', 'agents/terra-reviewer.md', 'agents/luna-worker.md', 'agents/terra-oracle.md', 'agents/terra-worker.md', 'agents/glm-worker.md'];
 
-function sectionOf(text, heading) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  const start = lines.findIndex((line) => line.trim() === heading);
-  if (start === -1) return null;
-  const depth = heading.match(/^#+/)[0].length;
-  let end = start + 1;
-  while (end < lines.length) {
-    const match = lines[end].match(/^(#+)\s/);
-    if (match && match[1].length <= depth) break;
-    end += 1;
-  }
-  return lines.slice(start, end).join('\n');
-}
 
 test('Issue #51 shared gate contract anchors blocking findings to criteria, clauses, or invariants', () => {
   const shared = readText(GATE_CONTRACT);

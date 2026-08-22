@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, exists } = require('./helpers');
+const { readText, readJson, exists, sectionOf } = require('./helpers');
 
 const manifest = readJson('test/contract-clauses.json');
 
@@ -11,19 +11,6 @@ const manifest = readJson('test/contract-clauses.json');
  * Returns the lines from `heading` up to the next heading of the same or
  * shallower depth, or null when the heading is absent.
  */
-function sectionOf(text, heading) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  const start = lines.findIndex((line) => line.trim() === heading);
-  if (start === -1) return null;
-  const depth = heading.match(/^#+/)[0].length;
-  let end = start + 1;
-  while (end < lines.length) {
-    const match = lines[end].match(/^(#+)\s/);
-    if (match && match[1].length <= depth) break;
-    end += 1;
-  }
-  return lines.slice(start, end).join('\n');
-}
 
 test('the clause manifest is non-empty and internally consistent', () => {
   assert.ok(manifest.clauses.length > 0, 'manifest declares no clauses');
