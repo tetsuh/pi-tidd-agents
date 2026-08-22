@@ -17,8 +17,10 @@ test('Issue #38 the action order states where recovery sits and that safety prec
   const order = text.match(/Apply this deterministic action order[^\n]*/);
   assert.ok(order, 'the deterministic action order clause must exist');
   assert.match(order[0], /The CL-D39 recovery is evaluated only after target movement, lifecycle, identity, and fingerprint checks and gate correlation and result validation have passed/);
-  assert.match(order[0], /and before any no-progress or limit accounting, owner decision, final policy, or reply step/);
-  assert.match(order[0], /a safety or identity failure always takes precedence over recovery eligibility/);
+  assert.match(order[0], /and before any owner decision, final policy, or reply step/);
+  // Already-reached limits come first: recovering into a run that must stop is pointless.
+  assert.match(order[0], /an already-reached gate, push, or no-progress limit and any safety or identity failure take precedence over recovery eligibility/);
+  assert.match(order[0], /a recovery consumes no counter/);
 });
 
 // --- executable model, per-field -------------------------------------------------------
