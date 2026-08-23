@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const DROP_ENV = /^(?:GIT_CONFIG_|GIT_DIR$|GIT_COMMON_DIR$|GIT_WORK_TREE$|GIT_INDEX_FILE$|GIT_OBJECT_DIRECTORY$|GIT_ALTERNATE_OBJECT_DIRECTORIES$|GIT_ALLOW_PROTOCOL$|GIT_ASKPASS$|SSH_ASKPASS$|GIT_SSH$|GIT_SSH_COMMAND$|GIT_SSH_VARIANT$|GIT_PROXY_COMMAND$|GIT_EXTERNAL_DIFF$|GIT_DIFF_OPTS$|GIT_PAGER$|PAGER$|GIT_EDITOR$|GIT_SEQUENCE_EDITOR$|GIT_EXEC_PATH$|GIT_CEILING_DIRECTORIES$|GIT_OPTIONAL_LOCKS$|GIT_CONFIG_NOSYSTEM$|GIT_CONFIG_GLOBAL$|GIT_CONFIG_SYSTEM$)/;
+const DROP_ENV = /^(?:GIT_TRACE.*|GIT_CONFIG_|GIT_DIR$|GIT_COMMON_DIR$|GIT_WORK_TREE$|GIT_INDEX_FILE$|GIT_OBJECT_DIRECTORY$|GIT_ALTERNATE_OBJECT_DIRECTORIES$|GIT_ALLOW_PROTOCOL$|GIT_ASKPASS$|SSH_ASKPASS$|GIT_SSH$|GIT_SSH_COMMAND$|GIT_SSH_VARIANT$|GIT_PROXY_COMMAND$|GIT_EXTERNAL_DIFF$|GIT_DIFF_OPTS$|GIT_PAGER$|PAGER$|GIT_EDITOR$|GIT_SEQUENCE_EDITOR$|GIT_EXEC_PATH$|GIT_CEILING_DIRECTORIES$|GIT_OPTIONAL_LOCKS$|GIT_CONFIG_NOSYSTEM$|GIT_CONFIG_GLOBAL$|GIT_CONFIG_SYSTEM$)/i;
 const SAFE_GIT_CONFIG = [
   'core.autocrlf=false',
   'core.safecrlf=false',
@@ -153,8 +153,10 @@ function isolationPaths() {
 
 function sanitizedEnv(extra = {}, kind = 'git') {
   const env = {};
-  for (const [key, value] of Object.entries(process.env)) {
-    if (!DROP_ENV.test(key)) env[key] = value;
+  for (const source of [process.env, extra]) {
+    for (const [key, value] of Object.entries(source)) {
+      if (!DROP_ENV.test(key)) env[key] = value;
+    }
   }
   if (kind === 'git') {
     const iso = isolationPaths();
@@ -175,7 +177,7 @@ function sanitizedEnv(extra = {}, kind = 'git') {
   }
   env.LC_ALL = 'C';
   env.LANG = 'C';
-  return { ...env, ...extra };
+  return env;
 }
 
 function gitArgs(args, options = {}) {

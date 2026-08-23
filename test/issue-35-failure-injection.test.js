@@ -61,10 +61,9 @@ function mappedOutcome(key) {
 // into an existing repository or enable external hooks. It uses the packaged isolation: the
 // sanitized environment drops those variables and pins HOME and the global/system config to
 // empty isolation files, and gitArgs() pins core.hooksPath to the empty isolation hooks dir.
-// sanitizedEnv() keeps inherited GIT_TRACE, GIT_TRACE2, and GIT_TRACE_* controls, and git
-// treats an absolute value as an output path it appends to. The fixture strips them so an
-// inherited trace path can never write outside the temp repository. The same gap for the
-// packaged helpers themselves is tracked on #52; this PR stays test-only.
+// sanitizedEnv() now removes inherited GIT_TRACE, GIT_TRACE2, and GIT_TRACE_* controls
+// through Issue #52. The fixture retains its own case-insensitive filter as defense in depth
+// and to keep the original Issue #35 regression explicit.
 function fixtureGitEnv() {
   const env = sanitizedEnv({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' }, 'git');
   // Case-insensitive: Windows environment-variable names are case-insensitive, so a preserved
