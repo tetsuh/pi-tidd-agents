@@ -2292,6 +2292,78 @@
         "raises the six-file authority baseline from 112,000 to 116,000 bytes",
         "the shortfall is funded by the raise rather than by a trim"
       ]
+    },
+    {
+      "id": "CL-D40-contract",
+      "marker": "CL-D40",
+      "title": "Missing worktree paths require exact registration evidence",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D40 — Missing worktree paths require exact registration evidence",
+      "requires": [
+        "a missing path does not prove a stale worktree registration",
+        "must never recommend `git worktree prune`",
+        "non-force `git worktree remove <exact-path>`",
+        "prunable/locked/registration evidence",
+        "unverifiable identity yields no mutation command",
+        "The exact external removal is never executed by the workflow"
+      ]
+    },
+    {
+      "id": "CL-D40-autofix",
+      "marker": "CL-D40",
+      "title": "Exact autofix reports bounded worktree recovery evidence",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Missing worktree registration reporting (CL-D40)",
+      "requires": [
+        "A missing path does not prove a stale worktree registration",
+        "ignore unrelated missing registrations",
+        "must never recommend `git worktree prune`",
+        "non-force `git worktree remove <exact-path>`",
+        "unlocked state",
+        "new owner action outside the failed run",
+        "Unverifiable identity yields no mutation command"
+      ]
+    },
+    {
+      "id": "CL-D40-readme",
+      "marker": "CL-D40",
+      "title": "README documents exact-path owner recovery",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "A missing path does not prove a stale worktree registration",
+        "ignores unrelated missing registrations",
+        "must never recommend `git worktree prune`",
+        "non-force `git worktree remove <exact-path>`",
+        "unlocked state",
+        "Ambiguous identity yields no mutation command"
+      ],
+      "section": "### Autofix"
+    },
+    {
+      "id": "CL-D40-tests",
+      "marker": "CL-D40",
+      "title": "Black-box recovery tests preserve unrelated registrations",
+      "files": [
+        "test/issue-69-worktree-recovery.test.js"
+      ],
+      "requires": [
+        "unrelated missing registrations cannot break a fresh linked workspace",
+        "exact missing registration collision returns bounded read-only evidence",
+        "wrong-head and branch registrations never become exact removal candidates",
+        "locked missing registrations never become exact removal candidates",
+        "receipt failure reports partial creation without automatic cleanup",
+        "exact-path remove must leave the unrelated stale registration",
+        "pre-implementation behavioral RED",
+        "co-developed integration coverage",
+        "review-driven regressions",
+        "default roots are unique"
+      ]
     }
   ]
 }
