@@ -31,12 +31,40 @@ function parseWorktrees(cwd) {
   });
 }
 function pathKey(file) {
-  const resolved = path.resolve(file);
-  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  const absolute = path.resolve(file);
+  let current = absolute;
+  const missing = [];
+  for (;;) {
+    try {
+      const resolved = path.join(canon(current), ...missing);
+      return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    } catch (error) {
+      if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      missing.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+  return process.platform === 'win32' ? absolute.toLowerCase() : absolute;
+}
+function symlinkFreePathKey(file) {
+  let current = path.resolve(file);
+  for (;;) {
+    let kind;
+    try { kind = lstatKind(current); }
+    catch (error) { if (error.code === 'ENOTDIR') return null; throw error; }
+    if (kind === 'symlink') return null;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return pathKey(file);
 }
 function registrationAtPath(records, workspace) {
-  const expected = pathKey(workspace);
-  return records.find((item) => item.worktree && pathKey(item.worktree) === expected) || null;
+  const expected = symlinkFreePathKey(workspace);
+  if (!expected) return null;
+  return records.find((item) => item.worktree && symlinkFreePathKey(item.worktree) === expected) || null;
 }
 function registration(cwd, workspace) {
   const canonical = canon(workspace);
@@ -61,7 +89,9 @@ function recoveryEvidence({ repository, commonGitDir, workspace, expectedHead, r
     prunable: Object.hasOwn(record, 'prunable') ? { present: true, reason: typeof record.prunable === 'string' ? record.prunable : '' } : { present: false, reason: null },
     locked: Object.hasOwn(record, 'locked') ? { present: true, reason: typeof record.locked === 'string' ? record.locked : '' } : { present: false, reason: null },
   } : null;
-  const exact = normalized && pathKey(normalized.worktree) === pathKey(workspace);
+  const registrationKey = normalized && symlinkFreePathKey(normalized.worktree);
+  const workspaceKey = symlinkFreePathKey(workspace);
+  const exact = Boolean(registrationKey && workspaceKey && registrationKey === workspaceKey);
   const eligible = Boolean(exact && pathKind === 'absent' && normalized.detached && normalized.head === expectedHead && !normalized.locked.present);
   return {
     classification: pathKind !== 'absent' ? 'path_occupied' : !exact ? 'missing_path_without_registration' : eligible ? 'exact_missing_detached_registration' : 'registration_identity_mismatch',

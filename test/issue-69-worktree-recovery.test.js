@@ -33,8 +33,22 @@ function makeRepository() {
   return { root, bare, head: git(root, ['rev-parse', 'HEAD']), tree: git(root, ['rev-parse', 'HEAD^{tree}']) };
 }
 function pathKey(value) {
-  const resolved = path.resolve(value);
-  return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  const absolute = path.resolve(value);
+  let current = absolute;
+  const missing = [];
+  for (;;) {
+    try {
+      const resolved = path.join(fs.realpathSync.native(current), ...missing);
+      return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    } catch (error) {
+      if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      missing.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+  return process.platform === 'win32' ? absolute.toLowerCase() : absolute;
 }
 function samePathIdentity(left, right) {
   const a = fs.statSync(left);
@@ -45,9 +59,10 @@ function registration(repo, workspace) {
   return helpers.parseWorktrees(repo).find((entry) => entry.worktree && pathKey(entry.worktree) === pathKey(workspace));
 }
 function removeRegistration(repo, workspace) {
-  if (!registration(repo, workspace)) return;
-  try { git(repo, ['worktree', 'remove', workspace]); }
-  catch { git(repo, ['worktree', 'remove', '--force', workspace]); }
+  const record = registration(repo, workspace);
+  if (!record) return;
+  try { git(repo, ['worktree', 'remove', record.worktree]); }
+  catch { git(repo, ['worktree', 'remove', '--force', record.worktree]); }
 }
 function makeStale(repo, workspace, args = ['--detach']) {
   fs.mkdirSync(path.dirname(workspace), { recursive: true });
@@ -63,10 +78,10 @@ const CONTRACT = readText('CONTRACT.md');
 const README = readText('README.md');
 
 // TDD provenance: before implementation, the focused command below produced 1 pass/4 failures.
-// The authority-presence scenario is pre-implementation compile/contract RED. The unrelated-stale,
+// The authority-presence scenario is pre-implementation compile/contract RED. The unrelated-missing,
 // exact-collision, and wrong-HEAD/attached-branch scenarios are pre-implementation behavioral RED.
-// Missing-registration/default-root and symlink scenarios are co-developed integration coverage.
-// Receipt-failure, locked-registration, and Windows routing are review-driven regressions. The local
+// Missing-registration/default-root and workspace-leaf symlink scenarios are co-developed integration coverage.
+// Receipt-failure, locked-registration, file-ancestor, symlink-ancestor, and Windows routing are review-driven regressions. The local
 // RED output is not claimed as repository-preserved or runtime-compliance evidence.
 
 test('Issue #69 authority forbids broad prune advice and scopes exact external recovery', () => {
@@ -84,14 +99,18 @@ test('Issue #69 unrelated missing registrations cannot break a fresh linked work
   const repo = makeRepository();
   const parent = temp('i69-unrelated-stale-');
   const stalePath = path.join(parent, 'a-stale-root', 'workspace');
+  const fileAncestorPath = path.join(parent, 'b-file-ancestor-root', 'workspace');
   const freshRoot = path.join(parent, 'z-fresh-root');
   const freshPath = path.join(freshRoot, 'workspace');
   let created;
   try {
     makeStale(repo, stalePath);
+    makeStale(repo, fileAncestorPath);
+    fs.writeFileSync(path.dirname(fileAncestorPath), 'replaced by file\n');
     created = helpers.createWorkspace({ cwd: repo.root, head: repo.head, tree: repo.tree, runRoot: freshRoot, allowCloneFallback: false });
     assert.equal(created.ok, true, JSON.stringify(created));
     assert.ok(registration(repo.root, stalePath), 'unrelated stale registration must remain untouched');
+    assert.ok(registration(repo.root, fileAncestorPath), 'an unrelated ENOTDIR registration must remain untouched');
     assert.ok(registration(repo.root, freshPath), 'fresh exact registration must be selected despite unrelated ENOENT entries');
     const cleaned = await helpers.cleanupWorkspace(created.data.receipt, repo.root);
     assert.equal(cleaned.ok, true, JSON.stringify(cleaned));
@@ -100,6 +119,7 @@ test('Issue #69 unrelated missing registrations cannot break a fresh linked work
   } finally {
     if (created?.data?.path) removeRegistration(repo.root, created.data.path);
     removeRegistration(repo.root, freshPath);
+    removeRegistration(repo.root, fileAncestorPath);
     removeRegistration(repo.root, stalePath);
     fs.rmSync(parent, { recursive: true, force: true });
     fs.rmSync(repo.root, { recursive: true, force: true });
@@ -247,6 +267,16 @@ test('Issue #69 replaced workspace paths are no-follow and never recovery eligib
     assert.equal(created.error.details.recovery.followed, false);
     assert.equal(created.error.details.recovery.exactRemovalCandidate, false);
     assert.equal(registration(repo.root, workspace), undefined);
+
+    fs.mkdirSync = originalMkdir;
+    const physicalParent = path.join(parent, 'physical-parent');
+    const aliasParent = path.join(parent, 'alias-parent');
+    originalMkdir(physicalParent);
+    fs.symlinkSync(physicalParent, aliasParent, 'dir');
+    const ancestor = helpers.createWorkspace({ cwd: repo.root, head: repo.head, tree: repo.tree, runRoot: path.join(aliasParent, 'run-root'), allowCloneFallback: false });
+    assert.equal(ancestor.ok, false);
+    assert.equal(ancestor.error.code, 'workspace_failed');
+    assert.match(ancestor.error.message, /symlink path component rejected/);
   } finally {
     fs.mkdirSync = originalMkdir;
     fs.rmSync(parent, { recursive: true, force: true });
