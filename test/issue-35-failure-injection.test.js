@@ -67,7 +67,9 @@ function mappedOutcome(key) {
 // packaged helpers themselves is tracked on #52; this PR stays test-only.
 function fixtureGitEnv() {
   const env = sanitizedEnv({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' }, 'git');
-  for (const key of Object.keys(env)) if (/^GIT_TRACE/.test(key)) delete env[key];
+  // Case-insensitive: Windows environment-variable names are case-insensitive, so a preserved
+  // Git_Trace is the variable Git for Windows reads as GIT_TRACE.
+  for (const key of Object.keys(env)) if (/^GIT_TRACE/i.test(key)) delete env[key];
   return env;
 }
 function gitStoredBody(message) {
@@ -378,6 +380,26 @@ test('Issue #35 an inherited Git trace path cannot make the fixture write outsid
     for (const k of TRACE) assert.equal(fs.readFileSync(sentinels[k], 'utf8'), `untouched ${k}\n`, `${k} sentinel bytes must be unchanged: git must not append trace output to an inherited path`);
   } finally {
     for (const k of TRACE) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('Issue #35 no casing variant of a Git trace control survives the fixture environment', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue35-trace-case-'));
+  const MIXED = ['Git_Trace', 'git_trace2', 'gIt_TrAcE_PeRfOrMaNcE', 'GIT_trace_setup'];
+  const saved = Object.fromEntries(MIXED.map((k) => [k, process.env[k]]));
+  const sentinels = Object.fromEntries(MIXED.map((k) => [k, path.join(dir, `${k}.sentinel`)]));
+  try {
+    for (const k of MIXED) { fs.writeFileSync(sentinels[k], `untouched ${k}\n`); process.env[k] = sentinels[k]; }
+    // 1. the filter itself, independent of platform: no key with the prefix in any casing remains
+    const env = fixtureGitEnv();
+    assert.deepEqual(Object.keys(env).filter((k) => /^git_trace/i.test(k)), [], 'fixtureGitEnv must strip every casing variant of GIT_TRACE*');
+    // 2. the observable effect: git cannot append to any sentinel through an inherited path
+    const { stored } = gitStoredBody('mixed-case trace run');
+    assert.equal(stored, 'mixed-case trace run\n');
+    for (const k of MIXED) assert.equal(fs.readFileSync(sentinels[k], 'utf8'), `untouched ${k}\n`, `${k} sentinel must be unchanged`);
+  } finally {
+    for (const k of MIXED) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
     fs.rmSync(dir, { recursive: true, force: true });
   }
 });
