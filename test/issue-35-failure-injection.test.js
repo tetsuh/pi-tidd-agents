@@ -61,10 +61,19 @@ function mappedOutcome(key) {
 // into an existing repository or enable external hooks. It uses the packaged isolation: the
 // sanitized environment drops those variables and pins HOME and the global/system config to
 // empty isolation files, and gitArgs() pins core.hooksPath to the empty isolation hooks dir.
+// sanitizedEnv() keeps inherited GIT_TRACE, GIT_TRACE2, and GIT_TRACE_* controls, and git
+// treats an absolute value as an output path it appends to. The fixture strips them so an
+// inherited trace path can never write outside the temp repository. The same gap for the
+// packaged helpers themselves is tracked on #52; this PR stays test-only.
+function fixtureGitEnv() {
+  const env = sanitizedEnv({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' }, 'git');
+  for (const key of Object.keys(env)) if (/^GIT_TRACE/.test(key)) delete env[key];
+  return env;
+}
 function gitStoredBody(message) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue35-git-'));
   try {
-    const env = sanitizedEnv({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' }, 'git');
+    const env = fixtureGitEnv();
     const git = (...args) => execFileSync('git', gitArgs(['-c', 'commit.gpgsign=false', ...args]), { cwd: dir, env, encoding: 'buffer' });
     git('init', '-q', '.');
     const file = path.join(dir, 'msg.txt'); fs.writeFileSync(file, Buffer.from(message, 'utf8'));
@@ -331,7 +340,7 @@ test('Issue #35 the commit-message fixture cannot be redirected into another rep
   const saved = {};
   const HOSTILE = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0', 'GIT_EXEC_PATH'];
   try {
-    const env = sanitizedEnv({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' }, 'git');
+    const env = fixtureGitEnv();
     const git = (...args) => execFileSync('git', gitArgs(['-c', 'commit.gpgsign=false', ...args]), { cwd: sentinel, env, encoding: 'utf8' }).trim();
     git('init', '-q', '.'); git('commit', '-q', '--allow-empty', '-m', 'sentinel');
     const headBefore = git('rev-parse', 'HEAD'); const countBefore = git('rev-list', '--count', 'HEAD');
@@ -354,5 +363,21 @@ test('Issue #35 the commit-message fixture cannot be redirected into another rep
   } finally {
     for (const key of HOSTILE) { if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key]; }
     fs.rmSync(sentinel, { recursive: true, force: true });
+  }
+});
+
+test('Issue #35 an inherited Git trace path cannot make the fixture write outside its temp repository', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue35-trace-'));
+  const TRACE = ['GIT_TRACE', 'GIT_TRACE2', 'GIT_TRACE_PERFORMANCE', 'GIT_TRACE_SETUP', 'GIT_TRACE_PACKET'];
+  const saved = Object.fromEntries(TRACE.map((k) => [k, process.env[k]]));
+  const sentinels = Object.fromEntries(TRACE.map((k) => [k, path.join(dir, `${k}.sentinel`)]));
+  try {
+    for (const k of TRACE) { fs.writeFileSync(sentinels[k], `untouched ${k}\n`); process.env[k] = sentinels[k]; }
+    const { stored } = gitStoredBody('trace sentinel run');
+    assert.equal(stored, 'trace sentinel run\n', 'the fixture must still work with hostile trace variables inherited');
+    for (const k of TRACE) assert.equal(fs.readFileSync(sentinels[k], 'utf8'), `untouched ${k}\n`, `${k} sentinel bytes must be unchanged: git must not append trace output to an inherited path`);
+  } finally {
+    for (const k of TRACE) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }
+    fs.rmSync(dir, { recursive: true, force: true });
   }
 });
