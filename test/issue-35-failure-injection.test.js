@@ -194,7 +194,7 @@ const INCIDENTS = [
   },
   {
     name: '9 CI failure followed by a successful same-head rerun',
-    phase: 'final_policy', invariant: 'exact-head check evidence: latest run per check on the exact head; other heads never count',
+    phase: 'final_policy', invariant: 'exact-head check evidence: every supplied run is classified independently; other heads never count',
     // Classification only: which runs on the exact head are successful and which are not.
     // Whether a later success supersedes an earlier failure is rerun policy and stays with #39.
     positive: () => {
@@ -211,7 +211,7 @@ const INCIDENTS = [
         { id: 1, name: 'test', status: 'completed', conclusion: 'failure', head_sha: OID('b') },
         { id: 2, name: 'test', status: 'completed', conclusion: 'success', head_sha: OID('e') }, // success on another head
       ]);
-      return c.successful.length === 0 && c.excludedOtherHead.includes(2) ? fail('final_policy', 'exact-head check evidence: latest run per check on the exact head; other heads never count', 'required_checks_failed') : ok();
+      return c.successful.length === 0 && c.excludedOtherHead.includes(2) ? fail('final_policy', 'exact-head check evidence: every supplied run is classified independently; other heads never count', 'required_checks_failed') : ok();
     },
     siblingCode: 'required_checks_failed',
   },
