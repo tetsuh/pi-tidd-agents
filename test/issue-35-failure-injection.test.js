@@ -49,7 +49,9 @@ function mappedOutcome(key) {
   const rows = section.split('\n').filter((l) => l.startsWith('|') && !/^\|\s*-+/.test(l) && !/\| Failure \|/.test(l))
     .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
   const row = rows.find(([, k]) => new RegExp('^' + k.replace(/`/g, '').replace('fingerprint_<op>', 'fingerprint_[a-z_]+') + '$').test(key));
-  return row ? row[3] : 'terminal';
+  // A missing row is distinct evidence, never silently 'terminal': the harness must be able
+  // to tell "the mapping says terminal" from "the mapping no longer says anything".
+  return row ? { found: true, outcome: row[3] } : { found: false, outcome: null };
 }
 
 // Behavioural: what git actually stores for a commit message given via -F.
@@ -64,7 +66,9 @@ function gitStoredBody(message) {
     git('commit', '-q', '--allow-empty', '-F', file);
     const raw = git('cat-file', 'commit', 'HEAD'); // exact stored bytes: headers, blank line, body
     const sep = raw.indexOf('\n\n');
-    return raw.subarray(sep + 2).toString('utf8');
+    const stored = raw.subarray(sep + 2).toString('utf8');
+    const logB = git('log', '-1', '--format=%B').toString('utf8'); // what %B shows: stored body + one LF
+    return { stored, logB };
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -72,6 +76,8 @@ function gitStoredBody(message) {
 // The comparator the contract implies: the approved message normalized exactly as git
 // normalizes it (trailing blank lines collapsed to one LF); literal backslash-n is bytes.
 const expectedStored = (approved) => approved.replace(/\n*$/, '') + '\n';
+// `git log --format=%B` appends one LF to the stored body; a reader must strip exactly one.
+const storedFromLogB = (logB) => logB.replace(/\n$/, '');
 
 // ---------------------------------------------------------------------------------------
 const INCIDENTS = [
@@ -102,8 +108,12 @@ const INCIDENTS = [
   {
     name: '3 missing dynamic-import in a test probe',
     phase: 'focused_validation', invariant: 'CL-D39 mapping: validation_harness is terminal',
-    positive: () => mappedOutcome('envelope_read@normalize') === 'recoverable' ? ok() : fail('normalize', 'CL-D39', 'unexpected'),
-    sibling: () => mappedOutcome('validation_harness@focused_validation') === 'terminal' ? fail('focused_validation', 'CL-D39 mapping: validation_harness is terminal', 'terminal') : ok(),
+    positive: () => { const m = mappedOutcome('envelope_read@normalize'); return m.found && m.outcome === 'recoverable' ? ok() : fail('normalize', 'CL-D39', m.found ? 'unexpected' : 'row_missing'); },
+    sibling: () => {
+      const m = mappedOutcome('validation_harness@focused_validation');
+      if (!m.found) return ok(); // a missing row must NOT look like a terminal sibling; the test below fails it
+      return m.outcome === 'terminal' ? fail('focused_validation', 'CL-D39 mapping: validation_harness is terminal', 'terminal') : ok();
+    },
     siblingCode: 'terminal',
   },
   {
@@ -127,17 +137,22 @@ const INCIDENTS = [
     phase: 'AFTER_COMMIT', invariant: 'stored bytes equal the approved message; real LF via -F, never literal \\n',
     positive: () => {
       for (const approved of ['msg', 'msg\n', 'msg\n\n\n']) {
-        if (gitStoredBody(approved) !== expectedStored(approved)) return fail('AFTER_COMMIT', 'stored bytes equal the approved message', 'unexpected');
+        const { stored, logB } = gitStoredBody(approved);
+        if (stored !== expectedStored(approved)) return fail('AFTER_COMMIT', 'stored bytes equal the approved message', 'unexpected');
+        if (logB !== stored + '\n' || storedFromLogB(logB) !== stored) return fail('AFTER_COMMIT', '%B appends exactly one LF', 'unexpected');
       }
       // literal backslash-n is preserved as two bytes, not turned into a newline
-      return gitStoredBody('line1\\nline2') === 'line1\\nline2\n' ? ok() : fail('AFTER_COMMIT', 'literal \\n preserved', 'unexpected');
+      return gitStoredBody('line1\\nline2').stored === 'line1\\nline2\n' ? ok() : fail('AFTER_COMMIT', 'literal \\n preserved', 'unexpected');
     },
     sibling: () => {
-      // A comparator that compares raw approved bytes (three trailing LF) to stored bytes, or
-      // that treats literal backslash-n as a newline, must fail.
-      const rawCompare = gitStoredBody('msg\n\n\n') === 'msg\n\n\n';
-      const literalAsNewline = gitStoredBody('line1\\nline2') === 'line1\nline2\n';
-      return rawCompare || literalAsNewline ? ok() : fail('AFTER_COMMIT', 'stored bytes equal the approved message; real LF via -F, never literal \\n', 'commit_message_mismatch');
+      // Three comparators that must fail: raw approved bytes (three trailing LF) against stored;
+      // literal backslash-n read as a newline; and %B output compared directly to the stored
+      // body without stripping the LF git log appends.
+      const rawCompare = gitStoredBody('msg\n\n\n').stored === 'msg\n\n\n';
+      const literalAsNewline = gitStoredBody('line1\\nline2').stored === 'line1\nline2\n';
+      const { stored, logB } = gitStoredBody('msg');
+      const logBDirect = logB === stored;
+      return rawCompare || literalAsNewline || logBDirect ? ok() : fail('AFTER_COMMIT', 'stored bytes equal the approved message; real LF via -F, never literal \\n', 'commit_message_mismatch');
     },
     siblingCode: 'commit_message_mismatch',
   },
@@ -180,14 +195,24 @@ const INCIDENTS = [
   {
     name: '9 CI failure followed by a successful same-head rerun',
     phase: 'final_policy', invariant: 'exact-head check evidence: latest run per check on the exact head; other heads never count',
-    positive: () => checksOnHead(OID('b'), [
-      { id: 1, name: 'test', status: 'completed', conclusion: 'failure', head_sha: OID('b') },
-      { id: 2, name: 'test', status: 'completed', conclusion: 'success', head_sha: OID('b') },
-    ]),
-    sibling: () => checksOnHead(OID('b'), [
-      { id: 1, name: 'test', status: 'completed', conclusion: 'failure', head_sha: OID('b') },
-      { id: 2, name: 'test', status: 'completed', conclusion: 'success', head_sha: OID('e') }, // success on another head
-    ]),
+    // Classification only: which runs on the exact head are successful and which are not.
+    // Whether a later success supersedes an earlier failure is rerun policy and stays with #39.
+    positive: () => {
+      const runs = [
+        { id: 1, name: 'test', status: 'completed', conclusion: 'failure', head_sha: OID('b') },
+        { id: 2, name: 'test', status: 'completed', conclusion: 'success', head_sha: OID('b') },
+      ];
+      const a = classifyOnHead(OID('b'), runs), b = classifyOnHead(OID('b'), [...runs].reverse());
+      const same = JSON.stringify(a) === JSON.stringify(b);
+      return same && a.successful.includes(2) && a.unsuccessful.includes(1) ? ok() : fail('final_policy', 'exact-head check evidence', 'unexpected');
+    },
+    sibling: () => {
+      const c = classifyOnHead(OID('b'), [
+        { id: 1, name: 'test', status: 'completed', conclusion: 'failure', head_sha: OID('b') },
+        { id: 2, name: 'test', status: 'completed', conclusion: 'success', head_sha: OID('e') }, // success on another head
+      ]);
+      return c.successful.length === 0 && c.excludedOtherHead.includes(2) ? fail('final_policy', 'exact-head check evidence: latest run per check on the exact head; other heads never count', 'required_checks_failed') : ok();
+    },
     siblingCode: 'required_checks_failed',
   },
   {
@@ -231,13 +256,16 @@ function bracket(before, after) {
   const a = snapshot.identity(before), b = snapshot.identity(after);
   return JSON.stringify(a) === JSON.stringify(b) ? ok() : fail('github_snapshot', 'CL-D27 target stability: bracketed identity must match; otherwise stale_target', 'stale_target');
 }
-function checksOnHead(head, runs) {
+function classifyOnHead(head, runs) {
   const onHead = runs.filter((r) => r.head_sha === head);
   const classified = snapshot.classifyChecks(onHead.map(({ head_sha, ...r }) => r));
-  const latestByName = new Map();
-  for (const c of classified) latestByName.set(c.name, c); // ascending id order = latest wins
-  const allSuccessful = [...latestByName.values()].every((c) => c.successful);
-  return allSuccessful ? ok() : fail('final_policy', 'exact-head check evidence: latest run per check on the exact head; other heads never count', 'required_checks_failed');
+  // Sorted by explicit id so the result is independent of input order; no latest-wins rule.
+  const byId = [...classified].sort((x, y) => x.id - y.id);
+  return {
+    successful: byId.filter((c) => c.successful).map((c) => c.id),
+    unsuccessful: byId.filter((c) => !c.successful).map((c) => c.id),
+    excludedOtherHead: runs.filter((r) => r.head_sha !== head).map((r) => r.id).sort((x, y) => x - y),
+  };
 }
 function replyAttempt(readBack) {
   const base = { retries: 0, priorRepliesRemain: true };
@@ -281,4 +309,11 @@ test('Issue #35 fixtures carry an explicit schema version and unknown versions a
   assert.equal(fixture.schemaVersion, protocol.VERSION);
   assert.equal(protocol.isResult({ version: 2, ok: true, operation: 'snapshot', data: {} }), false);
   assert.equal(gateResult.validateGateResult(envelope({ schemaVersion: 2 }), expectation()).error.code, 'unknown_version');
+});
+
+test('Issue #35 a CL-D39 row that disappears is reported as missing, not as terminal', () => {
+  const present = mappedOutcome('validation_harness@focused_validation');
+  assert.deepEqual(present, { found: true, outcome: 'terminal' });
+  const absent = mappedOutcome('no_such_operation@normalize');
+  assert.deepEqual(absent, { found: false, outcome: null }, 'an absent row must be distinguishable from a terminal one');
 });
