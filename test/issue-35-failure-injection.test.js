@@ -22,6 +22,7 @@ const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 const fingerprints = require('../skills/closed-loop-pr/helpers/fingerprints');
 const snapshot = require('../skills/closed-loop-pr/helpers/snapshot');
 const paths = require('../skills/closed-loop-pr/helpers/paths');
+const { sanitizedEnv, gitArgs } = require('../skills/closed-loop-pr/helpers/process');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const ok = () => ({ ok: true });
@@ -55,12 +56,16 @@ function mappedOutcome(key) {
 }
 
 // Behavioural: what git actually stores for a commit message given via -F.
+// The fixture never spreads process.env into Git: inherited GIT_DIR, GIT_WORK_TREE,
+// GIT_INDEX_FILE, GIT_OBJECT_DIRECTORY, GIT_CONFIG_COUNT, or GIT_EXEC_PATH could redirect it
+// into an existing repository or enable external hooks. It uses the packaged isolation: the
+// sanitized environment drops those variables and pins HOME and the global/system config to
+// empty isolation files, and gitArgs() pins core.hooksPath to the empty isolation hooks dir.
 function gitStoredBody(message) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue35-git-'));
   try {
-    const env = { ...process.env, GIT_CONFIG_GLOBAL: path.join(dir, 'empty.gitconfig'), GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
-    fs.writeFileSync(env.GIT_CONFIG_GLOBAL, '');
-    const git = (...args) => execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: dir, env, encoding: 'buffer' });
+    const env = sanitizedEnv({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' }, 'git');
+    const git = (...args) => execFileSync('git', gitArgs(['-c', 'commit.gpgsign=false', ...args]), { cwd: dir, env, encoding: 'buffer' });
     git('init', '-q', '.');
     const file = path.join(dir, 'msg.txt'); fs.writeFileSync(file, Buffer.from(message, 'utf8'));
     git('commit', '-q', '--allow-empty', '-F', file);
@@ -316,4 +321,38 @@ test('Issue #35 a CL-D39 row that disappears is reported as missing, not as term
   assert.deepEqual(present, { found: true, outcome: 'terminal' });
   const absent = mappedOutcome('no_such_operation@normalize');
   assert.deepEqual(absent, { found: false, outcome: null }, 'an absent row must be distinguishable from a terminal one');
+});
+
+test('Issue #35 the commit-message fixture cannot be redirected into another repository or run a hook', () => {
+  // Sentinel: a real repository with one commit and a pre-commit hook that writes a marker.
+  const sentinel = fs.mkdtempSync(path.join(os.tmpdir(), 'issue35-sentinel-'));
+  const hostileHooks = path.join(sentinel, 'hostile-hooks');
+  const marker = path.join(sentinel, 'HOOK_RAN');
+  const saved = {};
+  const HOSTILE = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_INDEX_FILE', 'GIT_OBJECT_DIRECTORY', 'GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0', 'GIT_EXEC_PATH'];
+  try {
+    const env = sanitizedEnv({ GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' }, 'git');
+    const git = (...args) => execFileSync('git', gitArgs(['-c', 'commit.gpgsign=false', ...args]), { cwd: sentinel, env, encoding: 'utf8' }).trim();
+    git('init', '-q', '.'); git('commit', '-q', '--allow-empty', '-m', 'sentinel');
+    const headBefore = git('rev-parse', 'HEAD'); const countBefore = git('rev-list', '--count', 'HEAD');
+    fs.mkdirSync(hostileHooks);
+    fs.writeFileSync(path.join(hostileHooks, 'pre-commit'), `#!/bin/sh\necho ran > ${JSON.stringify(marker)}\n`, { mode: 0o755 });
+    // Hostile inherited environment around the fixture.
+    for (const key of HOSTILE) saved[key] = process.env[key];
+    process.env.GIT_DIR = path.join(sentinel, '.git');
+    process.env.GIT_WORK_TREE = sentinel;
+    process.env.GIT_COMMON_DIR = path.join(sentinel, '.git');
+    process.env.GIT_INDEX_FILE = path.join(sentinel, '.git', 'index');
+    process.env.GIT_OBJECT_DIRECTORY = path.join(sentinel, '.git', 'objects');
+    process.env.GIT_CONFIG_COUNT = '1'; process.env.GIT_CONFIG_KEY_0 = 'core.hooksPath'; process.env.GIT_CONFIG_VALUE_0 = hostileHooks;
+    process.env.GIT_EXEC_PATH = path.join(sentinel, 'no-such-exec-path');
+    const { stored } = gitStoredBody('fixture under hostile env');
+    assert.equal(stored, 'fixture under hostile env\n', 'the fixture must still commit into its own temp repo and read its own body');
+    assert.equal(git('rev-parse', 'HEAD'), headBefore, 'the sentinel HEAD must not move');
+    assert.equal(git('rev-list', '--count', 'HEAD'), countBefore, 'the sentinel must gain no commit');
+    assert.equal(fs.existsSync(marker), false, 'no external hook may run');
+  } finally {
+    for (const key of HOSTILE) { if (saved[key] === undefined) delete process.env[key]; else process.env[key] = saved[key]; }
+    fs.rmSync(sentinel, { recursive: true, force: true });
+  }
 });
