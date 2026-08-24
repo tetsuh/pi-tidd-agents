@@ -2364,6 +2364,70 @@
         "review-driven regressions",
         "default roots are unique"
       ]
+    },
+    {
+      "id": "CL-D41-autofix",
+      "marker": "CL-D41",
+      "title": "Exact autofix bounds one pull request by derived accounting",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Per-PR aggregate accounting (CL-D41)",
+      "requires": [
+        "`(repository, pull-request number, base OID)`",
+        "derived from the target's own evidence at each snapshot, never stored",
+        "base movement starts a new key",
+        "at most 10 correction commits",
+        "`WAITING_FOR_OWNER(reason=owner_decision_required)`",
+        "never a silent fresh start",
+        "conservative superset of the run-scoped successful-push counter",
+        "the run-scoped 15 gate invocations, 5 successful correction pushes, and third-observation no-progress stop are unchanged",
+        "carries no gate-invocation count, settled ledger, or prior `MERGE` head across runs"
+      ]
+    },
+    {
+      "id": "CL-D41-helper",
+      "marker": "CL-D41",
+      "title": "The packaged helper map carries the derived accounting operation",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
+      "requires": [
+        "| `pr_accounting` | `repository`, `number`, `base`, `commits` |"
+      ]
+    },
+    {
+      "id": "CL-D41-readme",
+      "marker": "CL-D41",
+      "title": "README documents the derived per-PR bound",
+      "files": [
+        "README.md"
+      ],
+      "section": "### Bounded publication",
+      "requires": [
+        "at most 10 correction commits per key",
+        "base movement starts a new key",
+        "no workflow state is stored between runs",
+        "the per-run limits are unchanged"
+      ]
+    },
+    {
+      "id": "CL-D41-tests",
+      "marker": "CL-D41",
+      "title": "Black-box accounting tests pin the key, the ceiling, and fail-closed input",
+      "files": [
+        "test/issue-50-aggregate-accounting.test.js"
+      ],
+      "requires": [
+        "authority bounds one PR across fresh runs without durable state",
+        "base movement starts a new accounting key",
+        "the aggregate ceiling reaches at ten and stays reached above it",
+        "accounting is fail-closed on incomplete or contradictory input",
+        "the packaged CLI routes pr_accounting under JSON v1",
+        "pre-implementation compile/contract RED",
+        "pre-implementation behavioral RED"
+      ]
     }
   ]
 }
