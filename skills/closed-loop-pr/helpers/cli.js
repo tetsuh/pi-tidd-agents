@@ -21,6 +21,7 @@ const SCHEMAS = Object.freeze({
   workspace_verify: { required: ['cwd', 'expected'], optional: ['transition'] },
   workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
+  evidence_verify: { required: ['envelope', 'expected'], optional: [] },
 });
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function invalid(message) { const error = new Error(message); error.code = 'invalid_request'; error.phase = 'cli'; throw error; }
@@ -63,6 +64,7 @@ async function dispatch(request) {
     case 'workspace_verify': return wrap(operation, helpers.verifyWorkspace(data.cwd, data.expected, data.transition));
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
+    case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));
     default: invalid('unknown operation');
   }
 }
