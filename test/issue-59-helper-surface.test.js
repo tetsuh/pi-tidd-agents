@@ -48,7 +48,6 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|try { fs.mkdirSync(root, { recursive: false, mode: 0o700 }); }',
   'skills/closed-loop-pr/helpers/workspace.js|if (!fs.existsSync(worktrees)) return [];',
   'skills/closed-loop-pr/helpers/workspace.js|return fs.readdirSync(worktrees).sort((a, b) => Buffer.from(a).compare(Buffer.from(b))).map((name) => ({ name, kind: lstatKind(path.join(worktrees, name)) }));',
-  'skills/closed-loop-pr/helpers/workspace.js|const noSideEffect = !fs.existsSync(workspace)',
   "skills/closed-loop-pr/helpers/workspace.js|} catch (error) { return createError('workspace', 'clone_fallback_failed', error.message, 'workspace_clone', { retainedPath: fs.existsSync(clonePath) ? clonePath : null }); }",
   "skills/closed-loop-pr/helpers/workspace.js|if (fs.existsSync(actual.path) || parseWorktrees(repositoryCwd).some((item) => item.worktree === actual.path)) return createError('workspace_cleanup', 'cleanup_incomplete', 'workspace removal was incomplete', 'workspace_cleanup');",
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',

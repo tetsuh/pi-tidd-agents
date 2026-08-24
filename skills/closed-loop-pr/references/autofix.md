@@ -21,6 +21,10 @@ The exact PR `autofix` token itself selects and approves only the bounded CL-D30
 
 After any success/failure terminal observation, linked mode alone permits exact identity-reverified non-force `git worktree remove` with unchanged path/registration/per-worktree/common-Git-dir binding. Cleanup identity mismatch/failure is `BLOCKED` with no further action; recovery, compensation, force, prune, recursive deletion, clean, clone deletion, and operator cleanup are forbidden.
 
+### Missing worktree registration reporting (CL-D40)
+
+A missing path does not prove a stale worktree registration. `workspace_create` must ignore unrelated missing registrations, allocate a unique generated root, and distinguish no registration, an exact registration collision, and partial creation with read-only repository/common-Git-dir/path-kind/HEAD/detached/branch/prunable/locked/valid-receipt/root-source evidence. The failed run never retries or removes anything and must never recommend `git worktree prune`, force, recursive deletion, or direct Git-administration deletion. Only when that evidence proves the exact repository, missing non-symlink path, detached expected HEAD, unlocked state, and intended registration may the parent draft non-force `git worktree remove <exact-path>` with pre/post checks as a new owner action outside the failed run. Unverifiable identity yields no mutation command. After an independently completed exact removal, require a fresh invocation; never resume.
+
 ### Packaged helper invocation map (CL-D30, Issue #47)
 
 Obtain every check below from the packaged CLI, `node <package>/skills/closed-loop-pr/helpers/cli.js`: one JSON v1 request on stdin as `{"version":1,"operation":<name>,"data":{...}}`, one JSON v1 envelope on stdout. Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL. An unknown operation, unknown or missing field, or `ok:false` envelope stops the run at that phase with its `code` and `phase`; no retry beyond the CL-D39 recovery defined above.

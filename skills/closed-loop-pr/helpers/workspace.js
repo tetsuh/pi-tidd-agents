@@ -30,9 +30,80 @@ function parseWorktrees(cwd) {
     return fields;
   });
 }
+function pathKey(file) {
+  const absolute = path.resolve(file);
+  let current = absolute;
+  const missing = [];
+  for (;;) {
+    try {
+      const resolved = path.join(canon(current), ...missing);
+      return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    } catch (error) {
+      if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
+      const parent = path.dirname(current);
+      if (parent === current) break;
+      missing.unshift(path.basename(current));
+      current = parent;
+    }
+  }
+  return process.platform === 'win32' ? absolute.toLowerCase() : absolute;
+}
+function symlinkFreePathKey(file) {
+  let current = path.resolve(file);
+  for (;;) {
+    let kind;
+    try { kind = lstatKind(current); }
+    catch (error) { if (error.code === 'ENOTDIR') return null; throw error; }
+    if (kind === 'symlink') return null;
+    const parent = path.dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return pathKey(file);
+}
+function registrationAtPath(records, workspace) {
+  const expected = symlinkFreePathKey(workspace);
+  if (!expected) return null;
+  return records.find((item) => item.worktree && symlinkFreePathKey(item.worktree) === expected) || null;
+}
 function registration(cwd, workspace) {
-  const canonical = canon(workspace);
-  return parseWorktrees(cwd).find((item) => item.worktree && canon(item.worktree) === canonical) || null;
+  // Symlink-free exact-path lookup only. `pathKey` canonicalizes the existing ancestors of both
+  // sides, so a registration Git recorded under another spelling still matches, and
+  // `symlinkFreePathKey` refuses a path whose ancestor is a symlink. A registration reachable
+  // only by following a symlink is deliberately not matched: the no-follow rule that governs
+  // runtime roots governs registration identity too, and the caller then fails closed.
+  const record = registrationAtPath(parseWorktrees(cwd), workspace);
+  if (!record || lstatKind(record.worktree) !== 'directory') return null;
+  try { return canon(record.worktree) === canon(workspace) ? record : null; } catch { return null; }
+}
+function recoveryEvidence({ repository, commonGitDir, workspace, expectedHead, record, root, runRootSource }) {
+  const pathKind = lstatKind(workspace);
+  const normalized = record ? {
+    worktree: path.resolve(record.worktree),
+    head: record.HEAD || null,
+    detached: record.detached === true && !record.branch,
+    branch: record.branch || null,
+    prunable: Object.hasOwn(record, 'prunable') ? { present: true, reason: typeof record.prunable === 'string' ? record.prunable : '' } : { present: false, reason: null },
+    locked: Object.hasOwn(record, 'locked') ? { present: true, reason: typeof record.locked === 'string' ? record.locked : '' } : { present: false, reason: null },
+  } : null;
+  const registrationKey = normalized && symlinkFreePathKey(normalized.worktree);
+  const workspaceKey = symlinkFreePathKey(workspace);
+  const exact = Boolean(registrationKey && workspaceKey && registrationKey === workspaceKey);
+  const eligible = Boolean(exact && pathKind === 'absent' && normalized.detached && normalized.head === expectedHead && !normalized.locked.present);
+  return {
+    classification: pathKind !== 'absent' ? 'path_occupied' : !exact ? 'missing_path_without_registration' : eligible ? 'exact_missing_detached_registration' : 'registration_identity_mismatch',
+    repository: canon(repository),
+    commonGitDir: canon(commonGitDir),
+    workspacePath: path.resolve(workspace),
+    expectedHead,
+    pathKind,
+    followed: false,
+    registration: normalized,
+    receiptPresent: lstatKind(receiptPath(root)) === 'file',
+    validRunOwnedReceipt: false,
+    runRootSource,
+    exactRemovalCandidate: eligible,
+  };
 }
 function detached(cwd) { return git(cwd, ['symbolic-ref', '-q', 'HEAD'], 'workspace_verify', { acceptExitCodes: [1] }) === ''; }
 function remoteIdentity(workspace) {
@@ -164,11 +235,14 @@ function adminInventory(commonGitDir) {
   if (!fs.existsSync(worktrees)) return [];
   return fs.readdirSync(worktrees).sort((a, b) => Buffer.from(a).compare(Buffer.from(b))).map((name) => ({ name, kind: lstatKind(path.join(worktrees, name)) }));
 }
-function cloneFallback({ repository, workspace, head, tree, root, beforeRegistration, beforeAdmin, expectedFetch, expectedPush, commonGitDir }) {
-  const noSideEffect = !fs.existsSync(workspace)
-    && JSON.stringify(beforeRegistration) === JSON.stringify(parseWorktrees(repository))
+function cloneFallback({ repository, workspace, head, tree, root, beforeRegistration, beforeAdmin, expectedFetch, expectedPush, commonGitDir, runRootSource }) {
+  const currentRegistration = parseWorktrees(repository);
+  const noSideEffect = lstatKind(workspace) === 'absent'
+    && JSON.stringify(beforeRegistration) === JSON.stringify(currentRegistration)
     && JSON.stringify(beforeAdmin) === JSON.stringify(adminInventory(commonGitDir));
-  if (!noSideEffect) return createError('workspace', 'partial_creation', 'linked creation changed path or Git administration', 'workspace_create');
+  if (!noSideEffect) return createError('workspace', 'partial_creation', 'linked creation changed path or Git administration', 'workspace_create', {
+    recovery: recoveryEvidence({ repository, commonGitDir, workspace, expectedHead: head, record: registrationAtPath(currentRegistration, workspace), root, runRootSource }),
+  });
   const clonePath = path.join(root, 'clone');
   try {
     git(root, ['clone', '--no-checkout', '--no-local', expectedFetch, clonePath], 'workspace_clone');
@@ -188,17 +262,50 @@ function createWorkspace({ cwd, head, tree, runRoot, allowCloneFallback = true }
     const commonGitDir = canon(path.isAbsolute(commonRaw) ? commonRaw : path.resolve(repository, commonRaw));
     const root = allocateRoot(runRoot, repository);
     const workspace = path.join(root, 'workspace');
+    const runRootSource = runRoot === undefined ? 'generated' : 'explicit';
     const beforeRegistration = parseWorktrees(repository); const beforeAdmin = adminInventory(commonGitDir);
+    const existing = registrationAtPath(beforeRegistration, workspace);
+    if (existing) return createError('workspace', 'workspace_registration_collision', 'requested workspace path already has a Git worktree registration', 'workspace_create', {
+      recovery: recoveryEvidence({ repository, commonGitDir, workspace, expectedHead: head, record: existing, root, runRootSource }),
+    });
+    if (lstatKind(workspace) !== 'absent') return createError('workspace', 'workspace_path_occupied', 'requested workspace path is not absent', 'workspace_create', {
+      recovery: recoveryEvidence({ repository, commonGitDir, workspace, expectedHead: head, record: null, root, runRootSource }),
+    });
     try { git(repository, ['worktree', 'add', '--detach', workspace, head], 'workspace_create'); }
     catch (error) {
-      if (!allowCloneFallback) return createError('workspace', 'linked_unavailable', error.message, 'workspace_create');
-      return cloneFallback({ repository, workspace, head, tree, root, beforeRegistration, beforeAdmin, commonGitDir, expectedFetch: expectedRemotes.originFetch, expectedPush: expectedRemotes.originPush });
+      const afterRegistration = parseWorktrees(repository); const afterAdmin = adminInventory(commonGitDir);
+      const record = registrationAtPath(afterRegistration, workspace);
+      const noSideEffect = lstatKind(workspace) === 'absent'
+        && JSON.stringify(beforeRegistration) === JSON.stringify(afterRegistration)
+        && JSON.stringify(beforeAdmin) === JSON.stringify(afterAdmin);
+      if (!noSideEffect) return createError('workspace', 'partial_creation', 'linked creation changed path or Git administration', 'workspace_create', {
+        recovery: recoveryEvidence({ repository, commonGitDir, workspace, expectedHead: head, record, root, runRootSource }),
+      });
+      if (!allowCloneFallback) return createError('workspace', 'linked_unavailable', error.message, 'workspace_create', {
+        recovery: recoveryEvidence({ repository, commonGitDir, workspace, expectedHead: head, record: null, root, runRootSource }),
+      });
+      return cloneFallback({ repository, workspace, head, tree, root, beforeRegistration, beforeAdmin, commonGitDir, runRootSource, expectedFetch: expectedRemotes.originFetch, expectedPush: expectedRemotes.originPush });
     }
-    const actual = inspectWorkspace(workspace, repository, { kind: 'linked', head, tree, detached: true, ...expectedRemotes });
-    if (!actual.matches || !actual.registered || actual.registered.branch || actual.registered.HEAD !== head) return createError('workspace', 'identity_mismatch', 'linked workspace identity/registration mismatch', 'workspace_verify');
+    let actual;
+    try { actual = inspectWorkspace(workspace, repository, { kind: 'linked', head, tree, detached: true, ...expectedRemotes }); }
+    catch (error) {
+      const records = parseWorktrees(repository);
+      return createError('workspace', 'partial_creation', 'linked workspace could not be verified after Git reported success', 'workspace_verify', {
+        recovery: recoveryEvidence({ repository, commonGitDir, workspace, expectedHead: head, record: registrationAtPath(records, workspace), root, runRootSource }),
+      });
+    }
+    if (!actual.matches || !actual.registered || actual.registered.branch || actual.registered.HEAD !== head) return createError('workspace', 'identity_mismatch', 'linked workspace identity/registration mismatch', 'workspace_verify', {
+      recovery: recoveryEvidence({ repository, commonGitDir, workspace, expectedHead: head, record: actual.registered, root, runRootSource }),
+    });
     const id = nonce();
     const stored = { version: 1, id, repositoryCwd: repository, creationIdentity: { ...actual, repositoryCwd: repository } };
-    const storedPath = writeReceipt(root, stored);
+    let storedPath;
+    try { storedPath = writeReceipt(root, stored); }
+    catch (error) {
+      return createError('workspace', 'partial_creation', 'linked workspace receipt could not be created', 'workspace_create', {
+        recovery: recoveryEvidence({ repository, commonGitDir, workspace, expectedHead: head, record: actual.registered, root, runRootSource }),
+      });
+    }
     const receipt = { version: 1, id, root, storedPath, repositoryCwd: repository, creationIdentity: stored.creationIdentity };
     return createResult('workspace', { ...actual, root, kind: 'linked', receipt, cleanupAllowed: true });
   } catch (error) { return createError('workspace', error.code || 'workspace_failed', error.message, error.phase || 'workspace_create'); }
