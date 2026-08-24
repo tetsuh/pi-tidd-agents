@@ -80,8 +80,9 @@ const README = readText('README.md');
 // TDD provenance: before implementation, the focused command below produced 1 pass/4 failures.
 // The authority-presence scenario is pre-implementation compile/contract RED. The unrelated-missing,
 // exact-collision, and wrong-HEAD/attached-branch scenarios are pre-implementation behavioral RED.
-// Missing-registration/default-root and workspace-leaf symlink scenarios are co-developed integration coverage.
-// Receipt-failure, locked-registration, file-ancestor, symlink-ancestor, and Windows routing are review-driven regressions. The local
+// The original missing-registration/default-root success and workspace-leaf symlink scenarios are co-developed integration coverage.
+// Missing-registration failure classification, receipt-failure, locked-registration, file-ancestor, symlink-ancestor, and Windows
+// routing are review-driven regressions. The local
 // RED output is not claimed as repository-preserved or runtime-compliance evidence.
 
 test('Issue #69 authority forbids broad prune advice and scopes exact external recovery', () => {
@@ -324,8 +325,32 @@ test('Issue #69 missing path without registration is not classified as stale and
   const repo = makeRepository();
   const explicitParent = temp('i69-no-registration-');
   const explicitRoot = path.join(explicitParent, 'new-root');
+  const failedRoot = path.join(explicitParent, 'failed-root');
+  const failedWorkspace = path.join(failedRoot, 'workspace');
+  const missingHead = 'f'.repeat(40);
   const created = [];
   try {
+    const before = helpers.parseWorktrees(repo.root);
+    const failed = helpers.createWorkspace({ cwd: repo.root, head: missingHead, tree: repo.tree, runRoot: failedRoot, allowCloneFallback: false });
+    assert.equal(failed.ok, false);
+    assert.equal(failed.error.code, 'linked_unavailable');
+    assert.equal(failed.error.phase, 'workspace_create');
+    const evidence = failed.error.details.recovery;
+    assert.equal(evidence.classification, 'missing_path_without_registration');
+    assert.equal(samePathIdentity(evidence.repository, repo.root), true);
+    assert.equal(samePathIdentity(evidence.commonGitDir, path.join(repo.root, '.git')), true);
+    assert.equal(pathKey(evidence.workspacePath), pathKey(failedWorkspace));
+    assert.equal(evidence.expectedHead, missingHead);
+    assert.equal(evidence.pathKind, 'absent');
+    assert.equal(evidence.followed, false);
+    assert.equal(evidence.registration, null);
+    assert.equal(evidence.receiptPresent, false);
+    assert.equal(evidence.validRunOwnedReceipt, false);
+    assert.equal(evidence.runRootSource, 'explicit');
+    assert.equal(evidence.exactRemovalCandidate, false);
+    assert.equal(fs.existsSync(failedWorkspace), false);
+    assert.deepEqual(helpers.parseWorktrees(repo.root), before, 'failed creation must not change registrations');
+
     const explicit = helpers.createWorkspace({ cwd: repo.root, head: repo.head, tree: repo.tree, runRoot: explicitRoot, allowCloneFallback: false });
     assert.equal(explicit.ok, true, JSON.stringify(explicit));
     created.push(explicit);
