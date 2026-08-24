@@ -32,7 +32,7 @@ const PR_MODE_REFERENCES = {
 };
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
-const PR_HELPER_FILES = ['cli.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
+const PR_HELPER_FILES = ['accounting.js', 'cli.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
 const PR_SKILL_PRE_SPLIT_BYTES = 57160;
 const SHARED_REFERENCES = {
   'gate-contract': 'skills/closed-loop-shared/references/gate-contract.md',
@@ -272,10 +272,13 @@ test('Issue #24 six authority files remain below the published baseline', () => 
   // recovery mapping that Issue #34's own acceptance criteria require. Issue #58 already
   // harvested cross-file duplication; after the mapping's own restatements were removed the
   // six files measured 112,720 bytes at f7f3ff9, when the raise was decided, so the shortfall
-  // is funded by the raise. The assertion below is the live measurement; the figure here is
-  // revision-qualified and is not maintained as a running total.
+  // is funded by the raise. CL-D41 raised it to 118,000 for the per-PR aggregate accounting
+  // Issue #50 requires: the six files measured 114,563 bytes at c2ad0db and the section, its
+  // helper-map row, and its one precedence clause together added 1,728 bytes, overrunning the
+  // prior ceiling by 291. The assertion below is the live measurement; the figures here are
+  // revision-qualified and are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 116000, `six authority files total ${total} bytes, expected less than 116000`);
+  assert.ok(total < 118000, `six authority files total ${total} bytes, expected less than 118000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.
@@ -573,7 +576,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 30, `packed file count changed: ${files.join(', ')}`);
+    assert.equal(files.length, 31, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);

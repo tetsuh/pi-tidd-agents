@@ -7,6 +7,7 @@ module.exports = {
   ...require('./writability'),
   ...require('./paths'),
   ...require('./gate-result'),
+  ...require('./accounting'),
   ...require('./protocol'),
   protocol: require('./protocol'),
 };
