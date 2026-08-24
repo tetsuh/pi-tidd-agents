@@ -67,17 +67,14 @@ function registrationAtPath(records, workspace) {
   return records.find((item) => item.worktree && symlinkFreePathKey(item.worktree) === expected) || null;
 }
 function registration(cwd, workspace) {
-  const canonical = canon(workspace);
-  const records = parseWorktrees(cwd);
-  const lexical = registrationAtPath(records, workspace);
-  if (lexical && lstatKind(lexical.worktree) === 'directory') {
-    try { if (canon(lexical.worktree) === canonical) return lexical; } catch {}
-  }
-  for (const item of records) {
-    if (!item.worktree || item === lexical || lstatKind(item.worktree) !== 'directory') continue;
-    try { if (canon(item.worktree) === canonical) return item; } catch {}
-  }
-  return null;
+  // Symlink-free exact-path lookup only. `pathKey` canonicalizes the existing ancestors of both
+  // sides, so a registration Git recorded under another spelling still matches, and
+  // `symlinkFreePathKey` refuses a path whose ancestor is a symlink. A registration reachable
+  // only by following a symlink is deliberately not matched: the no-follow rule that governs
+  // runtime roots governs registration identity too, and the caller then fails closed.
+  const record = registrationAtPath(parseWorktrees(cwd), workspace);
+  if (!record || lstatKind(record.worktree) !== 'directory') return null;
+  try { return canon(record.worktree) === canon(workspace) ? record : null; } catch { return null; }
 }
 function recoveryEvidence({ repository, commonGitDir, workspace, expectedHead, record, root, runRootSource }) {
   const pathKind = lstatKind(workspace);
