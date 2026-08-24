@@ -205,7 +205,11 @@ test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   assert.match(section, /Removing the mode-ownership statement from the shared gate contract invalidates the no-fork basis recorded here/);
   // The corrected evidence stays recorded: the narrowing is partial, not closing.
   assert.match(section, /rejects unknown fields without preventing selection of the wrong known field/);
-  assert.match(section, /all accept an `oid` so a same-typed cross-domain mix-up remains reachable/);
+  // CL-D42 narrowed this cited hole rather than removing it; the record must say which part
+  // survives, so the citation stays checkable instead of drifting into a stale absolute.
+  assert.match(section, /all accept an `oid`, so a same-typed cross-domain mix-up was reachable when this was decided/);
+  assert.match(section, /CL-D42 later labelled every fingerprint domain inside one versioned envelope/);
+  assert.match(section, /leaves only a value retyped by hand into a well-formed record/);
   // The retired invariant and the funded baseline are both recorded.
   assert.match(section, /`CLEAN@H` is not used because Issue #42 retired it/);
   assert.equal((section.match(/CLEAN@H/g) || []).length, 1, 'CLEAN@H may appear only in the sentence retiring it');

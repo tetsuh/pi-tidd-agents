@@ -47,6 +47,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | `OPERATOR_CHECKOUT_UNCHANGED@O` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and every terminal recheck | `operator_revalidate` | `captured`, `cwd` |
 | Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt`, `cwd` |
 | Every Sol or Terra result, before it is read as a verdict (CL-D36) | `gate_result_validate` | `result`, `expected` |
+| Before each gate invocation, on the assembled evidence (CL-D42) | `evidence_verify` | `envelope`, `expected` |
 
 `workspace_verify` requires clean tracked and index state, so it does not serve `BEFORE_VALIDATION`, `AFTER_VALIDATION`, `BEFORE_STAGING`, `AFTER_STAGING`, or `BEFORE_COMMIT`: those guards keep their phase-specific frozen-overlay and staged-manifest delta checks, which this map does not reassign. Its transition form supplies only clean workspace identity, current `HEAD`, and a verified sole-parent transition; current public-head equality, staged manifest/tree/blob identity, and linked remote-tracking equality remain phase-specific checks this map does not reassign. After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality. A helper envelope is supplied evidence in the gate payload: it never substitutes for a gate verdict and grants no commit, push, reply, or provider authority.
 
@@ -65,6 +66,10 @@ Each failure has one canonical `operation@phase` key. The operation part is the 
 | over-specific staged-manifest assertion | `manifest_compare@AFTER_STAGING` | none | terminal | post-writer; all evidence stands |
 
 Every key not listed is terminal: identity, writability, workspace, API, and child startup at `preflight` and `gate_launch`; malformed verdict, correlation mismatch, and stale target at `gate_result`; evidence movement at `normalize`; and every failure from the first Luna task onward. Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts.
+
+### Versioned evidence envelope (CL-D42)
+
+Gate evidence travels in one envelope carrying `schemaVersion`, capture identity, the seven fingerprints, both capture brackets, and completeness; an unknown or absent version fails closed before any field is read, and every section is closed. Under version 1 every fingerprint travels as `{ domain, encoding, value }`, and a record whose `domain` differs from the field holding it is rejected: same-shaped values are otherwise indistinguishable, so the label separates them. `raw_bytes`, `normalized_text`, and `canonical_json` are distinct byte domains, each field fixed to one of them and to one value shape. `evidence_verify` is read-only and repeatable, mutates nothing, and also rejects a moved capture bracket, incomplete pagination or completeness metadata, a capture identity differing from the expected target, and a head or base fingerprint disagreeing with the claimed identity. It grants no verdict or mutation authority; its failure is terminal except where CL-D39 names that key recoverable. The bound is narrow: it defeats a record copied from the wrong operation, while a value retyped by hand into a well-formed record is not detectable here, so the operation declaring a domain stays its only source.
 
 ### Worktree precondition (CL-D10)
 
