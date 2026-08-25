@@ -2365,79 +2365,109 @@
         "default roots are unique"
       ]
     },
-    {
-      "id": "CL-D42-autofix",
-      "marker": "CL-D42",
-      "title": "Exact autofix verifies one versioned labelled evidence envelope",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "section": "### Versioned evidence envelope (CL-D42)",
-      "requires": [
-        "`schemaVersion`",
-        "an unknown or absent version fails closed before any field is read",
-        "each `fingerprint_*` operation emits its own labelled record and envelope assembly carries it unchanged",
-        "every fingerprint travels as `{ domain, encoding, value }`",
-        "a record whose `domain` differs from the field holding it is rejected",
-        "`raw_bytes`, `normalized_text`, and `canonical_json` are distinct byte domains",
-        "moved capture bracket",
-        "incomplete pagination",
-        "a value retyped by hand into a well-formed record is not detectable here",
-        "`evidence_verify` is read-only and repeatable",
-        "every identity field or fingerprint value differing from the expected target"
-      ]
-    },
-    {
-      "id": "CL-D42-helper",
-      "marker": "CL-D42",
-      "title": "The packaged helper map carries the preflight verifier",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
-      "requires": [
-        "| `evidence_verify` | `envelope`, `expected` |"
-      ]
-    },
-    {
-      "id": "CL-D42-readme",
-      "marker": "CL-D42",
-      "title": "README documents the envelope and its preflight verifier",
-      "files": [
-        "README.md"
-      ],
-      "section": "### Autofix",
-      "requires": [
-        "one versioned evidence envelope and a read-only preflight verifier",
-        "each fingerprint carries its own domain label",
-        "an unknown or absent schema version fails closed before any field is read",
-        "rejected before a gate is invoked"
-      ]
-    },
-    {
-      "id": "CL-D42-tests",
-      "marker": "CL-D42",
-      "title": "Black-box envelope tests pin the version, the labels, and the rejections",
-      "files": [
-        "test/issue-36-evidence-envelope.test.js"
-      ],
-      "requires": [
-        "an unknown or absent schema version fails closed",
-        "a record whose domain differs from its field is rejected",
-        "every fingerprint operation owns the labelled record used by envelope assembly",
-        "each domain declares one byte domain and one value shape",
-        "a moved capture bracket is rejected",
-        "incomplete pagination or completeness metadata is rejected",
-        "the envelope is compared against the expected target identity",
-        "every fingerprint is compared against its expected value",
-        "lifecycle and branch identity are validated and compared",
-        "both brackets must agree with the captured identity",
-        "both brackets witness repository and pull-request number",
-        "the envelope is closed and the verifier is read-only and repeatable",
-        "the packaged CLI routes evidence_verify under JSON v1",
-        "compile/contract RED, not behavioral RED",
-        "review-driven regressions added after Sol raised"
-      ]
-    }
+      {
+        "id": "CL-D42-autofix",
+        "marker": "CL-D42",
+        "title": "Exact autofix verifies one versioned labelled evidence envelope",
+        "files": [
+          "skills/closed-loop-pr/references/autofix.md"
+        ],
+        "section": "### Versioned evidence envelope (CL-D42)",
+        "requires": [
+          "`schemaVersion`",
+          "an unknown or absent version fails closed before any field is read",
+          "each `fingerprint_*` operation emits its own labelled record and envelope assembly carries it unchanged",
+          "every fingerprint travels as `{ domain, encoding, value }`",
+          "a record whose `domain` differs from the field holding it is rejected",
+          "`raw_bytes`, `normalized_text`, and `canonical_json` are distinct byte domains",
+          "moved capture bracket",
+          "incomplete pagination",
+          "a value retyped by hand into a well-formed record is not detectable here",
+          "`evidence_verify` is read-only and repeatable",
+          "every identity field or fingerprint value differing from the expected target"
+        ]
+      },
+      {
+        "id": "CL-D42-helper",
+        "marker": "CL-D42",
+        "title": "The packaged helper map carries the preflight verifier",
+        "files": [
+          "skills/closed-loop-pr/references/autofix.md"
+        ],
+        "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
+        "requires": [
+          "| `evidence_verify` | `envelope`, `expected` |"
+        ]
+      },
+      {
+        "id": "CL-D42-readme",
+        "marker": "CL-D42",
+        "title": "README documents the envelope and its preflight verifier",
+        "files": [
+          "README.md"
+        ],
+        "section": "### Autofix",
+        "requires": [
+          "one versioned evidence envelope and a read-only preflight verifier",
+          "each fingerprint carries its own domain label",
+          "an unknown or absent schema version fails closed before any field is read",
+          "rejected before a gate is invoked"
+        ]
+      },
+      {
+        "id": "CL-D42-tests",
+        "marker": "CL-D42",
+        "title": "Black-box envelope tests pin the version, the labels, and the rejections",
+        "files": [
+          "test/issue-36-evidence-envelope.test.js"
+        ],
+        "requires": [
+          "an unknown or absent schema version fails closed",
+          "a record whose domain differs from its field is rejected",
+          "every fingerprint operation owns the labelled record used by envelope assembly",
+          "each domain declares one byte domain and one value shape",
+          "a moved capture bracket is rejected",
+          "incomplete pagination or completeness metadata is rejected",
+          "the envelope is compared against the expected target identity",
+          "every fingerprint is compared against its expected value",
+          "lifecycle and branch identity are validated and compared",
+          "both brackets must agree with the captured identity",
+          "both brackets witness repository and pull-request number",
+          "the envelope is closed and the verifier is read-only and repeatable",
+          "the packaged CLI routes evidence_verify under JSON v1",
+          "compile/contract RED, not behavioral RED",
+          "review-driven regressions added after Sol raised"
+        ]
+      },
+      {
+        "id": "CL-D43-guards",
+        "marker": "CL-D43",
+        "title": "The raised authority guards and the unraised disclosure guard",
+        "files": [
+          "test/package.test.js"
+        ],
+        "requires": [
+          "assert.ok(total < 128000,",
+          "const PR_SKILL_PRE_SPLIT_BYTES = 57160;",
+          "not a budget",
+          "revision-qualified"
+        ]
+      },
+      {
+        "id": "CL-D43-tests",
+        "marker": "CL-D43",
+        "title": "Black-box budget tests pin the guards, the headroom, and the record",
+        "files": [
+          "test/issue-73-authority-budget.test.js"
+        ],
+        "requires": [
+          "the raised guards are the ones the suite actually asserts",
+          "the live measurements sit inside the raised guards",
+          "CL-D43 records what the guards protect and when raising is wrong",
+          "the superseded six-file ceiling must not survive",
+          "the raise must leave real headroom",
+          "compile/contract RED"
+        ]
+      }
   ]
 }
