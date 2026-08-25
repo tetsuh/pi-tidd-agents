@@ -152,6 +152,37 @@ test('Issue #36 a record whose domain differs from its field is rejected', () =>
   assert.equal(verify(extra).error.code, 'envelope_invalid');
 });
 
+// Review-driven regression (SOL-72-PROVENANCE): the verifier cannot preserve a source label
+// that the fingerprint operation never emitted. Every operation must own its labelled record;
+// envelope assembly carries that record instead of recreating its domain from a bare value.
+test('Issue #36 every fingerprint operation owns the labelled record used by envelope assembly', () => {
+  const cases = [
+    ['fingerprint_issue_spec', { body: 'spec', comments: [] }, 'issue_spec', 'normalized_text'],
+    ['fingerprint_pr_base', { oid: BASE }, 'pr_base', 'git_oid'],
+    ['fingerprint_pr_tree', { oid: TREE }, 'pr_tree', 'git_oid'],
+    ['fingerprint_pr_diff', { base64: Buffer.from('diff').toString('base64') }, 'pr_diff', 'raw_bytes'],
+    ['fingerprint_pr_commits', { commits: [{ message: 'subject\n\nbody' }] }, 'pr_commits', 'normalized_text'],
+    ['fingerprint_pr_head', { oid: HEAD }, 'pr_head', 'git_oid'],
+    ['fingerprint_snapshot', { snapshot: { head: HEAD } }, 'snapshot', 'canonical_json'],
+  ];
+  const outputs = {};
+  for (const [operation, data, domain, encoding] of cases) {
+    const result = cli({ version: 1, operation, data });
+    assert.equal(result.ok, true, `${operation}: ${JSON.stringify(result)}`);
+    assert.deepEqual(result.data.record, { domain, encoding, value: result.data.fingerprint });
+    outputs[domain] = result.data.record;
+  }
+
+  // Self-consistency on the parent's expectation cannot rescue a record emitted by the wrong
+  // operation: the operation-owned source label is retained and the destination rejects it.
+  const misplaced = envelope();
+  misplaced.fingerprints.pr_diff = outputs.pr_commits;
+  const selfConsistent = expected({ fingerprints: expectedFingerprints({ pr_diff: outputs.pr_commits.value }) });
+  const result = verify(misplaced, selfConsistent);
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, 'domain_mismatch');
+});
+
 test('Issue #36 each domain declares one byte domain and one value shape', () => {
   assert.equal(verify(withFingerprint('pr_diff', { encoding: 'normalized_text' })).error.code, 'encoding_mismatch');
   assert.equal(verify(withFingerprint('pr_commits', { encoding: 'raw_bytes' })).error.code, 'encoding_mismatch');

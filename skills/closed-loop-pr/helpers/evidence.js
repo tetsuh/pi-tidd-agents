@@ -50,6 +50,13 @@ function checkCapture(capture) {
   checkIdentityFields(capture, 'capture');
 }
 
+function createEvidenceFingerprintRecord(domain, value) {
+  const encoding = DOMAINS[domain];
+  if (!encoding) fail('envelope_invalid', `unknown fingerprint domain: ${String(domain)}`);
+  if (!text(value) || !SHAPES[encoding].test(value)) fail('envelope_invalid', `${domain} value does not match its byte domain`);
+  return { domain, encoding, value };
+}
+
 function checkFingerprints(fingerprints) {
   if (!keysAre(fingerprints, Object.keys(DOMAINS).sort())) fail('envelope_invalid', 'fingerprints must carry exactly the seven labelled domains');
   for (const [field, encoding] of Object.entries(DOMAINS)) {
@@ -130,4 +137,4 @@ function verifyEvidence(data) {
   }
 }
 
-module.exports = { verifyEvidence, EVIDENCE_SCHEMA_VERSION: VERSION, EVIDENCE_DOMAINS: DOMAINS };
+module.exports = { verifyEvidence, createEvidenceFingerprintRecord, EVIDENCE_SCHEMA_VERSION: VERSION, EVIDENCE_DOMAINS: DOMAINS };

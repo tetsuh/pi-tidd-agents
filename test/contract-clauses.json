@@ -2376,6 +2376,7 @@
       "requires": [
         "`schemaVersion`",
         "an unknown or absent version fails closed before any field is read",
+        "each `fingerprint_*` operation emits its own labelled record and envelope assembly carries it unchanged",
         "every fingerprint travels as `{ domain, encoding, value }`",
         "a record whose `domain` differs from the field holding it is rejected",
         "`raw_bytes`, `normalized_text`, and `canonical_json` are distinct byte domains",
@@ -2423,6 +2424,7 @@
       "requires": [
         "an unknown or absent schema version fails closed",
         "a record whose domain differs from its field is rejected",
+        "every fingerprint operation owns the labelled record used by envelope assembly",
         "each domain declares one byte domain and one value shape",
         "a moved capture bracket is rejected",
         "incomplete pagination or completeness metadata is rejected",

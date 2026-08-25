@@ -41,6 +41,9 @@ function validateRequest(value) {
   return value;
 }
 function wrap(operation, result) { return isResult(result) ? { ...result, operation } : createResult(operation, result); }
+function fingerprintResult(operation, domain, fingerprint) {
+  return createResult(operation, { fingerprint, record: helpers.createEvidenceFingerprintRecord(domain, fingerprint) });
+}
 async function dispatch(request) {
   const { operation, data } = request;
   switch (operation) {
@@ -48,18 +51,18 @@ async function dispatch(request) {
     case 'operator_revalidate': return wrap(operation, helpers.revalidateOperatorCheckout(data.captured, { cwd: data.cwd, postPushHead: data.postPushHead }));
     case 'writability': return wrap(operation, await helpers.collectWritability(data));
     case 'snapshot': return wrap(operation, await helpers.collectSnapshot(data));
-    case 'fingerprint_issue_spec': return createResult(operation, { fingerprint: fingerprints.issueSpecFingerprint(data) });
-    case 'fingerprint_pr_base': return createResult(operation, { fingerprint: fingerprints.prBaseFingerprint(data.oid) });
-    case 'fingerprint_pr_tree': return createResult(operation, { fingerprint: fingerprints.prTreeFingerprint(data.oid) });
+    case 'fingerprint_issue_spec': return fingerprintResult(operation, 'issue_spec', fingerprints.issueSpecFingerprint(data));
+    case 'fingerprint_pr_base': return fingerprintResult(operation, 'pr_base', fingerprints.prBaseFingerprint(data.oid));
+    case 'fingerprint_pr_tree': return fingerprintResult(operation, 'pr_tree', fingerprints.prTreeFingerprint(data.oid));
     case 'fingerprint_pr_diff': {
       if (typeof data.base64 !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data.base64)) invalid('diff must be canonical Base64');
       const bytes = Buffer.from(data.base64, 'base64');
       if (bytes.toString('base64') !== data.base64) invalid('diff must be canonical Base64');
-      return createResult(operation, { fingerprint: fingerprints.prDiffFingerprint(bytes) });
+      return fingerprintResult(operation, 'pr_diff', fingerprints.prDiffFingerprint(bytes));
     }
-    case 'fingerprint_pr_commits': return createResult(operation, { fingerprint: fingerprints.prCommitsFingerprint(data.commits) });
-    case 'fingerprint_pr_head': return createResult(operation, { fingerprint: fingerprints.prHeadFingerprint(data.oid) });
-    case 'fingerprint_snapshot': return createResult(operation, { fingerprint: fingerprints.snapshotFingerprint(data.snapshot) });
+    case 'fingerprint_pr_commits': return fingerprintResult(operation, 'pr_commits', fingerprints.prCommitsFingerprint(data.commits));
+    case 'fingerprint_pr_head': return fingerprintResult(operation, 'pr_head', fingerprints.prHeadFingerprint(data.oid));
+    case 'fingerprint_snapshot': return fingerprintResult(operation, 'snapshot', fingerprints.snapshotFingerprint(data.snapshot));
     case 'workspace_create': return wrap(operation, helpers.createWorkspace(data));
     case 'workspace_verify': return wrap(operation, helpers.verifyWorkspace(data.cwd, data.expected, data.transition));
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
