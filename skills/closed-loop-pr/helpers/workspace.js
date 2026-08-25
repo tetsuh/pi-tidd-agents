@@ -310,9 +310,10 @@ function createWorkspace({ cwd, head, tree, runRoot, allowCloneFallback = true }
     return createResult('workspace', { ...actual, root, kind: 'linked', receipt, cleanupAllowed: true });
   } catch (error) { return createError('workspace', error.code || 'workspace_failed', error.message, error.phase || 'workspace_create'); }
 }
-async function cleanupWorkspace(input, cwd) {
+async function cleanupWorkspace(receipt, cwd) {
   try {
-    const receipt = input?.data?.receipt || input?.receipt || input;
+    // CL-D44: exactly the run-owned receipt. The former fallback also accepted the complete
+    // envelope and the creation data, which is the ambiguity the declared shapes remove.
     if (!receipt?.root || !receipt?.storedPath || path.resolve(receipt.storedPath) !== receiptPath(path.resolve(receipt.root))) return createError('workspace_cleanup', 'cleanup_not_authorized', 'run-owned cleanup receipt path required', 'workspace_cleanup');
     assertSymlinkFreePath(receipt.root);
     const stored = readReceipt(receipt.root);
