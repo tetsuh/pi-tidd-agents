@@ -598,6 +598,10 @@ test('Issue #47 snapshot collector brackets identity and paginates REST and Grap
   assert.equal(result.data.threads.length, 2);
   assert.equal(result.data.comments.length, 100);
   assert.equal(result.data.completeness.brackets, true);
+  assert.equal(result.data.before.repository, 'owner/repo');
+  assert.equal(result.data.before.number, 47);
+  assert.equal(result.data.after.repository, 'owner/repo');
+  assert.equal(result.data.after.number, 47);
   assert.ok(transport.calls.some((args) => args.some((value) => value === 'after=C1')));
   assert.ok(transport.calls.some((args) => args.some((value) => value === 'page=2')));
 });

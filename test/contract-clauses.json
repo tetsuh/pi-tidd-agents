@@ -2432,6 +2432,7 @@
         "every fingerprint is compared against its expected value",
         "lifecycle and branch identity are validated and compared",
         "both brackets must agree with the captured identity",
+        "both brackets witness repository and pull-request number",
         "the envelope is closed and the verifier is read-only and repeatable",
         "the packaged CLI routes evidence_verify under JSON v1",
         "compile/contract RED, not behavioral RED",

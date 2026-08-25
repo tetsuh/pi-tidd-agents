@@ -24,9 +24,9 @@ const CAPTURE_KEYS = ['baseBranch', 'baseOid', 'draft', 'headBranch', 'headOid',
 const EXPECTED_KEYS = CAPTURE_KEYS.concat(['fingerprints']).sort();
 const STATES = ['closed', 'open'];
 // bracket field -> the capture field it must witness
-const WITNESS = Object.freeze({ base: 'baseOid', head: 'headOid', baseBranch: 'baseBranch', headRepository: 'headRepository', headBranch: 'headBranch', state: 'state', draft: 'draft' });
+const WITNESS = Object.freeze({ repository: 'repository', number: 'number', base: 'baseOid', head: 'headOid', baseBranch: 'baseBranch', headRepository: 'headRepository', headBranch: 'headBranch', state: 'state', draft: 'draft' });
 const RECORD_KEYS = ['domain', 'encoding', 'value'];
-const IDENTITY_KEYS = ['base', 'baseBranch', 'draft', 'head', 'headBranch', 'headRepository', 'state'];
+const IDENTITY_KEYS = ['base', 'baseBranch', 'draft', 'head', 'headBranch', 'headRepository', 'number', 'repository', 'state'];
 const COMPLETENESS_KEYS = ['brackets', 'checks', 'nestedThreadComments', 'organizationRulesets', 'rest', 'reviewThreads', 'rulesetDetails'];
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -70,6 +70,8 @@ function checkFingerprints(fingerprints) {
 
 function checkIdentityShape(value, label) {
   if (!keysAre(value, IDENTITY_KEYS)) fail('envelope_invalid', `${label} bracket must carry exactly the captured identity fields`);
+  if (!text(value.repository) || !REPOSITORY.test(value.repository)) fail('envelope_invalid', `${label} bracket repository must be owner/name`);
+  if (!Number.isInteger(value.number) || value.number <= 0) fail('envelope_invalid', `${label} bracket number must be a positive integer`);
   for (const field of ['base', 'baseBranch', 'head', 'headRepository', 'headBranch']) if (!text(value[field])) fail('envelope_invalid', `${label} bracket ${field} is required`);
   if (!STATES.includes(value.state)) fail('envelope_invalid', `${label} bracket state must be one of ${STATES.join(' or ')}`);
   if (typeof value.draft !== 'boolean') fail('envelope_invalid', `${label} bracket draft must be a boolean`);

@@ -7,8 +7,9 @@
 // scenario failed on the missing section, and the other nine failed because `verifyEvidence`
 // did not exist, so no behavioral RED is claimed for this file. That local output is not
 // claimed as repository-preserved or runtime-compliance evidence.
-// The expected-fingerprint, lifecycle-identity, and bracket-binding scenarios are
-// review-driven regressions added after Sol raised SOL-72-FINGERPRINTS and SOL-72-IDENTITY.
+// The expected-fingerprint, lifecycle-identity, bracket-binding, and target-bracket scenarios
+// are review-driven regressions added after Sol raised SOL-72-FINGERPRINTS,
+// SOL-72-IDENTITY, and SOL-72-BRACKET-TARGET.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -31,7 +32,7 @@ const COMMITS = '3'.repeat(64);
 const SNAP = '4'.repeat(64);
 
 function brackets() {
-  return { base: BASE, baseBranch: 'main', head: HEAD, state: 'open', draft: false, headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'topic' };
+  return { repository: 'tetsuh/pi-tidd-agents', number: 36, base: BASE, baseBranch: 'main', head: HEAD, state: 'open', draft: false, headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'topic' };
 }
 function envelope(overrides = {}) {
   return {
@@ -210,7 +211,7 @@ test('Issue #36 a moved capture bracket is rejected', () => {
   assert.equal(result.ok, false);
   assert.equal(result.error.code, 'bracket_identity_moved');
 
-  for (const [field, value] of [['base', 'e'.repeat(40)], ['baseBranch', 'release'], ['state', 'closed'], ['draft', true], ['headRepository', 'other/fork'], ['headBranch', 'other']]) {
+  for (const [field, value] of [['repository', 'tetsuh/other'], ['number', 37], ['base', 'e'.repeat(40)], ['baseBranch', 'release'], ['state', 'closed'], ['draft', true], ['headRepository', 'other/fork'], ['headBranch', 'other']]) {
     const drifted = envelope();
     drifted.brackets.after = { ...brackets(), [field]: value };
     assert.equal(verify(drifted).error.code, 'bracket_identity_moved', `${field} movement must be rejected`);
@@ -347,6 +348,7 @@ test('Issue #36 lifecycle and branch identity are validated and compared', () =>
 // a bracket cannot witness an identity the envelope does not claim.
 test('Issue #36 both brackets must agree with the captured identity', () => {
   for (const [bracketField, captureField, value] of [
+    ['repository', 'repository', 'tetsuh/other'], ['number', 'number', 37],
     ['base', 'baseOid', 'e'.repeat(40)], ['head', 'headOid', 'e'.repeat(40)],
     ['baseBranch', 'baseBranch', 'release'], ['headRepository', 'headRepository', 'other/fork'],
     ['headBranch', 'headBranch', 'other'], ['state', 'state', 'closed'], ['draft', 'draft', true],
@@ -357,5 +359,26 @@ test('Issue #36 both brackets must agree with the captured identity', () => {
     const result = verify(env);
     assert.equal(result.ok, false, `${bracketField} must be bound to ${captureField}`);
     assert.equal(result.error.code, 'identity_mismatch', `${bracketField}: ${JSON.stringify(result.error)}`);
+  }
+});
+
+// Review-driven regression (SOL-72-BRACKET-TARGET): the operation-observed brackets must
+// identify the repository and PR, not leave those fields solely parent-supplied in capture and
+// expected. Stable wrong-target brackets must fail even when both brackets agree with each other.
+test('Issue #36 both brackets witness repository and pull-request number', () => {
+  const complete = envelope();
+  for (const bracket of ['before', 'after']) {
+    complete.brackets[bracket].repository = 'tetsuh/pi-tidd-agents';
+    complete.brackets[bracket].number = 36;
+  }
+  assert.equal(verify(complete).ok, true, 'the closed bracket schema must carry the target repository and number');
+
+  for (const [field, value] of [['repository', 'tetsuh/other'], ['number', 37]]) {
+    const wrongTarget = structuredClone(complete);
+    wrongTarget.brackets.before[field] = value;
+    wrongTarget.brackets.after[field] = value;
+    const result = verify(wrongTarget);
+    assert.equal(result.ok, false, `stable wrong ${field} must be rejected`);
+    assert.equal(result.error.code, 'identity_mismatch', `${field}: ${JSON.stringify(result.error)}`);
   }
 });

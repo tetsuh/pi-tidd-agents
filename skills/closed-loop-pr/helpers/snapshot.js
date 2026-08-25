@@ -41,9 +41,13 @@ function parseJson(bytes, label) {
 }
 function identity(value) {
   if (!object(value) || !object(value.base) || !object(value.head) || typeof value.base.sha !== 'string' || typeof value.base.ref !== 'string' || value.base.ref.length === 0 || typeof value.head.sha !== 'string') throw schemaError('invalid pull-request identity');
+  if (!Number.isInteger(value.number) || value.number <= 0) throw schemaError('invalid pull-request number');
+  if (typeof value.base.repo?.full_name !== 'string' || !/^[^/\s]+\/[^/\s]+$/.test(value.base.repo.full_name)) throw schemaError('invalid pull-request repository');
   if (value.state !== null && typeof value.state !== 'string') throw schemaError('invalid pull-request state');
   if (value.draft !== null && typeof value.draft !== 'boolean') throw schemaError('invalid pull-request draft state');
   return {
+    repository: value.base.repo.full_name,
+    number: value.number,
     base: value.base.sha,
     baseBranch: value.base.ref,
     head: value.head.sha,
