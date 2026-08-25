@@ -276,7 +276,7 @@ test('Issue #24 six authority files remain below the published baseline', () => 
   // mapping that Issue #34's own acceptance criteria require. Each of those was decided inside
   // the feature that needed it, and each bought about two decisions' worth of prose. CL-D43
   // raises it once to 128,000 so ordinary decision work stops arguing with this guard: the six
-  // files measured 114,563 bytes at c2ad0db and 115,960 with PR #72 applied, leaving 40 bytes.
+  // files measured 114,563 bytes at c2ad0db and 115,874 bytes at 9b5bc10, leaving 126 bytes.
   // The assertion below is the live measurement; the figures here are revision-qualified and
   // are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
