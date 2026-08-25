@@ -3,10 +3,12 @@
 // Issue #36 — one versioned evidence envelope and a read-only preflight verifier.
 //
 // TDD provenance: before implementation the focused command below produced 0 passes and 10
-// failures. The authority-presence scenario is pre-implementation compile/contract RED; the
-// version, domain-label, encoding, bracket, completeness, identity, closed-schema,
-// repeatability, and CLI-routing scenarios are pre-implementation behavioral RED. That local
-// output is not claimed as repository-preserved or runtime-compliance evidence.
+// failures. Every one of those is compile/contract RED, not behavioral RED: the authority
+// scenario failed on the missing section, and the other nine failed because `verifyEvidence`
+// did not exist, so no behavioral RED is claimed for this file. That local output is not
+// claimed as repository-preserved or runtime-compliance evidence.
+// The expected-fingerprint, lifecycle-identity, and bracket-binding scenarios are
+// review-driven regressions added after Sol raised SOL-72-FINGERPRINTS and SOL-72-IDENTITY.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -34,7 +36,10 @@ function brackets() {
 function envelope(overrides = {}) {
   return {
     schemaVersion: 1,
-    captureIdentity: { repository: 'tetsuh/pi-tidd-agents', number: 36, baseOid: BASE, headOid: HEAD },
+    captureIdentity: {
+      repository: 'tetsuh/pi-tidd-agents', number: 36, baseOid: BASE, headOid: HEAD,
+      baseBranch: 'main', headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'topic', state: 'open', draft: false,
+    },
     fingerprints: {
       issue_spec: { domain: 'issue_spec', encoding: 'normalized_text', value: SPEC },
       pr_base: { domain: 'pr_base', encoding: 'git_oid', value: BASE },
@@ -49,8 +54,16 @@ function envelope(overrides = {}) {
     ...overrides,
   };
 }
+function expectedFingerprints(overrides = {}) {
+  return { issue_spec: SPEC, pr_base: BASE, pr_tree: TREE, pr_head: HEAD, pr_diff: DIFF, pr_commits: COMMITS, snapshot: SNAP, ...overrides };
+}
 function expected(overrides = {}) {
-  return { repository: 'tetsuh/pi-tidd-agents', number: 36, baseOid: BASE, headOid: HEAD, ...overrides };
+  return {
+    repository: 'tetsuh/pi-tidd-agents', number: 36, baseOid: BASE, headOid: HEAD,
+    baseBranch: 'main', headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'topic', state: 'open', draft: false,
+    fingerprints: expectedFingerprints(),
+    ...overrides,
+  };
 }
 function verify(env = envelope(), exp = expected()) {
   return helpers.verifyEvidence({ envelope: env, expected: exp });
@@ -74,6 +87,7 @@ test('Issue #36 authority records the envelope, the verifier, and the closed CL-
   assert.match(section, /a record whose `domain` differs from the field holding it is rejected/);
   assert.match(section, /`raw_bytes`, `normalized_text`, and `canonical_json` are distinct byte domains/);
   assert.match(section, /`evidence_verify` is read-only and repeatable/);
+  assert.match(section, /every identity field or fingerprint value differing from the expected target/);
   assert.match(section, /moved capture bracket/);
   assert.match(section, /incomplete pagination/);
   // The residual must be stated rather than implied: labels defeat a moved record, not a
@@ -146,13 +160,16 @@ test('Issue #36 each domain declares one byte domain and one value shape', () =>
   assert.equal(verify(withFingerprint('pr_diff', { encoding: 'unknown_domain' })).error.code, 'encoding_mismatch');
 
   // A git OID may be 40 or 64 hex; a digest is always 64; neither accepts the other's junk.
-  // `pr_tree` carries no identity binding, so it isolates the shape rule from the OID
-  // comparison that `pr_base` and `pr_head` additionally answer to.
-  assert.equal(verify(withFingerprint('pr_tree', { value: 'd'.repeat(64) })).ok, true);
-  assert.equal(verify(withFingerprint('pr_tree', { value: 'd'.repeat(39) })).error.code, 'envelope_invalid');
-  assert.equal(verify(withFingerprint('pr_base', { value: 'd'.repeat(64) })).error.code, 'identity_mismatch');
-  assert.equal(verify(withFingerprint('pr_diff', { value: 'd'.repeat(40) })).error.code, 'envelope_invalid');
-  assert.equal(verify(withFingerprint('pr_diff', { value: 'D'.repeat(64) })).error.code, 'envelope_invalid');
+  // The expectation is moved with the value so this isolates the shape rule from the value
+  // comparison; a shape error must win over the comparison, not hide behind it.
+  const wide = 'd'.repeat(64);
+  assert.equal(verify(withFingerprint('pr_tree', { value: wide }), expected({ fingerprints: expectedFingerprints({ pr_tree: wide }) })).ok, true);
+  for (const [domain, value] of [['pr_tree', 'd'.repeat(39)], ['pr_diff', 'd'.repeat(40)], ['pr_diff', 'D'.repeat(64)]]) {
+    const result = verify(withFingerprint(domain, { value }), expected({ fingerprints: expectedFingerprints({ [domain]: value }) }));
+    assert.equal(result.error.code, 'envelope_invalid', `${domain} ${value.length}: ${JSON.stringify(result.error)}`);
+  }
+  // A 64-hex base OID is well shaped, so only the comparison can reject it.
+  assert.equal(verify(withFingerprint('pr_base', { value: wide })).error.code, 'fingerprint_mismatch');
 });
 
 test('Issue #36 a moved capture bracket is rejected', () => {
@@ -162,9 +179,9 @@ test('Issue #36 a moved capture bracket is rejected', () => {
   assert.equal(result.ok, false);
   assert.equal(result.error.code, 'bracket_identity_moved');
 
-  for (const field of ['base', 'baseBranch', 'state', 'draft', 'headRepository', 'headBranch']) {
+  for (const [field, value] of [['base', 'e'.repeat(40)], ['baseBranch', 'release'], ['state', 'closed'], ['draft', true], ['headRepository', 'other/fork'], ['headBranch', 'other']]) {
     const drifted = envelope();
-    drifted.brackets.after = { ...brackets(), [field]: field === 'draft' ? true : 'moved' };
+    drifted.brackets.after = { ...brackets(), [field]: value };
     assert.equal(verify(drifted).error.code, 'bracket_identity_moved', `${field} movement must be rejected`);
   }
 });
@@ -186,10 +203,12 @@ test('Issue #36 the envelope is compared against the expected target identity', 
   assert.equal(verify(envelope(), expected({ number: 37 })).error.code, 'identity_mismatch');
   assert.equal(verify(envelope(), expected({ repository: 'tetsuh/other' })).error.code, 'identity_mismatch');
 
-  // The head OID the envelope claims and the head fingerprint it carries must agree.
+  // The head OID the envelope claims and the head fingerprint it carries must agree. With the
+  // expectation moved too, the capture-versus-fingerprint binding is what remains under test.
   const inconsistent = envelope();
   inconsistent.fingerprints.pr_head.value = 'f'.repeat(40);
-  assert.equal(verify(inconsistent).error.code, 'identity_mismatch');
+  assert.equal(verify(inconsistent).error.code, 'fingerprint_mismatch');
+  assert.equal(verify(inconsistent, expected({ fingerprints: expectedFingerprints({ pr_head: 'f'.repeat(40) }) })).error.code, 'identity_mismatch');
 });
 
 test('Issue #36 the envelope is closed and the verifier is read-only and repeatable', () => {
@@ -238,4 +257,74 @@ test('Issue #36 the packaged CLI routes evidence_verify under JSON v1', () => {
   const bad = cli({ version: 1, operation: 'evidence_verify', data: { envelope: envelope({ schemaVersion: 9 }), expected: expected() } });
   assert.equal(bad.error.code, 'unsupported_schema_version');
   assert.notEqual(bad.status, 0);
+});
+
+// Review-driven regression (SOL-72-FINGERPRINTS): shape checking is not comparison. Before this,
+// only pr_head and pr_base were compared, so any well-shaped digest verified in the other five
+// fields and a stale diff or commits digest passed.
+test('Issue #36 every fingerprint is compared against its expected value', () => {
+  const wrong = { issue_spec: '9'.repeat(64), pr_base: '9'.repeat(40), pr_tree: '9'.repeat(40), pr_head: '9'.repeat(40), pr_diff: '9'.repeat(64), pr_commits: '9'.repeat(64), snapshot: '9'.repeat(64) };
+  for (const domain of Object.keys(wrong)) {
+    const result = verify(envelope(), expected({ fingerprints: expectedFingerprints({ [domain]: wrong[domain] }) }));
+    assert.equal(result.ok, false, `${domain} must be compared`);
+    assert.equal(result.error.code, 'fingerprint_mismatch', `${domain}: ${JSON.stringify(result.error)}`);
+  }
+  // The expectation itself is closed: a missing or unknown expected domain is a bad request,
+  // never a silently skipped comparison.
+  const short = expected();
+  delete short.fingerprints.snapshot;
+  assert.equal(verify(envelope(), short).error.code, 'envelope_invalid');
+  const wide = expected();
+  wide.fingerprints.pr_notes = DIFF;
+  assert.equal(verify(envelope(), wide).error.code, 'envelope_invalid');
+});
+
+// Review-driven regression (SOL-72-IDENTITY): the lifecycle and branch identity Issue #36 lists
+// were neither carried nor compared, so a malformed state verified successfully.
+test('Issue #36 lifecycle and branch identity are validated and compared', () => {
+  for (const [field, value] of [['baseBranch', 'release'], ['headRepository', 'other/fork'], ['headBranch', 'other'], ['state', 'closed'], ['draft', true]]) {
+    assert.equal(verify(envelope(), expected({ [field]: value })).error.code, 'identity_mismatch', `${field} must be compared`);
+  }
+  for (const state of ['moved', '', 'OPEN', null, 1]) {
+    const env = envelope();
+    env.captureIdentity.state = state;
+    env.brackets.before.state = state;
+    env.brackets.after.state = state;
+    assert.equal(verify(env).error.code, 'envelope_invalid', `state ${String(state)} must be rejected`);
+  }
+  for (const draft of ['false', null, 0]) {
+    const env = envelope();
+    env.captureIdentity.draft = draft;
+    env.brackets.before.draft = draft;
+    env.brackets.after.draft = draft;
+    assert.equal(verify(env).error.code, 'envelope_invalid', `draft ${String(draft)} must be rejected`);
+  }
+  for (const field of ['headRepository', 'headBranch', 'baseBranch']) {
+    const env = envelope();
+    env.captureIdentity[field] = null;
+    assert.equal(verify(env).error.code, 'envelope_invalid', `${field} must be a required non-empty string`);
+  }
+  // The expectation answers to the same rules, and no bracket witnesses it, so this is the only
+  // place a malformed expected lifecycle can be caught.
+  for (const override of [{ state: 'moved' }, { state: null }, { draft: 'false' }, { headRepository: 'fork' }, { headBranch: '' }]) {
+    const result = verify(envelope(), expected(override));
+    assert.equal(result.error.code, 'envelope_invalid', `expected ${JSON.stringify(override)}: ${JSON.stringify(result.error)}`);
+  }
+});
+
+// Review-driven regression: the brackets and the captured identity must describe one target, so
+// a bracket cannot witness an identity the envelope does not claim.
+test('Issue #36 both brackets must agree with the captured identity', () => {
+  for (const [bracketField, captureField, value] of [
+    ['base', 'baseOid', 'e'.repeat(40)], ['head', 'headOid', 'e'.repeat(40)],
+    ['baseBranch', 'baseBranch', 'release'], ['headRepository', 'headRepository', 'other/fork'],
+    ['headBranch', 'headBranch', 'other'], ['state', 'state', 'closed'], ['draft', 'draft', true],
+  ]) {
+    const env = envelope();
+    env.brackets.before[bracketField] = value;
+    env.brackets.after[bracketField] = value;
+    const result = verify(env);
+    assert.equal(result.ok, false, `${bracketField} must be bound to ${captureField}`);
+    assert.equal(result.error.code, 'identity_mismatch', `${bracketField}: ${JSON.stringify(result.error)}`);
+  }
 });

@@ -2379,10 +2379,11 @@
         "every fingerprint travels as `{ domain, encoding, value }`",
         "a record whose `domain` differs from the field holding it is rejected",
         "`raw_bytes`, `normalized_text`, and `canonical_json` are distinct byte domains",
-        "`evidence_verify` is read-only and repeatable",
         "moved capture bracket",
         "incomplete pagination",
-        "a value retyped by hand into a well-formed record is not detectable here"
+        "a value retyped by hand into a well-formed record is not detectable here",
+        "`evidence_verify` is read-only and repeatable",
+        "every identity field or fingerprint value differing from the expected target"
       ]
     },
     {
@@ -2426,10 +2427,13 @@
         "a moved capture bracket is rejected",
         "incomplete pagination or completeness metadata is rejected",
         "the envelope is compared against the expected target identity",
+        "every fingerprint is compared against its expected value",
+        "lifecycle and branch identity are validated and compared",
+        "both brackets must agree with the captured identity",
         "the envelope is closed and the verifier is read-only and repeatable",
         "the packaged CLI routes evidence_verify under JSON v1",
-        "pre-implementation compile/contract RED",
-        "pre-implementation behavioral RED"
+        "compile/contract RED, not behavioral RED",
+        "review-driven regressions added after Sol raised"
       ]
     }
   ]
