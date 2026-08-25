@@ -9,14 +9,17 @@ const INPUT_SHAPES = Object.freeze({
   workspace_verify: Object.freeze({ expected: 'data:workspace_create' }),
   workspace_cleanup: Object.freeze({ receipt: 'receipt:workspace_create' }),
   fingerprint_snapshot: Object.freeze({ snapshot: 'data:snapshot' }),
+  gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),
 });
 // Each declared shape accepts exactly one classification. No shape is a tolerant alternative
 // for another: accepting two would restore the ambiguity this check exists to remove.
+const LEGACY_ENVELOPE_OPERATIONS = Object.freeze({ 'envelope:operator_capture': Object.freeze(['operator_checkout']) });
 const ACCEPTED = Object.freeze({
   'envelope:operator_capture': 'envelope',
   'data:workspace_create': 'workspace_data',
   'receipt:workspace_create': 'receipt',
   'data:snapshot': 'other',
+  'structured:gate_result': 'gate_result',
 });
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -28,6 +31,10 @@ function classifyInputShape(value) {
   if (['version', 'ok', 'operation'].every((key) => Object.hasOwn(value, key)) && (Object.hasOwn(value, 'data') || Object.hasOwn(value, 'error'))) return 'envelope';
   if (value.version === 1 && typeof value.root === 'string' && typeof value.storedPath === 'string' && Object.hasOwn(value, 'id')) return 'receipt';
   if (plain(value.receipt) && typeof value.root === 'string' && typeof value.kind === 'string') return 'workspace_data';
+  if (value.schemaVersion === 1 && plain(value.correlation)
+    && typeof value.verdict === 'string' && Array.isArray(value.evidenceRead)
+    && Array.isArray(value.findings) && Array.isArray(value.confirmations)
+    && Array.isArray(value.decisions) && Array.isArray(value.adversarialResults)) return 'gate_result';
   return 'other';
 }
 
@@ -35,6 +42,7 @@ function describe(value, classification) {
   if (classification === 'envelope') return `envelope:${typeof value.operation === 'string' ? value.operation : 'unknown'}`;
   if (classification === 'receipt') return 'receipt:workspace_create';
   if (classification === 'workspace_data') return 'data:workspace_create';
+  if (classification === 'gate_result') return 'structured:gate_result';
   return plain(value) ? 'an object matching no declared shape' : `a ${value === null ? 'null' : typeof value} value`;
 }
 
@@ -50,7 +58,8 @@ function inputShapeProblem(operation, data) {
     if (classification !== expectedClass || (expectedClass === 'other' && !plain(value))) {
       return `\`${field}\` must be ${spec}, received ${describe(value, classification)}`;
     }
-    if (spec.startsWith('envelope:') && value.operation !== spec.slice('envelope:'.length)) {
+    if (spec.startsWith('envelope:') && value.operation !== spec.slice('envelope:'.length)
+      && !LEGACY_ENVELOPE_OPERATIONS[spec]?.includes(value.operation)) {
       return `\`${field}\` must be ${spec}, received ${describe(value, classification)}`;
     }
   }

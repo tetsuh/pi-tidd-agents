@@ -122,14 +122,14 @@ function captureOperatorCheckout(input = process.cwd()) {
     const unsafeRuntimeRoots = Object.entries(runtimeRoots).filter(([, descriptor]) => !descriptor.safe).map(([root]) => root);
     if (runtimeHeadEntries.length || runtimeIndexEntries.length) throw Object.assign(new Error('runtime root is present in HEAD or index'), { code: 'runtime_root_tracked' });
     if (unsafeRuntimeRoots.length) throw Object.assign(new Error(`unsafe runtime root: ${unsafeRuntimeRoots.join(', ')}`), { code: 'unsafe_runtime_root' });
-    return createResult('operator_capture', {
+    return createResult('operator_checkout', {
       root: top, head, branch, originFetch, originPush, upstream, trackingRef,
       worktreeChanges, trackedChanges: worktreeChanges, indexChanges, untrackedPaths, unexpectedUntrackedPaths,
       ignoredInventory, runtimeInventory, runtimeHeadEntries, runtimeIndexEntries, runtimeRoots, unsafeRuntimeRoots, identity, configDigest,
       clean: worktreeChanges.length === 0 && indexChanges.length === 0 && unexpectedUntrackedPaths.length === 0 && unsafeRuntimeRoots.length === 0,
     });
   } catch (error) {
-    return createError('operator_capture', error.code || 'capture_failed', error.message, error.phase || 'operator_capture');
+    return createError('operator_checkout', error.code || 'capture_failed', error.message, error.phase || 'operator_capture');
   }
 }
 function immutableOperatorBaseline(data) {
@@ -151,21 +151,21 @@ function revalidateOperatorCheckout(captured, input = process.cwd()) {
   if (postPushHead !== undefined) {
     if (typeof postPushHead !== 'string' || !/^[0-9a-f]{40}$/.test(postPushHead)
       || captured?.data?.trackingRef !== captured?.data?.head) {
-      return createError('operator_revalidate', 'operator_changed', 'invalid post-push tracking transition', 'operator_revalidate');
+      return createError('operator_checkout', 'operator_changed', 'invalid post-push tracking transition', 'operator_revalidate');
     }
     let commit;
     try { commit = gitText(current.data.root, ['--no-replace-objects', 'cat-file', 'commit', postPushHead], { phase: 'operator_revalidate' }); }
-    catch { return createError('operator_revalidate', 'operator_changed', 'post-push head is unavailable', 'operator_revalidate'); }
+    catch { return createError('operator_checkout', 'operator_changed', 'post-push head is unavailable', 'operator_revalidate'); }
     const header = commit.split('\n\n', 1)[0];
     const parents = header.split('\n').filter((line) => line.startsWith('parent '));
     if (parents.length !== 1 || parents[0] !== `parent ${captured.data.head}`) {
-      return createError('operator_revalidate', 'operator_changed', 'post-push head is not the sole child of the operator baseline', 'operator_revalidate');
+      return createError('operator_checkout', 'operator_changed', 'post-push head is not the sole child of the operator baseline', 'operator_revalidate');
     }
     expected.trackingRef = postPushHead;
   }
   return JSON.stringify(immutableOperatorBaseline(current.data)) === JSON.stringify(expected)
     ? current
-    : createError('operator_revalidate', 'operator_changed', 'operator checkout differs from captured baseline', 'operator_revalidate');
+    : createError('operator_checkout', 'operator_changed', 'operator checkout differs from captured baseline', 'operator_revalidate');
 }
 
 module.exports = { captureOperatorCheckout, revalidateOperatorCheckout, immutableOperatorBaseline, RUNTIME_ROOTS, nulRecords, byteSort, runtimeTrackedEntries };

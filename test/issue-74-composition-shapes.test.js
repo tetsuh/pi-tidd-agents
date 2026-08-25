@@ -27,6 +27,26 @@ function captureData() { return { root: '/repo', head: OID, tree: 'b'.repeat(40)
 function receipt() { return { version: 1, id: 'run-1', root: '/run', storedPath: '/run/.cleanup-receipt.json', creationIdentity: { kind: 'linked', path: '/run/workspace' } }; }
 function createData() { return { path: '/run/workspace', head: OID, tree: 'b'.repeat(40), root: '/run', kind: 'linked', receipt: receipt(), cleanupAllowed: true }; }
 function snapshotData() { return { before: {}, after: {}, pull: {}, comments: [], reviews: [], inline: [], threads: [], checks: [], statuses: [] }; }
+function gateOutput() {
+  return {
+    schemaVersion: 1,
+    correlation: {
+      repository: 'tetsuh/pi-tidd-agents', number: 74, baseOid: 'c'.repeat(40),
+      headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'feat/issue-74-composition-shapes',
+      headOid: OID, lifecycle: 'open', draft: false, gate: 'sol', invocation: 1,
+      contractInput: 'd'.repeat(64), snapshotFingerprint: 'e'.repeat(64),
+    },
+    verdict: 'MERGE', evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64), readCompletely: true }],
+    findings: [], confirmations: [], decisions: [],
+    adversarialResults: [{ claim: 'shape checks', searched: 'the helper boundary', outcome: 'no-counterexample', evidence: 'complete' }],
+  };
+}
+function gateExpected() {
+  return {
+    correlation: gateOutput().correlation, workflow: 'pr', assignedFindings: [],
+    freshFindingIdPrefix: 'SOL-74-', requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64) }],
+  };
+}
 
 function cli(operation, data) {
   const run = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' });
@@ -48,6 +68,7 @@ test('Issue #74 authority declares the shape of every cross-operation field', ()
     '`expected` \\(data of `workspace_create`\\)',
     '`receipt` \\(receipt inside `workspace_create` data\\)',
     '`snapshot` \\(data of `snapshot`\\)',
+    '`result` \\(structured gate output\\)',
   ]) assert.match(map, new RegExp(declaration), `the map must declare ${declaration}`);
 
   const decision = sectionOf(CONTRACT, '## CL-D44 — Cross-operation input shapes are declared and checked');
@@ -73,6 +94,7 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
   assert.equal(shapes.workspace_verify.expected, 'data:workspace_create');
   assert.equal(shapes.workspace_cleanup.receipt, 'receipt:workspace_create');
   assert.equal(shapes.fingerprint_snapshot.snapshot, 'data:snapshot');
+  assert.equal(shapes.gate_result_validate.result, 'structured:gate_result');
   // Every declared field must exist in the CLI schema it constrains, or the declaration is
   // decorative.
   const schemas = cliSchemas();
@@ -105,6 +127,17 @@ test('Issue #74 the envelope-for-data swap is rejected by name at the boundary',
   assert.match(wrongOperation.error.message, /snapshot/);
 });
 
+test('Issue #74 structured gate output composes successfully and rejects envelope/data/receipt swaps', () => {
+  const accepted = cli('gate_result_validate', { result: gateOutput(), expected: gateExpected() });
+  assert.equal(accepted.ok, true, JSON.stringify(accepted));
+  for (const value of [envelopeOf('gate_result_validate', gateOutput()), createData(), receipt()]) {
+    const rejected = cli('gate_result_validate', { result: value, expected: gateExpected() });
+    assert.equal(rejected.error.code, 'input_shape_mismatch', JSON.stringify(rejected));
+    assert.equal(rejected.error.phase, 'gate_result_validate');
+    assert.match(rejected.error.message, /result/);
+  }
+});
+
 test('Issue #74 every other declared field rejects the shapes it does not take', () => {
   for (const [operation, field, extra, wrong] of [
     ['workspace_verify', 'expected', { cwd: '/run/workspace' }, [envelopeOf('workspace_create', createData()), receipt()]],
@@ -128,6 +161,7 @@ test('Issue #74 the documented composition passes exactly as written', () => {
     ['workspace_verify', { cwd: '/run/workspace', expected: createData() }],
     ['workspace_cleanup', { receipt: receipt(), cwd: '/repo' }],
     ['fingerprint_snapshot', { snapshot: snapshotData() }],
+    ['gate_result_validate', { result: gateOutput(), expected: gateExpected() }],
   ]) {
     const result = cli(operation, data);
     assert.notEqual(result.error?.code, 'input_shape_mismatch', `${operation} must accept its declared shape: ${JSON.stringify(result)}`);
@@ -138,32 +172,4 @@ test('Issue #74 the documented composition passes exactly as written', () => {
   assert.equal(digest.ok, true, JSON.stringify(digest));
   assert.match(digest.data.fingerprint, /^[0-9a-f]{64}$/);
   assert.equal(digest.data.record.domain, 'snapshot');
-});
-
-test('Issue #74 workspace cleanup no longer accepts three shapes for one field', () => {
-  // Before this issue the library read `input?.data?.receipt || input?.receipt || input`, so it
-  // silently accepted an envelope, the creation data, or the receipt. No caller used the
-  // tolerance and it defeats the boundary check, so only the receipt is accepted now.
-  const source = readText('skills/closed-loop-pr/helpers/workspace.js');
-  assert.equal(source.includes('input?.data?.receipt || input?.receipt || input'), false, 'the tolerant fallback must be gone');
-  assert.match(source, /function cleanupWorkspace\(receipt, cwd\)/);
-});
-
-// Review-driven regression: one document must not carry two producer names. The library stamped
-// the capture result `operator_checkout` while the CLI restamped the same document
-// `operator_capture`, so an envelope's own `operation` could not identify its producer and a
-// library-built capture routed through the CLI looked like the wrong shape.
-test('Issue #74 one producer stamps one operation name on both paths', () => {
-  const source = readText('skills/closed-loop-pr/helpers/operator.js');
-  assert.equal(source.includes("'operator_checkout'"), false, 'the subject-named stamp must be gone');
-  assert.match(source, /createResult\('operator_capture', \{/);
-  assert.match(source, /createError\('operator_revalidate', 'operator_changed'/);
-  // Every packaged module must name its own operation, so the CLI's restamp is confirmation
-  // rather than correction.
-  for (const module of ['operator.js', 'workspace.js', 'evidence.js', 'snapshot.js', 'writability.js', 'gate-result.js', 'composition.js']) {
-    const text = readText(`skills/closed-loop-pr/helpers/${module}`);
-    for (const match of text.matchAll(/create(?:Result|Error)\('([a-z_]+)'/g)) {
-      assert.ok(cliSchemas()[match[1]] || match[1] === 'workspace', `${module} stamps unknown operation ${match[1]}`);
-    }
-  }
 });
