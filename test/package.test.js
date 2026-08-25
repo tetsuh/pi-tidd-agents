@@ -33,6 +33,10 @@ const PR_MODE_REFERENCES = {
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const PR_HELPER_FILES = ['cli.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
+// The pre-split PR Skill's size. This is not a budget: it encodes the claim that progressive
+// disclosure is smaller than the monolith it replaced, so raising it would falsify what it
+// exists to prove. CL-D43 leaves it alone, which makes it — not the six-file ceiling — the
+// binding constraint on how much `autofix.md` can still grow.
 const PR_SKILL_PRE_SPLIT_BYTES = 57160;
 const SHARED_REFERENCES = {
   'gate-contract': 'skills/closed-loop-shared/references/gate-contract.md',
@@ -267,15 +271,16 @@ test('Issue #24 shared-reference literal matching rejects malformed prefixes', (
 
 test('Issue #24 six authority files remain below the published baseline', () => {
   // Review-driven regression: this raw-byte ceiling protects the reviewed authority graph.
-  // CL-D34 raised the Issue #24 baseline to 108,000 bytes; CL-D36 raised it to 112,000 for
-  // the shared structured-transport rule; CL-D39 raised it to 116,000 for the closed
-  // recovery mapping that Issue #34's own acceptance criteria require. Issue #58 already
-  // harvested cross-file duplication; after the mapping's own restatements were removed the
-  // six files measured 112,720 bytes at f7f3ff9, when the raise was decided, so the shortfall
-  // is funded by the raise. The assertion below is the live measurement; the figure here is
-  // revision-qualified and is not maintained as a running total.
+  // CL-D34 raised the Issue #24 baseline to 108,000 bytes; CL-D36 raised it to 112,000 for the
+  // shared structured-transport rule; CL-D39 raised it to 116,000 for the closed recovery
+  // mapping that Issue #34's own acceptance criteria require. Each of those was decided inside
+  // the feature that needed it, and each bought about two decisions' worth of prose. CL-D43
+  // raises it once to 128,000 so ordinary decision work stops arguing with this guard: the six
+  // files measured 114,563 bytes at c2ad0db and 115,960 with PR #72 applied, leaving 40 bytes.
+  // The assertion below is the live measurement; the figures here are revision-qualified and
+  // are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 116000, `six authority files total ${total} bytes, expected less than 116000`);
+  assert.ok(total < 128000, `six authority files total ${total} bytes, expected less than 128000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.

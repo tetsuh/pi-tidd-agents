@@ -872,7 +872,10 @@ test('artifact: Issue #20 names each invariant once and references it at every p
   assert.match(replies, /`REPLY_EXCEPTION`/);
   assert.ok((SKILL.match(/`REPLY_EXCEPTION`/g) || []).length >= 5, 'every provider-mutation boundary must reference REPLY_EXCEPTION');
   assert.equal((SKILL.match(/all three local dimensions remain independently guarded/gi) || []).length, 1);
-  assert.ok(Buffer.byteLength(addendum) < 25022, 'the CL-D30 addendum must be smaller than its pre-refactor baseline');
+  // CL-D43 raised this from the 25,022-byte pre-refactor baseline to 28,000: it measured 23,677
+  // bytes at c2ad0db, so 1,345 bytes remained and it would have become the binding guard one
+  // pull request after the six-file ceiling was raised. Revision-qualified, not a running total.
+  assert.ok(Buffer.byteLength(addendum) < 28000, 'the CL-D30 addendum must stay inside its recorded guard');
 
   const retainedVectorMap = {
     'OPERATOR_CHECKOUT@H': ['01', '02', '06', '08', '09', '10', '11', '12', '13', '19', '20'],
