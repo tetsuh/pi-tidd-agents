@@ -178,6 +178,16 @@ test('Issue #74 the envelope-for-data swap is rejected by name at the boundary',
     assert.match(wrongOperation.error.message, new RegExp(operation));
     assert.equal(/complete target identity/.test(wrongOperation.error.message), false);
   }
+
+  // A producer failure is an error envelope, not the successful producer output required by
+  // this field. It must stop at the composition boundary rather than surface as capture_failed.
+  const failedProducer = cli('operator_revalidate', {
+    captured: { version: 1, ok: false, operation: 'operator_capture', error: { code: 'capture_failed', message: 'failed', phase: 'operator_capture' } },
+    cwd: '/repo',
+  });
+  assert.equal(failedProducer.error.code, 'input_shape_mismatch', JSON.stringify(failedProducer));
+  assert.equal(failedProducer.error.phase, 'operator_revalidate');
+  assert.equal(/complete target identity/.test(failedProducer.error.message), false);
 });
 
 test('Issue #74 structured gate output composes successfully and rejects envelope/data/receipt swaps', () => {

@@ -50,7 +50,12 @@ function classifyInputShape(value) {
 }
 
 function describe(value, classification) {
-  if (classification === 'envelope') return `envelope:${typeof value.operation === 'string' ? value.operation : 'unknown'}`;
+  if (classification === 'envelope') {
+    const operation = typeof value.operation === 'string' ? value.operation : 'unknown';
+    if (value.ok === false || Object.hasOwn(value, 'error')) return `error envelope:${operation}`;
+    if (value.version !== 1 || value.ok !== true || !plain(value.data)) return `malformed envelope:${operation}`;
+    return `envelope:${operation}`;
+  }
   if (classification === 'receipt') return 'receipt:workspace_create';
   if (classification === 'workspace_data') return 'data:workspace_create';
   if (classification === 'snapshot_data') return 'data:snapshot';
@@ -70,8 +75,12 @@ function inputShapeProblem(operation, data) {
     if (classification !== expectedClass || (expectedClass === 'other' && !plain(value))) {
       return `\`${field}\` must be ${spec}, received ${describe(value, classification)}`;
     }
-    if (spec.startsWith('envelope:') && value.operation !== spec.slice('envelope:'.length)) {
-      return `\`${field}\` must be ${spec}, received ${describe(value, classification)}`;
+    if (spec.startsWith('envelope:')) {
+      const producer = spec.slice('envelope:'.length);
+      const successful = value.version === 1 && value.ok === true && plain(value.data) && !Object.hasOwn(value, 'error');
+      if (value.operation !== producer || !successful) {
+        return `\`${field}\` must be ${spec}, received ${describe(value, classification)}`;
+      }
     }
   }
   return null;
