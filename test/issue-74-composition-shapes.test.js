@@ -11,8 +11,10 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const { readText, sectionOf, cliSchemas } = require('./helpers');
@@ -51,6 +53,53 @@ function gateExpected() {
 function cli(operation, data) {
   const run = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' });
   return { ...JSON.parse(run.stdout), status: run.status };
+}
+function git(cwd, args) {
+  return execFileSync('git', args, {
+    cwd, encoding: 'utf8',
+    env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' },
+  }).trim();
+}
+function compositionRepository() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-74-composition-'));
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-74-origin-'));
+  git(root, ['init', '-b', 'main']);
+  git(root, ['config', 'user.name', 'Issue 74 Test']);
+  git(root, ['config', 'user.email', 'issue74@example.invalid']);
+  fs.writeFileSync(path.join(root, 'tracked.txt'), 'base\n');
+  git(root, ['add', 'tracked.txt']);
+  git(root, ['commit', '-m', 'test: composition base']);
+  git(bare, ['init', '--bare']);
+  git(root, ['remote', 'add', 'origin', bare]);
+  return { root, bare, head: git(root, ['rev-parse', 'HEAD']), tree: git(root, ['rev-parse', 'HEAD^{tree}']) };
+}
+function removeCompositionRepository(repository) {
+  fs.rmSync(repository.root, { recursive: true, force: true });
+  fs.rmSync(repository.bare, { recursive: true, force: true });
+}
+function compositionSnapshotTransport(head) {
+  return async (_command, args) => {
+    if (args[1] === 'graphql') {
+      return { stdout: Buffer.from(JSON.stringify({ data: { repository: { pullRequest: { reviewThreads: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } } })) };
+    }
+    const endpoint = args.at(-1);
+    if (endpoint === 'repos/owner/repo/pulls/74') {
+      return { stdout: Buffer.from(JSON.stringify({
+        number: 74, state: 'open', draft: false, title: 'composition', body: 'body',
+        user: { login: 'owner', type: 'User' }, author_association: 'OWNER',
+        base: { sha: 'a'.repeat(40), ref: 'main', repo: { full_name: 'owner/repo' } },
+        head: { sha: head, ref: 'main', repo: { full_name: 'owner/repo' } },
+        mergeable: true, mergeable_state: 'clean',
+      })) };
+    }
+    if (endpoint === 'repos/owner/repo') {
+      return { stdout: Buffer.from(JSON.stringify({ owner: { type: 'User' }, default_branch: 'main' })) };
+    }
+    if (endpoint === 'repos/owner/repo/branches/main/protection') return { stdout: Buffer.from('false') };
+    if (String(endpoint).includes('/check-runs')) return { stdout: Buffer.from(JSON.stringify({ check_runs: [] })) };
+    if (String(endpoint).includes('/check-suites')) return { stdout: Buffer.from(JSON.stringify({ check_suites: [] })) };
+    return { stdout: Buffer.from('[]') };
+  };
 }
 
 test('Issue #74 authority declares the shape of every cross-operation field', () => {
@@ -153,23 +202,61 @@ test('Issue #74 every other declared field rejects the shapes it does not take',
   }
 });
 
-test('Issue #74 the documented composition passes exactly as written', () => {
-  // Positive fixtures: the declared shape reaches the operation, which then fails or succeeds on
-  // its own terms rather than on the shape. None of these may be an input_shape_mismatch.
-  for (const [operation, data] of [
-    ['operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo' }],
-    ['workspace_verify', { cwd: '/run/workspace', expected: createData() }],
-    ['workspace_cleanup', { receipt: receipt(), cwd: '/repo' }],
-    ['fingerprint_snapshot', { snapshot: snapshotData() }],
-    ['gate_result_validate', { result: gateOutput(), expected: gateExpected() }],
-  ]) {
-    const result = cli(operation, data);
-    assert.notEqual(result.error?.code, 'input_shape_mismatch', `${operation} must accept its declared shape: ${JSON.stringify(result)}`);
+test('Issue #74 the documented composition passes exactly as written', async () => {
+  // These are genuine producer-to-consumer compositions. The first three use a temporary real
+  // repository so a shape-admitted request cannot remain green while its downstream operation
+  // fails for an unrelated fixture or missing identity.
+  const repository = compositionRepository();
+  let workspace;
+  try {
+    const identity = {
+      repository: 'owner/repo',
+      prNumber: 74,
+      lifecycle: 'OPEN',
+      baseOid: 'a'.repeat(40),
+      publicHead: repository.head,
+      headRepository: 'owner/repo',
+      headBranch: 'main',
+      originFetch: repository.bare,
+      originPush: repository.bare,
+    };
+    const captured = cli('operator_capture', { cwd: repository.root, identity });
+    assert.equal(captured.status, 0, JSON.stringify(captured));
+    assert.equal(captured.ok, true, JSON.stringify(captured));
+    const revalidated = cli('operator_revalidate', { cwd: repository.root, captured });
+    assert.equal(revalidated.status, 0, JSON.stringify(revalidated));
+    assert.equal(revalidated.ok, true, JSON.stringify(revalidated));
+
+    workspace = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
+    assert.equal(workspace.status, 0, JSON.stringify(workspace));
+    assert.equal(workspace.ok, true, JSON.stringify(workspace));
+    const verified = cli('workspace_verify', { cwd: workspace.data.path, expected: workspace.data });
+    assert.equal(verified.status, 0, JSON.stringify(verified));
+    assert.equal(verified.ok, true, JSON.stringify(verified));
+    const cleaned = cli('workspace_cleanup', { cwd: repository.root, receipt: workspace.data.receipt });
+    assert.equal(cleaned.status, 0, JSON.stringify(cleaned));
+    assert.equal(cleaned.ok, true, JSON.stringify(cleaned));
+    workspace = null;
+  } finally {
+    // If an assertion interrupts the lifecycle, retry only the identity-guarded packaged cleanup;
+    // never recursively remove a path obtained from the operation under test.
+    if (workspace?.data?.receipt) {
+      try { cli('workspace_cleanup', { cwd: repository.root, receipt: workspace.data.receipt }); } catch {}
+    }
+    removeCompositionRepository(repository);
   }
-  // fingerprint_snapshot is total over objects, so its positive fixture must also produce a
-  // digest rather than merely avoiding the shape error.
-  const digest = cli('fingerprint_snapshot', { snapshot: snapshotData() });
+
+  // Feed the actual packaged snapshot producer's data to its documented fingerprint consumer.
+  const snapshot = await helpers.collectSnapshot({
+    owner: 'owner', repo: 'repo', number: 74,
+    transport: compositionSnapshotTransport(repository.head),
+  });
+  assert.equal(snapshot.ok, true, JSON.stringify(snapshot));
+  const digest = cli('fingerprint_snapshot', { snapshot: snapshot.data });
+  assert.equal(digest.status, 0, JSON.stringify(digest));
   assert.equal(digest.ok, true, JSON.stringify(digest));
   assert.match(digest.data.fingerprint, /^[0-9a-f]{64}$/);
   assert.equal(digest.data.record.domain, 'snapshot');
+  const gate = cli('gate_result_validate', { result: gateOutput(), expected: gateExpected() });
+  assert.equal(gate.ok, true, JSON.stringify(gate));
 });
