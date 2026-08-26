@@ -183,6 +183,19 @@ test('Issue #74 each declared field carries one predicate and rejection needs no
 
 test('Issue #74 the declared shapes are published beside the fields', () => {
   const shapes = helpers.INPUT_SHAPES;
+  // The freeze is an absolute claim — "the five declared fields are the complete CL-D44 set" —
+  // so the set is pinned exactly: a sixth declaration, a second field on an operation, or a
+  // renamed spec fails here before it can widen the boundary silently.
+  assert.deepEqual(
+    Object.entries(shapes).map(([operation, fields]) => [operation, ...Object.entries(fields).flat()]).sort(),
+    [
+      ['fingerprint_snapshot', 'snapshot', 'data:snapshot'],
+      ['gate_result_validate', 'result', 'structured:gate_result'],
+      ['operator_revalidate', 'captured', 'envelope:operator_capture'],
+      ['workspace_cleanup', 'receipt', 'receipt:workspace_create'],
+      ['workspace_verify', 'expected', 'data:workspace_create'],
+    ],
+  );
   assert.equal(shapes.operator_revalidate.captured, 'envelope:operator_capture');
   assert.equal(shapes.workspace_verify.expected, 'data:workspace_create');
   assert.equal(shapes.workspace_cleanup.receipt, 'receipt:workspace_create');
