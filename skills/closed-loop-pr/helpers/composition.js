@@ -33,7 +33,12 @@ function classifyInputShape(value) {
   if (!plain(value)) return 'other';
   if (['version', 'ok', 'operation'].every((key) => Object.hasOwn(value, key)) && (Object.hasOwn(value, 'data') || Object.hasOwn(value, 'error'))) return 'envelope';
   if (value.version === 1 && typeof value.root === 'string' && typeof value.storedPath === 'string' && Object.hasOwn(value, 'id')) return 'receipt';
-  if (plain(value.receipt) && typeof value.root === 'string' && typeof value.kind === 'string') return 'workspace_data';
+  const workspaceIdentity = typeof value.path === 'string' && typeof value.head === 'string'
+    && typeof value.tree === 'string' && typeof value.root === 'string'
+    && typeof value.kind === 'string' && typeof value.cleanupAllowed === 'boolean';
+  if (workspaceIdentity && value.kind === 'linked' && value.cleanupAllowed === true && plain(value.receipt)) return 'workspace_data';
+  if (workspaceIdentity && value.kind === 'clone' && value.cleanupAllowed === false
+    && value.retained === true && value.fallbackReason === 'linked_unavailable' && !Object.hasOwn(value, 'receipt')) return 'workspace_data';
   if (value.schemaVersion === 1 && plain(value.correlation)
     && typeof value.verdict === 'string' && Array.isArray(value.evidenceRead)
     && Array.isArray(value.findings) && Array.isArray(value.confirmations)

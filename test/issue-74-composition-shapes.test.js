@@ -50,8 +50,11 @@ function gateExpected() {
   };
 }
 
-function cli(operation, data) {
-  const run = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' });
+function cli(operation, data, env = {}) {
+  const run = spawnSync(process.execPath, [CLI], {
+    input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
   return { ...JSON.parse(run.stdout), status: run.status };
 }
 function git(cwd, args) {
@@ -71,6 +74,7 @@ function compositionRepository() {
   git(root, ['commit', '-m', 'test: composition base']);
   git(bare, ['init', '--bare']);
   git(root, ['remote', 'add', 'origin', bare]);
+  git(root, ['push', 'origin', 'main']);
   return { root, bare, head: git(root, ['rev-parse', 'HEAD']), tree: git(root, ['rev-parse', 'HEAD^{tree}']) };
 }
 function removeCompositionRepository(repository) {
@@ -213,6 +217,37 @@ test('Issue #74 every other declared field rejects the shapes it does not take',
       assert.equal(rejected.error.phase, operation);
       assert.match(rejected.error.message, new RegExp(field));
     }
+  }
+});
+
+test('Issue #74 clone workspace producer composes into packaged verification', () => {
+  const repository = compositionRepository();
+  const shimRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-74-git-shim-'));
+  const realGit = process.platform === 'win32'
+    ? execFileSync('where', ['git'], { encoding: 'utf8' }).split(/\\r?\\n/).find(Boolean).trim()
+    : execFileSync('which', ['git'], { encoding: 'utf8' }).trim();
+  const shim = path.join(shimRoot, process.platform === 'win32' ? 'git-shim.js' : 'git');
+  fs.writeFileSync(shim, process.platform === 'win32'
+    ? "'use strict';\nconst cp=require('node:child_process');\nconst args=process.argv.slice(2);\nif(args.includes('worktree') && args[args.indexOf('worktree') + 1] === 'add') process.exit(42);\nprocess.exit(cp.spawnSync(process.env.GIT_REAL, args, {stdio:'inherit'}).status ?? 1);\n"
+    : `#!/usr/bin/env node\n'use strict';\nconst cp=require('node:child_process');\nconst args=process.argv.slice(2);\nif(args.includes('worktree') && args[args.indexOf('worktree') + 1] === 'add') process.exit(42);\nprocess.exit(cp.spawnSync(${JSON.stringify(realGit)}, args, {stdio:'inherit'}).status ?? 1);\n`);
+  if (process.platform !== 'win32') fs.chmodSync(shim, 0o755);
+  const command = process.platform === 'win32' ? path.join(shimRoot, 'git.cmd') : shim;
+  if (process.platform === 'win32') fs.writeFileSync(command, `@"${process.execPath}" "%~dp0git-shim.js" %*\r\n`);
+  let created;
+  try {
+    const env = { PATH: `${shimRoot}${path.delimiter}${process.env.PATH || ''}`, GIT_REAL: realGit };
+    created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree }, env);
+    assert.equal(created.status, 0, JSON.stringify(created));
+    assert.equal(created.ok, true, JSON.stringify(created));
+    const verified = cli('workspace_verify', { cwd: created.data.path, expected: created.data });
+    assert.equal(verified.status, 0, JSON.stringify(verified));
+    assert.equal(verified.ok, true, JSON.stringify(verified));
+    assert.equal(created.data.kind, 'clone');
+    assert.equal(created.data.receipt, undefined);
+  } finally {
+    if (created?.data?.root) fs.rmSync(created.data.root, { recursive: true, force: true });
+    fs.rmSync(shimRoot, { recursive: true, force: true });
+    removeCompositionRepository(repository);
   }
 });
 
