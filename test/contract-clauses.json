@@ -2482,7 +2482,13 @@
         "the map names the shape each field expects, not only the field",
         "no shape is accepted as a tolerant alternative for another",
         "a supplied shape that is not the declared one stops with `input_shape_mismatch`",
-        "never as a later identity, capture, or evidence failure"
+        "never as a later identity, capture, or evidence failure",
+        "it is not a validator of producer output",
+        "rejected because it fails that one predicate, never because of what it was recognized to be",
+        "calibrated to what fails downstream",
+        "the closed CL-D36 schema remains the sole validator of gate results",
+        "constructed by hand to satisfy a declared predicate passes",
+        "The five declared fields are the complete CL-D44 set"
       ]
     },
     {
@@ -2523,7 +2529,7 @@
         "test/issue-74-composition-shapes.test.js"
       ],
       "requires": [
-        "shapes are classified by what they are, not by what they are called",
+        "each declared field carries one predicate and rejection needs no classification",
         "the declared shapes are published beside the fields",
         "the envelope-for-data swap is rejected by name at the boundary",
         "every other declared field rejects the shapes it does not take",

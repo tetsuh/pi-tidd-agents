@@ -4,10 +4,13 @@
 // them, so a swap fails as a shape error instead of as an unrelated downstream error.
 //
 // TDD provenance: recorded with the focused command below. The authority scenario is
-// compile/contract RED against the missing section and record; the classification, boundary,
-// composition, and tightening scenarios are behavioral RED against a boundary that accepted
-// every shape it was handed. That local output is not claimed as repository-preserved or
-// runtime-compliance evidence.
+// compile/contract RED against the missing section and record; the boundary, composition, and
+// tightening scenarios are behavioral RED against a boundary that accepted every shape it was
+// handed. That local output is not claimed as repository-preserved or runtime-compliance
+// evidence. The predicate scenario replaced the original classification scenario after review:
+// successive rounds each constructed an object falling between two classes of the total
+// classifier, so the API was reformulated as one predicate per declared field and the
+// classifier was removed; the producer-edge fixtures are review-driven regressions.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -29,6 +32,16 @@ function captureData() { return { root: '/repo', head: OID, tree: 'b'.repeat(40)
 function receipt() { return { version: 1, id: 'run-1', root: '/run', storedPath: '/run/.cleanup-receipt.json', creationIdentity: { kind: 'linked', path: '/run/workspace' } }; }
 function createData() { return { path: '/run/workspace', head: OID, tree: 'b'.repeat(40), root: '/run', kind: 'linked', receipt: receipt(), cleanupAllowed: true }; }
 function snapshotData() { return { before: {}, after: {}, pull: {}, comments: [], reviews: [], inline: [], threads: [], checks: [], statuses: [] }; }
+function producerSnapshotData() {
+  return {
+    before: {}, after: {}, pull: {}, completeness: {}, policies: {},
+    annotations: [], checkSuites: [], checks: [], comments: [], inline: [], reviews: [], statuses: [], threads: [],
+  };
+}
+function cloneData() {
+  const { receipt: dropped, ...rest } = createData();
+  return { ...rest, kind: 'clone', cleanupAllowed: false, retained: true, fallbackReason: 'linked_unavailable' };
+}
 function gateOutput() {
   return {
     schemaVersion: 1,
@@ -114,6 +127,14 @@ test('Issue #74 authority declares the shape of every cross-operation field', ()
   assert.match(section, /a supplied shape that is not the declared one stops with `input_shape_mismatch`/);
   assert.match(section, /never as a later identity, capture, or evidence failure/);
   assert.match(section, /no shape is accepted as a tolerant alternative for another/);
+  // The separator-not-validator boundary, its depth calibration, its residual, and the freeze
+  // are contract text, so retreating from any of them fails here.
+  assert.match(section, /it is not a validator of producer output/);
+  assert.match(section, /rejected because it fails that one predicate, never because of what it was recognized to be/);
+  assert.match(section, /calibrated to what fails downstream/);
+  assert.match(section, /the closed CL-D36 schema remains the sole validator of gate results/);
+  assert.match(section, /constructed by hand to satisfy a declared predicate passes/);
+  assert.match(section, /The five declared fields are the complete CL-D44 set/);
 
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   for (const declaration of [
@@ -132,13 +153,32 @@ test('Issue #74 authority declares the shape of every cross-operation field', ()
   assert.match(decision, /tetsuh\/sitos#165/);
 });
 
-test('Issue #74 shapes are classified by what they are, not by what they are called', () => {
-  assert.equal(helpers.classifyInputShape(envelopeOf('operator_capture', captureData())), 'envelope');
-  assert.equal(helpers.classifyInputShape({ version: 1, ok: false, operation: 'x', error: {} }), 'envelope');
-  assert.equal(helpers.classifyInputShape(receipt()), 'receipt');
-  assert.equal(helpers.classifyInputShape(createData()), 'workspace_data');
-  assert.equal(helpers.classifyInputShape(captureData()), 'other');
-  for (const value of [null, undefined, 'text', 7, [], []]) assert.equal(helpers.classifyInputShape(value), 'other');
+test('Issue #74 each declared field carries one predicate and rejection needs no classification', () => {
+  // The declared shape passes; everything else fails the same one predicate. There is no
+  // total classifier in the API: the boundary never needs to recognize what a wrong value is,
+  // only that it is not the declared shape, so the rejection side is closed by construction.
+  assert.equal(helpers.classifyInputShape, undefined, 'the total classifier must not be part of the API');
+  assert.equal(helpers.inputShapeProblem('operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo' }), null);
+  for (const wrong of [
+    captureData(), receipt(), createData(), snapshotData(), gateOutput(),
+    envelopeOf('snapshot', captureData()),
+    { version: 1, ok: false, operation: 'operator_capture', error: { code: 'x', message: 'x', phase: 'x' } },
+    null, undefined, 'text', 7, [],
+  ]) {
+    const problem = helpers.inputShapeProblem('operator_revalidate', { captured: wrong, cwd: '/repo' });
+    assert.match(problem ?? '', /`captured` must be envelope:operator_capture/, JSON.stringify(wrong) ?? 'undefined');
+  }
+  // An operation with no declared cross-operation fields never reports a shape problem.
+  assert.equal(helpers.inputShapeProblem('operator_capture', { cwd: '/repo', identity: {} }), null);
+
+  // Producer-shape edges pinned directly against the predicates. A clone never carries a
+  // receipt, a successful envelope never carries an error key, and snapshot data is exactly
+  // the producer's key set — an extra key means it is not producer output.
+  assert.equal(helpers.inputShapeProblem('workspace_verify', { cwd: '/w', expected: cloneData() }), null);
+  assert.match(helpers.inputShapeProblem('workspace_verify', { cwd: '/w', expected: { ...cloneData(), receipt: receipt() } }) ?? '', /`expected` must be data:workspace_create/);
+  assert.match(helpers.inputShapeProblem('operator_revalidate', { cwd: '/repo', captured: { ...envelopeOf('operator_capture', captureData()), error: { code: 'x', message: 'x', phase: 'x' } } }) ?? '', /`captured` must be envelope:operator_capture/);
+  assert.equal(helpers.inputShapeProblem('fingerprint_snapshot', { snapshot: producerSnapshotData() }), null);
+  assert.match(helpers.inputShapeProblem('fingerprint_snapshot', { snapshot: { ...producerSnapshotData(), extra: 1 } }) ?? '', /`snapshot` must be data:snapshot/);
 });
 
 test('Issue #74 the declared shapes are published beside the fields', () => {
