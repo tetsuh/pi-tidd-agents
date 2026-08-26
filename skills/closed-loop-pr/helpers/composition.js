@@ -46,11 +46,6 @@ function classifyInputShape(value) {
     && plain(value.completeness) && Array.isArray(value.inline)
     && plain(value.policies) && Array.isArray(value.reviews)
     && Array.isArray(value.statuses) && Array.isArray(value.threads)) return 'snapshot_data';
-  // Preserve the existing packaged fingerprint fixture's compact snapshot witness while
-  // rejecting arbitrary objects and foreign operation data. Real collectSnapshot data takes
-  // the complete branch above; this compatibility witness is deliberately exact and OID-bound.
-  if (keys.length === 1 && keys[0] === 'head' && typeof value.head === 'string'
-    && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.head)) return 'snapshot_data';
   return 'other';
 }
 

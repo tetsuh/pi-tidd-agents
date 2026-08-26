@@ -195,7 +195,7 @@ test('Issue #74 every other declared field rejects the shapes it does not take',
   for (const [operation, field, extra, wrong] of [
     ['workspace_verify', 'expected', { cwd: '/run/workspace' }, [envelopeOf('workspace_create', createData()), receipt()]],
     ['workspace_cleanup', 'receipt', { cwd: '/repo' }, [envelopeOf('workspace_create', createData()), createData()]],
-    ['fingerprint_snapshot', 'snapshot', {}, [envelopeOf('snapshot', snapshotData()), receipt(), { foo: 'bar' }, captureData()]],
+    ['fingerprint_snapshot', 'snapshot', {}, [envelopeOf('snapshot', snapshotData()), receipt(), { foo: 'bar' }, { head: OID }, captureData()]],
   ]) {
     for (const value of wrong) {
       const rejected = cli(operation, { ...extra, [field]: value });
