@@ -222,21 +222,34 @@ test('Issue #74 every other declared field rejects the shapes it does not take',
 
 test('Issue #74 clone workspace producer composes into packaged verification', () => {
   const repository = compositionRepository();
-  const shimRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-74-git-shim-'));
-  const realGit = process.platform === 'win32'
-    ? execFileSync('where', ['git'], { encoding: 'utf8' }).split(/\\r?\\n/).find(Boolean).trim()
-    : execFileSync('which', ['git'], { encoding: 'utf8' }).trim();
-  const shim = path.join(shimRoot, process.platform === 'win32' ? 'git-shim.js' : 'git');
-  fs.writeFileSync(shim, process.platform === 'win32'
-    ? "'use strict';\nconst cp=require('node:child_process');\nconst args=process.argv.slice(2);\nif(args.includes('worktree') && args[args.indexOf('worktree') + 1] === 'add') process.exit(42);\nprocess.exit(cp.spawnSync(process.env.GIT_REAL, args, {stdio:'inherit'}).status ?? 1);\n"
-    : `#!/usr/bin/env node\n'use strict';\nconst cp=require('node:child_process');\nconst args=process.argv.slice(2);\nif(args.includes('worktree') && args[args.indexOf('worktree') + 1] === 'add') process.exit(42);\nprocess.exit(cp.spawnSync(${JSON.stringify(realGit)}, args, {stdio:'inherit'}).status ?? 1);\n`);
-  if (process.platform !== 'win32') fs.chmodSync(shim, 0o755);
-  const command = process.platform === 'win32' ? path.join(shimRoot, 'git.cmd') : shim;
-  if (process.platform === 'win32') fs.writeFileSync(command, `@"${process.execPath}" "%~dp0git-shim.js" %*\r\n`);
+  const publisher = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-74-publisher-'));
+  const runParent = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-74-clone-run-'));
+  const runRoot = path.join(runParent, 'run');
   let created;
   try {
-    const env = { PATH: `${shimRoot}${path.delimiter}${process.env.PATH || ''}`, GIT_REAL: realGit };
-    created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree }, env);
+    git(publisher, ['init', '-b', 'main']);
+    git(publisher, ['config', 'user.name', 'Issue 74 Test']);
+    git(publisher, ['config', 'user.email', 'issue74@example.invalid']);
+    git(publisher, ['remote', 'add', 'origin', repository.bare]);
+    git(publisher, ['fetch', 'origin', 'main']);
+    git(publisher, ['checkout', '-B', 'main', 'FETCH_HEAD']);
+    fs.appendFileSync(path.join(publisher, 'tracked.txt'), 'remote-only\n');
+    git(publisher, ['add', 'tracked.txt']);
+    git(publisher, ['commit', '-m', 'test: remote-only clone fallback']);
+    git(publisher, ['push', 'origin', 'HEAD:main']);
+    const remoteHead = git(publisher, ['rev-parse', 'HEAD']);
+    const remoteTree = git(publisher, ['rev-parse', 'HEAD^{tree}']);
+
+    // The source repository deliberately has not fetched this commit. A linked worktree cannot
+    // resolve it and fails without residue, while cloning the verified origin can resolve it.
+    const localLookup = spawnSync('git', ['cat-file', '-e', `${remoteHead}^{commit}`], {
+      cwd: repository.root, encoding: 'utf8',
+      env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' },
+    });
+    assert.notEqual(localLookup.status, 0);
+    created = cli('workspace_create', {
+      cwd: repository.root, head: remoteHead, tree: remoteTree, runRoot,
+    });
     assert.equal(created.status, 0, JSON.stringify(created));
     assert.equal(created.ok, true, JSON.stringify(created));
     const verified = cli('workspace_verify', { cwd: created.data.path, expected: created.data });
@@ -245,8 +258,8 @@ test('Issue #74 clone workspace producer composes into packaged verification', (
     assert.equal(created.data.kind, 'clone');
     assert.equal(created.data.receipt, undefined);
   } finally {
-    if (created?.data?.root) fs.rmSync(created.data.root, { recursive: true, force: true });
-    fs.rmSync(shimRoot, { recursive: true, force: true });
+    fs.rmSync(runParent, { recursive: true, force: true });
+    fs.rmSync(publisher, { recursive: true, force: true });
     removeCompositionRepository(repository);
   }
 });
