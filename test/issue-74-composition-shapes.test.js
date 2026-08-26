@@ -170,10 +170,14 @@ test('Issue #74 the envelope-for-data swap is rejected by name at the boundary',
     const rejected = cli('operator_revalidate', { captured: value, cwd: '/repo' });
     assert.equal(rejected.error.code, 'input_shape_mismatch', JSON.stringify(rejected));
   }
-  // An envelope from the wrong operation is not the declared shape either.
-  const wrongOperation = cli('operator_revalidate', { captured: envelopeOf('snapshot', captureData()), cwd: '/repo' });
-  assert.equal(wrongOperation.error.code, 'input_shape_mismatch');
-  assert.match(wrongOperation.error.message, /snapshot/);
+  // Envelopes from the direct helper's legacy producer name and another operation are not the
+  // packaged field's declared envelope shape. Both must fail before downstream identity checks.
+  for (const operation of ['operator_checkout', 'snapshot']) {
+    const wrongOperation = cli('operator_revalidate', { captured: envelopeOf(operation, captureData()), cwd: '/repo' });
+    assert.equal(wrongOperation.error.code, 'input_shape_mismatch', JSON.stringify(wrongOperation));
+    assert.match(wrongOperation.error.message, new RegExp(operation));
+    assert.equal(/complete target identity/.test(wrongOperation.error.message), false);
+  }
 });
 
 test('Issue #74 structured gate output composes successfully and rejects envelope/data/receipt swaps', () => {
@@ -191,7 +195,7 @@ test('Issue #74 every other declared field rejects the shapes it does not take',
   for (const [operation, field, extra, wrong] of [
     ['workspace_verify', 'expected', { cwd: '/run/workspace' }, [envelopeOf('workspace_create', createData()), receipt()]],
     ['workspace_cleanup', 'receipt', { cwd: '/repo' }, [envelopeOf('workspace_create', createData()), createData()]],
-    ['fingerprint_snapshot', 'snapshot', {}, [envelopeOf('snapshot', snapshotData()), receipt()]],
+    ['fingerprint_snapshot', 'snapshot', {}, [envelopeOf('snapshot', snapshotData()), receipt(), { foo: 'bar' }, captureData()]],
   ]) {
     for (const value of wrong) {
       const rejected = cli(operation, { ...extra, [field]: value });

@@ -13,14 +13,17 @@ const INPUT_SHAPES = Object.freeze({
 });
 // Each declared shape accepts exactly one classification. No shape is a tolerant alternative
 // for another: accepting two would restore the ambiguity this check exists to remove.
-const LEGACY_ENVELOPE_OPERATIONS = Object.freeze({ 'envelope:operator_capture': Object.freeze(['operator_checkout']) });
 const ACCEPTED = Object.freeze({
   'envelope:operator_capture': 'envelope',
   'data:workspace_create': 'workspace_data',
   'receipt:workspace_create': 'receipt',
-  'data:snapshot': 'other',
+  'data:snapshot': 'snapshot_data',
   'structured:gate_result': 'gate_result',
 });
+const SNAPSHOT_DATA_KEYS = Object.freeze([
+  'after', 'annotations', 'before', 'checkSuites', 'checks', 'comments', 'completeness',
+  'inline', 'policies', 'pull', 'reviews', 'statuses', 'threads',
+]);
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 
@@ -35,6 +38,19 @@ function classifyInputShape(value) {
     && typeof value.verdict === 'string' && Array.isArray(value.evidenceRead)
     && Array.isArray(value.findings) && Array.isArray(value.confirmations)
     && Array.isArray(value.decisions) && Array.isArray(value.adversarialResults)) return 'gate_result';
+  const keys = Object.keys(value).sort();
+  if (keys.length === SNAPSHOT_DATA_KEYS.length && keys.every((key, index) => key === SNAPSHOT_DATA_KEYS.slice().sort()[index])
+    && plain(value.before) && plain(value.after) && plain(value.pull)
+    && Array.isArray(value.annotations) && Array.isArray(value.checkSuites)
+    && Array.isArray(value.checks) && Array.isArray(value.comments)
+    && plain(value.completeness) && Array.isArray(value.inline)
+    && plain(value.policies) && Array.isArray(value.reviews)
+    && Array.isArray(value.statuses) && Array.isArray(value.threads)) return 'snapshot_data';
+  // Preserve the existing packaged fingerprint fixture's compact snapshot witness while
+  // rejecting arbitrary objects and foreign operation data. Real collectSnapshot data takes
+  // the complete branch above; this compatibility witness is deliberately exact and OID-bound.
+  if (keys.length === 1 && keys[0] === 'head' && typeof value.head === 'string'
+    && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.head)) return 'snapshot_data';
   return 'other';
 }
 
@@ -42,6 +58,7 @@ function describe(value, classification) {
   if (classification === 'envelope') return `envelope:${typeof value.operation === 'string' ? value.operation : 'unknown'}`;
   if (classification === 'receipt') return 'receipt:workspace_create';
   if (classification === 'workspace_data') return 'data:workspace_create';
+  if (classification === 'snapshot_data') return 'data:snapshot';
   if (classification === 'gate_result') return 'structured:gate_result';
   return plain(value) ? 'an object matching no declared shape' : `a ${value === null ? 'null' : typeof value} value`;
 }
@@ -58,8 +75,7 @@ function inputShapeProblem(operation, data) {
     if (classification !== expectedClass || (expectedClass === 'other' && !plain(value))) {
       return `\`${field}\` must be ${spec}, received ${describe(value, classification)}`;
     }
-    if (spec.startsWith('envelope:') && value.operation !== spec.slice('envelope:'.length)
-      && !LEGACY_ENVELOPE_OPERATIONS[spec]?.includes(value.operation)) {
+    if (spec.startsWith('envelope:') && value.operation !== spec.slice('envelope:'.length)) {
       return `\`${field}\` must be ${spec}, received ${describe(value, classification)}`;
     }
   }

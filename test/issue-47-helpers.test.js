@@ -234,8 +234,12 @@ test('Issue #47 operator revalidation rejects non-runtime, ignored, config, and 
     const postPush = helpers.revalidateOperatorCheckout(captured, { cwd: repo.root, postPushHead: alternate });
     assert.equal(postPush.ok, true, JSON.stringify(postPush));
     const routed = cli({ version: 1, operation: 'operator_revalidate', data: { captured, cwd: repo.root, postPushHead: alternate } });
-    assert.equal(routed.status, 0, routed.stderr || routed.stdout);
-    assert.equal(JSON.parse(routed.stdout).ok, true);
+    assert.equal(routed.status, 1, routed.stderr || routed.stdout);
+    const routedResult = JSON.parse(routed.stdout);
+    assert.equal(routedResult.ok, false);
+    assert.equal(routedResult.error.code, 'input_shape_mismatch');
+    // The direct helper API above remains the compatibility surface; only packaged composition
+    // rejects its legacy operator_checkout envelope before dispatch.
 
     const spoofedRoot = commitTree(['HEAD^{tree}'], `parent ${repo.head}\n`);
     git(repo.root, ['update-ref', 'refs/remotes/origin/main', spoofedRoot]);
