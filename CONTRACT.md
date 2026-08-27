@@ -431,7 +431,7 @@ Each recoverable failure carries one canonical `operation@phase` key that its re
 
 *Decision ID:* CL-D44
 *Kind:* fail-closed request-validation boundary
-*Target and revision:* `tetsuh/pi-tidd-agents#74` at its initial body, which carries the observed reproducer from the authoritative Issue #36 comment, and the owner's live instruction `#74 を進めて`, with the six-point enumeration ratified by the owner's forwarded review instruction on the predicate reformulation
+*Target and revision:* `tetsuh/pi-tidd-agents#74` at its initial body, which carries the observed reproducer from the authoritative Issue #36 comment, and the owner's live instruction `#74 を進めて`, with the six-point enumeration approved by the owner in the authoritative pull-request comment <https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-5442524616>
 *Question:* How should the packaged CLI treat a cross-operation field that receives a structurally similar but wrong shape — the complete envelope, an operation's `data`, or a nested receipt?
 *Options and trade-offs:* Option A leaves presence checking in place, which is the state that produced the reported failure. Option B accepts every plausible shape and normalizes internally, which never errors but makes the documented contract unknowable and hides a real mistake. Option C declares one shape per field and rejects the others at the boundary. A is silent and misleading; B trades a late wrong answer for no answer at all; C costs one classification helper and one section.
 *Recommendation:* Option C, with the declaration published beside the field in the invocation map.
