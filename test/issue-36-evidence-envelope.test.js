@@ -34,6 +34,15 @@ const SNAP = '4'.repeat(64);
 function brackets() {
   return { repository: 'tetsuh/pi-tidd-agents', number: 36, base: BASE, baseBranch: 'main', head: HEAD, state: 'open', draft: false, headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'topic' };
 }
+function snapshotData() {
+  return {
+    before: brackets(), after: brackets(), pull: {}, comments: [], reviews: [], inline: [], threads: [],
+    checks: [], statuses: [], checkSuites: [], annotations: [], policies: {}, completeness: {
+      rest: true, reviewThreads: true, nestedThreadComments: true, rulesetDetails: true,
+      organizationRulesets: true, checks: true, brackets: true,
+    },
+  };
+}
 function envelope(overrides = {}) {
   return {
     schemaVersion: 1,
@@ -164,7 +173,7 @@ test('Issue #36 every fingerprint operation owns the labelled record used by env
     ['fingerprint_pr_diff', { base64: Buffer.from('diff').toString('base64') }, 'pr_diff', 'raw_bytes'],
     ['fingerprint_pr_commits', { commits: [{ message: 'subject\n\nbody' }] }, 'pr_commits', 'normalized_text'],
     ['fingerprint_pr_head', { oid: HEAD }, 'pr_head', 'git_oid'],
-    ['fingerprint_snapshot', { snapshot: { head: HEAD } }, 'snapshot', 'canonical_json'],
+    ['fingerprint_snapshot', { snapshot: snapshotData() }, 'snapshot', 'canonical_json'],
   ];
   const outputs = {};
   for (const [operation, data, domain, encoding] of cases) {

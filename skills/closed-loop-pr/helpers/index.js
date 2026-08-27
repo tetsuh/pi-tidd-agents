@@ -8,6 +8,7 @@ module.exports = {
   ...require('./paths'),
   ...require('./gate-result'),
   ...require('./evidence'),
+  ...require('./composition'),
   ...require('./protocol'),
   protocol: require('./protocol'),
 };

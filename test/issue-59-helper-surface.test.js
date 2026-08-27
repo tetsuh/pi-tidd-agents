@@ -12,7 +12,7 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
-  'cli.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js',
+  'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js',
   'process.js', 'protocol.js', 'snapshot.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
@@ -53,7 +53,7 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './evidence': 1, './fingerprints': 2, './gate-result': 1, './index': 1, './operator': 1,
+  './composition': 1, './evidence': 1, './fingerprints': 2, './gate-result': 1, './index': 1, './operator': 1,
   './paths': 3, './process': 4, './protocol': 9, './snapshot': 1, './workspace': 1, './writability': 1,
   'node:child_process': 1, 'node:crypto': 4, 'node:fs': 4, 'node:os': 2, 'node:path': 4,
 };

@@ -41,15 +41,21 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | CL-D9 `pr_diff`, the exact binary effective diff | `fingerprint_pr_diff` | `base64` |
 | CL-D9 `pr_commits` | `fingerprint_pr_commits` | `commits` |
 | CL-D9 `pr_head` | `fingerprint_pr_head` | `oid` |
-| Snapshot fingerprint for that evidence | `fingerprint_snapshot` | `snapshot` |
-| `AUTOFIX_WORKSPACE@H`/`@P` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and before any edit, including immediately before delegating Luna | `workspace_verify` | `cwd`, `expected` |
-| Sole-parent transition evidence toward `WORKSPACE_POST_COMMIT(C, P)`, `WORKSPACE_POST_PUSH(C, O)` | `workspace_verify` | `cwd`, `expected`, `transition` |
-| `OPERATOR_CHECKOUT_UNCHANGED@O` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and every terminal recheck | `operator_revalidate` | `captured`, `cwd` |
-| Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt`, `cwd` |
-| Every Sol or Terra result, before it is read as a verdict (CL-D36) | `gate_result_validate` | `result`, `expected` |
+| Snapshot fingerprint for that evidence | `fingerprint_snapshot` | `snapshot` (data of `snapshot`) |
+| `AUTOFIX_WORKSPACE@H`/`@P` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and before any edit, including immediately before delegating Luna | `workspace_verify` | `cwd`, `expected` (data of `workspace_create`) |
+| Sole-parent transition evidence toward `WORKSPACE_POST_COMMIT(C, P)`, `WORKSPACE_POST_PUSH(C, O)` | `workspace_verify` | `cwd`, `expected` (data of `workspace_create`), `transition` |
+| `OPERATOR_CHECKOUT_UNCHANGED@O` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and every terminal recheck | `operator_revalidate` | `captured` (envelope of `operator_capture`), `cwd` |
+| Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt` (receipt inside `workspace_create` data), `cwd` |
+| Every Sol or Terra result, before it is read as a verdict (CL-D36) | `gate_result_validate` | `result` (structured gate output), `expected` |
 | Before each gate invocation, on the assembled evidence (CL-D42) | `evidence_verify` | `envelope`, `expected` |
 
 `workspace_verify` requires clean tracked and index state, so it does not serve `BEFORE_VALIDATION`, `AFTER_VALIDATION`, `BEFORE_STAGING`, `AFTER_STAGING`, or `BEFORE_COMMIT`: those guards keep their phase-specific frozen-overlay and staged-manifest delta checks, which this map does not reassign. Its transition form supplies only clean workspace identity, current `HEAD`, and a verified sole-parent transition; current public-head equality, staged manifest/tree/blob identity, and linked remote-tracking equality remain phase-specific checks this map does not reassign. After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality. A helper envelope is supplied evidence in the gate payload: it never substitutes for a gate verdict and grants no commit, push, reply, or provider authority.
+
+### Cross-operation input shapes (CL-D44)
+
+`envelope`, `data`, and `receipt` are distinct input shapes: the complete protocol document `{ version, ok, operation, data }`, that document's `data` object, and the run-owned cleanup receipt nested inside `workspace_create` data. They are structurally similar and easy to substitute for one another, so the map names the shape each field expects, not only the field. Shape is decided by structure, never by what a caller names it, and no shape is accepted as a tolerant alternative for another. Accordingly, a supplied shape that is not the declared one stops with `input_shape_mismatch` before the operation runs, naming the field, the declared shape, and what arrived — never as a later identity, capture, or evidence failure that points at the target instead of the request. The check is part of request validation, so it consumes no counter, grants no authority, and is not recoverable under CL-D39, which classifies only the keys it already names.
+
+The check separates the declared shapes from one another; it is not a validator of producer output. Each field carries one predicate for its declared shape, and a supplied value is rejected because it fails that one predicate, never because of what it was recognized to be, so the rejection side stays closed without enumerating other shapes. Predicate depth is calibrated to what fails downstream: `snapshot` carries the full producer shape because `fingerprint_snapshot` hashes any object silently, while `result` is only a separating probe because the closed CL-D36 schema remains the sole validator of gate results. An object constructed by hand to satisfy a declared predicate passes: detecting fabricated producer output is outside this boundary, exactly as CL-D42 does not detect a hand-retyped value. The five declared fields are the complete CL-D44 set; declaring another field, changing a predicate's depth, or accepting a second shape for any field requires a new owner decision.
 
 ### Bounded pre-writer recovery (CL-D39)
 
