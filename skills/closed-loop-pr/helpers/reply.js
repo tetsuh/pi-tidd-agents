@@ -11,7 +11,12 @@ const { createResult, createError } = require('./protocol');
 // module reaches no filesystem, process, or network primitive, so it cannot POST, retry, or
 // resolve anything regardless of its result, and every outcome is terminal for the run under
 // the recorded Option A.
-const MARKER_PREFIX = '<!-- pi-tidd-agents:source-reply:v1 ';
+// The stem is the version token; the canonical delimiter after it is one ASCII space. They
+// are held separately because detection must find the stem followed by ANY whitespace — a TAB
+// after the version token would otherwise hide the whole marker from both parsing paths —
+// while canonical recognition still demands the single-space form via re-serialization.
+const MARKER_STEM = '<!-- pi-tidd-agents:source-reply:v1';
+const MARKER_PREFIX = `${MARKER_STEM} `;
 const MARKER_FIELDS = ['repo', 'pr', 'sourceKind', 'sourceId', 'sourceUrl', 'sourceBodySha256', 'sourceCreatedAt', 'sourceUpdatedAt', 'head', 'findings', 'gates', 'commit', 'visibleSha256'];
 const BINDING_KEYS = ['commit', 'findings', 'gates', 'head', 'number', 'repository', 'sourceBodySha256', 'sourceCreatedAt', 'sourceId', 'sourceKind', 'sourceUpdatedAt', 'sourceUrl'];
 const OID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
@@ -88,7 +93,7 @@ function createReplyMarker({ binding, visibleBody } = {}) {
     const visible = canonicalDigestible(visibleBody);
     // A marker line inside the visible bytes would make the digest domain ambiguous: the same
     // published body would parse into two candidate visible regions.
-    if (visible.includes(MARKER_PREFIX)) fail('invalid_reply_binding', 'visibleBody must not contain a source-reply marker');
+    if (new RegExp(`${MARKER_STEM.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\s|$)`).test(visible)) fail('invalid_reply_binding', 'visibleBody must not contain a source-reply marker');
     const visibleSha256 = sha256(Buffer.from(visible, 'utf8'));
     const marker = serializeMarker(binding, visibleSha256);
     const body = `${visible}${marker}\n`;
@@ -133,15 +138,19 @@ function noncanonicalCandidate(body, expectedFields) {
   const content = canonicalVisible(body);
   let from = 0;
   for (;;) {
-    const at = content.indexOf(MARKER_PREFIX, from);
+    const at = content.indexOf(MARKER_STEM, from);
     if (at === -1) return false;
+    const follower = content[at + MARKER_STEM.length];
+    // A longer token — v12, v1x — is another version and stays outside this vocabulary; only
+    // the exact v1 token followed by whitespace or the end of the content is a candidate.
+    if (follower !== undefined && !/\s/.test(follower)) { from = at + MARKER_STEM.length; continue; }
     const lineStart = content.lastIndexOf('\n', at) + 1;
     const newline = content.indexOf('\n', at);
     const lineEnd = newline === -1 ? content.length : newline;
     const line = content.slice(lineStart, lineEnd);
     if (!canonicalFields(line)) {
       const close = content.indexOf('-->', at);
-      const candidate = content.slice(at + MARKER_PREFIX.length, close === -1 ? lineEnd : Math.min(close, lineEnd));
+      const candidate = content.slice(at + MARKER_STEM.length, close === -1 ? lineEnd : Math.min(close, lineEnd));
       const fields = {};
       // Tokens split on any whitespace, so a TAB- or vertical-TAB-separated candidate still
       // reveals which source it names instead of hiding it inside one mangled token.
@@ -152,7 +161,7 @@ function noncanonicalCandidate(body, expectedFields) {
       const named = fields.sourceKind !== undefined && fields.sourceId !== undefined;
       if (!named || (fields.sourceKind === expectedFields.sourceKind && fields.sourceId === expectedFields.sourceId)) return true;
     }
-    from = at + MARKER_PREFIX.length;
+    from = at + MARKER_STEM.length;
   }
 }
 

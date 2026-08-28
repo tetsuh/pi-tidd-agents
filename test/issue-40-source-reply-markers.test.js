@@ -247,6 +247,20 @@ test('Issue #40 reconciliation classifies each fixture distinctly and exactly on
     assert.equal(settled.data.classification, 'reply_conflict', `${label}: ${JSON.stringify(settled.data)}`);
     assert.equal(settled.data.reason, 'altered_marker_candidate', label);
   }
+  // Reopened again at the version delimiter: the whitespace immediately after the v1 token is
+  // part of detection, so replacing it with TAB or vertical TAB must still classify as altered
+  // evidence — the stem is matched separately from its canonical single-space delimiter.
+  for (const [label, line] of [
+    ['TAB after the version token', marker.replace(':v1 ', ':v1\t')],
+    ['vertical TAB after the version token', marker.replace(':v1 ', ':v1\u000B')],
+  ]) {
+    const settled = reconcile({ comments: [{ id: '9', body: `body\n${line}\n`, author: 'tetsuh' }] });
+    assert.equal(settled.data.classification, 'reply_conflict', `${label}: ${JSON.stringify(settled.data)}`);
+    assert.equal(settled.data.reason, 'altered_marker_candidate', label);
+  }
+  // A longer version token is another vocabulary, not an altered current-v1 candidate.
+  assert.equal(reconcile({ comments: [{ id: '9', body: 'x <!-- pi-tidd-agents:source-reply:v12 sourceKind=issue_comment sourceId=5442524616 --> y\n', author: 'tetsuh' }] }).data.classification, 'reply_confirmed_absent');
+
   // A TAB-mangled candidate naming a different source still leaves absence undisturbed.
   const otherTab = markerOf({ sourceId: '999', sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-999' }).data.marker
     .replace('sourceId=999 sourceUrl', 'sourceId=999\tsourceUrl');
