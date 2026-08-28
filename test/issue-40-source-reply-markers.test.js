@@ -232,6 +232,26 @@ test('Issue #40 reconciliation classifies each fixture distinctly and exactly on
     assert.equal(settled.data.classification, 'reply_conflict', `${label}: ${JSON.stringify(settled.data)}`);
     assert.equal(settled.data.reason, 'altered_marker_candidate', label);
   }
+  // Reopened SOL-77-ALTERED-MARKER-ABSENCE: noncanonical internal whitespace inside an
+  // otherwise canonical-looking line — TAB or vertical TAB for the single-space separator, a
+  // reordered field pair — must classify as altered evidence, never as absence. Canonical
+  // recognition is re-serialization equality, not prefix and suffix.
+  const inner = marker.slice('<!-- pi-tidd-agents:source-reply:v1 '.length, -' -->'.length).split(' ');
+  for (const [label, line] of [
+    ['TAB separator', marker.replace('sourceKind=issue_comment sourceId', 'sourceKind=issue_comment\tsourceId')],
+    ['vertical-TAB separator', marker.replace(' sourceUrl=', '\u000BsourceUrl=')],
+    ['reordered fields', `<!-- pi-tidd-agents:source-reply:v1 ${[inner[1], inner[0], ...inner.slice(2)].join(' ')} -->`],
+    ['duplicated field token', `<!-- pi-tidd-agents:source-reply:v1 ${inner.join(' ')} ${inner[0]} -->`],
+  ]) {
+    const settled = reconcile({ comments: [{ id: '9', body: `body\n${line}\n`, author: 'tetsuh' }] });
+    assert.equal(settled.data.classification, 'reply_conflict', `${label}: ${JSON.stringify(settled.data)}`);
+    assert.equal(settled.data.reason, 'altered_marker_candidate', label);
+  }
+  // A TAB-mangled candidate naming a different source still leaves absence undisturbed.
+  const otherTab = markerOf({ sourceId: '999', sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-999' }).data.marker
+    .replace('sourceId=999 sourceUrl', 'sourceId=999\tsourceUrl');
+  assert.equal(reconcile({ comments: [{ id: '9', body: `x ${otherTab}\n`, author: 'tetsuh' }] }).data.classification, 'reply_confirmed_absent');
+
   // A noncanonical candidate naming a different source, and an unknown marker version, do not
   // manufacture a conflict for this binding: absence stays absence.
   const otherSource = markerOf({ sourceId: '999', sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-999' }).data.marker;

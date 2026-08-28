@@ -98,16 +98,28 @@ function createReplyMarker({ binding, visibleBody } = {}) {
   }
 }
 
+// A line is a canonical v1 marker only when re-serializing its parsed fields reproduces it
+// byte for byte with exactly the declared field set: prefix and suffix alone are not
+// recognition, because any altered interior — a TAB for a space, a duplicated or reordered
+// field — would otherwise hide inside a canonical-looking line and be silently skipped.
+function canonicalFields(line) {
+  if (!line.startsWith(MARKER_PREFIX) || !line.endsWith(' -->')) return null;
+  const fields = {};
+  for (const token of line.slice(MARKER_PREFIX.length, -' -->'.length).split(' ')) {
+    const split = token.indexOf('=');
+    if (split > 0) fields[token.slice(0, split)] = token.slice(split + 1);
+  }
+  // Re-serialization equality is the whole test: a missing, extra, duplicated, or reordered
+  // field, or any noncanonical separator, cannot reproduce the line from the declared order.
+  const reserialized = `${MARKER_PREFIX}${MARKER_FIELDS.map((field) => `${field}=${fields[field]}`).join(' ')} -->`;
+  return reserialized === line ? fields : null;
+}
+
 function parseMarkers(body) {
   const markers = [];
   for (const line of canonicalVisible(body).split('\n')) {
-    if (!line.startsWith(MARKER_PREFIX) || !line.endsWith(' -->')) continue;
-    const fields = {};
-    for (const token of line.slice(MARKER_PREFIX.length, -' -->'.length).split(' ')) {
-      const split = token.indexOf('=');
-      if (split > 0) fields[token.slice(0, split)] = token.slice(split + 1);
-    }
-    markers.push(fields);
+    const fields = canonicalFields(line);
+    if (fields) markers.push(fields);
   }
   return markers;
 }
@@ -127,11 +139,13 @@ function noncanonicalCandidate(body, expectedFields) {
     const newline = content.indexOf('\n', at);
     const lineEnd = newline === -1 ? content.length : newline;
     const line = content.slice(lineStart, lineEnd);
-    if (!(line.startsWith(MARKER_PREFIX) && line.endsWith(' -->'))) {
+    if (!canonicalFields(line)) {
       const close = content.indexOf('-->', at);
       const candidate = content.slice(at + MARKER_PREFIX.length, close === -1 ? lineEnd : Math.min(close, lineEnd));
       const fields = {};
-      for (const token of candidate.split(' ')) {
+      // Tokens split on any whitespace, so a TAB- or vertical-TAB-separated candidate still
+      // reveals which source it names instead of hiding it inside one mangled token.
+      for (const token of candidate.split(/\s+/)) {
         const split = token.indexOf('=');
         if (split > 0) fields[token.slice(0, split)] = token.slice(split + 1);
       }
