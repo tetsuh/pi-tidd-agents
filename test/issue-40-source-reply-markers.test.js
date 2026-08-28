@@ -1,0 +1,244 @@
+'use strict';
+
+// Issue #40 — deterministic source-reply markers and read-only post-attempt reconciliation,
+// without weakening one-shot mutation authority.
+//
+// TDD provenance: recorded with the focused command below, which produced 0 passes. Every
+// failure is compile/contract RED — the authority scenario against the missing section and
+// record, the rest because `createReplyMarker` and `reconcileReply` did not exist at capture —
+// so no behavioral RED is claimed for this file. That local output is not claimed as
+// repository-preserved or runtime-compliance evidence.
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const helpers = require('../skills/closed-loop-pr/helpers');
+const { readText, sectionOf, cliSchemas } = require('./helpers');
+
+const AUTOFIX = readText('skills/closed-loop-pr/references/autofix.md');
+const CONTRACT = readText('CONTRACT.md');
+const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
+
+const HEAD = 'a'.repeat(40);
+const SOURCE_SHA = crypto.createHash('sha256').update(Buffer.from('please fix the guard\n', 'utf8')).digest('hex');
+const VISIBLE = 'Fixed by `b`.repeat? no — the guard now rejects the swap.\nConfirming gate: Sol at the exact head.\n';
+
+function binding(overrides = {}) {
+  return {
+    repository: 'tetsuh/pi-tidd-agents',
+    number: 76,
+    sourceKind: 'issue_comment',
+    sourceId: '5442524616',
+    sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-5442524616',
+    sourceBodySha256: SOURCE_SHA,
+    sourceCreatedAt: '2026-08-27T10:00:00Z',
+    sourceUpdatedAt: '2026-08-27T10:00:00Z',
+    head: HEAD,
+    findings: [{ findingId: 'SOL-76-OWNER-PROVENANCE', disposition: 'fixed' }],
+    gates: 'sol',
+    commit: 'b'.repeat(40),
+    ...overrides,
+  };
+}
+function markerOf(overrides = {}, visibleBody = VISIBLE) {
+  return helpers.createReplyMarker({ binding: binding(overrides), visibleBody });
+}
+function source(overrides = {}) {
+  return {
+    kind: 'issue_comment', id: '5442524616',
+    url: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-5442524616',
+    bodySha256: SOURCE_SHA, createdAt: '2026-08-27T10:00:00Z', updatedAt: '2026-08-27T10:00:00Z',
+    ...overrides,
+  };
+}
+function reconcile({ b = binding(), visibleSha256, src = source(), comments = [], paginationComplete = true, currentHead = HEAD } = {}) {
+  const sha = visibleSha256 ?? markerOf().data.visibleSha256;
+  return helpers.reconcileReply({ binding: b, visibleSha256: sha, source: src, comments, paginationComplete, currentHead });
+}
+function publishedComment(overrides = {}) {
+  const made = markerOf();
+  return { id: '900001', body: made.data.body, ...overrides };
+}
+function cli(operation, data) {
+  const run = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' });
+  return { ...JSON.parse(run.stdout), status: run.status };
+}
+
+test('Issue #40 authority defines the marker grammar, the four outcomes, and the terminal policy', () => {
+  const section = sectionOf(AUTOFIX, '### Source-reply markers and reconciliation (CL-D45)');
+  assert.ok(section, 'autofix must own a CL-D45 marker section');
+  assert.match(section, /`pi-tidd-agents:source-reply:v1`/);
+  assert.match(section, /`visibleSha256` is computed over the canonical visible reply body alone — LF-normalized UTF-8 bytes that exclude the marker line — so no marker field enters its own digest/);
+  assert.match(section, /`reply_confirmed_published`, `reply_confirmed_absent`, `reply_ambiguous`, and `reply_conflict`/);
+  assert.match(section, /exactly one of the four/);
+  assert.match(section, /Only an exact one-marker, one-body match on complete evidence classifies as published/);
+  assert.match(section, /incomplete pagination or missing refetched evidence is ambiguous, never absent/);
+  assert.match(section, /contradictory evidence — a duplicate, altered, wrong-head, or wrong-source marker, or a changed or deleted source — is a conflict/);
+  assert.match(section, /Reconciliation is read-only and repeatable, judges only supplied refetched evidence, and performs no request of its own/);
+  assert.match(section, /Every reconciliation outcome, including `reply_confirmed_absent`, is terminal for the run: no second POST exists under this decision/);
+  assert.match(section, /a fresh owner-authorized run remains the only continuation/);
+  assert.match(section, /never resolves threads, approves, requests rereview, invokes bots, edits or deletes comments, or posts an aggregate summary/);
+  assert.match(section, /Per-source outcomes stay ordered by source identity, and no batch outcome claims whole-PR readiness/);
+
+  const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
+  assert.match(map, /\| `marker_create` \| `binding`, `visibleBody` \|/);
+  assert.match(map, /\| `marker_reconcile` \| `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead` \|/);
+
+  const decision = sectionOf(CONTRACT, '## CL-D45 — Source replies carry deterministic markers and reconcile read-only');
+  assert.ok(decision, 'CONTRACT.md must record CL-D45');
+  for (const field of ['*Decision ID:* CL-D45', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
+    assert.ok(decision.includes(field), `CL-D45 record must carry ${field}`);
+  }
+  assert.match(decision, /Option A/);
+  assert.match(decision, /declares no CL-D44 field/);
+});
+
+test('Issue #40 marker serialization is deterministic and the digest is non-circular', () => {
+  const first = markerOf();
+  assert.equal(first.ok, true, JSON.stringify(first));
+  const again = markerOf();
+  assert.equal(first.data.marker, again.data.marker, 'same binding must serialize to identical marker bytes');
+  assert.equal(first.data.body, again.data.body);
+
+  // Finding order in the input does not change the canonical serialization.
+  const findings = [
+    { findingId: 'SOL-76-B', disposition: 'accepted-as-designed' },
+    { findingId: 'SOL-76-A', disposition: 'fixed' },
+  ];
+  const forward = markerOf({ findings });
+  const reversed = markerOf({ findings: [...findings].reverse() });
+  assert.equal(forward.data.marker, reversed.data.marker);
+  assert.ok(forward.data.marker.indexOf('SOL-76-A') < forward.data.marker.indexOf('SOL-76-B'));
+
+  // Non-circular: the digest covers the visible bytes alone, the marker line sits outside
+  // them, and stripping the marker line from the published body reproduces the digest.
+  const expected = crypto.createHash('sha256').update(Buffer.from(VISIBLE, 'utf8')).digest('hex');
+  assert.equal(first.data.visibleSha256, expected);
+  assert.ok(first.data.marker.includes(`visibleSha256=${expected}`));
+  assert.ok(first.data.body.endsWith(`${first.data.marker}\n`));
+  const visible = first.data.body.slice(0, first.data.body.length - first.data.marker.length - 1);
+  assert.equal(crypto.createHash('sha256').update(Buffer.from(visible, 'utf8')).digest('hex'), expected);
+
+  // CRLF input normalizes to the same canonical bytes.
+  assert.equal(markerOf({}, VISIBLE.replace(/\n/g, '\r\n')).data.visibleSha256, expected);
+
+  // A marker line inside the visible body would make the digest domain ambiguous.
+  const nested = markerOf({}, `${VISIBLE}${first.data.marker}\n`);
+  assert.equal(nested.ok, false);
+  assert.equal(nested.error.code, 'invalid_reply_binding');
+});
+
+test('Issue #40 the marker is fail-closed on every malformed binding field', () => {
+  const cases = [
+    ['repository', { repository: 'pi-tidd-agents' }],
+    ['number', { number: 0 }],
+    ['sourceKind', { sourceKind: 'Comment!' }],
+    ['sourceId', { sourceId: 'has space' }],
+    ['sourceUrl', { sourceUrl: 'http://github.com/x' }],
+    ['sourceUrl', { sourceUrl: 'https://github.com/a b' }],
+    ['sourceBodySha256', { sourceBodySha256: 'z'.repeat(64) }],
+    ['sourceCreatedAt', { sourceCreatedAt: 'yesterday' }],
+    ['sourceUpdatedAt', { sourceUpdatedAt: '2026-08-27' }],
+    ['head', { head: 'g'.repeat(40) }],
+    ['findings', { findings: [] }],
+    ['findings', { findings: [{ findingId: 'lower-1-x', disposition: 'fixed' }] }],
+    ['findings', { findings: [{ findingId: 'SOL-76-A', disposition: 'Fixed' }] }],
+    ['findings', { findings: [{ findingId: 'SOL-76-A', disposition: 'fixed' }, { findingId: 'SOL-76-A', disposition: 'deferred' }] }],
+    ['gates', { gates: 'luna' }],
+    ['commit', { commit: 'short' }],
+    ['extra', { extra: true }],
+  ];
+  for (const [field, override] of cases) {
+    const result = markerOf(override);
+    assert.equal(result.ok, false, `${field}: ${JSON.stringify(override)} must fail closed`);
+    assert.equal(result.error.code, 'invalid_reply_binding');
+    assert.equal(result.error.phase, 'marker_create');
+  }
+  assert.equal(markerOf({}, '').error.code, 'invalid_reply_binding');
+  assert.equal(markerOf({ commit: null }).ok, true, 'a no-code disposition carries no corrective commit');
+});
+
+test('Issue #40 reconciliation classifies each fixture distinctly and exactly once', () => {
+  const outcomes = new Set(['reply_confirmed_published', 'reply_confirmed_absent', 'reply_ambiguous', 'reply_conflict']);
+
+  // Published: exactly one marker, exact body, complete evidence.
+  const published = reconcile({ comments: [publishedComment(), { id: '1', body: 'unrelated comment' }] });
+  assert.equal(published.ok, true, JSON.stringify(published));
+  assert.equal(published.data.classification, 'reply_confirmed_published');
+  assert.equal(published.data.commentId, '900001');
+
+  // Absent: complete evidence, no matching marker anywhere.
+  const absent = reconcile({ comments: [{ id: '1', body: 'unrelated' }] });
+  assert.equal(absent.data.classification, 'reply_confirmed_absent');
+
+  // Duplicate: two exact markers.
+  assert.equal(reconcile({ comments: [publishedComment(), publishedComment({ id: '900002' })] }).data.classification, 'reply_conflict');
+
+  // Altered: the marker matches but the visible text changed after publication.
+  const altered = publishedComment();
+  altered.body = altered.body.replace('Confirming gate', 'Confirming gates');
+  assert.equal(reconcile({ comments: [altered] }).data.classification, 'reply_conflict');
+
+  // Stale head: a marker bound to the same source at another head is contradictory evidence.
+  const foreign = { id: '900003', body: markerOf({ head: 'c'.repeat(40) }).data.body };
+  assert.equal(reconcile({ comments: [foreign] }).data.classification, 'reply_conflict');
+
+  // Wrong source: the refetched source does not match the binding.
+  assert.equal(reconcile({ src: source({ bodySha256: 'd'.repeat(64) }), comments: [publishedComment()] }).data.classification, 'reply_conflict');
+  assert.equal(reconcile({ src: null, comments: [publishedComment()] }).data.classification, 'reply_conflict');
+
+  // Incomplete pagination: insufficient evidence is ambiguous even when a match is visible.
+  assert.equal(reconcile({ paginationComplete: false, comments: [publishedComment()] }).data.classification, 'reply_ambiguous');
+
+  // A moved current head is contradictory run state.
+  assert.equal(reconcile({ currentHead: 'e'.repeat(40), comments: [publishedComment()] }).data.classification, 'reply_conflict');
+
+  for (const result of [published, absent]) assert.ok(outcomes.has(result.data.classification));
+});
+
+test('Issue #40 reconciliation is read-only, repeatable, and mutation-free by construction', () => {
+  const comments = [publishedComment(), { id: '1', body: 'unrelated' }];
+  const frozenInput = JSON.stringify({ b: binding(), src: source(), comments });
+  const first = reconcile({ comments });
+  const second = reconcile({ comments });
+  assert.deepEqual(first, second, 'the same evidence must reconcile identically');
+  assert.equal(JSON.stringify({ b: binding(), src: source(), comments }), frozenInput, 'reconciliation must not mutate its evidence');
+
+  // Structural: the module reaches no filesystem, process, or network primitive, so it cannot
+  // POST, retry, or resolve anything regardless of its result.
+  const sourceText = readText('skills/closed-loop-pr/helpers/reply.js');
+  for (const forbidden of ["require('node:fs')", "require('node:child_process')", "require('node:https')", "require('node:http')", "require('node:net')", 'fetch(']) {
+    assert.equal(sourceText.includes(forbidden), false, `reply.js must not reach ${forbidden}`);
+  }
+});
+
+test('Issue #40 the packaged CLI routes both operations under JSON v1', () => {
+  assert.deepEqual(cliSchemas().marker_create, ['binding', 'visibleBody']);
+  assert.deepEqual(cliSchemas().marker_reconcile, ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead']);
+
+  const made = cli('marker_create', { binding: binding(), visibleBody: VISIBLE });
+  assert.equal(made.ok, true, JSON.stringify(made));
+  assert.equal(made.status, 0);
+  const settled = cli('marker_reconcile', {
+    binding: binding(), visibleSha256: made.data.visibleSha256,
+    source: source(), comments: [{ id: '900001', body: made.data.body }],
+    paginationComplete: true, currentHead: HEAD,
+  });
+  assert.equal(settled.ok, true, JSON.stringify(settled));
+  assert.equal(settled.data.classification, 'reply_confirmed_published');
+
+  for (const data of [
+    { binding: binding(), visibleBody: VISIBLE, extra: 1 },
+    { binding: binding() },
+  ]) {
+    const rejected = cli('marker_create', data);
+    assert.equal(rejected.error.code, 'invalid_request');
+    assert.notEqual(rejected.status, 0);
+  }
+  const badBinding = cli('marker_create', { binding: binding({ gates: 'luna' }), visibleBody: VISIBLE });
+  assert.equal(badBinding.error.code, 'invalid_reply_binding');
+  assert.notEqual(badBinding.status, 0);
+});
