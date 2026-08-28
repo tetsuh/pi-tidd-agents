@@ -2548,9 +2548,11 @@
       "requires": [
         "`pi-tidd-agents:source-reply:v1`",
         "so no marker field enters its own digest",
+        "LF-normalized, LF-terminated UTF-8 bytes that exclude the marker line",
         "`reply_confirmed_published`, `reply_confirmed_absent`, `reply_ambiguous`, and `reply_conflict`",
-        "Only an exact one-marker, one-body match on complete evidence classifies as published",
+        "Only an exact one-marker, one-body match on complete evidence from the expected workflow author classifies as published",
         "incomplete pagination or missing refetched evidence is ambiguous, never absent",
+        "wrong-head, wrong-source, or foreign-author marker",
         "is terminal for the run: no second POST exists under this decision",
         "a fresh owner-authorized run remains the only continuation",
         "never resolves threads, approves, requests rereview, invokes bots, edits or deletes comments, or posts an aggregate summary",
@@ -2567,7 +2569,7 @@
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
         "| `marker_create` | `binding`, `visibleBody` |",
-        "| `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead` |"
+        "| `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |"
       ]
     },
     {
@@ -2598,7 +2600,8 @@
         "reconciliation classifies each fixture distinctly and exactly once",
         "reconciliation is read-only, repeatable, and mutation-free by construction",
         "the packaged CLI routes both operations under JSON v1",
-        "compile/contract RED"
+        "compile/contract RED",
+        "a visible body without a trailing newline still round-trips to published"
       ]
     }
   ]

@@ -23,7 +23,7 @@ const SCHEMAS = Object.freeze({
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
   marker_create: { required: ['binding', 'visibleBody'], optional: [] },
-  marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead'], optional: [] },
+  marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },
 });
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function invalid(message) { const error = new Error(message); error.code = 'invalid_request'; error.phase = 'cli'; throw error; }
