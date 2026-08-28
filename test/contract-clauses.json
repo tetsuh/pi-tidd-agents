@@ -2601,7 +2601,8 @@
         "reconciliation is read-only, repeatable, and mutation-free by construction",
         "the packaged CLI routes both operations under JSON v1",
         "compile/contract RED",
-        "a visible body without a trailing newline still round-trips to published"
+        "a visible body without a trailing newline still round-trips to published",
+        "SOL-77-HTML-COMMENT-TERMINATOR"
       ]
     }
   ]

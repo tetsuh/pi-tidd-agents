@@ -20,6 +20,9 @@ const REPOSITORY = /^[^\s/]+\/[^\s/]+$/;
 const KINDS = ['issue_comment', 'review', 'review_comment', 'review_thread'];
 const SOURCE_ID = /^[A-Za-z0-9_=-]+$/;
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+// A shape-valid string is not an instant: 2026-99-99T99:99:99Z matches the regex. Round-trip
+// through the platform calendar so only real canonical UTC instants pass.
+function utcInstant(value) { return TIMESTAMP.test(value) && new Date(value).toISOString() === `${value.slice(0, 19)}.000Z`; }
 // The gate contract leaves finding IDs open (non-empty text), so the marker accepts what the
 // gate accepts and rejects only what would corrupt its own serialization separators.
 const FINDING_ID = /^[^\s:,]+$/;
@@ -44,7 +47,7 @@ function checkBinding(binding) {
   if (!text(binding.sourceId) || !SOURCE_ID.test(binding.sourceId)) fail('invalid_reply_binding', 'sourceId must be a stable provider ID');
   if (!text(binding.sourceUrl) || /\s/.test(binding.sourceUrl) || !binding.sourceUrl.startsWith(`https://github.com/${binding.repository}/pull/${binding.number}#`)) fail('invalid_reply_binding', 'sourceUrl must address the bound repository and pull request');
   if (!text(binding.sourceBodySha256) || !DIGEST.test(binding.sourceBodySha256)) fail('invalid_reply_binding', 'sourceBodySha256 must be a lowercase SHA-256');
-  for (const field of ['sourceCreatedAt', 'sourceUpdatedAt']) if (!text(binding[field]) || !TIMESTAMP.test(binding[field])) fail('invalid_reply_binding', `${field} must be an ISO-8601 UTC timestamp`);
+  for (const field of ['sourceCreatedAt', 'sourceUpdatedAt']) if (!text(binding[field]) || !utcInstant(binding[field])) fail('invalid_reply_binding', `${field} must be a real canonical UTC instant`);
   if (!text(binding.head) || !OID.test(binding.head)) fail('invalid_reply_binding', 'head must be an object ID');
   if (!Array.isArray(binding.findings) || binding.findings.length === 0) fail('invalid_reply_binding', 'findings must be a non-empty array');
   const seen = new Set();
@@ -71,7 +74,11 @@ function serializeMarker(binding, visibleSha256) {
     findings: serializeFindings(binding.findings), gates: binding.gates,
     commit: binding.commit === null ? 'none' : binding.commit, visibleSha256,
   };
-  return `${MARKER_PREFIX}${MARKER_FIELDS.map((field) => `${field}=${values[field]}`).join(' ')} -->`;
+  const line = `${MARKER_PREFIX}${MARKER_FIELDS.map((field) => `${field}=${values[field]}`).join(' ')} -->`;
+  // A serialized value containing an HTML comment terminator would end the hidden marker early
+  // and leak the remainder as visible text, so the line must contain exactly the final one.
+  if (line.indexOf('-->') !== line.length - 3 || line.includes('--!>')) fail('invalid_reply_binding', 'a bound value would terminate the marker comment');
+  return line;
 }
 
 function createReplyMarker({ binding, visibleBody } = {}) {
