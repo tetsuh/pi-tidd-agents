@@ -22,6 +22,8 @@ const SCHEMAS = Object.freeze({
   workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
+  marker_create: { required: ['binding', 'visibleBody'], optional: [] },
+  marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead'], optional: [] },
 });
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function invalid(message) { const error = new Error(message); error.code = 'invalid_request'; error.phase = 'cli'; throw error; }
@@ -68,6 +70,8 @@ async function dispatch(request) {
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
     case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));
+    case 'marker_create': return wrap(operation, helpers.createReplyMarker(data));
+    case 'marker_reconcile': return wrap(operation, helpers.reconcileReply(data));
     default: invalid('unknown operation');
   }
 }
