@@ -444,7 +444,7 @@ Each recoverable failure carries one canonical `operation@phase` key that its re
 
 *Decision ID:* CL-D45
 *Kind:* fail-closed reply idempotency and reconciliation boundary
-*Target and revision:* `tetsuh/pi-tidd-agents#40` at its initial body and the owner's live instruction `#40 を進めて`; the Option A choice follows the issue's own recommended initial policy
+*Target and revision:* `tetsuh/pi-tidd-agents#40` at its initial body and the owner's live instruction `#40 を進めて`; the Option A choice follows the issue's own recommended initial policy and is approved by the owner in the authoritative pull-request comment <https://github.com/tetsuh/pi-tidd-agents/pull/77#issuecomment-5451155083>
 *Question:* After a reply attempt whose outcome is unknown, how may the workflow learn what actually happened without gaining any right to act on the answer?
 *Options and trade-offs:* Doing nothing leaves `reply_outcome_unknown` permanently undiagnosable, so every ambiguous transport outcome costs a full owner investigation. Option A adds a deterministic marker and a read-only reconciliation that classifies refetched evidence, with every outcome terminal. Option B additionally permits exactly one new POST after a conclusive `reply_confirmed_absent`, which requires trusting the absence classification with mutation authority. A adds observability and no authority; B turns a read-back into a retry authorization and stands or falls with the completeness of one listing.
 *Recommendation:* Option A, as the issue itself recommends for the initial policy.
