@@ -261,6 +261,28 @@ test('Issue #40 reconciliation classifies each fixture distinctly and exactly on
   // A longer version token is another vocabulary, not an altered current-v1 candidate.
   assert.equal(reconcile({ comments: [{ id: '9', body: 'x <!-- pi-tidd-agents:source-reply:v12 sourceKind=issue_comment sourceId=5442524616 --> y\n', author: 'tetsuh' }] }).data.classification, 'reply_confirmed_absent');
 
+  // Duplicate or contradictory source bindings in a candidate cannot rule this source out:
+  // a last-wins dictionary would let a second sourceId shadow the one naming this source.
+  // Absence requires exactly one binding that unambiguously identifies another source.
+  for (const [label, inner2] of [
+    ['duplicate sourceId', 'sourceKind=issue_comment sourceId=5442524616 sourceId=999'],
+    ['duplicate sourceKind', 'sourceKind=review sourceKind=issue_comment sourceId=5442524616'],
+    ['contradictory duplicate ids', 'sourceKind=issue_comment sourceId=5 sourceId=7'],
+  ]) {
+    const settled = reconcile({ comments: [{ id: '9', body: `x <!-- pi-tidd-agents:source-reply:v1 ${inner2} --> y\n`, author: 'tetsuh' }] });
+    assert.equal(settled.data.classification, 'reply_conflict', `${label}: ${JSON.stringify(settled.data)}`);
+    assert.equal(settled.data.reason, 'altered_marker_candidate', label);
+  }
+
+  // An exact marker and body match without a stable provider comment ID is insufficient
+  // evidence, never a publication with a fabricated identifier.
+  const noId = reconcile({ comments: [{ body: publishedComment().body, author: 'tetsuh' }] });
+  assert.equal(noId.data.classification, 'reply_ambiguous');
+  assert.equal(noId.data.reason, 'destination_evidence_missing');
+  const numericId = reconcile({ comments: [{ id: 900001, body: publishedComment().body, author: 'tetsuh' }] });
+  assert.equal(numericId.data.classification, 'reply_confirmed_published');
+  assert.equal(numericId.data.commentId, '900001');
+
   // A TAB-mangled candidate naming a different source still leaves absence undisturbed.
   const otherTab = markerOf({ sourceId: '999', sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-999' }).data.marker
     .replace('sourceId=999 sourceUrl', 'sourceId=999\tsourceUrl');

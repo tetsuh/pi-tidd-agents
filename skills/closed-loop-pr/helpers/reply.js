@@ -151,15 +151,25 @@ function noncanonicalCandidate(body, expectedFields) {
     if (!canonicalFields(line)) {
       const close = content.indexOf('-->', at);
       const candidate = content.slice(at + MARKER_STEM.length, close === -1 ? lineEnd : Math.min(close, lineEnd));
-      const fields = {};
       // Tokens split on any whitespace, so a TAB- or vertical-TAB-separated candidate still
-      // reveals which source it names instead of hiding it inside one mangled token.
+      // reveals which source it names instead of hiding it inside one mangled token. Every
+      // occurrence of a source-binding key is retained: a last-wins dictionary would let a
+      // second sourceId shadow the one naming this source, turning a conflict into absence.
+      const kinds = [];
+      const ids = [];
       for (const token of candidate.split(/\s+/)) {
         const split = token.indexOf('=');
-        if (split > 0) fields[token.slice(0, split)] = token.slice(split + 1);
+        if (split <= 0) continue;
+        const name = token.slice(0, split);
+        if (name === 'sourceKind') kinds.push(token.slice(split + 1));
+        if (name === 'sourceId') ids.push(token.slice(split + 1));
       }
-      const named = fields.sourceKind !== undefined && fields.sourceId !== undefined;
-      if (!named || (fields.sourceKind === expectedFields.sourceKind && fields.sourceId === expectedFields.sourceId)) return true;
+      // Absence is valid only when the candidate carries exactly one source binding and it
+      // unambiguously identifies another source; anything unparseable, missing, duplicated,
+      // or contradictory cannot rule this source out and is altered evidence.
+      const unambiguousOther = kinds.length === 1 && ids.length === 1
+        && !(kinds[0] === expectedFields.sourceKind && ids[0] === expectedFields.sourceId);
+      if (!unambiguousOther) return true;
     }
     from = at + MARKER_STEM.length;
   }
@@ -185,6 +195,7 @@ function classify({ binding, visibleSha256, source, comments, paginationComplete
   let exactCount = 0;
   for (const comment of comments) {
     if (!plain(comment) || typeof comment.body !== 'string' || !text(comment.author)) return ambiguous('destination_evidence_missing');
+    if (!(typeof comment.id === 'number' && Number.isFinite(comment.id)) && !text(comment.id)) return ambiguous('destination_evidence_missing');
     if (noncanonicalCandidate(comment.body, expectedFields)) return conflict('altered_marker_candidate');
     for (const marker of parseMarkers(comment.body)) {
       if (marker.sourceKind !== expectedFields.sourceKind || marker.sourceId !== expectedFields.sourceId) continue;
