@@ -77,7 +77,7 @@ function serializeMarker(binding, visibleSha256) {
   const line = `${MARKER_PREFIX}${MARKER_FIELDS.map((field) => `${field}=${values[field]}`).join(' ')} -->`;
   // A serialized value containing an HTML comment terminator would end the hidden marker early
   // and leak the remainder as visible text, so the line must contain exactly the final one.
-  if (line.indexOf('-->') !== line.length - 3 || line.includes('--!>')) fail('invalid_reply_binding', 'a bound value would terminate the marker comment');
+  if (!line.endsWith(' -->') || line.slice(0, -3).includes('-->') || line.includes('--!>')) fail('invalid_reply_binding', 'a bound value would terminate the marker comment');
   return line;
 }
 
