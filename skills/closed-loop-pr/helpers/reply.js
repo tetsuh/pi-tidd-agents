@@ -112,6 +112,36 @@ function parseMarkers(body) {
   return markers;
 }
 
+// A current-v1 marker prefix outside a canonical marker line is altered evidence, not absence:
+// text added around a published marker must not let the reply vanish into
+// reply_confirmed_absent, which downstream intake would trust. A candidate naming another
+// source is that source's problem; one naming ours, or too mangled to rule ours out, is a
+// conflict — fail closed toward the owner, never toward absence.
+function noncanonicalCandidate(body, expectedFields) {
+  const content = canonicalVisible(body);
+  let from = 0;
+  for (;;) {
+    const at = content.indexOf(MARKER_PREFIX, from);
+    if (at === -1) return false;
+    const lineStart = content.lastIndexOf('\n', at) + 1;
+    const newline = content.indexOf('\n', at);
+    const lineEnd = newline === -1 ? content.length : newline;
+    const line = content.slice(lineStart, lineEnd);
+    if (!(line.startsWith(MARKER_PREFIX) && line.endsWith(' -->'))) {
+      const close = content.indexOf('-->', at);
+      const candidate = content.slice(at + MARKER_PREFIX.length, close === -1 ? lineEnd : Math.min(close, lineEnd));
+      const fields = {};
+      for (const token of candidate.split(' ')) {
+        const split = token.indexOf('=');
+        if (split > 0) fields[token.slice(0, split)] = token.slice(split + 1);
+      }
+      const named = fields.sourceKind !== undefined && fields.sourceId !== undefined;
+      if (!named || (fields.sourceKind === expectedFields.sourceKind && fields.sourceId === expectedFields.sourceId)) return true;
+    }
+    from = at + MARKER_PREFIX.length;
+  }
+}
+
 function conflict(reason) { return { classification: 'reply_conflict', reason }; }
 function ambiguous(reason) { return { classification: 'reply_ambiguous', reason }; }
 
@@ -132,6 +162,7 @@ function classify({ binding, visibleSha256, source, comments, paginationComplete
   let exactCount = 0;
   for (const comment of comments) {
     if (!plain(comment) || typeof comment.body !== 'string' || !text(comment.author)) return ambiguous('destination_evidence_missing');
+    if (noncanonicalCandidate(comment.body, expectedFields)) return conflict('altered_marker_candidate');
     for (const marker of parseMarkers(comment.body)) {
       if (marker.sourceKind !== expectedFields.sourceKind || marker.sourceId !== expectedFields.sourceId) continue;
       if (MARKER_FIELDS.every((field) => marker[field] === expectedFields[field])) {

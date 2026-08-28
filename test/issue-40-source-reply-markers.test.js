@@ -218,6 +218,26 @@ test('Issue #40 reconciliation classifies each fixture distinctly and exactly on
   assert.equal(reconcile({ comments: [publishedComment({ author: 'impostor' })] }).data.classification, 'reply_conflict');
   assert.equal(reconcile({ comments: [{ id: '9', body: publishedComment().body }] }).data.classification, 'reply_ambiguous');
 
+  // SOL-77-ALTERED-MARKER-ABSENCE: a current-v1 marker candidate outside a canonical marker
+  // line, bound to this source, is altered evidence — never reply_confirmed_absent.
+  const marker = markerOf().data.marker;
+  for (const [label, body] of [
+    ['leading text', `body\nx ${marker}\n`],
+    ['leading whitespace', `body\n ${marker}\n`],
+    ['trailing text', `body\n${marker} tail\n`],
+    ['embedded mid-line', `pre ${marker} post\n`],
+    ['truncated candidate', 'body\nsee <!-- pi-tidd-agents:source-reply:v1 sourceKind=iss\n'],
+  ]) {
+    const settled = reconcile({ comments: [{ id: '9', body, author: 'tetsuh' }] });
+    assert.equal(settled.data.classification, 'reply_conflict', `${label}: ${JSON.stringify(settled.data)}`);
+    assert.equal(settled.data.reason, 'altered_marker_candidate', label);
+  }
+  // A noncanonical candidate naming a different source, and an unknown marker version, do not
+  // manufacture a conflict for this binding: absence stays absence.
+  const otherSource = markerOf({ sourceId: '999', sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-999' }).data.marker;
+  assert.equal(reconcile({ comments: [{ id: '9', body: `x ${otherSource}\n`, author: 'tetsuh' }] }).data.classification, 'reply_confirmed_absent');
+  assert.equal(reconcile({ comments: [{ id: '9', body: 'x <!-- pi-tidd-agents:source-reply:v2 sourceKind=issue_comment sourceId=5442524616 --> y\n', author: 'tetsuh' }] }).data.classification, 'reply_confirmed_absent');
+
   for (const result of [published, absent]) assert.ok(outcomes.has(result.data.classification));
 });
 
