@@ -7,6 +7,17 @@ function windowsAbsolute(value) {
   return /^[A-Za-z]:[\\/]/.test(value) || /^\\\\/.test(value) || /^\/\//.test(value);
 }
 
+// The message names the failing component class and the offending entry: the field cost of
+// the old combined wording was real — a rejected inventory entry was misdiagnosed for rounds
+// because nothing said which path failed or why.
+function joinValidated(parts, value) {
+  if (!parts.length || parts.some((part) => !part || part === '.' || part === '..')) {
+    if (parts.includes('..')) throw new Error('path escapes checkout');
+    throw new Error(parts.includes('') ? `empty path component rejected: ${value}` : `dot path component rejected: ${value}`);
+  }
+  return parts.join('/');
+}
+
 function normalizeCheckoutPath(value, checkoutRoot) {
   if (typeof value !== 'string' || value.length === 0 || value.includes('\0')) {
     throw new TypeError('path must be a non-empty string without NUL');
@@ -16,20 +27,12 @@ function normalizeCheckoutPath(value, checkoutRoot) {
   const input = win ? value.replace(/[\\/]+/g, api.sep) : value.replace(/\/+/g, api.sep);
   if (!checkoutRoot) {
     if (api.isAbsolute(input) || windowsAbsolute(input)) throw new Error('absolute or UNC path rejected');
-    const normalized = input.split(api.sep);
-    if (!normalized.length || normalized.some((part) => !part || part === '.' || part === '..')) {
-      throw new Error(normalized.includes('..') ? 'path escapes checkout' : 'empty or dot path rejected');
-    }
-    return normalized.join('/');
+    return joinValidated(input.split(api.sep), value);
   }
 
   const root = api.resolve(String(checkoutRoot));
   if (!api.isAbsolute(input)) {
-    const normalized = input.split(api.sep);
-    if (!normalized.length || normalized.some((part) => !part || part === '.' || part === '..')) {
-      throw new Error(normalized.includes('..') ? 'path escapes checkout' : 'empty or dot path rejected');
-    }
-    return normalized.join('/');
+    return joinValidated(input.split(api.sep), value);
   }
   const candidate = api.resolve(input);
   if (win && api.parse(candidate).root.toLowerCase() !== api.parse(root).root.toLowerCase()) throw new Error('cross-drive or UNC path rejected');
