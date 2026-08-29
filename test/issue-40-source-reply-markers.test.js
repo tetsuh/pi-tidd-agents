@@ -293,6 +293,27 @@ test('Issue #40 reconciliation classifies each fixture distinctly and exactly on
     assert.equal(settled.data.reason, 'destination_evidence_missing');
   }
 
+  // SOL-77-R11-EVIDENCE-PRECEDENCE-ORDER reopened: destination completeness precedes run-state
+  // and source contradictions too. Every required destination field is exercised against both
+  // a moved head and source drift so neither contradiction can mask insufficient evidence.
+  const incompleteComments = [
+    ['comment object', null],
+    ['body', { id: '10', author: 'tetsuh' }],
+    ['author', { id: '10', body: 'unrelated' }],
+    ['stable provider ID', { body: 'unrelated', author: 'tetsuh' }],
+  ];
+  const contradictions = [
+    ['moved head', { currentHead: 'e'.repeat(40) }],
+    ['source drift', { src: source({ bodySha256: 'd'.repeat(64) }) }],
+  ];
+  for (const [field, comment] of incompleteComments) {
+    for (const [contradiction, override] of contradictions) {
+      const settled = reconcile({ ...override, comments: [comment] });
+      assert.equal(settled.data.classification, 'reply_ambiguous', `${field} + ${contradiction}: ${JSON.stringify(settled.data)}`);
+      assert.equal(settled.data.reason, 'destination_evidence_missing', `${field} + ${contradiction}`);
+    }
+  }
+
   // A TAB-mangled candidate naming a different source still leaves absence undisturbed.
   const otherTab = markerOf({ sourceId: '999', sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-999' }).data.marker
     .replace('sourceId=999 sourceUrl', 'sourceId=999\tsourceUrl');
