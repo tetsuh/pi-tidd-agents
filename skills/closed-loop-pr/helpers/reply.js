@@ -219,10 +219,15 @@ function classify({ binding, visibleSha256, source, comments, paginationComplete
   }
   if (exactCount === 0) return { classification: 'reply_confirmed_absent', reason: 'no_matching_marker' };
   if (exactCount > 1) return conflict('duplicate_markers');
-  // Reconstruct the visible bytes by removing the exact marker line; because the published
-  // body is visible + marker line, this reproduces the digested bytes exactly, and any drift —
-  // in the text or in the marker line's own spelling — lands in the digest comparison.
-  const visible = canonicalVisible(exact.body).split('\n').filter((line) => line !== markerLine).join('\n');
+  // The marker ends the reply body, so the published layout is exactly visible + marker + LF.
+  // Position is part of the claim: removing the marker from any position would let a body with
+  // the marker moved to the front or middle reconstruct the same visible bytes and pass as
+  // published, so the LF-terminated comment must end with the marker line and the digest
+  // covers only the preceding prefix.
+  const body = canonicalDigestible(exact.body);
+  const terminal = `${markerLine}\n`;
+  if (!body.endsWith(terminal)) return conflict('visible_text_altered');
+  const visible = body.slice(0, -terminal.length);
   if (sha256(Buffer.from(visible, 'utf8')) !== visibleSha256) return conflict('visible_text_altered');
   return { classification: 'reply_confirmed_published', reason: 'exact_match', commentId: String(exact.id) };
 }

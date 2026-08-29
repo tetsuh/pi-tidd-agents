@@ -283,6 +283,23 @@ test('Issue #40 reconciliation classifies each fixture distinctly and exactly on
   assert.equal(numericId.data.classification, 'reply_confirmed_published');
   assert.equal(numericId.data.commentId, '900001');
 
+  // TERRA-77-MARKER-TERMINAL-POSITION: the marker's position is part of the published claim.
+  // A comment whose visible bytes match but whose marker was moved to the front or the middle
+  // is altered layout, never an exact match; only the terminal marker publishes.
+  const made2 = markerOf();
+  const movedFront = `${made2.data.marker}\nFixed by \`b\`.repeat? no — the guard now rejects the swap.\nConfirming gate: Sol at the exact head.\n`;
+  const movedMiddle = `Fixed by \`b\`.repeat? no — the guard now rejects the swap.\n${made2.data.marker}\nConfirming gate: Sol at the exact head.\n`;
+  for (const [label, body] of [['marker at the front', movedFront], ['marker in the middle', movedMiddle]]) {
+    const settled = reconcile({ comments: [{ id: '9', body, author: 'tetsuh' }] });
+    assert.equal(settled.data.classification, 'reply_conflict', `${label}: ${JSON.stringify(settled.data)}`);
+    assert.equal(settled.data.reason, 'visible_text_altered', label);
+  }
+  // A stored body that lost only its final newline still publishes: LF-termination is part of
+  // the canonical form, not a trap for provider round-trips.
+  const trimmed = publishedComment();
+  trimmed.body = trimmed.body.replace(/\n$/, '');
+  assert.equal(reconcile({ comments: [trimmed] }).data.classification, 'reply_confirmed_published');
+
   // Insufficient evidence is judged before any contradiction, so the classification must not
   // depend on the order in which a broken comment and a conflicting one arrive.
   const conflicting = { id: '9', body: `body\nx ${marker}\n`, author: 'tetsuh' };
