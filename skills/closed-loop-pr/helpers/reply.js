@@ -193,9 +193,14 @@ function classify({ binding, visibleSha256, source, comments, paginationComplete
   const expectedFields = parseMarkers(markerLine)[0];
   let exact = null;
   let exactCount = 0;
+  // Insufficient destination evidence is judged before any contradiction: every comment is
+  // prevalidated in full, so the classification cannot depend on the order in which a broken
+  // comment and a conflicting one happen to arrive.
   for (const comment of comments) {
     if (!plain(comment) || typeof comment.body !== 'string' || !text(comment.author)) return ambiguous('destination_evidence_missing');
     if (!(typeof comment.id === 'number' && Number.isFinite(comment.id)) && !text(comment.id)) return ambiguous('destination_evidence_missing');
+  }
+  for (const comment of comments) {
     if (noncanonicalCandidate(comment.body, expectedFields)) return conflict('altered_marker_candidate');
     for (const marker of parseMarkers(comment.body)) {
       if (marker.sourceKind !== expectedFields.sourceKind || marker.sourceId !== expectedFields.sourceId) continue;

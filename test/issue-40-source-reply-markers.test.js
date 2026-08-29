@@ -283,6 +283,16 @@ test('Issue #40 reconciliation classifies each fixture distinctly and exactly on
   assert.equal(numericId.data.classification, 'reply_confirmed_published');
   assert.equal(numericId.data.commentId, '900001');
 
+  // Insufficient evidence is judged before any contradiction, so the classification must not
+  // depend on the order in which a broken comment and a conflicting one arrive.
+  const conflicting = { id: '9', body: `body\nx ${marker}\n`, author: 'tetsuh' };
+  const missingAuthor = { id: '10', body: 'unrelated' };
+  for (const permutation of [[conflicting, missingAuthor], [missingAuthor, conflicting]]) {
+    const settled = reconcile({ comments: permutation });
+    assert.equal(settled.data.classification, 'reply_ambiguous', JSON.stringify(settled.data));
+    assert.equal(settled.data.reason, 'destination_evidence_missing');
+  }
+
   // A TAB-mangled candidate naming a different source still leaves absence undisturbed.
   const otherTab = markerOf({ sourceId: '999', sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/76#issuecomment-999' }).data.marker
     .replace('sourceId=999 sourceUrl', 'sourceId=999\tsourceUrl');
