@@ -163,8 +163,10 @@ function validateGateResult(v, e) {
   try {
     check(SCHEMA, v); const assigned = expectedState(e);
     checkCorrelation(v.correlation, e.correlation);
+    // The namespace is derived, never supplied: a hand-copied duplicate of a derivable value
+    // can only ever be wrong, and in the field a copy mismatch destroyed completed verdicts.
+    if ('freshFindingIdPrefix' in e) fail('invalid_request', 'freshFindingIdPrefix is derived from the correlation; do not supply it');
     const prefix = `${v.correlation.gate === 'sol' ? 'SOL' : 'TERRA'}-${v.correlation.number}-`;
-    if (e.freshFindingIdPrefix !== prefix) fail('invalid_request', 'prefix mismatch');
     const material = checkEvidence(v, e.requiredEvidence);
     checkFindings(v.findings, v.correlation, assigned, prefix, e.workflow);
     const confirmed = checkConfirmations(v.findings, v.confirmations, assigned, v.correlation);

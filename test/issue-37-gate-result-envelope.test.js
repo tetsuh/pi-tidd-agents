@@ -79,7 +79,6 @@ const expect = (over = {}) => {
     correlation: expectedCorrelation,
     workflow: 'pr',
     assignedFindings: [],
-    freshFindingIdPrefix: `${expectedCorrelation.gate === 'sol' ? 'SOL' : 'TERRA'}-${expectedCorrelation.number}-`,
     requiredEvidence: [{ source: attestation().source, kind: attestation().kind, identity: attestation().identity }],
     ...over,
   };
@@ -159,9 +158,10 @@ test('Issue #37 evidence attestations are parent-bound and Sol adversarial resul
   const typedEvidence = gateResult.validateGateResult(envelope(), { ...expect(), requiredEvidence: [{ source: 1, kind: 'file', identity: 'x' }] });
   assert.equal(typedEvidence.ok, false, 'parent evidence identity fields must be nonempty strings');
   assert.equal(typedEvidence.error.code, 'invalid_request');
-  const wrongNamespace = gateResult.validateGateResult(envelope(), { ...expect(), freshFindingIdPrefix: 'SOL-999-' });
-  assert.equal(wrongNamespace.ok, false);
-  assert.equal(wrongNamespace.error.code, 'invalid_request');
+  // CL-D47: the namespace is derived, so any supplied copy — right or wrong — is rejected.
+  const suppliedNamespace = gateResult.validateGateResult(envelope(), { ...expect(), freshFindingIdPrefix: 'SOL-999-' });
+  assert.equal(suppliedNamespace.ok, false);
+  assert.equal(suppliedNamespace.error.code, 'invalid_request');
   for (const value of [
     envelope({ adversarialResults: [adversarial({ outcome: 'counterexample' })] }),
     envelope({ adversarialResults: [adversarial({ outcome: 'unavailable-evidence', findingId: 'SOL-56-404' })] }),
@@ -239,9 +239,9 @@ test('Issue #37 assigned findings are bound and fresh findings round-trip separa
 
   const initialFresh = envelope({ verdict: 'FIX BEFORE MERGE', findings: [freshFinding()] });
   assert.equal(gateResult.validateGateResult(initialFresh, expect()).ok, true, 'an initial gate must transport a fresh finding without a confirmation');
-  const wrongPrefix = gateResult.validateGateResult(initialFresh, { ...expect(), freshFindingIdPrefix: 'FRESH-' });
-  assert.equal(wrongPrefix.ok, false, 'the namespace must be derived from gate and target number');
-  assert.equal(wrongPrefix.error.code, 'invalid_request');
+  const suppliedPrefix = gateResult.validateGateResult(initialFresh, { ...expect(), freshFindingIdPrefix: 'FRESH-' });
+  assert.equal(suppliedPrefix.ok, false, 'a supplied namespace is rejected; the derived one governs');
+  assert.equal(suppliedPrefix.error.code, 'invalid_request');
   const mixed = envelope({ verdict: 'FIX BEFORE MERGE', findings: [finding(), freshFinding()], confirmations: [confirmation()] });
   assert.equal(gateResult.validateGateResult(mixed, assigned).ok, true, 'assigned and fresh findings must round-trip together');
 
@@ -479,7 +479,7 @@ test('Issue #37 the shared gate contract requires the structured transport for b
   assert.match(section, /never parse those fields from Markdown/i);
   assert.match(section, /final-line token `MERGE \| FIX BEFORE MERGE \| NEEDS DECISION`/);
   assert.match(section, /complete assigned `\{findingId, blockerKey\}` tuples/);
-  assert.match(section, /fresh finding namespace whose nonempty suffix matches `\[A-Z0-9\._-\]\+`/);
+  assert.match(section, /the fresh finding namespace is derived from the gate and the target number, never supplied/);
   assert.match(section, /after validated intake[^.]*assigns `blockerKey`/);
   assert.match(section, /exact required evidence-attestation set/);
   assert.match(section, /Issue records carry only candidate identity, fixed revised passage, and snapshot assignment/);

@@ -59,7 +59,7 @@ function gateOutput() {
 function gateExpected() {
   return {
     correlation: gateOutput().correlation, workflow: 'pr', assignedFindings: [],
-    freshFindingIdPrefix: 'SOL-74-', requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64) }],
+    requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64) }],
   };
 }
 

@@ -41,7 +41,7 @@ const envelope = (over = {}) => ({
   schemaVersion: 1, correlation: correlation(), verdict: 'MERGE', evidenceRead: [attestation()], findings: [], confirmations: [], decisions: [],
   adversarialResults: [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }], ...over,
 });
-const expectation = () => ({ correlation: correlation(), workflow: 'pr', assignedFindings: [], freshFindingIdPrefix: 'SOL-7-', requiredEvidence: [{ source: attestation().source, kind: 'file', identity: attestation().identity }] });
+const expectation = () => ({ correlation: correlation(), workflow: 'pr', assignedFindings: [], requiredEvidence: [{ source: attestation().source, kind: 'file', identity: attestation().identity }] });
 const pull = (over = {}) => ({ number: 7, state: 'open', draft: false, base: { sha: OID('a'), ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: OID('b'), ref: 'b', repo: { full_name: 'o/r' } }, ...over });
 
 // Recovery outcome for a key, read from the shipped CL-D39 mapping (never restated here).
