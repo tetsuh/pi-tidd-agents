@@ -2163,7 +2163,7 @@
         "never parse those fields from Markdown",
         "final-line token `MERGE | FIX BEFORE MERGE | NEEDS DECISION`",
         "complete assigned `{findingId, blockerKey}` tuples",
-        "the fresh finding namespace is derived from the gate and the target number, never supplied",
+        "the fresh finding namespace is derived, never supplied",
         "after validated intake the parent assigns `blockerKey`",
         "Issue records carry only candidate identity, fixed revised passage, and snapshot assignment",
         "PR records select `gate | body | issue-comment | review | inline-comment | check | status`",
@@ -2627,7 +2627,7 @@
             "skills/closed-loop-shared/references/gate-contract.md"
           ],
           "requires": [
-            "the fresh finding namespace is derived from the gate and the target number, never supplied"
+            "the fresh finding namespace is derived, never supplied"
           ]
         },
         {

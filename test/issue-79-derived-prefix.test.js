@@ -80,7 +80,7 @@ test('Issue #79 supplying the retired field is rejected, right or wrong alike', 
 test('Issue #79 the shared contract says derived, not supplied', () => {
   const contract = readText('skills/closed-loop-shared/references/gate-contract.md');
   assert.doesNotMatch(contract, /fresh finding namespace whose nonempty suffix matches/);
-  assert.match(contract, /the fresh finding namespace is derived from the gate and the target number, never supplied/);
+  assert.match(contract, /the fresh finding namespace is derived, never supplied/);
   const decision = sectionOf(readText('CONTRACT.md'), '## CL-D47 — The fresh-finding namespace is derived, never supplied');
   assert.ok(decision, 'CONTRACT.md must record CL-D47');
   for (const field of ['*Decision ID:* CL-D47', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {

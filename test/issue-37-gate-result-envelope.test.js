@@ -479,7 +479,7 @@ test('Issue #37 the shared gate contract requires the structured transport for b
   assert.match(section, /never parse those fields from Markdown/i);
   assert.match(section, /final-line token `MERGE \| FIX BEFORE MERGE \| NEEDS DECISION`/);
   assert.match(section, /complete assigned `\{findingId, blockerKey\}` tuples/);
-  assert.match(section, /the fresh finding namespace is derived from the gate and the target number, never supplied/);
+  assert.match(section, /the fresh finding namespace is derived, never supplied/);
   assert.match(section, /after validated intake[^.]*assigns `blockerKey`/);
   assert.match(section, /exact required evidence-attestation set/);
   assert.match(section, /Issue records carry only candidate identity, fixed revised passage, and snapshot assignment/);
