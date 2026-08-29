@@ -2465,7 +2465,7 @@
         "the live measurements sit inside the raised guards",
         "CL-D43 records what the guards protect and when raising is wrong",
         "the superseded six-file ceiling must not survive",
-        "the raise must leave real headroom",
+        "the raise left only",
         "compile/contract RED"
       ]
     },
@@ -2537,111 +2537,138 @@
         "structured gate output composes successfully and rejects envelope/data/receipt swaps"
       ]
     },
-      {
-        "id": "CL-D45-autofix",
-        "marker": "CL-D45",
-        "title": "Exact autofix binds replies with deterministic markers and reconciles read-only",
-        "files": [
-          "skills/closed-loop-pr/references/autofix.md"
-        ],
-        "section": "### Source-reply markers and reconciliation (CL-D45)",
-        "requires": [
-          "`pi-tidd-agents:source-reply:v1`",
-          "so no marker field enters its own digest",
-          "LF-normalized, LF-terminated UTF-8 bytes that exclude the marker line",
-          "`reply_confirmed_published`, `reply_confirmed_absent`, `reply_ambiguous`, and `reply_conflict`",
-          "Only an exact one-marker, one-body match on complete evidence from the expected workflow author classifies as published",
-          "incomplete pagination or missing refetched evidence is ambiguous, never absent",
-          "wrong-head, wrong-source, or foreign-author marker",
-          "is terminal for the run: no second POST exists under this decision",
-          "a fresh owner-authorized run remains the only continuation",
-          "never resolves threads, approves, requests rereview, invokes bots, edits or deletes comments, or posts an aggregate summary",
-          "Per-source outcomes stay ordered by source identity, and no batch outcome claims whole-PR readiness"
-        ]
-      },
-      {
-        "id": "CL-D45-map",
-        "marker": "CL-D45",
-        "title": "The invocation map carries both reply operations",
-        "files": [
-          "skills/closed-loop-pr/references/autofix.md"
-        ],
-        "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
-        "requires": [
-          "| `marker_create` | `binding`, `visibleBody` |",
-          "| `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |"
-        ]
-      },
-      {
-        "id": "CL-D45-readme",
-        "marker": "CL-D45",
-        "title": "README documents the reply marker and terminal reconciliation",
-        "files": [
-          "README.md"
-        ],
-        "section": "### Bounded publication",
-        "requires": [
-          "`pi-tidd-agents:source-reply:v1`",
-          "read-only reconciliation",
-          "published, absent, ambiguous, or conflict",
-          "every outcome is terminal and authorizes no second POST"
-        ]
-      },
-      {
-        "id": "CL-D45-tests",
-        "marker": "CL-D45",
-        "title": "Black-box reply tests pin determinism, the digest domain, and the four outcomes",
-        "files": [
-          "test/issue-40-source-reply-markers.test.js"
-        ],
-        "requires": [
-          "marker serialization is deterministic and the digest is non-circular",
-          "the marker is fail-closed on every malformed binding field",
-          "reconciliation classifies each fixture distinctly and exactly once",
-          "reconciliation is read-only, repeatable, and mutation-free by construction",
-          "the packaged CLI routes both operations under JSON v1",
-          "compile/contract RED",
-          "a visible body without a trailing newline still round-trips to published",
-          "SOL-77-HTML-COMMENT-TERMINATOR"
-        ]
-      },
-        {
-          "id": "CL-D46-tests",
-          "marker": "CL-D46",
-          "title": "Embedded-repository inventory fixtures pin the emission, the strip, and the messages",
-          "files": [
-            "test/issue-78-embedded-repo-inventory.test.js"
-          ],
-          "requires": [
-            "an ignored embedded repository no longer fails operator_capture",
-            "an untracked embedded repository is captured and blocks as untracked, not as a crash",
-            "the normalizer stays strict and its messages name the component and the path",
-            "the strip must remove exactly one trailing separator"
-          ]
-        },
-        {
-          "id": "CL-D47-shared",
-          "marker": "CL-D47",
-          "title": "The shared invocation contract derives the fresh-finding namespace",
-          "files": [
-            "skills/closed-loop-shared/references/gate-contract.md"
-          ],
-          "requires": [
-            "the fresh finding namespace is derived, never supplied"
-          ]
-        },
-        {
-          "id": "CL-D47-tests",
-          "marker": "CL-D47",
-          "title": "Derived-namespace fixtures pin derivation, rejection, and the prose",
-          "files": [
-            "test/issue-79-derived-prefix.test.js"
-          ],
-          "requires": [
-            "a gate result validates with no prefix input",
-            "supplying the retired field is rejected, right or wrong alike",
-            "the shared contract says derived, not supplied"
-          ]
-        }
+    {
+      "id": "CL-D45-autofix",
+      "marker": "CL-D45",
+      "title": "Exact autofix binds replies with deterministic markers and reconciles read-only",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Source-reply markers and reconciliation (CL-D45)",
+      "requires": [
+        "`pi-tidd-agents:source-reply:v1`",
+        "so no marker field enters its own digest",
+        "LF-normalized, LF-terminated UTF-8 bytes that exclude the marker line",
+        "`reply_confirmed_published`, `reply_confirmed_absent`, `reply_ambiguous`, and `reply_conflict`",
+        "Only an exact one-marker, one-body match on complete evidence from the expected workflow author classifies as published",
+        "incomplete pagination or missing refetched evidence is ambiguous, never absent",
+        "wrong-head, wrong-source, or foreign-author marker",
+        "is terminal for the run: no second POST exists under this decision",
+        "a fresh owner-authorized run remains the only continuation",
+        "never resolves threads, approves, requests rereview, invokes bots, edits or deletes comments, or posts an aggregate summary",
+        "Per-source outcomes stay ordered by source identity, and no batch outcome claims whole-PR readiness"
+      ]
+    },
+    {
+      "id": "CL-D45-map",
+      "marker": "CL-D45",
+      "title": "The invocation map carries both reply operations",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
+      "requires": [
+        "| `marker_create` | `binding`, `visibleBody` |",
+        "| `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |"
+      ]
+    },
+    {
+      "id": "CL-D45-readme",
+      "marker": "CL-D45",
+      "title": "README documents the reply marker and terminal reconciliation",
+      "files": [
+        "README.md"
+      ],
+      "section": "### Bounded publication",
+      "requires": [
+        "`pi-tidd-agents:source-reply:v1`",
+        "read-only reconciliation",
+        "published, absent, ambiguous, or conflict",
+        "every outcome is terminal and authorizes no second POST"
+      ]
+    },
+    {
+      "id": "CL-D45-tests",
+      "marker": "CL-D45",
+      "title": "Black-box reply tests pin determinism, the digest domain, and the four outcomes",
+      "files": [
+        "test/issue-40-source-reply-markers.test.js"
+      ],
+      "requires": [
+        "marker serialization is deterministic and the digest is non-circular",
+        "the marker is fail-closed on every malformed binding field",
+        "reconciliation classifies each fixture distinctly and exactly once",
+        "reconciliation is read-only, repeatable, and mutation-free by construction",
+        "the packaged CLI routes both operations under JSON v1",
+        "compile/contract RED",
+        "a visible body without a trailing newline still round-trips to published",
+        "SOL-77-HTML-COMMENT-TERMINATOR"
+      ]
+    },
+    {
+      "id": "CL-D46-tests",
+      "marker": "CL-D46",
+      "title": "Embedded-repository inventory fixtures pin the emission, the strip, and the messages",
+      "files": [
+        "test/issue-78-embedded-repo-inventory.test.js"
+      ],
+      "requires": [
+        "an ignored embedded repository no longer fails operator_capture",
+        "an untracked embedded repository is captured and blocks as untracked, not as a crash",
+        "the normalizer stays strict and its messages name the component and the path",
+        "the strip must remove exactly one trailing separator"
+      ]
+    },
+    {
+      "id": "CL-D47-shared",
+      "marker": "CL-D47",
+      "title": "The shared invocation contract derives the fresh-finding namespace",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "the fresh finding namespace is derived, never supplied"
+      ]
+    },
+    {
+      "id": "CL-D47-tests",
+      "marker": "CL-D47",
+      "title": "Derived-namespace fixtures pin derivation, rejection, and the prose",
+      "files": [
+        "test/issue-79-derived-prefix.test.js"
+      ],
+      "requires": [
+        "a gate result validates with no prefix input",
+        "supplying the retired field is rejected, right or wrong alike",
+        "the shared contract says derived, not supplied"
+      ]
+    },
+    {
+      "id": "CL-D48-guard",
+      "marker": "CL-D48",
+      "title": "The headroom property is asserted against the raise baseline",
+      "files": [
+        "test/issue-73-authority-budget.test.js"
+      ],
+      "requires": [
+        "RAISE_BASELINE_BYTES = 114563",
+        "128000 - RAISE_BASELINE_BYTES > 8000",
+        "made the margin a second, unstated ceiling"
+      ]
+    },
+    {
+      "id": "CL-D48-tests",
+      "marker": "CL-D48",
+      "title": "Floor-form fixtures pin the live ceiling and the raise-time property",
+      "files": [
+        "test/issue-87-authority-floor.test.js"
+      ],
+      "requires": [
+        "the headroom property is asserted at the raise, not against live growth",
+        "the constant live floor must not survive",
+        "a decision-sized addition must fit",
+        "CL-D48 records why the constant form failed"
+      ]
+    }
   ]
 }
