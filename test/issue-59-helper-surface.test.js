@@ -13,11 +13,12 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
   'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js',
-  'process.js', 'protocol.js', 'snapshot.js', 'workspace.js', 'writability.js',
+  'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
   'evidence_verify', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_validate',
+  'marker_create', 'marker_reconcile',
   'operator_capture', 'operator_revalidate', 'snapshot', 'workspace_cleanup', 'workspace_create',
   'workspace_verify', 'writability',
 ].sort();
@@ -54,8 +55,8 @@ const APPROVED_FS_SITES = [
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
   './composition': 1, './evidence': 1, './fingerprints': 2, './gate-result': 1, './index': 1, './operator': 1,
-  './paths': 3, './process': 4, './protocol': 9, './snapshot': 1, './workspace': 1, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 4, 'node:fs': 4, 'node:os': 2, 'node:path': 4,
+  './paths': 3, './process': 4, './protocol': 10, './reply': 1, './snapshot': 1, './workspace': 1, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 5, 'node:fs': 4, 'node:os': 2, 'node:path': 4,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
 const PROVENANCE_ANCHORS = [

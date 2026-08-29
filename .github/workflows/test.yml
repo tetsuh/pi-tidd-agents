@@ -33,7 +33,7 @@ jobs:
         with:
           node-version: 22
       - name: Run packaged helper tests
-        run: node --test test/issue-47-helpers.test.js test/issue-35-failure-injection.test.js test/issue-52-helper-hardening.test.js test/issue-69-worktree-recovery.test.js test/issue-36-evidence-envelope.test.js test/issue-74-composition-shapes.test.js
+        run: node --test test/issue-47-helpers.test.js test/issue-35-failure-injection.test.js test/issue-52-helper-hardening.test.js test/issue-69-worktree-recovery.test.js test/issue-36-evidence-envelope.test.js test/issue-74-composition-shapes.test.js test/issue-40-source-reply-markers.test.js
 
   publication-git-bash:
     runs-on: windows-latest
