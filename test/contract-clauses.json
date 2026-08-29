@@ -2665,9 +2665,9 @@
       ],
       "requires": [
         "the headroom property is asserted at the raise, not against live growth",
-        "the constant live floor must not survive",
-        "a decision-sized addition must fit",
-        "CL-D48 records why the constant form failed"
+        "no live margin may be asserted against the six-file total",
+        "CL-D48 records why the constant form failed",
+        "this suite must not reintroduce one either"
       ]
     }
   ]

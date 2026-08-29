@@ -10,6 +10,11 @@
 // compile/contract RED against the constant-floor guard and the missing decision record. No
 // behavioral RED is claimed: this issue changes a recorded limit's form, not behavior. That
 // local output is not claimed as repository-preserved or runtime-compliance evidence.
+//
+// The six-file aggregate is the only guard this issue touches. The 57,160-byte disclosure
+// guard and the 28,000-byte CL-D30 addendum guard are live subset guards and stay exactly as
+// they are; `autofix.md` prose remains bounded by the disclosure guard, which is why the
+// `autofix.md` split stays open under Issue #87.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -22,19 +27,22 @@ const BUDGET_TEST = readText('test/issue-73-authority-budget.test.js');
 test('Issue #87 the headroom property is asserted at the raise, not against live growth', () => {
   // The live check is the ceiling alone; nothing else may bound ordinary prose work.
   assert.match(BUDGET_TEST, /assert\.ok\(total < 128000,/);
-  assert.equal(/128000 - total > 8000/.test(BUDGET_TEST), false, 'the constant live floor must not survive');
+  // Any live margin against the aggregate is a floor, whatever constant it uses, so the
+  // rejection is written against the shape rather than against the retired 8,000.
+  assert.equal(/128000\s*-\s*total\s*>/.test(BUDGET_TEST), false, 'no live margin may be asserted against the six-file total');
+  assert.equal(/128000\s*-\s*total\s*>/.test(readText('test/issue-87-authority-floor.test.js')), false, 'this suite must not reintroduce one either');
 
   // The raise-time property is still asserted, against the measurement recorded when CL-D43
   // was taken — a static fact that cannot drift as the graph grows.
   assert.match(BUDGET_TEST, /RAISE_BASELINE_BYTES = 114563/);
   assert.match(BUDGET_TEST, /128000 - RAISE_BASELINE_BYTES > 8000/);
 
-  // And the live measurement still has to fit.
+  // And the live measurement still has to fit. This is the only live six-file aggregate
+  // assertion: any further margin asserted here would be a new live floor, which is the
+  // defect this issue exists to remove — the six files measured 119,973 bytes at 66d8c91,
+  // revision-qualified evidence rather than a persistent bound.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
   assert.ok(total < 128000, `six authority files total ${total}`);
-  // A decision-sized addition — the observed 1,500-2,000 bytes — must fit without trimming,
-  // which is the outcome this issue exists to restore.
-  assert.ok(128000 - total > 2000, `a decision-sized addition must fit, only ${128000 - total} bytes free`);
 });
 
 test('Issue #87 CL-D48 records why the constant form failed', () => {
