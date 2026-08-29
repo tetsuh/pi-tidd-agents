@@ -2669,6 +2669,33 @@
         "CL-D48 records why the constant form failed",
         "this suite must not reintroduce one either"
       ]
+    },
+    {
+      "id": "CL-D49-autofix",
+      "marker": "CL-D49",
+      "title": "Exact autofix names the cleanup result terminal",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Isolated exact-autofix invariants (CL-D10, CL-D30)",
+      "requires": [
+        "a successful `workspace_cleanup` result is the terminal workspace evidence",
+        "no `workspace_*` operation may target the removed path afterwards",
+        "the terminal recheck after removal is operator-side only",
+        "a post-removal verification failure is a caller error, never evidence about the target"
+      ]
+    },
+    {
+      "id": "CL-D49-tests",
+      "marker": "CL-D49",
+      "title": "Cleanup-terminal fixtures pin the prose and the returned evidence",
+      "files": [
+        "test/issue-80-cleanup-terminal.test.js"
+      ],
+      "requires": [
+        "the cleanup result is named terminal and post-removal workspace calls are forbidden",
+        "the cleanup operation already returns the terminal evidence it is now named for"
+      ]
     }
   ]
 }
