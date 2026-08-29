@@ -2163,7 +2163,7 @@
         "never parse those fields from Markdown",
         "final-line token `MERGE | FIX BEFORE MERGE | NEEDS DECISION`",
         "complete assigned `{findingId, blockerKey}` tuples",
-        "fresh finding namespace whose nonempty suffix matches `[A-Z0-9._-]+`",
+        "the fresh finding namespace is derived, never supplied",
         "after validated intake the parent assigns `blockerKey`",
         "Issue records carry only candidate identity, fixed revised passage, and snapshot assignment",
         "PR records select `gate | body | issue-comment | review | inline-comment | check | status`",
@@ -2605,19 +2605,43 @@
           "SOL-77-HTML-COMMENT-TERMINATOR"
         ]
       },
-      {
-        "id": "CL-D46-tests",
-        "marker": "CL-D46",
-        "title": "Embedded-repository inventory fixtures pin the emission, the strip, and the messages",
-        "files": [
-          "test/issue-78-embedded-repo-inventory.test.js"
-        ],
-        "requires": [
-          "an ignored embedded repository no longer fails operator_capture",
-          "an untracked embedded repository is captured and blocks as untracked, not as a crash",
-          "the normalizer stays strict and its messages name the component and the path",
-          "the strip must remove exactly one trailing separator"
-        ]
-      }
+        {
+          "id": "CL-D46-tests",
+          "marker": "CL-D46",
+          "title": "Embedded-repository inventory fixtures pin the emission, the strip, and the messages",
+          "files": [
+            "test/issue-78-embedded-repo-inventory.test.js"
+          ],
+          "requires": [
+            "an ignored embedded repository no longer fails operator_capture",
+            "an untracked embedded repository is captured and blocks as untracked, not as a crash",
+            "the normalizer stays strict and its messages name the component and the path",
+            "the strip must remove exactly one trailing separator"
+          ]
+        },
+        {
+          "id": "CL-D47-shared",
+          "marker": "CL-D47",
+          "title": "The shared invocation contract derives the fresh-finding namespace",
+          "files": [
+            "skills/closed-loop-shared/references/gate-contract.md"
+          ],
+          "requires": [
+            "the fresh finding namespace is derived, never supplied"
+          ]
+        },
+        {
+          "id": "CL-D47-tests",
+          "marker": "CL-D47",
+          "title": "Derived-namespace fixtures pin derivation, rejection, and the prose",
+          "files": [
+            "test/issue-79-derived-prefix.test.js"
+          ],
+          "requires": [
+            "a gate result validates with no prefix input",
+            "supplying the retired field is rejected, right or wrong alike",
+            "the shared contract says derived, not supplied"
+          ]
+        }
   ]
 }
