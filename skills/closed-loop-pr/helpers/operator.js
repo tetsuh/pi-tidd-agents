@@ -83,7 +83,11 @@ function inventory(top) {
     error.code = 'inventory_unstable';
     throw error;
   }
-  const normalize = (entry) => normalizeCheckoutPath(entry, top);
+  // Git emits an embedded repository inside the checkout as one entry with a trailing slash,
+  // in both the ignored and the untracked listings; a vcpkg cache carries such repositories.
+  // Exactly that one trailing separator is stripped here, at the enumeration boundary only —
+  // the shared normalizer stays strict for every other caller.
+  const normalize = (entry) => normalizeCheckoutPath(entry.endsWith('/') ? entry.slice(0, -1) : entry, top);
   const untrackedPaths = byteSort(nulRecords(untracked1).map(normalize));
   const ignoredPaths = byteSort(nulRecords(ignored1).map(normalize));
   const describe = (entry) => ({ path: entry, kind: lstatKind(path.join(top, ...entry.split('/'))), followed: false });
