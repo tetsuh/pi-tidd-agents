@@ -12,11 +12,12 @@ const assert = require('node:assert/strict');
 const { readText, sectionOf, cliSchemas } = require('./helpers');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 
 const MAP_HEADING = '### Packaged helper invocation map (CL-D30, Issue #47)';
 
 
-const mapSection = () => sectionOf(readText(PR_AUTOFIX), MAP_HEADING);
+const mapSection = () => sectionOf((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), MAP_HEADING);
 // Read the Operation column only. Scanning the whole section would both miss nothing and
 // pick up request fields such as `cwd`, so the column boundary is what makes the
 // both-directions check meaningful.
@@ -104,7 +105,7 @@ function enumerationTokens(text) {
 }
 
 function prePushBoundaries() {
-  const sentence = readText(PR_AUTOFIX).match(/Every pre-push boundary[\u2014-]([^\u2014]+)[\u2014-]requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H`/);
+  const sentence = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)).match(/Every pre-push boundary[\u2014-]([^\u2014]+)[\u2014-]requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H`/);
   assert.ok(sentence, 'could not locate the pre-push boundary enumeration in the contract');
   // The map cites the snapshot boundary by its short name, as the contract does elsewhere.
   const terms = new Set([...enumerationTokens(sentence[1])].map((term) => term.replace(/^post-reply snapshot$/, 'post-reply')));
@@ -152,7 +153,7 @@ test('Issue #55 the map preserves the linked/clone postPushHead distinction and 
 });
 
 test('Issue #55 the retired one-line CLI reference does not survive beside the map', () => {
-  const text = readText(PR_AUTOFIX);
+  const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   assert.doesNotMatch(text, /Use packaged `helpers\/cli\.js` v1; errors stop\./, 'the superseded one-line reference must be replaced by the map');
   assert.equal((text.match(/### Packaged helper invocation map/g) || []).length, 1, 'the map must appear exactly once');
 });

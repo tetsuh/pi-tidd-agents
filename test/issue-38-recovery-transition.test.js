@@ -10,10 +10,11 @@ const assert = require('node:assert/strict');
 const { readText, sectionOf } = require('./helpers');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const RECOVERY_HEADING = '### Bounded pre-writer recovery (CL-D39)';
 
 test('Issue #38 the action order states where recovery sits and that safety precedes it', () => {
-  const text = readText(PR_AUTOFIX);
+  const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const order = text.match(/Apply this deterministic action order[^\n]*/);
   assert.ok(order, 'the deterministic action order clause must exist');
   assert.match(order[0], /The CL-D39 recovery is evaluated only after target movement, lifecycle, identity, and fingerprint checks and gate correlation and result validation have passed/);
@@ -32,7 +33,7 @@ const CLEANLINESS = ['trackedClean', 'indexClean', 'runtimeRootsSafe', 'noOutsid
 const MUTATIONS = ['writerLaunched', 'stagingAttempted', 'commitAttempted', 'pushAttempted', 'replyAttempted', 'summaryAttempted', 'providerMutationAttempted'];
 
 function mapping() {
-  const section = sectionOf(readText(PR_AUTOFIX), RECOVERY_HEADING);
+  const section = sectionOf((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
   return section.split('\n').filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
     .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()))
     .map(([, key, , outcome, evidence]) => ({ key: key.replace(/`/g, ''), outcome, evidence }));

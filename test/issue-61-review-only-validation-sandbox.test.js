@@ -14,6 +14,7 @@ const { readText, readJson, sectionOf } = require('./helpers');
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const CONTRACT = 'CONTRACT.md';
 
 
@@ -28,8 +29,8 @@ test('Issue #61 the PR root defines the validation sandbox delta once for both m
   assert.match(section, /frozen by path, type, and no-follow presence/);
   assert.match(section, /never read, followed, deleted, pruned, or restored/);
   assert.match(section, /never enters evidence, a fingerprint, a draft, or a status block/);
-  // The definition must not be restated in either mode reference.
-  for (const file of [PR_REVIEW_ONLY, PR_AUTOFIX]) {
+  // The definition must not be restated in either mode reference or in the addendum stage.
+  for (const file of [PR_REVIEW_ONLY, PR_AUTOFIX, PR_AUTOFIX_ADDENDUM]) {
     assert.doesNotMatch(readText(file), /`VALIDATION_SANDBOX_DELTA` :=/, `${file} must reference the root definition, not restate it`);
   }
 });
@@ -59,7 +60,7 @@ test('Issue #61 review-only permits only the validation delta and keeps every ot
 });
 
 test('Issue #61 exact autofix keeps its phase usage and stops redefining the delta', () => {
-  const text = readText(PR_AUTOFIX);
+  const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   assert.match(text, /`VALIDATION_SANDBOX_DELTA`/, 'autofix must still name the delta at its phases');
   assert.match(text, /AFTER_VALIDATION/);
   // The general definition moved to the root; the mode reference keeps only its phase rules.

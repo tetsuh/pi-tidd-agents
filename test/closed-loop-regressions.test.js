@@ -127,9 +127,12 @@ test('fixture: text fingerprint serialization is newline-stable and delimiter-st
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
-const PR_ARTIFACTS = [PR_SKILL, PR_REVIEW_ONLY, PR_AUTOFIX];
-const readPrMode = (reference) => [PR_SKILL, reference].map(readText).join('\n');
+// The addendum is not a mode reference, but it is authoritative exact-autofix prose, so every
+// aggregate negative scan must read it (SOL-90-AFFECTED-READER-INVENTORY).
+const PR_ARTIFACTS = [PR_SKILL, PR_REVIEW_ONLY, PR_AUTOFIX, PR_AUTOFIX_ADDENDUM];
+const readPrMode = (reference) => [PR_SKILL, reference].map(readText).join('\n') + (reference === PR_AUTOFIX ? `\n${readText(PR_AUTOFIX_ADDENDUM)}` : '');
 const ENTRY_ARTIFACTS = [
   'skills/closed-loop-issue/SKILL.md',
   ...PR_ARTIFACTS,
@@ -197,7 +200,7 @@ const SUPERSEDED = [
 
 test('Issue #41 publication authority remains review-only-owned and aggregate-only', () => {
   const reviewOnly = readText(PR_REVIEW_ONLY);
-  const autofix = readText(PR_AUTOFIX);
+  const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
   assert.match(reviewOnly, /Guarded owner publication artifacts \(CL-D33, Issue #41\)/);
   assert.match(reviewOnly, /CL-D33 aggregate-summary publication is optional/);
@@ -213,7 +216,7 @@ test('Issue #41 publication authority remains review-only-owned and aggregate-on
 });
 
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {
-  const skill = readText(PR_AUTOFIX);
+  const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   assert.match(skill, /This addendum is selected only when.*exactly `autofix`/s);
   assert.doesNotMatch(skill, /Review-only retains the preceding/);
   assert.match(skill, /one bounded normal commit/);
@@ -244,7 +247,7 @@ test('entry artifacts preserve the scoped CL-D30 boundary', () => {
 
 test('fixture: PR mode references own downstream obligations exclusively', () => {
   const reviewOnly = readText(PR_REVIEW_ONLY);
-  const autofix = readText(PR_AUTOFIX);
+  const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const reviewOwned = [
     'Review-only never edits any repository file or creates a working-tree candidate.',
     'Review-only has no publication phase and no local commit/push window.',
@@ -325,7 +328,7 @@ test('no superseded rule survives beside its replacement', () => {
 });
 
 test('exact-autofix Luna ownership is protected within its authored sections', () => {
-  const skill = readText(PR_AUTOFIX);
+  const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const writer = artifactSection(skill, '### The writer (CL-D3)');
   const addendum = artifactSection(skill, '## Exact PR `autofix` addendum (CL-D30)');
   const exactOwner = artifactSection(skill, '### Exact owner and safety boundary (CL-D30)');
@@ -518,7 +521,7 @@ const SCENARIOS = [
   ['19 confirmation records enforce exact one-to-one tuples and multiple assigned findings', () => { const base = { findingId: 'f', blockerKey: 'b', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'e' }; const both = { findingId: 'f', blockerKey: 'b', headOid: 'H', confirmationGate: 'both', proposedDisposition: 'fixed' }; const correct = [base, { ...base, gate: 'terra' }]; assert.equal(confirmation(both, correct), true); assert.equal(confirmation(both, [base]), false); assert.equal(confirmation(both, [base, { ...base, blockerKey: 'wrong', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, headOid: 'OLD', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, proposedDisposition: 'deferred', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, gate: 'terra' }, { ...base, gate: 'sol' }]), false); const solOnly = { findingId: 's', blockerKey: 'bs', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'fixed' }; const solRecord = { findingId: 's', blockerKey: 'bs', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 's' }; assert.equal(confirmation(solOnly, [solRecord, { ...solRecord, gate: 'terra' }]), false); assert.equal(confirmationRecordsValid([{ ...base, gate: 'bad' }]), false); assert.equal(confirmationRecordsValid([{ ...base, proposedDisposition: 'bad' }]), false); assert.equal(confirmationRecordsValid([{ ...base, blockerKey: undefined }]), false); assert.equal(confirmationRecordsValid([base, base]), false); const other = { findingId: 'g', blockerKey: 'bg', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'g' }; const assigned = { findingId: 'g', blockerKey: 'bg', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'fixed' }; assert.equal(confirmation(assigned, [other, ...correct], [assigned, both]), true); assert.equal(confirmation(assigned, [other], [assigned, both]), false); }],
   ['20 blockerKey x breakerOwner deduplicates within result but counts separate results', () => { const history = noProgressHistory([{ resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'terra' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-2', blockerKey: 'shared', breakerOwner: 'shared', gate: 'terra' }, { resultId: 'shared-3', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }]); assert.equal(history.get('owned:sol'), 1); assert.equal(history.get('shared:shared'), 3); assert.equal(breaker('final', { observations: history.get('shared:shared') }), 'ROUND_LIMIT_REACHED:no_progress'); assert.equal(noProgressObservation([{ blockerKey: 'shared' }, { blockerKey: 'shared' }]), 1); }],
   ['21 concurrent local dirtiness/staged race and post-commit checkout mismatch fail without cleanup/retry', () => { const results = [publicationPhase({ phase: 'gate', fullyClean: false }), publicationPhase({ phase: 'reply', fullyClean: false }), publicationPhase({ phase: 'edit', fullyClean: false }), publicationPhase({ phase: 'commit', indexMatchesManifest: false }), publicationPhase({ phase: 'commit', indexTree: 'raced' }), publicationPhase({ phase: 'push', checkoutHead: 'P' })]; assert.deepEqual(results, ['BLOCKED:gate_guard', 'BLOCKED:reply_guard', 'BLOCKED:edit_guard', 'BLOCKED:commit_guard', 'BLOCKED:commit_guard', 'BLOCKED:push_guard']); assert.equal(publicationPhase({ phase: 'push', localHead: 'C', checkoutHead: 'C' }), 'push'); assert.deepEqual(results.map(blockedEffects), results.map(() => ({ commit: 0, push: 0, cleanup: 0, retry: 0 }))); }],
-  ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = readText(PR_AUTOFIX); assert.match(skill, /final raw argument token is exactly `autofix`/); assert.doesNotMatch(readText(PR_REVIEW_ONLY), /Exact PR `autofix`/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
+  ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)); assert.match(skill, /final raw argument token is exactly `autofix`/); assert.doesNotMatch(readText(PR_REVIEW_ONLY), /Exact PR `autofix`/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
 ];
 
 test('fixture: all 22 Issue #10 acceptance scenarios execute against the reference model', () => {
@@ -579,7 +582,7 @@ test('Issue #23 contains self-contained invariant blocks and compacts only histo
   const issue = readText('skills/closed-loop-issue/SKILL.md');
   const pr = readText(PR_SKILL);
   const review = readText(PR_REVIEW_ONLY);
-  const autofix = readText(PR_AUTOFIX);
+  const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const issueRoles = artifactSection(issue, '### Issue gate role-authority blocks (CL-D2)');
   const prRoles = artifactSection(pr, '### PR gate role-authority blocks (CL-D2)');
   const container = artifactSection(shared, '### Run-invariant payload blocks (CL-D2, CL-D29)');

@@ -62,6 +62,7 @@ const AUTHORITY_FILES = [
   'skills/closed-loop-pr/SKILL.md',
   'skills/closed-loop-pr/references/review-only.md',
   'skills/closed-loop-pr/references/autofix.md',
+  'skills/closed-loop-pr/references/autofix-addendum.md',
   'skills/closed-loop-shared/references/gate-contract.md',
   'skills/closed-loop-shared/references/records.md',
 ];

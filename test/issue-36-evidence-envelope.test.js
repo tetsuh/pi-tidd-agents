@@ -19,7 +19,7 @@ const { spawnSync } = require('node:child_process');
 const helpers = require('../skills/closed-loop-pr/helpers');
 const { readText, sectionOf, cliSchemas } = require('./helpers');
 
-const AUTOFIX = readText('skills/closed-loop-pr/references/autofix.md');
+const AUTOFIX = (readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
 const CONTRACT = readText('CONTRACT.md');
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 

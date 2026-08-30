@@ -12,6 +12,7 @@ const { readText, readJson, sectionOf } = require('./helpers');
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
 const AGENT_FILES = ['agents/sol-reviewer.md', 'agents/terra-reviewer.md', 'agents/luna-worker.md', 'agents/terra-oracle.md', 'agents/terra-worker.md', 'agents/glm-worker.md'];
@@ -80,7 +81,7 @@ test('Issue #51 records reference defines exactly three anchoring classes and ke
 });
 
 test('Issue #51 exact autofix declares its threat model and normalizes new blocker keys against the settled ledger', () => {
-  const autofix = readText(PR_AUTOFIX);
+  const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const model = sectionOf(autofix, '### Exact-autofix threat model (CL-D34)');
   assert.ok(model, 'threat-model section is missing from the exact-autofix reference');
   assert.match(model, /assumes these operator conditions cooperative unless an Issue acceptance criterion names one/);

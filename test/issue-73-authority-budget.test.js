@@ -39,22 +39,23 @@ test('Issue #73 the raised guards are the ones the suite actually asserts', () =
 
 test('Issue #73 the live measurements sit inside the raised guards', () => {
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 128000, `six authority files total ${total}`);
+  assert.ok(total < 128000, `authority files total ${total}`);
   // A raise that leaves no room would repeat the defect it is meant to remove — but that is a
   // fact about the raise, not about later growth. CL-D48: asserting it against the live total
   // made the margin a second, unstated ceiling that ordinary prose work had to negotiate with.
   // The measurement recorded when CL-D43 was taken cannot drift, so the property stays honest.
   assert.ok(128000 - RAISE_BASELINE_BYTES > 8000, `the raise left only ${128000 - RAISE_BASELINE_BYTES} bytes`);
 
-  const addendum = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '## Exact PR `autofix` addendum (CL-D30)');
+  const addendum = sectionOf((readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md')), '## Exact PR `autofix` addendum (CL-D30)');
   assert.ok(addendum, 'the CL-D30 addendum must exist');
   assert.ok(Buffer.byteLength(addendum) < 28000, 'the addendum must sit inside its raised guard');
 
-  // autofix.md absorbs each new decision, so its size is the signal that a split, not another
-  // raise, is the next structural answer.
-  const autofix = fs.statSync(repoPath('skills/closed-loop-pr/references/autofix.md')).size;
+  // The exact-autofix prose absorbs each new decision. Before CL-D50 that was autofix.md;
+  // after the split it is the addendum stage, and its growth signals when a further split —
+  // not a raise — is the next structural answer.
+  const addendumBytes = fs.statSync(repoPath('skills/closed-loop-pr/references/autofix-addendum.md')).size;
   const largest = AUTHORITY_FILES.map((file) => fs.statSync(repoPath(file)).size).sort((a, b) => b - a);
-  assert.equal(autofix === largest[0] || autofix === largest[1], true, 'autofix.md is expected to be among the two largest authority files');
+  assert.equal(addendumBytes === largest[0] || addendumBytes === largest[1], true, 'the addendum is expected to be among the two largest authority files');
 });
 
 test('Issue #73 CL-D43 records what the guards protect and when raising is wrong', () => {

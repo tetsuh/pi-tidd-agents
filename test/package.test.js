@@ -30,6 +30,7 @@ const PR_MODE_REFERENCES = {
   'review-only': 'skills/closed-loop-pr/references/review-only.md',
   autofix: 'skills/closed-loop-pr/references/autofix.md',
 };
+const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const PR_HELPER_FILES = ['cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
@@ -115,7 +116,7 @@ function normalizedSentences(text) {
     .filter((sentence) => [...sentence].length >= 60);
 }
 
-const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_PUBLICATION_TEMPLATE, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
+const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, PR_PUBLICATION_TEMPLATE, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
 const GENERIC_FALSIFICATION_EVIDENCE = 'authoritative files of the repository under review';
 const ABSENT_RECORD_RULE = 'that absence is not itself a finding';
 
@@ -269,7 +270,7 @@ test('Issue #24 shared-reference literal matching rejects malformed prefixes', (
   assert.equal(('x' + literal).match(markdownLiteral(literal)), null, 'an unbackticked path must not satisfy the Markdown literal assertion');
 });
 
-test('Issue #24 six authority files remain below the published baseline', () => {
+test('Issue #24 the authority files remain below the published baseline', () => {
   // Review-driven regression: this raw-byte ceiling protects the reviewed authority graph.
   // CL-D34 raised the Issue #24 baseline to 108,000 bytes; CL-D36 raised it to 112,000 for the
   // shared structured-transport rule; CL-D39 raised it to 116,000 for the closed recovery
@@ -280,7 +281,7 @@ test('Issue #24 six authority files remain below the published baseline', () => 
   // The assertion below is the live measurement; the figures here are revision-qualified and
   // are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 128000, `six authority files total ${total} bytes, expected less than 128000`);
+  assert.ok(total < 128000, `authority files total ${total} bytes, expected less than 128000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.
@@ -363,14 +364,18 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
   assert.doesNotMatch(reviewOnly, /Exact PR `autofix`/);
   assert.doesNotMatch(reviewOnly, /publication_grant: .*autofix/);
   assert.match(autofix, /## Autofix \(AC-AUTOFIX,/);
-  assert.match(autofix, /## Exact PR `autofix` addendum \(CL-D30\)/);
-  assert.match(autofix, /Exact PR `autofix` has no uncommitted candidate and may report readiness only from the CL-D30 post-reply final snapshot; its optional aggregate-summary draft never blocks readiness\./);
-  assert.match(autofix, /Exact PR `autofix` never resumes: a later command is a fresh run\./);
+  assert.doesNotMatch(autofix, /## Exact PR `autofix` addendum \(CL-D30\)/);
+  assert.match(autofix, /The exact `autofix` token additionally selects the CL-D30 addendum in `references\/autofix-addendum\.md`; read it only then, after this reference \(CL-D50\)\./);
+  const addendumStage = readText(PR_AUTOFIX_ADDENDUM);
+  assert.match(addendumStage, /^## Exact PR `autofix` addendum \(CL-D30\)/);
+  assert.match(addendumStage, /Exact PR `autofix` has no uncommitted candidate and may report readiness only from the CL-D30 post-reply final snapshot; its optional aggregate-summary draft never blocks readiness\./);
+  assert.match(addendumStage, /Exact PR `autofix` never resumes: a later command is a fresh run\./);
   assert.doesNotMatch(reviewOnly, /references\/autofix\.md/);
   assert.doesNotMatch(autofix, /references\/review-only\.md/);
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(reviewOnly) < PR_SKILL_PRE_SPLIT_BYTES, 'review-only disclosure must be smaller than the pre-split PR Skill');
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(autofix) < PR_SKILL_PRE_SPLIT_BYTES, 'autofix disclosure must be smaller than the pre-split PR Skill');
 
+  const addendumStage2 = () => readText(PR_AUTOFIX_ADDENDUM);
   const reviewOnlyExclusive = [
     'Review-only never edits any repository file or creates a working-tree candidate.',
     'Review-only has no publication phase and no local commit/push window.',
@@ -384,7 +389,8 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
     'Exact autofix malformed or unparsable verdict stops on first failure.',
   ];
   for (const text of reviewOnlyExclusive) assert.ok(reviewOnly.includes(text), `review-only reference must own: ${text}`);
-  for (const text of autofixExclusive) assert.ok(autofix.includes(text), `autofix reference must own: ${text}`);
+  const autofixStage = `${autofix}\n${addendumStage2()}`;
+  for (const text of autofixExclusive) assert.ok(autofixStage.includes(text), `autofix stage must own: ${text}`);
   assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
   assert.doesNotMatch(autofix, /Review-only has no publication phase/);
   assert.doesNotMatch(autofix, /Review-only never commits, pushes, posts, replies/);
@@ -394,7 +400,7 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
 });
 
 test('shipped skills omit repository-specific test-suite commentary', () => {
-  for (const file of [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES)]) {
+  for (const file of [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, ...Object.values(SHARED_REFERENCES)]) {
     const text = readText(file);
     for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
       assert.doesNotMatch(text, forbidden, `${file} contains repository-specific test commentary: ${forbidden}`);
@@ -480,7 +486,7 @@ test('Issue #22 removed prompt clauses retain named Skill-scoped enforcement', (
 });
 
 test('no skill, mode reference, or prompt hard-codes a model ID', () => {
-  const files = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
+  const files = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
   for (const file of files) {
     const text = readText(file);
     assert.doesNotMatch(
@@ -578,7 +584,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 33, `packed file count changed: ${files.join(', ')}`);
+    assert.equal(files.length, 34, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);
