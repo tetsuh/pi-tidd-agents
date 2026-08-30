@@ -73,7 +73,7 @@ function makeStale(repo, workspace, args = ['--detach']) {
   return record;
 }
 
-const AUTOFIX = readText('skills/closed-loop-pr/references/autofix.md');
+const AUTOFIX = (readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
 const CONTRACT = readText('CONTRACT.md');
 const README = readText('README.md');
 

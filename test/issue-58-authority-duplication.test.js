@@ -1,6 +1,6 @@
 'use strict';
 
-// Issue #58: the six authority files are read per run and their CL-D2 payload blocks are
+// Issue #58: the authority files are read per run and their CL-D2 payload blocks are
 // retransmitted verbatim on every gate invocation, so a sentence duplicated between the two
 // workflow roots is paid for twice. Shared policy belongs in the shared references that both
 // roots already load. Compile/contract coverage over the shipped prose.
@@ -26,7 +26,7 @@ function sentences(file) {
     .filter((sentence) => sentence.length >= MIN_SENTENCE);
 }
 
-test('Issue #58 no authority sentence is duplicated within or across the six files', () => {
+test('Issue #58 no authority sentence is duplicated within or across the authority files', () => {
   const seen = new Map();
   for (const file of AUTHORITY_FILES) {
     for (const sentence of sentences(file)) {
@@ -47,7 +47,7 @@ test('Issue #58 the guard measures exactly the files the byte guard measures', (
   assert.match(packageTest, /AUTHORITY_FILES \} = require\('\.\/helpers'\)/, 'the byte guard must import the shared authority list');
   assert.doesNotMatch(packageTest, /const AUTHORITY_FILES = \[/, 'the byte guard must not redeclare the authority list');
   assert.match(packageTest, /AUTHORITY_FILES\.reduce/, 'the byte guard must measure the shared list');
-  assert.equal(AUTHORITY_FILES.length, 6);
+  assert.equal(AUTHORITY_FILES.length, 7);
   for (const file of AUTHORITY_FILES) assert.ok(readText(file).length > 0, `${file} must exist`);
 });
 

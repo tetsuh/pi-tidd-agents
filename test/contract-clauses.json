@@ -521,9 +521,7 @@
       ],
       "requires": [
         "Target stability",
-        "stop rather than continue against a moved target",
-        "public head OID",
-        "Before every allowed reply attempt"
+        "stop rather than continue against a moved target"
       ]
     },
     {
@@ -939,7 +937,7 @@
       "title": "Exact PR autofix public-head loop",
       "section": "## Exact PR `autofix` addendum (CL-D30)",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "This addendum is selected only when",
@@ -948,7 +946,8 @@
         "OPERATOR_CHECKOUT_UNCHANGED@O",
         "AUTOFIX_WORKSPACE@H",
         "WORKSPACE_POST_COMMIT(C, P)",
-        "WORKSPACE_POST_PUSH(C, O)"
+        "WORKSPACE_POST_PUSH(C, O)",
+        "public head OID"
       ]
     },
     {
@@ -957,7 +956,7 @@
       "title": "Exact Luna identity and publication phases",
       "section": "### Exact identity and Luna publication phases",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "Before its first edit and immediately before commit",
@@ -981,7 +980,7 @@
       "title": "Exact autofix circuit breakers and precedence",
       "section": "### Findings, no-progress, and deterministic status",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result",
@@ -996,7 +995,7 @@
       "title": "Exact source-finding replies and final readiness",
       "section": "### Source-finding replies and final readiness",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "A reply marker is bound to source identity",
@@ -1008,7 +1007,8 @@
         "never claims that the whole PR is ready unless final readiness has independently been reached",
         "parent must create and report the proposed aggregate final-summary body/draft",
         "The draft is not workflow state",
-        "declining or not posting it never blocks readiness"
+        "declining or not posting it never blocks readiness",
+        "Before every allowed reply attempt"
       ]
     },
     {
@@ -1043,7 +1043,7 @@
       "title": "Exact autofix clean boundary at every gate and reply phase",
       "section": "### Public-head loop and evidence",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "Every pre-push boundary",
@@ -1074,7 +1074,7 @@
       "title": "Exact autofix is mode-gated against review-only and Issue",
       "section": "## Exact PR `autofix` addendum (CL-D30)",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "supersede only the CL-D30 publication",
@@ -1117,7 +1117,7 @@
       "title": "Exact autofix readiness is not blocked by aggregate draft",
       "section": "### Exact-autofix readiness and resume boundary (CL-D30)",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "Exact PR `autofix` has no uncommitted candidate",
@@ -1131,7 +1131,7 @@
       "title": "Exact gates inherit shared verdict/payload/adversarial contract and full correlation",
       "section": "### Exact gate contract and correlation (CL-D1, CL-D2, CL-D29)",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "shared CL-D1 exact verdict vocabulary",
@@ -1169,7 +1169,7 @@
       "title": "Luna payload and complete identity guards are explicit",
       "section": "### Exact identity and Luna publication phases",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "The parent Luna payload contains",
@@ -1194,7 +1194,7 @@
       "title": "Run-local staged manifest binds parent/tree/inventory/blob identities",
       "section": "### Exact identity and Luna publication phases",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "run-local staged manifest is complete and immutable",
@@ -1228,7 +1228,7 @@
       "title": "Snapshot evidence routes new findings to Sol and allows confirmed finding replies",
       "section": "### Public-head loop and evidence",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "before Terra",
@@ -1245,7 +1245,7 @@
       "title": "Reply batches preflight destinations and bind deterministic evidence",
       "section": "### Source-finding replies and final readiness",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "preflight every planned destination and source",
@@ -1262,7 +1262,7 @@
       "title": "Aggregate summary approval is complete and fail-stop",
       "section": "### Source-finding replies and final readiness",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "destination language",
@@ -1281,7 +1281,7 @@
       "title": "Circuit breaker wording prevents only sixteenth gate and sixth push",
       "section": "### Findings, no-progress, and deterministic status",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "completed gate counter is already 15",
@@ -1765,7 +1765,7 @@
       "marker": "CL-D30",
       "title": "Every gate and reply boundary uses scoped operational cleanliness",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "`OPERATOR_CHECKOUT_UNCHANGED@O`",
@@ -1783,7 +1783,7 @@
       "marker": "CL-D30",
       "title": "Publication phases exclude Pi from correction and manifest state",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "`AUTOFIX_WORKSPACE@P` with identity, tracked/index, and runtime-root conditions",
@@ -1814,7 +1814,7 @@
       "marker": "CL-D30",
       "title": "Replies and summaries preserve the scoped runtime boundary",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "Runtime-root churn",
@@ -2062,7 +2062,7 @@
       "marker": "CL-D34",
       "title": "Exact autofix declares its cooperative operator assumptions",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "section": "### Exact-autofix threat model (CL-D34)",
       "requires": [
@@ -2083,7 +2083,7 @@
       "marker": "CL-D34",
       "title": "New blocker keys are normalized against the settled ledger",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "section": "### Findings, no-progress, and deterministic status",
       "requires": [
@@ -2255,7 +2255,7 @@
       "marker": "CL-D39",
       "title": "Every tooling failure stays terminal",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above."
@@ -2542,7 +2542,7 @@
       "marker": "CL-D45",
       "title": "Exact autofix binds replies with deterministic markers and reconciles read-only",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "section": "### Source-reply markers and reconciliation (CL-D45)",
       "requires": [
@@ -2665,37 +2665,62 @@
       ],
       "requires": [
         "the headroom property is asserted at the raise, not against live growth",
-        "no live margin may be asserted against the six-file total",
+        "no live margin may be asserted against the aggregate total",
         "CL-D48 records why the constant form failed",
         "this suite must not reintroduce one either"
       ]
     },
-    {
-      "id": "CL-D49-autofix",
-      "marker": "CL-D49",
-      "title": "Exact autofix names the cleanup result terminal",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "section": "### Isolated exact-autofix invariants (CL-D10, CL-D30)",
-      "requires": [
-        "a successful `workspace_cleanup` result is the terminal workspace evidence",
-        "no `workspace_*` operation may target the removed path afterwards",
-        "the terminal recheck after removal is operator-side only",
-        "a post-removal verification failure is a caller error, never evidence about the target"
-      ]
-    },
-    {
-      "id": "CL-D49-tests",
-      "marker": "CL-D49",
-      "title": "Cleanup-terminal fixtures pin the prose and the returned evidence",
-      "files": [
-        "test/issue-80-cleanup-terminal.test.js"
-      ],
-      "requires": [
-        "the cleanup result is named terminal and post-removal workspace calls are forbidden",
-        "the cleanup operation already returns the terminal evidence it is now named for"
-      ]
-    }
+      {
+        "id": "CL-D49-autofix",
+        "marker": "CL-D49",
+        "title": "Exact autofix names the cleanup result terminal",
+        "files": [
+          "skills/closed-loop-pr/references/autofix.md"
+        ],
+        "section": "### Isolated exact-autofix invariants (CL-D10, CL-D30)",
+        "requires": [
+          "a successful `workspace_cleanup` result is the terminal workspace evidence",
+          "no `workspace_*` operation may target the removed path afterwards",
+          "the terminal recheck after removal is operator-side only",
+          "a post-removal verification failure is a caller error, never evidence about the target"
+        ]
+      },
+      {
+        "id": "CL-D49-tests",
+        "marker": "CL-D49",
+        "title": "Cleanup-terminal fixtures pin the prose and the returned evidence",
+        "files": [
+          "test/issue-80-cleanup-terminal.test.js"
+        ],
+        "requires": [
+          "the cleanup result is named terminal and post-removal workspace calls are forbidden",
+          "the cleanup operation already returns the terminal evidence it is now named for"
+        ]
+      },
+      {
+        "id": "CL-D50-base",
+        "marker": "CL-D50",
+        "title": "The base reference directs the third disclosure stage",
+        "files": [
+          "skills/closed-loop-pr/references/autofix.md"
+        ],
+        "requires": [
+          "The exact `autofix` token additionally selects the CL-D30 addendum in `references/autofix-addendum.md`; read it only then, after this reference (CL-D50)."
+        ]
+      },
+      {
+        "id": "CL-D50-tests",
+        "marker": "CL-D50",
+        "title": "Split fixtures pin the seven-file set, the stage bounds, and the record",
+        "files": [
+          "test/issue-87-addendum-split.test.js"
+        ],
+        "requires": [
+          "the addendum is its own authority file and the aggregate set has seven entries",
+          "the addendum content moved whole and the base directs to it",
+          "the disclosure stages are bounded per stage",
+          "CL-D50 records the third disclosure stage"
+        ]
+      }
   ]
 }

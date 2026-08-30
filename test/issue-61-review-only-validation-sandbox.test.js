@@ -14,6 +14,7 @@ const { readText, readJson, sectionOf } = require('./helpers');
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const CONTRACT = 'CONTRACT.md';
 
 
@@ -59,7 +60,7 @@ test('Issue #61 review-only permits only the validation delta and keeps every ot
 });
 
 test('Issue #61 exact autofix keeps its phase usage and stops redefining the delta', () => {
-  const text = readText(PR_AUTOFIX);
+  const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   assert.match(text, /`VALIDATION_SANDBOX_DELTA`/, 'autofix must still name the delta at its phases');
   assert.match(text, /AFTER_VALIDATION/);
   // The general definition moved to the root; the mode reference keeps only its phase rules.

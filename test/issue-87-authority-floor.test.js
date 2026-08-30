@@ -4,7 +4,7 @@
 // while meaning a raise-time one. As the graph grew into the margin it silently became the
 // real ceiling: three consecutive PRs trimmed prose to fit 120,000, and PR #85 shortened a
 // shared-contract sentence for nine bytes. The guard now asserts what it meant — the raise
-// left real room when it was taken — and the ceiling is the only live six-file aggregate
+// left real room when it was taken — and the ceiling is the only live aggregate
 // limit. The disclosure and CL-D30 addendum subset guards are unchanged and still live.
 //
 // TDD provenance: recorded with the focused command below at 0 passes and 2 failures, both
@@ -12,7 +12,7 @@
 // behavioral RED is claimed: this issue changes a recorded limit's form, not behavior. That
 // local output is not claimed as repository-preserved or runtime-compliance evidence.
 //
-// The six-file aggregate is the only guard this issue touches. The 57,160-byte disclosure
+// The authority aggregate is the only guard this issue touches. The 57,160-byte disclosure
 // guard and the 28,000-byte CL-D30 addendum guard are live subset guards and stay exactly as
 // they are; `autofix.md` prose remains bounded by the disclosure guard, which is why the
 // `autofix.md` split stays open under Issue #87.
@@ -26,12 +26,12 @@ const { AUTHORITY_FILES, readText, repoPath, sectionOf } = require('./helpers');
 const BUDGET_TEST = readText('test/issue-73-authority-budget.test.js');
 
 test('Issue #87 the headroom property is asserted at the raise, not against live growth', () => {
-  // The live check on the six-file aggregate is the ceiling alone; no further margin may
+  // The live check on the authority aggregate is the ceiling alone; no further margin may
   // bound that total. Subset guards over parts of the graph are out of scope here.
   assert.match(BUDGET_TEST, /assert\.ok\(total < 128000,/);
   // Any live margin against the aggregate is a floor, whatever constant it uses, so the
   // rejection is written against the shape rather than against the retired 8,000.
-  assert.equal(/128000\s*-\s*total\s*>/.test(BUDGET_TEST), false, 'no live margin may be asserted against the six-file total');
+  assert.equal(/128000\s*-\s*total\s*>/.test(BUDGET_TEST), false, 'no live margin may be asserted against the aggregate total');
   assert.equal(/128000\s*-\s*total\s*>/.test(readText('test/issue-87-authority-floor.test.js')), false, 'this suite must not reintroduce one either');
 
   // The raise-time property is still asserted, against the measurement recorded when CL-D43
@@ -39,9 +39,9 @@ test('Issue #87 the headroom property is asserted at the raise, not against live
   assert.match(BUDGET_TEST, /RAISE_BASELINE_BYTES = 114563/);
   assert.match(BUDGET_TEST, /128000 - RAISE_BASELINE_BYTES > 8000/);
 
-  // And the live measurement still has to fit. This is the only live six-file aggregate
+  // And the live measurement still has to fit. This is the only live aggregate
   // assertion: any further margin asserted here would be a new live floor, which is the
-  // defect this issue exists to remove — the six files measured 119,973 bytes at 66d8c91,
+  // defect this issue exists to remove — the files measured 119,973 bytes at 66d8c91,
   // revision-qualified evidence rather than a persistent bound.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
   assert.ok(total < 128000, `six authority files total ${total}`);
