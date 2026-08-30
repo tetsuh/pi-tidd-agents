@@ -9,6 +9,7 @@ module.exports = {
   ...require('./gate-result'),
   ...require('./evidence'),
   ...require('./composition'),
+  ...require('./builders'),
   ...require('./reply'),
   ...require('./protocol'),
   protocol: require('./protocol'),

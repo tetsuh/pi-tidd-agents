@@ -108,11 +108,14 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
 
 test('Issue #83 the CLI exposes exactly the five builder operations with frozen inputs', () => {
   const schemas = cliSchemas();
-  assert.deepEqual(schemas.build_operator_revalidate, { required: ['captured', 'cwd'], optional: ['postPushHead'] });
-  assert.deepEqual(schemas.build_workspace_verify, { required: ['created', 'cwd'], optional: ['transition'] });
-  assert.deepEqual(schemas.build_workspace_cleanup, { required: ['created', 'cwd'], optional: [] });
-  assert.deepEqual(schemas.build_fingerprint_snapshot, { required: ['snapshot'], optional: [] });
-  assert.deepEqual(schemas.build_gate_expectation, { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] });
+  assert.deepEqual(schemas.build_operator_revalidate, ['captured', 'cwd']);
+  assert.deepEqual(schemas.build_workspace_verify, ['created', 'cwd']);
+  assert.deepEqual(schemas.build_workspace_cleanup, ['created', 'cwd']);
+  assert.deepEqual(schemas.build_fingerprint_snapshot, ['snapshot']);
+  assert.deepEqual(schemas.build_gate_expectation, ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence']);
+  const cliSource = readText('skills/closed-loop-pr/helpers/cli.js');
+  assert.match(cliSource, /build_operator_revalidate: \{ required: \['captured', 'cwd'\], optional: \['postPushHead'\] \}/);
+  assert.match(cliSource, /build_workspace_verify: \{ required: \['created', 'cwd'\], optional: \['transition'\] \}/);
   assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 5, 'the builder family is exactly the five owner-approved compositions');
 });
 
