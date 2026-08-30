@@ -44,7 +44,7 @@ test('Issue #87 the headroom property is asserted at the raise, not against live
   // defect this issue exists to remove — the files measured 119,973 bytes at 66d8c91,
   // revision-qualified evidence rather than a persistent bound.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 128000, `six authority files total ${total}`);
+  assert.ok(total < 128000, `authority files total ${total}`);
 });
 
 test('Issue #87 CL-D48 records why the constant form failed', () => {
