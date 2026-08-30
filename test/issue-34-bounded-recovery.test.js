@@ -56,12 +56,14 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   const rows = section.split('\n')
     .filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
     .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()));
-  assert.equal(rows.length, 5, `the mapping must cover all five Issue #34 failures, found ${rows.length}`);
+  // Five rows cover Issue #34's own failures; CL-D51 (Issue #82) adds the zero-output gate
+  // transport key as a sixth, under its own owner decision.
+  assert.equal(rows.length, 6, `the mapping must cover the five Issue #34 failures plus CL-D51, found ${rows.length}`);
   for (const row of rows) assert.equal(row.length, 5, `each row needs failure, key, replacement, outcome, evidence: ${row.join(' | ')}`);
   const byKey = new Map(rows.map((row) => [row[1], row]));
   assert.deepEqual([...byKey.keys()].sort(), [
-    '`envelope_read@normalize`', '`fingerprint_<op>@normalize`', '`manifest_compare@AFTER_STAGING`',
-    '`report_verify@normalize`', '`validation_harness@focused_validation`',
+    '`envelope_read@normalize`', '`fingerprint_<op>@normalize`', '`gate_transport@gate_launch`',
+    '`manifest_compare@AFTER_STAGING`', '`report_verify@normalize`', '`validation_harness@focused_validation`',
   ], 'every failure needs its own canonical key');
   // Both post-writer failures stay terminal with no replacement: the manifest assertion, and
   // the harness error, which in the shipped phase model only occurs inside Luna's focused
@@ -162,9 +164,9 @@ test('Issue #34 writes outside the temp parent are the CL-D37 boundary\'s job, a
   assert.match(readText('CONTRACT.md'), /^## CL-D37 — /m, 'CL-D37 must be a recorded decision');
 });
 
-test('Issue #34 the stop rule keeps its wording and names the single exception', () => {
+test('Issue #34 the stop rule keeps its wording and names its exceptions', () => {
   const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above\./);
+  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above and the CL-D51 zero-output relaunch\./);
   // The invocation-map sentence must not contradict the recovery it now defers to.
   assert.match(text, /no retry beyond the CL-D39 recovery defined above/);
   // The recovery section really is above the stop rule.

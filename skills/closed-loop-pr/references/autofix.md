@@ -72,8 +72,9 @@ Each failure has one canonical `operation@phase` key. The operation part is the 
 | digest computed from the wrong domain | `fingerprint_<op>@normalize` | the operation declaring that domain | recoverable | source bytes preserved; digest invalidated |
 | validation harness could not run | `validation_harness@focused_validation` | none | terminal | post-writer; all evidence stands |
 | over-specific staged-manifest assertion | `manifest_compare@AFTER_STAGING` | none | terminal | post-writer; all evidence stands |
+| gate transport failure with zero designated output bytes | `gate_transport@gate_launch` | one relaunch of the same prevalidated invocation | recoverable | no output existed; nothing is preserved or invalidated |
 
-Every key not listed is terminal: identity, writability, workspace, API, and child startup at `preflight` and `gate_launch`; malformed verdict, correlation mismatch, and stale target at `gate_result`; evidence movement at `normalize`; and every failure from the first Luna task onward. Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts.
+Every key not listed is terminal: identity, writability, workspace, API, and child startup at `preflight` and `gate_launch` except the CL-D51 zero-output transport key; malformed verdict, correlation mismatch, and stale target at `gate_result`; evidence movement at `normalize`; and every failure from the first Luna task onward. Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts. For the CL-D51 key: any designated output byte, however malformed, keeps the failure terminal; at most one relaunch per run, consuming no counter, with identity, every applicable fingerprint, and both live invariants freshly re-proved first; after any mutation, Luna task, or reply the key is terminal exactly as before.
 
 ### Versioned evidence envelope (CL-D42)
 
