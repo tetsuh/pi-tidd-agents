@@ -196,6 +196,13 @@ test('Issue #83 builders reject with the boundary vocabulary, not new codes', ()
   assert.equal(wide.ok, false);
   assert.equal(wide.error.code, 'invalid_request');
   assert.match(wide.error.message, /postPushHead/);
+  // Review-driven (SOL-98-OID-WIDTH, round 2): String() coercion let a one-element array
+  // holding a 40-hex string pass the pattern while the consumer requires an actual string.
+  const arrayed = cli('build_operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo', postPushHead: ['a'.repeat(40)] });
+  assert.equal(arrayed.ok, false);
+  assert.equal(arrayed.error.code, 'invalid_request');
+  assert.equal(arrayed.error.phase, 'build');
+  assert.match(arrayed.error.message, /postPushHead/);
 
   // The field-level swap the boundary rejects is rejected at build time with the same shape name.
   const swapped = cli('build_operator_revalidate', { captured: captureData(), cwd: '/repo' });

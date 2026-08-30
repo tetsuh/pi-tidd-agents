@@ -35,7 +35,7 @@ function built(operation, consumer, data, rename) {
 function buildOperatorRevalidate(data) {
   return wrap('build_operator_revalidate', () => {
     if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
-    if (Object.hasOwn(data, 'postPushHead') && !COMMIT_OID_PATTERN.test(String(data.postPushHead))) fail('invalid_request', 'postPushHead must be a commit OID');
+    if (Object.hasOwn(data, 'postPushHead') && !(typeof data.postPushHead === 'string' && COMMIT_OID_PATTERN.test(data.postPushHead))) fail('invalid_request', 'postPushHead must be a commit OID string');
     const request = { captured: data.captured, cwd: data.cwd };
     if (Object.hasOwn(data, 'postPushHead')) request.postPushHead = data.postPushHead;
     return built('build_operator_revalidate', 'operator_revalidate', request);
