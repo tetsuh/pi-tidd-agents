@@ -15,7 +15,11 @@ You may inspect, review, disposition findings, and draft replies/patches.
 
 ### Validation sandbox boundary (CL-D38)
 
-Review-only runs in the operator checkout and runs validation there, so validation may create ignored caches. Freeze them as `VALIDATION_SANDBOX_DELTA` at the boundary that first observes them. Every later boundary permits only that exact presence delta: any tracked change, index change, ref movement, unsafe root, or non-validation untracked path still stops the run as `BLOCKED`. Review-only creates the delta by running validation and nothing else; the freeze grants no cleanup, publication, commit, push, or reply authority, so the observed caches are left exactly as validation left them.
+Review-only runs in the operator checkout and runs validation there, so validation may create ignored caches. Freeze them as `VALIDATION_SANDBOX_DELTA` at the boundary that first observes them. Every later boundary permits only that exact presence delta: any tracked change, index change, ref movement, unsafe root, or non-validation untracked path outside `RUNTIME_ROOTS` still stops the run as `BLOCKED`. Review-only creates the delta by running validation and nothing else; the freeze grants no cleanup, publication, commit, push, or reply authority, so the observed caches are left exactly as validation left them.
+
+### Runtime roots (CL-D54)
+
+`RUNTIME_ROOTS := { ".pi", ".pi-subagents" }` — the same two roots exact autofix names — stays outside review-only's untracked-path boundary: classify each independently and no-follow as absent or a real directory, read no contents, targets, sizes, timestamps, or hashes, and tolerate pre-existing untracked paths beneath them at every boundary. Runtime-root bytes contribute nothing to any fingerprint, gate payload, draft, or evidence claim, and the run never claims they were cleaned, preserved, or validated; the only truthful runtime-content statement is that they were excluded and reclassified no-follow. Everything else keeps failing closed: tracked changes, index changes, ref movement, unsafe roots, and untracked paths outside `RUNTIME_ROOTS` and the frozen `VALIDATION_SANDBOX_DELTA` still stop as `BLOCKED`.
 
 ### Candidate evidence boundary (CL-D23, CL-D9)
 

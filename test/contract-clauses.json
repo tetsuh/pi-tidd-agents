@@ -2246,7 +2246,7 @@
       "section": "### Validation sandbox boundary (CL-D38)",
       "requires": [
         "Every later boundary permits only that exact presence delta",
-        "any tracked change, index change, ref movement, unsafe root, or non-validation untracked path still stops the run as `BLOCKED`",
+        "any tracked change, index change, ref movement, unsafe root, or non-validation untracked path outside `RUNTIME_ROOTS` still stops the run as `BLOCKED`",
         "grants no cleanup, publication, commit, push, or reply authority"
       ]
     },
@@ -2775,6 +2775,36 @@
       "requires": [
         "const AGGREGATE_SMOKE_ALARM = 160000;",
         "CL-D53 reset after the 140,000 alarm fired at 139,835"
+      ]
+    },
+    {
+      "id": "CL-D54-review-only",
+      "marker": "CL-D54",
+      "title": "Review-only tolerates the runtime roots the harness itself writes",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "section": "### Runtime roots (CL-D54)",
+      "requires": [
+        "`RUNTIME_ROOTS := { \".pi\", \".pi-subagents\" }`",
+        "classify each independently and no-follow as absent or a real directory",
+        "tolerate pre-existing untracked paths beneath them at every boundary",
+        "never claims they were cleaned, preserved, or validated",
+        "untracked paths outside `RUNTIME_ROOTS` and the frozen `VALIDATION_SANDBOX_DELTA` still stop as `BLOCKED`"
+      ]
+    },
+    {
+      "id": "CL-D54-tests",
+      "marker": "CL-D54",
+      "title": "Runtime-root fixtures pin the carve-out, the drift guard, and the record",
+      "files": [
+        "test/issue-93-review-only-runtime-roots.test.js"
+      ],
+      "requires": [
+        "review-only names the runtime-root carve-out and keeps everything else closed",
+        "the amended CL-D38 boundary sentence carries the qualification once",
+        "both mode references and the helpers agree on the root set",
+        "CL-D54 records the carve-out and what it amends"
       ]
     }
   ]
