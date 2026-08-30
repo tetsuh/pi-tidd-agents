@@ -26,6 +26,10 @@ test('Issue #82 the recovery mapping gains the zero-output relaunch row and its 
   // The terminal sweep still holds for everything else at gate_launch, with the one carve-out
   // named where the sweep is stated.
   assert.match(section, /child startup at `preflight` and `gate_launch` except the CL-D51 zero-output transport key/);
+  // Review-driven (SOL-94-001): the mapping row alone left the relaunch unreachable, because
+  // the governing eligibility sentence enumerated only the four local failure kinds. The
+  // sentence must admit the CL-D51 failure or the row is dead prose.
+  assert.match(section, /the failure was either local parsing, rendering, schema access, or report verification, or the CL-D51 pure gate transport failure with zero designated output bytes/);
   // The dividing line and the budget are stated as absolutes the gate can falsify.
   assert.match(section, /any designated output byte, however malformed, keeps the failure terminal/);
   assert.match(section, /at most one relaunch per run, consuming no counter/);

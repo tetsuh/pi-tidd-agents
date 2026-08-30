@@ -272,10 +272,13 @@ function mutationGuard(events) {
 function decide(key, guards, ledger) {
   // An operation the packaged CLI does not expose cannot carry a recoverable key at all.
   const [operation] = key.split('@');
-  const knownOperation = Object.hasOwn(cliSchemas(), operation) || ['envelope_read', 'report_verify', 'validation_harness', 'manifest_compare'].includes(operation);
+  const knownOperation = Object.hasOwn(cliSchemas(), operation) || ['envelope_read', 'report_verify', 'validation_harness', 'manifest_compare', 'gate_transport'].includes(operation);
   if (!knownOperation) return 'terminal';
   const row = mappingOutcomes().find((entry) => entry.pattern.test(key));
   if (!row || row.outcome !== 'recoverable') return 'terminal';
+  // CL-D51 admits only a pure transport failure with no designated output bytes. Any byte,
+  // including malformed output, is evidence that keeps the failure terminal.
+  if (key === FAILURE_KEYS.gateTransport && guards.designatedOutputBytes !== 0) return 'terminal';
   if (GUARDS.some((guard) => guards[guard] !== true)) return 'terminal';
   const used = ledger.get(key) || 0;
   if (used >= 1) return 'terminal';
@@ -290,6 +293,7 @@ const FAILURE_KEYS = {
   fingerprintTree: 'fingerprint_pr_tree@normalize',
   harness: 'validation_harness@focused_validation',
   manifest: 'manifest_compare@AFTER_STAGING',
+  gateTransport: 'gate_transport@gate_launch',
 };
 
 test('Issue #34 decision model: permitted and forbidden siblings for every mapped failure', () => {
@@ -357,4 +361,24 @@ test('Issue #34 decision model: a budget entry does not change a terminal row in
   const ledger = new Map();
   assert.equal(decide(FAILURE_KEYS.manifest, allGuardsTrue(), ledger), 'terminal');
   assert.equal(ledger.size, 0, 'terminal outcomes must not consume budget');
+});
+
+test('Issue #82 decision model: the first zero-output gate transport failure relaunches once', () => {
+  const ledger = new Map();
+  assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes: 0 }, ledger), 'recover');
+  assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes: 0 }, ledger), 'terminal', 'the one-relaunch budget is per run');
+});
+
+test('Issue #82 decision model: any output byte is terminal, including malformed output', () => {
+  for (const designatedOutputBytes of [1, 2, '0', 'malformed']) {
+    assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes }, new Map()), 'terminal', `output ${String(designatedOutputBytes)} must stay terminal`);
+  }
+  assert.equal(decide(FAILURE_KEYS.gateTransport, allGuardsTrue(), new Map()), 'terminal', 'missing output measurement must not imply zero bytes');
+});
+
+test('Issue #82 decision model: every inherited guard failure keeps zero-output relaunch terminal', () => {
+  for (const guard of GUARDS) {
+    const guards = { ...allGuardsTrue(), designatedOutputBytes: 0, [guard]: false };
+    assert.equal(decide(FAILURE_KEYS.gateTransport, guards, new Map()), 'terminal', `${guard}=false must be terminal`);
+  }
 });
