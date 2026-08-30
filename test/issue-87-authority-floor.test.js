@@ -4,7 +4,8 @@
 // while meaning a raise-time one. As the graph grew into the margin it silently became the
 // real ceiling: three consecutive PRs trimmed prose to fit 120,000, and PR #85 shortened a
 // shared-contract sentence for nine bytes. The guard now asserts what it meant — the raise
-// left real room when it was taken — and the ceiling is the only live limit.
+// left real room when it was taken — and the ceiling is the only live six-file aggregate
+// limit. The disclosure and CL-D30 addendum subset guards are unchanged and still live.
 //
 // TDD provenance: recorded with the focused command below at 0 passes and 2 failures, both
 // compile/contract RED against the constant-floor guard and the missing decision record. No
@@ -25,7 +26,8 @@ const { AUTHORITY_FILES, readText, repoPath, sectionOf } = require('./helpers');
 const BUDGET_TEST = readText('test/issue-73-authority-budget.test.js');
 
 test('Issue #87 the headroom property is asserted at the raise, not against live growth', () => {
-  // The live check is the ceiling alone; nothing else may bound ordinary prose work.
+  // The live check on the six-file aggregate is the ceiling alone; no further margin may
+  // bound that total. Subset guards over parts of the graph are out of scope here.
   assert.match(BUDGET_TEST, /assert\.ok\(total < 128000,/);
   // Any live margin against the aggregate is a floor, whatever constant it uses, so the
   // rejection is written against the shape rather than against the retired 8,000.
