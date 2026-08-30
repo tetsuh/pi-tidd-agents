@@ -400,7 +400,7 @@ test('Issue #19 PR Skill dispatches to exactly one mode-scoped reference', () =>
 });
 
 test('shipped skills omit repository-specific test-suite commentary', () => {
-  for (const file of [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES)]) {
+  for (const file of [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, ...Object.values(SHARED_REFERENCES)]) {
     const text = readText(file);
     for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
       assert.doesNotMatch(text, forbidden, `${file} contains repository-specific test commentary: ${forbidden}`);
@@ -486,7 +486,7 @@ test('Issue #22 removed prompt clauses retain named Skill-scoped enforcement', (
 });
 
 test('no skill, mode reference, or prompt hard-codes a model ID', () => {
-  const files = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
+  const files = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
   for (const file of files) {
     const text = readText(file);
     assert.doesNotMatch(

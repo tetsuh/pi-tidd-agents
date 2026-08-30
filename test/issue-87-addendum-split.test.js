@@ -68,3 +68,39 @@ test('Issue #87 CL-D50 records the third disclosure stage', () => {
   assert.match(decision, /no prose is reworded/);
   assert.match(decision, /The aggregate set becomes seven files with its total and ceiling unchanged/);
 });
+
+test('Issue #87 aggregate negative scanners read the addendum stage', () => {
+  // Review-driven (SOL-90-AFFECTED-READER-INVENTORY): the split moved authoritative
+  // exact-autofix prose out of the mode reference, and three aggregate negative scans kept
+  // reading only the old set. The mutation this guards against is dropping the addendum from a
+  // scanner's input list — each pin below fails against exactly that edit. The addendum enters
+  // as an artifact, never as another mode reference.
+  assert.match(
+    readText('test/closed-loop-regressions.test.js'),
+    /const PR_ARTIFACTS = \[PR_SKILL, PR_REVIEW_ONLY, PR_AUTOFIX, PR_AUTOFIX_ADDENDUM\];/,
+    'the retired-rule guards must scan the addendum',
+  );
+  const packageTest = readText('test/package.test.js');
+  assert.equal(
+    (packageTest.match(/\.\.\.Object\.values\(PR_MODE_REFERENCES\), PR_AUTOFIX_ADDENDUM, \.\.\.Object\.values\(SHARED_REFERENCES\)/g) || []).length,
+    2,
+    'both the shipped-commentary and model-ID scans must include the addendum',
+  );
+  assert.match(
+    readText('test/issue-61-review-only-validation-sandbox.test.js'),
+    /for \(const file of \[PR_REVIEW_ONLY, PR_AUTOFIX, PR_AUTOFIX_ADDENDUM\]\) \{/,
+    'the CL-D38 no-redefinition scan must include the addendum',
+  );
+
+  // Executed demonstration that the scans separate: the forbidden literals are absent from the
+  // addendum today, and injecting one produces text the applicable pattern catches.
+  const addendum = readText(ADDENDUM);
+  for (const [pattern, literal] of [
+    [/after explicit approval/i, 'after explicit approval'],
+    [/gpt-5\.6-|glm-5\.2/, 'gpt-5.6-codex'],
+    [/`VALIDATION_SANDBOX_DELTA` :=/, '`VALIDATION_SANDBOX_DELTA` :='],
+  ]) {
+    assert.doesNotMatch(addendum, pattern, `the addendum must not already carry ${literal}`);
+    assert.match(addendum + '\n' + literal, pattern, `the scan pattern must catch ${literal} in addendum bytes`);
+  }
+});

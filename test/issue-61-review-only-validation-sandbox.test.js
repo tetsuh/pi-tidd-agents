@@ -29,8 +29,8 @@ test('Issue #61 the PR root defines the validation sandbox delta once for both m
   assert.match(section, /frozen by path, type, and no-follow presence/);
   assert.match(section, /never read, followed, deleted, pruned, or restored/);
   assert.match(section, /never enters evidence, a fingerprint, a draft, or a status block/);
-  // The definition must not be restated in either mode reference.
-  for (const file of [PR_REVIEW_ONLY, PR_AUTOFIX]) {
+  // The definition must not be restated in either mode reference or in the addendum stage.
+  for (const file of [PR_REVIEW_ONLY, PR_AUTOFIX, PR_AUTOFIX_ADDENDUM]) {
     assert.doesNotMatch(readText(file), /`VALIDATION_SANDBOX_DELTA` :=/, `${file} must reference the root definition, not restate it`);
   }
 });

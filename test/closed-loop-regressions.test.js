@@ -129,7 +129,9 @@ const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
-const PR_ARTIFACTS = [PR_SKILL, PR_REVIEW_ONLY, PR_AUTOFIX];
+// The addendum is not a mode reference, but it is authoritative exact-autofix prose, so every
+// aggregate negative scan must read it (SOL-90-AFFECTED-READER-INVENTORY).
+const PR_ARTIFACTS = [PR_SKILL, PR_REVIEW_ONLY, PR_AUTOFIX, PR_AUTOFIX_ADDENDUM];
 const readPrMode = (reference) => [PR_SKILL, reference].map(readText).join('\n') + (reference === PR_AUTOFIX ? `\n${readText(PR_AUTOFIX_ADDENDUM)}` : '');
 const ENTRY_ARTIFACTS = [
   'skills/closed-loop-issue/SKILL.md',
