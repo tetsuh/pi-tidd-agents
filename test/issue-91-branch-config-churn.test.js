@@ -127,6 +127,22 @@ test('Issue #91 the digest itself pins the current branch and only the current b
   } finally { cleanup(repo); }
 });
 
+test('Issue #91 an ambiguous branch short name still pins current-branch config', () => {
+  const repo = repository();
+  try {
+    // A same-named tag makes symbolic-ref --short HEAD return heads/main rather than main.
+    // The digest must still recognize branch.main.* as belonging to the checked-out branch.
+    git(repo.root, ['tag', 'main']);
+    const captured = capture(repo);
+    assert.equal(captured.ok, true, JSON.stringify(captured.error ?? {}));
+    const before = assertSafeRepositoryConfig(repo.root);
+    git(repo.root, ['config', 'branch.main.rebase', 'true']);
+    assert.notEqual(assertSafeRepositoryConfig(repo.root), before, 'current-branch config must move the digest despite an ambiguous short ref');
+    const revalidated = helpers.revalidateOperatorCheckout(captured, repo.root);
+    assert.equal(revalidated.ok, false, 'current-branch config churn must fail closed despite an ambiguous short ref');
+  } finally { cleanup(repo); }
+});
+
 test('Issue #91 detached HEAD ignores every branch section', () => {
   const repo = repository();
   try {

@@ -335,9 +335,17 @@ function foreignBranchKey(key, currentBranch) {
   return currentBranch === null || name !== currentBranch;
 }
 function currentBranchName(cwd) {
-  try {
-    return runSync('git', gitArgs(['symbolic-ref', '--quiet', '--short', 'HEAD']), { cwd, phase: 'git_config_preflight' }).trim() || null;
-  } catch { return null; }
+  const ref = runSync('git', gitArgs(['symbolic-ref', '--quiet', 'HEAD']), {
+    cwd,
+    phase: 'git_config_preflight',
+    acceptExitCodes: [1],
+  }).trim();
+  if (!ref) return null;
+  const prefix = 'refs/heads/';
+  if (!ref.startsWith(prefix) || ref.length === prefix.length) {
+    throw configError('malformed_branch_ref', 'checked-out branch symbolic ref is not a refs/heads/ name');
+  }
+  return ref.slice(prefix.length);
 }
 function frameConfigParts(observation, currentBranch = null) {
   const parts = [];
