@@ -79,7 +79,7 @@ const ROOT_GUARDS = [
   [`${HELPER_DIR}/workspace.js`, "if (isInside(requested, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
   [`${HELPER_DIR}/workspace.js`, "if (isInside(root, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
 ];
-const AGGREGATE_SMOKE_ALARM = 140000;
+const AGGREGATE_SMOKE_ALARM = 160000; // CL-D53 reset after the 140,000 alarm fired at 139,835
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -189,6 +189,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'no commit, push, merge, reply, approval, or thread-resolution CLI operation',
     'no durable workflow state or scheduling',
     '140,000-byte aggregate smoke alarm',
+    'CL-D53 later reset the aggregate smoke alarm to 160,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);

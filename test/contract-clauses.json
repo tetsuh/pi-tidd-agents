@@ -2721,6 +2721,32 @@
           "the disclosure stages are bounded per stage",
           "CL-D50 records the third disclosure stage"
         ]
-      }
+      },
+    {
+      "id": "CL-D52-tests",
+      "marker": "CL-D52",
+      "title": "Branch-churn fixtures pin the tolerance, the pins that remain, and the record",
+      "files": [
+        "test/issue-91-branch-config-churn.test.js"
+      ],
+      "requires": [
+        "foreign-branch config churn does not move the operator baseline",
+        "the current branch, non-branch keys, and unsafe keys still fail closed",
+        "detached HEAD ignores every branch section",
+        "CL-D52 records what the digest ignores and why that is safe here"
+      ]
+    },
+    {
+      "id": "CL-D53-tests",
+      "marker": "CL-D53",
+      "title": "The reset alarm value is the one the suites assert",
+      "files": [
+        "test/issue-59-helper-surface.test.js"
+      ],
+      "requires": [
+        "const AGGREGATE_SMOKE_ALARM = 160000;",
+        "CL-D53 reset after the 140,000 alarm fired at 139,835"
+      ]
+    }
   ]
 }
