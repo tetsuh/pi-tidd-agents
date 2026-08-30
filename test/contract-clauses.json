@@ -2270,7 +2270,7 @@
       ],
       "section": "### Bounded pre-writer recovery (CL-D39)",
       "requires": [
-        "One recovery is permitted for a deterministic local tooling failure",
+        "One recovery is permitted for either a deterministic local tooling failure under the original CL-D39 rows or the CL-D51 pure gate transport failure with zero designated output bytes",
         "process-isolation root `pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, and `system.gitconfig`",
         "no Luna task, commit, push, or reply exists",
         "the budget is exactly one per key",
