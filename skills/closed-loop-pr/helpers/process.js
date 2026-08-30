@@ -319,7 +319,35 @@ function unsafeConfigKeys(entries) {
   return entries.map(({ key }) => key).filter((key) => /^(?:include(?:if)?\.|filter\.|credential\.|gpg\.|remote\..*\.(?:uploadpack|receivepack)|diff\..*\.(?:command|textconv))/i.test(key)
       || /^(?:core\.(?:fsmonitor|hooksPath|sshCommand)|commit\.gpgsign|tag\.gpgsign)$/i.test(key));
 }
-function frameConfigParts(observation) {
+// CL-D52: branch-scoped configuration for branches other than the checked-out one is invisible
+// to the stability digest. The reviewed run never reads a foreign branch's configuration — it
+// pushes with explicit refspecs under sanitized environment — while ordinary linked-worktree
+// development (push -u, checkout -b auto-tracking) writes exactly such entries into the shared
+// config and was killing live reviews. Branch names may contain dots, so the subsection is
+// everything between `branch.` and the final component. With a detached HEAD no branch is
+// current and every branch section is ignored. The unsafe-key scan and the raw-byte
+// double-read are deliberately not normalized.
+function foreignBranchKey(key, currentBranch) {
+  if (!/^branch\./i.test(key)) return false;
+  const lastDot = key.lastIndexOf('.');
+  if (lastDot <= 'branch.'.length - 1) return false;
+  const name = key.slice('branch.'.length, lastDot);
+  return currentBranch === null || name !== currentBranch;
+}
+function currentBranchName(cwd) {
+  const ref = runSync('git', gitArgs(['symbolic-ref', '--quiet', 'HEAD']), {
+    cwd,
+    phase: 'git_config_preflight',
+    acceptExitCodes: [1],
+  }).trim();
+  if (!ref) return null;
+  const prefix = 'refs/heads/';
+  if (!ref.startsWith(prefix) || ref.length === prefix.length) {
+    throw configError('malformed_branch_ref', 'checked-out branch symbolic ref is not a refs/heads/ name');
+  }
+  return ref.slice(prefix.length);
+}
+function frameConfigParts(observation, currentBranch = null) {
   const parts = [];
   const frame = (value) => {
     const bytes = Buffer.isBuffer(value) ? value : Buffer.from(value, 'utf8');
@@ -327,7 +355,10 @@ function frameConfigParts(observation) {
   };
   for (const [scope, entries] of [['local', observation.local], ['worktree', observation.worktree]]) {
     frame(scope);
-    for (const { key, value } of entries) { frame(key); frame(value); }
+    for (const { key, value } of entries) {
+      if (foreignBranchKey(key, currentBranch)) continue;
+      frame(key); frame(value);
+    }
   }
   return Buffer.concat(parts);
 }
@@ -341,7 +372,7 @@ function assertSafeRepositoryConfig(cwd) {
   if (!first.localBytes.equals(second.localBytes) || !first.worktreeBytes.equals(second.worktreeBytes)) {
     throw configError('git_config_unstable', 'repository Git configuration changed during preflight');
   }
-  return crypto.createHash('sha256').update(frameConfigParts(first)).digest('hex');
+  return crypto.createHash('sha256').update(frameConfigParts(first, currentBranchName(cwd))).digest('hex');
 }
 
 module.exports = { sanitizedEnv, run, runSync, gitArgs, isolationPaths, assertSafeRepositoryConfig };
