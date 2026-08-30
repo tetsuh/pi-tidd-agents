@@ -39,6 +39,11 @@ test('Issue #82 the recovery mapping gains the zero-output relaunch row and its 
 test('Issue #82 the stop rule names both exceptions', () => {
   const text = `${BASE}\n${ADDENDUM}`;
   assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above and the CL-D51 zero-output relaunch\./);
+  // Review-driven (PR #94 round 3): the addendum's own absolute stop sentences must carry the
+  // same carve-out, or they contradict the relaunch they sit beside. Only the zero-byte case
+  // is admitted; every output byte and every other correlation defect stops exactly as before.
+  assert.match(ADDENDUM, /except that a missing result whose designated output holds zero bytes may first take the single CL-D51 relaunch; any output byte, however malformed, stops as before/);
+  assert.match(ADDENDUM, /except that correlation entirely absent because the CL-D51 pure zero-output gate transport failure produced no bytes permits that single relaunch first/);
 });
 
 test('Issue #82 CL-D51 records the widening under CL-D39\'s own conditions', () => {
