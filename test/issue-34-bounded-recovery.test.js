@@ -30,7 +30,7 @@ const RECOVERY_HEADING = '### Bounded pre-writer recovery (CL-D39)';
 test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   const section = sectionOf((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
   assert.ok(section, `${PR_AUTOFIX} must own the bounded recovery rule`);
-  assert.match(section, /One recovery is permitted for a deterministic local tooling failure/);
+  assert.match(section, /One recovery is permitted for either a deterministic local tooling failure under the original CL-D39 rows or the CL-D51 pure gate transport failure with zero designated output bytes/);
   assert.match(section, /no Luna task, commit, push, or reply exists/);
   // DEC-PR65-CLD39-WORKSPACE-MUTATION-001: workspace creation is authorized Git administration
   // that AUTOFIX_WORKSPACE@H presupposes, so the guard exempts exactly those setup effects.
@@ -56,12 +56,14 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   const rows = section.split('\n')
     .filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
     .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()));
-  assert.equal(rows.length, 5, `the mapping must cover all five Issue #34 failures, found ${rows.length}`);
+  // Five rows cover Issue #34's own failures; CL-D51 (Issue #82) adds the zero-output gate
+  // transport key as a sixth, under its own owner decision.
+  assert.equal(rows.length, 6, `the mapping must cover the five Issue #34 failures plus CL-D51, found ${rows.length}`);
   for (const row of rows) assert.equal(row.length, 5, `each row needs failure, key, replacement, outcome, evidence: ${row.join(' | ')}`);
   const byKey = new Map(rows.map((row) => [row[1], row]));
   assert.deepEqual([...byKey.keys()].sort(), [
-    '`envelope_read@normalize`', '`fingerprint_<op>@normalize`', '`manifest_compare@AFTER_STAGING`',
-    '`report_verify@normalize`', '`validation_harness@focused_validation`',
+    '`envelope_read@normalize`', '`fingerprint_<op>@normalize`', '`gate_transport@gate_launch`',
+    '`manifest_compare@AFTER_STAGING`', '`report_verify@normalize`', '`validation_harness@focused_validation`',
   ], 'every failure needs its own canonical key');
   // Both post-writer failures stay terminal with no replacement: the manifest assertion, and
   // the harness error, which in the shipped phase model only occurs inside Luna's focused
@@ -162,9 +164,9 @@ test('Issue #34 writes outside the temp parent are the CL-D37 boundary\'s job, a
   assert.match(readText('CONTRACT.md'), /^## CL-D37 — /m, 'CL-D37 must be a recorded decision');
 });
 
-test('Issue #34 the stop rule keeps its wording and names the single exception', () => {
+test('Issue #34 the stop rule keeps its wording and names its exceptions', () => {
   const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above\./);
+  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above and the CL-D51 zero-output relaunch\./);
   // The invocation-map sentence must not contradict the recovery it now defers to.
   assert.match(text, /no retry beyond the CL-D39 recovery defined above/);
   // The recovery section really is above the stop rule.
@@ -248,6 +250,7 @@ test('Issue #34 the partial-narrowing evidence in the record still matches the c
 // the rule's own conditions. This models the parent's decision; it is not a packaged helper.
 // `noMutationAttempted` means no mutation beyond the enumerated workspace_create setup effects.
 const GUARDS = ['noMutationAttempted', 'noLunaTask', 'operatorUnchanged', 'workspaceVerified', 'identityUnchanged', 'fingerprintsUnchanged', 'deterministicLocal', 'replacementPrevalidated'];
+const CL_D39_GUARDS = GUARDS.filter((guard) => guard !== 'deterministicLocal');
 const allGuardsTrue = () => Object.fromEntries(GUARDS.map((guard) => [guard, true]));
 function mappingOutcomes() {
   const section = sectionOf((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
@@ -270,11 +273,18 @@ function mutationGuard(events) {
 function decide(key, guards, ledger) {
   // An operation the packaged CLI does not expose cannot carry a recoverable key at all.
   const [operation] = key.split('@');
-  const knownOperation = Object.hasOwn(cliSchemas(), operation) || ['envelope_read', 'report_verify', 'validation_harness', 'manifest_compare'].includes(operation);
+  const knownOperation = Object.hasOwn(cliSchemas(), operation) || ['envelope_read', 'report_verify', 'validation_harness', 'manifest_compare', 'gate_transport'].includes(operation);
   if (!knownOperation) return 'terminal';
   const row = mappingOutcomes().find((entry) => entry.pattern.test(key));
   if (!row || row.outcome !== 'recoverable') return 'terminal';
-  if (GUARDS.some((guard) => guards[guard] !== true)) return 'terminal';
+  // CL-D51 admits only a pure transport failure with no designated output bytes. Any byte,
+  // including malformed output, is evidence that keeps the failure terminal.
+  if (key === FAILURE_KEYS.gateTransport && guards.designatedOutputBytes !== 0) return 'terminal';
+  // The original CL-D39 local rows require deterministicLocal. CL-D51 is an explicitly
+  // disjunctive pure transport recovery and therefore keeps every inherited safety guard
+  // while deliberately not requiring the local-failure classification.
+  const requiredGuards = key === FAILURE_KEYS.gateTransport ? CL_D39_GUARDS : GUARDS;
+  if (requiredGuards.some((guard) => guards[guard] !== true)) return 'terminal';
   const used = ledger.get(key) || 0;
   if (used >= 1) return 'terminal';
   ledger.set(key, used + 1);
@@ -288,6 +298,7 @@ const FAILURE_KEYS = {
   fingerprintTree: 'fingerprint_pr_tree@normalize',
   harness: 'validation_harness@focused_validation',
   manifest: 'manifest_compare@AFTER_STAGING',
+  gateTransport: 'gate_transport@gate_launch',
 };
 
 test('Issue #34 decision model: permitted and forbidden siblings for every mapped failure', () => {
@@ -355,4 +366,29 @@ test('Issue #34 decision model: a budget entry does not change a terminal row in
   const ledger = new Map();
   assert.equal(decide(FAILURE_KEYS.manifest, allGuardsTrue(), ledger), 'terminal');
   assert.equal(ledger.size, 0, 'terminal outcomes must not consume budget');
+});
+
+test('Issue #82 decision model: the first zero-output gate transport failure relaunches once', () => {
+  const ledger = new Map();
+  assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes: 0 }, ledger), 'recover');
+  assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes: 0 }, ledger), 'terminal', 'the one-relaunch budget is per run');
+});
+
+test('Issue #82 decision model: pure zero-output transport recovery is independent of deterministic-local classification', () => {
+  const guards = { ...allGuardsTrue(), deterministicLocal: false, designatedOutputBytes: 0 };
+  assert.equal(decide(FAILURE_KEYS.gateTransport, guards, new Map()), 'recover');
+});
+
+test('Issue #82 decision model: any output byte is terminal, including malformed output', () => {
+  for (const designatedOutputBytes of [1, 2, '0', 'malformed']) {
+    assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes }, new Map()), 'terminal', `output ${String(designatedOutputBytes)} must stay terminal`);
+  }
+  assert.equal(decide(FAILURE_KEYS.gateTransport, allGuardsTrue(), new Map()), 'terminal', 'missing output measurement must not imply zero bytes');
+});
+
+test('Issue #82 decision model: every inherited guard failure keeps zero-output relaunch terminal', () => {
+  for (const guard of CL_D39_GUARDS) {
+    const guards = { ...allGuardsTrue(), designatedOutputBytes: 0, [guard]: false };
+    assert.equal(decide(FAILURE_KEYS.gateTransport, guards, new Map()), 'terminal', `${guard}=false must be terminal`);
+  }
 });

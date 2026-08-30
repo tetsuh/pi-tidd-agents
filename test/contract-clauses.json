@@ -2258,7 +2258,7 @@
         "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
-        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above."
+        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above and the CL-D51 zero-output relaunch."
       ]
     },
     {
@@ -2270,7 +2270,7 @@
       ],
       "section": "### Bounded pre-writer recovery (CL-D39)",
       "requires": [
-        "One recovery is permitted for a deterministic local tooling failure",
+        "One recovery is permitted for either a deterministic local tooling failure under the original CL-D39 rows or the CL-D51 pure gate transport failure with zero designated output bytes",
         "process-isolation root `pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, and `system.gitconfig`",
         "no Luna task, commit, push, or reply exists",
         "the budget is exactly one per key",
@@ -2722,6 +2722,35 @@
           "CL-D50 records the third disclosure stage"
         ]
       },
+    {
+      "id": "CL-D51-mapping",
+      "marker": "CL-D51",
+      "title": "The recovery mapping carries the zero-output relaunch and its bounds",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Bounded pre-writer recovery (CL-D39)",
+      "requires": [
+        "| gate transport failure with zero designated output bytes | `gate_transport@gate_launch` | one relaunch of the same prevalidated invocation | recoverable | no output existed; nothing is preserved or invalidated |",
+        "except the CL-D51 zero-output transport key",
+        "any designated output byte, however malformed, keeps the failure terminal",
+        "at most one relaunch per run, consuming no counter",
+        "after any mutation, Luna task, or reply the key is terminal exactly as before"
+      ]
+    },
+    {
+      "id": "CL-D51-tests",
+      "marker": "CL-D51",
+      "title": "Relaunch fixtures pin the row, the carve-out, and the record",
+      "files": [
+        "test/issue-82-zero-output-relaunch.test.js"
+      ],
+      "requires": [
+        "the recovery mapping gains the zero-output relaunch row and its carve-out",
+        "the stop rule names both exceptions",
+        "CL-D51 records the widening under CL-D39"
+      ]
+    },
     {
       "id": "CL-D52-tests",
       "marker": "CL-D52",
