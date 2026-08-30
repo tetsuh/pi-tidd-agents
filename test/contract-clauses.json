@@ -2806,6 +2806,31 @@
         "both mode references and the helpers agree on the root set",
         "CL-D54 records the carve-out and what it amends"
       ]
+    },
+    {
+      "id": "CL-D55-addendum",
+      "marker": "CL-D55",
+      "title": "Every batch-sequence guard failure names its violated condition",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "naming the violated condition and the observed value — the specific subcheck, not the guard as a whole",
+        "A guard failure with no named condition, such as a bare nonzero exit with no output, is not evidence that a boundary was violated",
+        "a true failure after editing begins remains terminal with no retry and no guard substitution (CL-D39), and an implementation-defect stop is terminal the same way"
+      ]
+    },
+    {
+      "id": "CL-D55-tests",
+      "marker": "CL-D55",
+      "title": "Naming-duty fixtures pin the rule and the record",
+      "files": [
+        "test/issue-96-named-guard-failures.test.js"
+      ],
+      "requires": [
+        "every batch-sequence guard failure names its violated condition",
+        "CL-D55 records the naming duty and what it deliberately does not change"
+      ]
     }
   ]
 }

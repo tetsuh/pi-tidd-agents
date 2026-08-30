@@ -36,6 +36,6 @@ test('Issue #96 CL-D55 records the naming duty and what it deliberately does not
   }
   assert.match(decision, /empty stdout and stderr/);
   assert.match(decision, /a failure that cannot be named is not a finding/);
-  assert.match(decision, /terminality is unchanged/);
+  assert.match(decision, /Terminality is unchanged/);
   assert.match(decision, /packaged guard operations remain a separate decision/);
 });
