@@ -175,7 +175,28 @@ test('Issue #83 the built gate expectation validates a real gate result and carr
   assert.equal(validated.data.verdict, 'MERGE');
 });
 
+test('Issue #83 the returned schema is detached: mutating it moves no boundary', () => {
+  // Review-driven (SOL-98-SCHEMA-ALIAS): the builder must hand out a deep copy, never the
+  // validator's live schema object, or a caller-side mutation would widen CL-D1's vocabulary.
+  const helpers = require('../skills/closed-loop-pr/helpers');
+  const built = helpers.buildGateExpectation(expectationInput());
+  assert.equal(built.ok, true, JSON.stringify(built.error));
+  built.data.outputSchema.properties.verdict.enum.push('HACK');
+  const hacked = { ...gateOutput(), verdict: 'HACK' };
+  const validated = helpers.validateGateResult(hacked, built.data.expected);
+  assert.equal(validated.ok, false, 'the validator must still reject a verdict outside CL-D1');
+  const clean = helpers.validateGateResult(gateOutput(), helpers.buildGateExpectation(expectationInput()).data.expected);
+  assert.equal(clean.ok, true, JSON.stringify(clean.error));
+});
+
 test('Issue #83 builders reject with the boundary vocabulary, not new codes', () => {
+  // Review-driven (SOL-98-OID-WIDTH): postPushHead follows operator_revalidate's exact
+  // 40-hex commit rule, so a 64-hex object name is rejected at build time.
+  const wide = cli('build_operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo', postPushHead: 'a'.repeat(64) });
+  assert.equal(wide.ok, false);
+  assert.equal(wide.error.code, 'invalid_request');
+  assert.match(wide.error.message, /postPushHead/);
+
   // The field-level swap the boundary rejects is rejected at build time with the same shape name.
   const swapped = cli('build_operator_revalidate', { captured: captureData(), cwd: '/repo' });
   assert.equal(swapped.ok, false);

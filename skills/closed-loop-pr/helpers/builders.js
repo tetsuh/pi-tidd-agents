@@ -10,7 +10,10 @@ const { createResult, createError } = require('./protocol');
 const { inputShapeProblem } = require('./composition');
 const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema } = require('./gate-result');
 
-const OID_PATTERN = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+// Transition OIDs mirror the CLI's 40-or-64 hex rule; postPushHead mirrors
+// operator_revalidate's exact 40-hex commit rule (SOL-98-OID-WIDTH).
+const TRANSITION_OID_PATTERN = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+const COMMIT_OID_PATTERN = /^[0-9a-f]{40}$/;
 const text = (value) => typeof value === 'string' && value.length > 0;
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 function wrap(operation, construct) {
@@ -32,7 +35,7 @@ function built(operation, consumer, data, rename) {
 function buildOperatorRevalidate(data) {
   return wrap('build_operator_revalidate', () => {
     if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
-    if (Object.hasOwn(data, 'postPushHead') && !OID_PATTERN.test(String(data.postPushHead))) fail('invalid_request', 'postPushHead must be a commit OID');
+    if (Object.hasOwn(data, 'postPushHead') && !COMMIT_OID_PATTERN.test(String(data.postPushHead))) fail('invalid_request', 'postPushHead must be a commit OID');
     const request = { captured: data.captured, cwd: data.cwd };
     if (Object.hasOwn(data, 'postPushHead')) request.postPushHead = data.postPushHead;
     return built('build_operator_revalidate', 'operator_revalidate', request);
@@ -46,7 +49,7 @@ function buildWorkspaceVerify(data) {
       const transition = data.transition;
       const shaped = transition !== null && typeof transition === 'object' && !Array.isArray(transition)
         && Object.keys(transition).sort().join() === 'from,to'
-        && Object.values(transition).every((oid) => typeof oid === 'string' && OID_PATTERN.test(oid));
+        && Object.values(transition).every((oid) => typeof oid === 'string' && TRANSITION_OID_PATTERN.test(oid));
       if (!shaped) fail('invalid_request', 'workspace transition requires only from and to OIDs');
     }
     const request = { cwd: data.cwd, expected: data.created };
@@ -81,7 +84,9 @@ function buildGateExpectation(data) {
     checkRequiredEvidence(data.requiredEvidence);
     // The canonical CL-D36 schema rides along so the parent copies a derivation instead of
     // re-authoring one (CL-D47's rule applied to schemas).
-    return createResult('build_gate_expectation', { expected, outputSchema: SCHEMA });
+    // A deep detached copy: the validator's live schema must never be aliased into caller
+    // hands, or a caller-side mutation would move the CL-D36 boundary (SOL-98-SCHEMA-ALIAS).
+    return createResult('build_gate_expectation', { expected, outputSchema: JSON.parse(JSON.stringify(SCHEMA)) });
   });
 }
 
