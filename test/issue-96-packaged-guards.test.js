@@ -30,6 +30,12 @@ function cli(operation, data) {
   });
   return JSON.parse(run.stdout);
 }
+function named(result) {
+  assert.equal(result.ok, false);
+  assert.equal(typeof result.error.details.subcheck, 'string', 'a guard failure must name its subcheck');
+  assert.notEqual(result.error.details.observed, undefined, 'a guard failure must carry what it observed');
+  return result;
+}
 function git(cwd, args) {
   return execFileSync('git', args, {
     cwd, encoding: 'utf8',
@@ -88,8 +94,7 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
     // guard_before_edit passes on the clean workspace and rejects a runtime-root path by name.
     const clean = cli('guard_before_edit', { cwd: workspace, expected: created.data, authorizedPaths: ['tracked.txt', 'extra.txt', 'unused.md'] });
     assert.equal(clean.ok, true, JSON.stringify(clean.error));
-    const rooted = cli('guard_before_edit', { cwd: workspace, expected: created.data, authorizedPaths: ['tracked.txt', '.pi/task.json'] });
-    assert.equal(rooted.ok, false);
+    const rooted = named(cli('guard_before_edit', { cwd: workspace, expected: created.data, authorizedPaths: ['tracked.txt', '.pi/task.json'] }));
     assert.equal(rooted.error.details.subcheck, 'runtime_root_exclusion');
     assert.match(rooted.error.message, /\.pi\/task\.json/);
 
@@ -104,8 +109,7 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
 
     // An unauthorized edit is named, path and subcheck.
     fs.writeFileSync(path.join(workspace, 'rogue.txt'), 'rogue\n');
-    const rogue = cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['tracked.txt', 'extra.txt'] });
-    assert.equal(rogue.ok, false);
+    const rogue = named(cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['tracked.txt', 'extra.txt'] }));
     assert.equal(rogue.error.details.subcheck, 'authorized_subset');
     assert.match(rogue.error.message, /rogue\.txt/);
     fs.rmSync(path.join(workspace, 'rogue.txt'));
@@ -114,8 +118,7 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
     const compared = cli('overlay_compare', { cwd: workspace, overlay: frozen.data });
     assert.equal(compared.ok, true, JSON.stringify(compared.error));
     fs.appendFileSync(path.join(workspace, 'tracked.txt'), 'drift\n');
-    const drifted = cli('overlay_compare', { cwd: workspace, overlay: frozen.data });
-    assert.equal(drifted.ok, false);
+    const drifted = named(cli('overlay_compare', { cwd: workspace, overlay: frozen.data }));
     assert.equal(drifted.error.details.subcheck, 'overlay_drift');
     assert.match(drifted.error.message, /tracked\.txt/);
     fs.writeFileSync(path.join(workspace, 'tracked.txt'), 'base\nedited\n');
@@ -136,21 +139,42 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
     assert.equal(recompared.ok, true, JSON.stringify(recompared.error));
     fs.writeFileSync(path.join(workspace, 'sneak.txt'), 'sneak\n');
     git(workspace, ['add', 'sneak.txt']);
-    const sneaked = cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data.manifest });
-    assert.equal(sneaked.ok, false);
+    const sneaked = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data.manifest }));
     assert.equal(sneaked.error.details.subcheck, 'manifest_drift');
     assert.match(sneaked.error.message, /sneak\.txt/);
 
     // Capture mode enforces the same maximum set: the sneaked path is named there too.
-    const sneakCaptured = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt', 'extra.txt', 'unused.md'] });
-    assert.equal(sneakCaptured.ok, false);
+    const sneakCaptured = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt', 'extra.txt', 'unused.md'] }));
     assert.equal(sneakCaptured.error.details.subcheck, 'authorized_subset');
     assert.match(sneakCaptured.error.message, /sneak\.txt/);
 
     // Exactly one of authorizedPaths or manifest.
-    const both = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt'], manifest: captured.data.manifest });
-    assert.equal(both.ok, false);
+    const both = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt'], manifest: captured.data.manifest }));
     assert.equal(both.error.code, 'invalid_request');
+
+    // Review-driven (SOL-99-RUNTIME-ROOT-GUARD): the roots are classified no-follow before
+    // their descendant churn is excluded — a symlink or file root fails by name in both the
+    // dirty and the staged phases, exactly as the runtime-root fail-stop invariant requires.
+    fs.symlinkSync(os.tmpdir(), path.join(workspace, '.pi'));
+    const dirtyUnsafe = named(cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['tracked.txt'] }));
+    assert.equal(dirtyUnsafe.error.details.subcheck, 'runtime_root_classification');
+    assert.match(dirtyUnsafe.error.message, /\.pi is symlink/);
+    const stagedUnsafe = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data.manifest }));
+    assert.equal(stagedUnsafe.error.details.subcheck, 'runtime_root_classification');
+    fs.rmSync(path.join(workspace, '.pi'));
+    fs.writeFileSync(path.join(workspace, '.pi-subagents'), 'not a directory\n');
+    const fileRoot = named(cli('overlay_compare', { cwd: workspace, overlay: frozen.data }));
+    assert.equal(fileRoot.error.details.subcheck, 'runtime_root_classification');
+    assert.match(fileRoot.error.message, /\.pi-subagents is file/);
+    fs.rmSync(path.join(workspace, '.pi-subagents'));
+
+    // Review-driven (SOL-99-NAMED-OBSERVED-FAILURES): a raw process failure is normalized to
+    // a named subcheck instead of escaping without one.
+    const nonRepo = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-96-nonrepo-'));
+    try {
+      const broken = named(cli('overlay_freeze', { cwd: nonRepo, authorizedPaths: ['tracked.txt'] }));
+      assert.equal(broken.error.details.subcheck, 'process_failure');
+    } finally { fs.rmSync(nonRepo, { recursive: true, force: true }); }
   } finally {
     fs.rmSync(repository.root, { recursive: true, force: true });
     fs.rmSync(repository.bare, { recursive: true, force: true });

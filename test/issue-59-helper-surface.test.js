@@ -56,7 +56,7 @@ const APPROVED_FS_SITES = [
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
   './builders': 1, './composition': 2, './evidence': 1, './fingerprints': 2, './gate-result': 2, './guards': 1, './index': 1, './operator': 2,
-  './paths': 3, './process': 5, './protocol': 12, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
+  './paths': 4, './process': 5, './protocol': 12, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
   'node:child_process': 1, 'node:crypto': 6, 'node:fs': 4, 'node:os': 2, 'node:path': 4,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);

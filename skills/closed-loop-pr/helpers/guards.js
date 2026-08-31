@@ -11,16 +11,30 @@ const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
 const { runSync, gitArgs } = require('./process');
 const { RUNTIME_ROOTS } = require('./operator');
+const { classifyRuntimeRoots } = require('./paths');
 const { verifyWorkspace } = require('./workspace');
 
 const OID = /^[0-9a-f]{40}$/;
 const text = (value) => typeof value === 'string' && value.length > 0;
 function fail(code, subcheck, message, observed) {
-  throw Object.assign(new Error(`${subcheck}: ${message}`), { code, details: { subcheck, ...(observed === undefined ? {} : { observed }) } });
+  throw Object.assign(new Error(`${subcheck}: ${message}`), { code, details: { subcheck, observed: observed === undefined ? message : observed } });
 }
+// Every failure leaving a guard names its subcheck and what was observed — including raw
+// process failures, which are normalized rather than allowed to escape unnamed (CL-D55).
 function wrap(operation, observe) {
   try { return observe(); } catch (error) {
-    return createError(operation, error.code || 'guard_failed', error.message, operation, error.details);
+    const details = error.details && error.details.subcheck !== undefined
+      ? error.details
+      : { subcheck: 'process_failure', observed: error.message };
+    return createError(operation, error.code || 'guard_failed', error.message, operation, details);
+  }
+}
+// The runtime-root fail-stop invariant: classify each root no-follow before excluding its
+// descendant churn; any type other than absent or a real directory stops with the root named.
+function assertSafeRuntimeRoots(cwd) {
+  const classes = classifyRuntimeRoots(cwd);
+  for (const [root, info] of Object.entries(classes)) {
+    if (!info.safe) fail('guard_failed', 'runtime_root_classification', `runtime root is not absent or a real directory: ${root} is ${info.kind}`, `${root}:${info.kind}`);
   }
 }
 function gitBytes(cwd, args, phase, acceptExitCodes) {
@@ -33,13 +47,13 @@ function runtimeRooted(entry) {
   return RUNTIME_ROOTS.some((root) => entry === root || entry.startsWith(`${root}/`));
 }
 function checkAuthorizedPaths(paths) {
-  if (!Array.isArray(paths) || paths.length === 0) fail('invalid_request', 'authorized_paths_shape', 'authorizedPaths must be a nonempty array');
+  if (!Array.isArray(paths) || paths.length === 0) fail('invalid_request', 'authorized_paths_shape', 'authorizedPaths must be a nonempty array', Array.isArray(paths) ? `length ${paths.length}` : typeof paths);
   for (const entry of paths) {
     if (!text(entry) || entry.startsWith('/') || entry.split('/').some((part) => ['', '.', '..'].includes(part))) {
       fail('invalid_request', 'authorized_paths_shape', `authorized path is not a normalized relative path: ${JSON.stringify(entry)}`, entry);
     }
   }
-  if (new Set(paths).size !== paths.length) fail('invalid_request', 'authorized_paths_shape', 'authorizedPaths carries a duplicate');
+  if (new Set(paths).size !== paths.length) fail('invalid_request', 'authorized_paths_shape', 'authorizedPaths carries a duplicate', paths.find((entry, i) => paths.indexOf(entry) !== i));
   const rooted = paths.find(runtimeRooted);
   if (rooted !== undefined) fail('invalid_request', 'runtime_root_exclusion', `authorized path is under a runtime root: ${rooted}`, rooted);
   return new Set(paths);
@@ -69,7 +83,7 @@ function diffDigest(cwd, entry, phase) {
 function guardBeforeEdit(data) {
   return wrap('guard_before_edit', () => {
     const phase = 'guard_before_edit';
-    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string');
+    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
     checkAuthorizedPaths(data.authorizedPaths);
     const workspace = verifyWorkspace(data.cwd, data.expected);
     if (workspace && workspace.ok === false) {
@@ -83,6 +97,7 @@ function guardBeforeEdit(data) {
 }
 
 function overlayObservation(cwd, authorized, phase) {
+  assertSafeRuntimeRoots(cwd);
   const entries = [];
   for (const entry of porcelainEntries(cwd, phase)) {
     if (entry.staged !== ' ' && entry.staged !== '?') {
@@ -100,12 +115,12 @@ function overlayObservation(cwd, authorized, phase) {
 function overlayFreeze(data) {
   return wrap('overlay_freeze', () => {
     const phase = 'overlay_freeze';
-    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string');
+    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
     const authorized = checkAuthorizedPaths(data.authorizedPaths);
     const overlay = overlayObservation(data.cwd, authorized, phase);
     // Authorized paths are a maximum set, not a demand: the overlay must stay inside them
     // and must not be empty, but no authorized path is required to change.
-    if (overlay.entries.length === 0) fail('guard_failed', 'overlay_nonempty', 'no authorized path changed; there is no overlay to freeze');
+    if (overlay.entries.length === 0) fail('guard_failed', 'overlay_nonempty', 'no authorized path changed; there is no overlay to freeze', 'clean working tree');
     return createResult('overlay_freeze', { ...overlay, authorizedPaths: [...data.authorizedPaths].sort() });
   });
 }
@@ -115,14 +130,14 @@ function checkFrozenOverlay(overlay) {
   if (!plain || !OID.test(overlay.parent || '') || !Array.isArray(overlay.entries) || overlay.entries.length === 0
     || !Array.isArray(overlay.authorizedPaths)
     || overlay.entries.some((entry) => !text(entry.path) || !text(entry.status) || !/^[0-9a-f]{64}$/.test(entry.rawDiffSha256 || ''))) {
-    fail('invalid_request', 'overlay_shape', 'overlay must be the data of a prior overlay_freeze');
+    fail('invalid_request', 'overlay_shape', 'overlay must be the data of a prior overlay_freeze', typeof overlay);
   }
 }
 
 function overlayCompare(data) {
   return wrap('overlay_compare', () => {
     const phase = 'overlay_compare';
-    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string');
+    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
     checkFrozenOverlay(data.overlay);
     const observed = overlayObservation(data.cwd, new Set(data.overlay.authorizedPaths), phase);
     if (observed.parent !== data.overlay.parent) {
@@ -147,6 +162,7 @@ function overlayCompare(data) {
 // index versus authorized changed files — so an entry the parent commit already carries can
 // never be misclassified as unauthorized.
 function stagedEntries(cwd, parent, phase) {
+  assertSafeRuntimeRoots(cwd);
   const raw = gitText(cwd, ['diff', '--no-ext-diff', '--no-abbrev', '--cached', '--raw', '-z', parent, '--'], phase);
   const records = raw.split('\0').filter((record) => record.length > 0);
   const entries = [];
@@ -166,14 +182,14 @@ function stagedEntries(cwd, parent, phase) {
 function manifestCompare(data) {
   return wrap('manifest_compare', () => {
     const phase = 'manifest_compare';
-    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string');
-    if (!OID.test(data.parent || '')) fail('invalid_request', 'request_shape', 'parent must be a 40-hex commit OID');
+    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
+    if (!OID.test(data.parent || '')) fail('invalid_request', 'request_shape', 'parent must be a 40-hex commit OID', String(data.parent));
     const capture = Object.hasOwn(data, 'authorizedPaths'), compare = Object.hasOwn(data, 'manifest');
-    if (capture === compare) fail('invalid_request', 'request_shape', 'supply exactly one of authorizedPaths (capture) or manifest (compare)');
+    if (capture === compare) fail('invalid_request', 'request_shape', 'supply exactly one of authorizedPaths (capture) or manifest (compare)', capture ? 'both supplied' : 'neither supplied');
     const observed = stagedEntries(data.cwd, data.parent, phase);
     if (capture) {
       const authorized = checkAuthorizedPaths(data.authorizedPaths);
-      if (observed.length === 0) fail('guard_failed', 'manifest_nonempty', 'the index equals the parent; there is no staged manifest to capture');
+      if (observed.length === 0) fail('guard_failed', 'manifest_nonempty', 'the index equals the parent; there is no staged manifest to capture', 'empty index diff');
       for (const entry of observed) {
         if (!authorized.has(entry.path)) fail('guard_failed', 'authorized_subset', `staged path is outside the authorized maximum set: ${entry.path}`, entry.path);
       }
@@ -182,7 +198,7 @@ function manifestCompare(data) {
     const manifest = data.manifest;
     const shaped = manifest !== null && typeof manifest === 'object' && !Array.isArray(manifest)
       && manifest.parent === data.parent && Array.isArray(manifest.entries) && manifest.entries.length > 0;
-    if (!shaped) fail('invalid_request', 'manifest_shape', 'manifest must be the data of a prior manifest_compare capture for the same parent');
+    if (!shaped) fail('invalid_request', 'manifest_shape', 'manifest must be the data of a prior manifest_compare capture for the same parent', typeof manifest);
     const expected = new Map(manifest.entries.map((entry) => [entry.path, entry]));
     for (const entry of observed) {
       const want = expected.get(entry.path);
