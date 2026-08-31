@@ -35,15 +35,26 @@ const SCHEMAS = Object.freeze({
   marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },
 });
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
-function invalid(message) { const error = new Error(message); error.code = 'invalid_request'; error.phase = 'cli'; throw error; }
+const GUARD_OPERATIONS = new Set(['guard_before_edit', 'overlay_freeze', 'overlay_compare', 'manifest_compare']);
+// A recognized guard request that fails validation before dispatch still names its subcheck
+// and observed value (CL-D55): a request-shape defect is a named failure, never a bare one.
+function invalid(message, operation, observed) {
+  const error = new Error(message); error.code = 'invalid_request'; error.phase = 'cli';
+  if (operation && GUARD_OPERATIONS.has(operation)) {
+    error.operation = operation;
+    error.phase = operation;
+    error.details = { subcheck: 'request_shape', observed: observed === undefined ? message : observed };
+  }
+  throw error;
+}
 function validateRequest(value) {
   if (!object(value) || value.version !== 1 || typeof value.operation !== 'string' || !object(value.data)) invalid('request must contain version:1, a known operation, and object data');
   for (const key of Object.keys(value)) if (!['version', 'operation', 'data'].includes(key)) invalid(`unknown request envelope field: ${key}`);
   const schema = SCHEMAS[value.operation];
   if (!schema) invalid('unknown operation');
   const allowed = new Set([...schema.required, ...schema.optional]);
-  for (const key of Object.keys(value.data)) if (!allowed.has(key)) invalid(`unknown request field: ${key}`);
-  for (const key of schema.required) if (!Object.hasOwn(value.data, key)) invalid(`missing request field: ${key}`);
+  for (const key of Object.keys(value.data)) if (!allowed.has(key)) invalid(`unknown request field: ${key}`, value.operation, key);
+  for (const key of schema.required) if (!Object.hasOwn(value.data, key)) invalid(`missing request field: ${key}`, value.operation, key);
   if (value.operation === 'workspace_verify' && Object.hasOwn(value.data, 'transition')) {
     const transition = value.data.transition;
     if (!object(transition) || Object.keys(transition).some((key) => !['from', 'to'].includes(key)) || !Object.hasOwn(transition, 'from') || !Object.hasOwn(transition, 'to') || !Object.values(transition).every((oid) => typeof oid === 'string' && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(oid))) invalid('workspace transition requires only from and to OIDs');
@@ -105,7 +116,7 @@ async function main() {
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.ok || result.data?.ok === false) process.exitCode = 1;
   } catch (error) {
-    process.stdout.write(`${JSON.stringify(createError(operation, error.code || 'helper_failed', error.message, error.phase || 'cli'))}\n`);
+    process.stdout.write(`${JSON.stringify(createError(error.operation || operation, error.code || 'helper_failed', error.message, error.phase || 'cli', error.details))}\n`);
     process.exitCode = 1;
   }
 }

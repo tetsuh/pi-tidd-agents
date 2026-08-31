@@ -181,6 +181,31 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
   }
 });
 
+test('Issue #96 a guard request that fails before dispatch is still a named failure', () => {
+  // Review-driven (SOL-99-NAMED-OBSERVED-FAILURES, round 2): missing and unknown request
+  // fields on a recognized guard operation must carry the guard's name, a request_shape
+  // subcheck, and the offending field — never a detail-free operation:"cli" error.
+  const requests = {
+    guard_before_edit: { cwd: '/w', expected: {}, authorizedPaths: ['a.txt'] },
+    overlay_freeze: { cwd: '/w', authorizedPaths: ['a.txt'] },
+    overlay_compare: { cwd: '/w', overlay: {} },
+    manifest_compare: { cwd: '/w', parent: 'a'.repeat(40) },
+  };
+  for (const [operation, data] of Object.entries(requests)) {
+    const required = Object.keys(data)[1] || 'cwd';
+    const { [required]: dropped, ...missingData } = data;
+    const missing = named(cli(operation, missingData));
+    assert.equal(missing.operation, operation, `${operation}: pre-dispatch failure must keep the guard name`);
+    assert.equal(missing.error.details.subcheck, 'request_shape');
+    assert.equal(missing.error.details.observed, required);
+
+    const unknown = named(cli(operation, { ...data, mystery: true }));
+    assert.equal(unknown.operation, operation);
+    assert.equal(unknown.error.details.subcheck, 'request_shape');
+    assert.equal(unknown.error.details.observed, 'mystery');
+  }
+});
+
 test('Issue #96 the aggregate alarm reset is the one the suites assert', () => {
   const surface = readText('test/issue-59-helper-surface.test.js');
   assert.match(surface, /const AGGREGATE_SMOKE_ALARM = 200000; \/\/ CL-D57 planned-growth reset from 160,000 \(CL-D53\) for the guard family/);
