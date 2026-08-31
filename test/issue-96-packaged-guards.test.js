@@ -206,6 +206,31 @@ test('Issue #96 a guard request that fails before dispatch is still a named fail
   }
 });
 
+test('Issue #96 envelope-level defects on a recognized guard are named too', () => {
+  // Review-driven (SOL-99-NAMED-OBSERVED-FAILURES, round 3): an unknown top-level field,
+  // an invalid version, or missing data on a recognized guard request keeps the guard's
+  // name and a request_shape subcheck; unrecognized operations keep reporting as cli.
+  const rawCli = (payload) => JSON.parse(spawnSync(process.execPath, [CLI], { input: JSON.stringify(payload), encoding: 'utf8' }).stdout);
+  for (const operation of ['guard_before_edit', 'overlay_freeze', 'overlay_compare', 'manifest_compare']) {
+    const topLevel = named(rawCli({ version: 1, operation, data: { cwd: '/w' }, mystery: true }));
+    assert.equal(topLevel.operation, operation);
+    assert.equal(topLevel.error.details.subcheck, 'request_shape');
+    assert.equal(topLevel.error.details.observed, 'mystery');
+
+    const badVersion = named(rawCli({ version: 2, operation, data: { cwd: '/w' } }));
+    assert.equal(badVersion.operation, operation);
+    assert.equal(badVersion.error.details.observed, 'version 2');
+
+    const noData = named(rawCli({ version: 1, operation }));
+    assert.equal(noData.operation, operation);
+    assert.equal(noData.error.details.observed, 'data undefined');
+  }
+  const stranger = rawCli({ version: 2, operation: 'workspace_verify', data: {} });
+  assert.equal(stranger.ok, false);
+  assert.equal(stranger.operation, 'cli', 'unrecognized operations keep reporting as cli');
+  assert.equal(stranger.error.details, undefined);
+});
+
 test('Issue #96 the aggregate alarm reset is the one the suites assert', () => {
   const surface = readText('test/issue-59-helper-surface.test.js');
   assert.match(surface, /const AGGREGATE_SMOKE_ALARM = 200000; \/\/ CL-D57 planned-growth reset from 160,000 \(CL-D53\) for the guard family/);

@@ -48,8 +48,17 @@ function invalid(message, operation, observed) {
   throw error;
 }
 function validateRequest(value) {
-  if (!object(value) || value.version !== 1 || typeof value.operation !== 'string' || !object(value.data)) invalid('request must contain version:1, a known operation, and object data');
-  for (const key of Object.keys(value)) if (!['version', 'operation', 'data'].includes(key)) invalid(`unknown request envelope field: ${key}`);
+  // Recognize a guard operation before any envelope check fires, so every applicable
+  // envelope-validation failure is named too; unrecognized operations keep reporting as cli.
+  const guardOperation = object(value) && typeof value.operation === 'string' && GUARD_OPERATIONS.has(value.operation) ? value.operation : undefined;
+  if (!object(value) || value.version !== 1 || typeof value.operation !== 'string' || !object(value.data)) {
+    const observed = !object(value) ? `request ${Array.isArray(value) ? 'array' : typeof value}`
+      : value.version !== 1 ? `version ${JSON.stringify(value.version)}`
+        : typeof value.operation !== 'string' ? `operation ${typeof value.operation}`
+          : `data ${Array.isArray(value.data) ? 'array' : typeof value.data}`;
+    invalid('request must contain version:1, a known operation, and object data', guardOperation, observed);
+  }
+  for (const key of Object.keys(value)) if (!['version', 'operation', 'data'].includes(key)) invalid(`unknown request envelope field: ${key}`, guardOperation, key);
   const schema = SCHEMAS[value.operation];
   if (!schema) invalid('unknown operation');
   const allowed = new Set([...schema.required, ...schema.optional]);
