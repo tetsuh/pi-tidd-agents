@@ -235,6 +235,22 @@ test('Issue #96 envelope-level defects on a recognized guard are named too', () 
       assert.equal(result.operation, operation, `${operation}: ${observed}`);
       assert.equal(result.error.details.observed, observed);
     }
+
+    // Review-driven (SOL-99-NAMED-OBSERVED-FAILURES, round 5): raw-stdin regressions,
+    // because JSON.stringify(-0) already loses the sign before the CLI would see it. The
+    // parsed value is negative zero and the report says so; and truncation lands on
+    // code-point boundaries, so no lone surrogate is fabricated at the cut.
+    const astral = 'a'.repeat(36) + '\u{1F600}' + 'b'.repeat(10);
+    for (const [rawText, observed] of [
+      [`{"version":1,"operation":"${operation}","data":-0}`, 'data number -0'],
+      [`{"version":-0,"operation":"${operation}","data":{"cwd":"/w"}}`, 'version number -0'],
+      [JSON.stringify({ version: 1, operation, data: astral }), `data string ${JSON.stringify('a'.repeat(36) + '\u{1F600}' + '...')}`],
+    ]) {
+      const raw = JSON.parse(spawnSync(process.execPath, [CLI], { input: rawText, encoding: 'utf8' }).stdout);
+      named(raw);
+      assert.equal(raw.operation, operation, `${operation}: ${observed}`);
+      assert.equal(raw.error.details.observed, observed);
+    }
   }
   const stranger = rawCli({ version: 2, operation: 'workspace_verify', data: {} });
   assert.equal(stranger.ok, false);

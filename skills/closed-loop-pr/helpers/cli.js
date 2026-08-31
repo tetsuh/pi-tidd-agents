@@ -42,7 +42,14 @@ function describeReceived(value) {
   if (value === null) return 'null';
   if (Array.isArray(value)) return `array of ${value.length}`;
   if (typeof value === 'object') return `object with ${Object.keys(value).length} keys`;
-  if (typeof value === 'string') return `string ${JSON.stringify(value.length > 40 ? `${value.slice(0, 37)}...` : value)}`;
+  if (typeof value === 'string') {
+    // Truncate on Unicode code-point boundaries so the report never fabricates a lone
+    // surrogate that was not in the input.
+    const points = [...value];
+    return `string ${JSON.stringify(points.length > 40 ? `${points.slice(0, 37).join('')}...` : value)}`;
+  }
+  // String(-0) is "0"; the parsed value is negative zero and the report says so.
+  if (typeof value === 'number' && Object.is(value, -0)) return 'number -0';
   return `${typeof value} ${String(value)}`;
 }
 const GUARD_OPERATIONS = new Set(['guard_before_edit', 'overlay_freeze', 'overlay_compare', 'manifest_compare']);
