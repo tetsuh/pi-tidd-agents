@@ -75,13 +75,18 @@ function expectedState(e) {
 function checkCorrelation(a, e) {
   for (const k of CORR_REQ) if (a[k] !== e[k]) fail('correlation_mismatch', `${k} mismatch`);
 }
-function checkEvidence(v, req) {
-  const bad = (m) => fail('evidence_records_invalid', m), key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
+function checkRequiredEvidence(req) {
+  const key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
   if (!Array.isArray(req) || !req.length) fail('invalid_request', 'evidence missing');
   for (const x of req) if (!plain(x) || Object.keys(x).sort().join() !== 'identity,kind,source'
     || !words('source identity').every((k) => typeof x[k] === 'string' && x[k]) || !KINDS.includes(x.kind)) fail('invalid_request', 'bad requiredEvidence');
-  const e = req.map(key), a = v.evidenceRead.map(key);
+  const e = req.map(key);
   if (new Set(e).size !== e.length) fail('invalid_request', 'duplicate expected evidence');
+  return e;
+}
+function checkEvidence(v, req) {
+  const bad = (m) => fail('evidence_records_invalid', m), key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
+  const e = checkRequiredEvidence(req), a = v.evidenceRead.map(key);
   if (new Set(a).size !== a.length) bad('duplicate evidence');
   if (v.evidenceRead.some((x) => !x.readCompletely)) bad('incomplete evidence');
   if (e.some((x) => !a.includes(x))) bad('required evidence omitted');
@@ -175,4 +180,7 @@ function validateGateResult(v, e) {
       findings: v.findings, confirmations: v.confirmations, decisions: v.decisions, adversarialResults: v.adversarialResults });
   } catch (error) { return createError('gate_result_validate', error.code || 'gate_result_invalid', error.message, 'gate_result_validate'); }
 }
-module.exports = { SCHEMA, validateGateResult };
+// checkSchema exposes the same structural walk validateGateResult applies, so builders can
+// validate a correlation with the boundary's own checker instead of a re-derivation.
+function checkSchema(schema, value, pathName = 'value') { check(schema, value, pathName); }
+module.exports = { SCHEMA, validateGateResult, expectedState, checkRequiredEvidence, checkSchema };

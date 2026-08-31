@@ -50,8 +50,15 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Reply body construction (CL-D45) | `marker_create` | `binding`, `visibleBody` |
 | Post-attempt reconciliation (CL-D45) | `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |
 | Before each gate invocation, on the assembled evidence (CL-D42) | `evidence_verify` | `envelope`, `expected` |
+| Construct the revalidation request from the capture it revalidates (CL-D56) | `build_operator_revalidate` | `captured` (envelope of `operator_capture`), `cwd` |
+| Construct the verify request from the workspace it verifies (CL-D56) | `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |
+| Construct the cleanup request from the workspace's own receipt (CL-D56) | `build_workspace_cleanup` | `created` (data of `workspace_create`), `cwd` |
+| Construct the snapshot-fingerprint request (CL-D56) | `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |
+| Construct the gate expectation and the canonical result schema (CL-D36, CL-D56) | `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |
 
 `workspace_verify` requires clean tracked and index state, so it does not serve `BEFORE_VALIDATION`, `AFTER_VALIDATION`, `BEFORE_STAGING`, `AFTER_STAGING`, or `BEFORE_COMMIT`: those guards keep their phase-specific frozen-overlay and staged-manifest delta checks, which this map does not reassign. Its transition form supplies only clean workspace identity, current `HEAD`, and a verified sole-parent transition; current public-head equality, staged manifest/tree/blob identity, and linked remote-tracking equality remain phase-specific checks this map does not reassign. After public/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality. A helper envelope is supplied evidence in the gate payload: it never substitutes for a gate verdict and grants no commit, push, reply, or provider authority.
+
+Request builders (CL-D56): each documented composition has a package-owned builder that constructs the consuming request from its producing operation's result and validates the construction with the boundary's own predicates before returning it, so a builder output the boundary would reject is unrepresentable. Builders are read-only, reach no network, filesystem, or Git, and grant no authority; each rejects invalid inputs with the boundary's vocabulary at phase `build`. `build_gate_expectation` additionally returns the canonical CL-D36 structured-output schema, so the parent copies a derivation instead of re-authoring one — CL-D47's rule applied to schemas. Prefer a builder over hand-assembly wherever one exists.
 
 ### Cross-operation input shapes (CL-D44)
 

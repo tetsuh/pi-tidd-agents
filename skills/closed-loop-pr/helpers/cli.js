@@ -22,6 +22,11 @@ const SCHEMAS = Object.freeze({
   workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
+  build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead'] },
+  build_workspace_verify: { required: ['created', 'cwd'], optional: ['transition'] },
+  build_workspace_cleanup: { required: ['created', 'cwd'], optional: [] },
+  build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
+  build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },
   marker_create: { required: ['binding', 'visibleBody'], optional: [] },
   marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },
 });
@@ -70,6 +75,11 @@ async function dispatch(request) {
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
     case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));
+    case 'build_operator_revalidate': return wrap(operation, helpers.buildOperatorRevalidate(data));
+    case 'build_workspace_verify': return wrap(operation, helpers.buildWorkspaceVerify(data));
+    case 'build_workspace_cleanup': return wrap(operation, helpers.buildWorkspaceCleanup(data));
+    case 'build_fingerprint_snapshot': return wrap(operation, helpers.buildFingerprintSnapshot(data));
+    case 'build_gate_expectation': return wrap(operation, helpers.buildGateExpectation(data));
     case 'marker_create': return wrap(operation, helpers.createReplyMarker(data));
     case 'marker_reconcile': return wrap(operation, helpers.reconcileReply(data));
     default: invalid('unknown operation');
