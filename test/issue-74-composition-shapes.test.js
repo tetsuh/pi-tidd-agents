@@ -189,9 +189,14 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
   assert.deepEqual(
     Object.entries(shapes).map(([operation, fields]) => [operation, ...Object.entries(fields).flat()]).sort(),
     [
+      // The three guard fields joined the table under CL-D57 — the new-owner-decision route
+      // the freeze names — and are pinned exactly the same way.
       ['fingerprint_snapshot', 'snapshot', 'data:snapshot'],
       ['gate_result_validate', 'result', 'structured:gate_result'],
+      ['guard_before_edit', 'expected', 'data:workspace_create'],
+      ['manifest_compare', 'manifest', 'data:manifest_compare'],
       ['operator_revalidate', 'captured', 'envelope:operator_capture'],
+      ['overlay_compare', 'overlay', 'data:overlay_freeze'],
       ['workspace_cleanup', 'receipt', 'receipt:workspace_create'],
       ['workspace_verify', 'expected', 'data:workspace_create'],
     ],
@@ -204,9 +209,16 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
   // Every declared field must exist in the CLI schema it constrains, or the declaration is
   // decorative.
   const schemas = cliSchemas();
+  // Optional request fields (manifest_compare.manifest) are declared too; cliSchemas returns
+  // only the required list, so the optional lists are read beside it.
+  const optionalFields = Object.fromEntries(
+    [...readText('skills/closed-loop-pr/helpers/cli.js').matchAll(/^\s{2}([a-z][a-z0-9_]*): \{ required: \[[^\]]*\], optional: \[([^\]]*)\] \}/gm)]
+      .map((match) => [match[1], (match[2].match(/'([^']+)'/g) || []).map((field) => field.slice(1, -1))]),
+  );
   for (const [operation, fields] of Object.entries(shapes)) {
     assert.ok(schemas[operation], `${operation} must be a known operation`);
-    for (const field of Object.keys(fields)) assert.ok(schemas[operation].includes(field), `${operation}.${field} must be a declared request field`);
+    const declared = [...schemas[operation], ...(optionalFields[operation] || [])];
+    for (const field of Object.keys(fields)) assert.ok(declared.includes(field), `${operation}.${field} must be a declared request field`);
   }
 });
 

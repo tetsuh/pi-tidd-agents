@@ -67,9 +67,12 @@ function porcelainEntries(cwd, phase) {
   for (let i = 0; i < records.length; i += 1) {
     const record = records[i];
     const staged = record[0], unstaged = record[1], entry = record.slice(3);
+    // Rename/copy records carry the source endpoint as the following NUL record; retain it,
+    // never drop it (SOL-99-RENAME-ENDPOINT-SCOPE).
+    const sourcePath = staged === 'R' || staged === 'C' ? records[i + 1] : undefined;
     if (staged === 'R' || staged === 'C') i += 1;
-    if (runtimeRooted(entry)) continue;
-    entries.push({ path: entry, staged, unstaged });
+    if (runtimeRooted(entry) && (sourcePath === undefined || runtimeRooted(sourcePath))) continue;
+    entries.push({ path: entry, staged, unstaged, ...(sourcePath === undefined ? {} : { sourcePath }) });
   }
   return entries;
 }
@@ -100,13 +103,18 @@ function overlayObservation(cwd, authorized, phase) {
   assertSafeRuntimeRoots(cwd);
   const entries = [];
   for (const entry of porcelainEntries(cwd, phase)) {
+    // A rename mutates its source; the source endpoint must be inside the maximum set too.
+    // A copy leaves its source untouched, so only the destination is required.
+    if (authorized && entry.staged === 'R' && entry.sourcePath !== undefined && !authorized.has(entry.sourcePath)) {
+      fail('guard_failed', 'authorized_subset', `rename source is outside the authorized maximum set: ${entry.sourcePath}`, entry.sourcePath);
+    }
     if (entry.staged !== ' ' && entry.staged !== '?') {
       fail('guard_failed', 'index_clean', `index is not clean before staging: ${entry.path}`, entry.path);
     }
     if (authorized && !authorized.has(entry.path)) {
       fail('guard_failed', 'authorized_subset', `changed path is outside the authorized maximum set: ${entry.path}`, entry.path);
     }
-    entries.push({ path: entry.path, status: entry.staged === '?' ? 'A?' : entry.unstaged, rawDiffSha256: diffDigest(cwd, entry, phase) });
+    entries.push({ path: entry.path, status: entry.staged === '?' ? 'A?' : entry.unstaged, rawDiffSha256: diffDigest(cwd, entry, phase), ...(entry.sourcePath === undefined ? {} : { sourcePath: entry.sourcePath }) });
   }
   entries.sort((a, b) => (a.path < b.path ? -1 : 1));
   return { parent: gitText(cwd, ['rev-parse', 'HEAD'], phase).trim(), entries };
@@ -147,7 +155,7 @@ function overlayCompare(data) {
     for (const entry of observed.entries) {
       const expected = frozen.get(entry.path);
       if (!expected) fail('guard_failed', 'overlay_drift', `path entered the overlay after the freeze: ${entry.path}`, entry.path);
-      if (expected.status !== entry.status || expected.rawDiffSha256 !== entry.rawDiffSha256) {
+      if (expected.status !== entry.status || expected.rawDiffSha256 !== entry.rawDiffSha256 || expected.sourcePath !== entry.sourcePath) {
         fail('guard_failed', 'overlay_drift', `frozen bytes changed for ${entry.path}: status ${expected.status}→${entry.status}, rawDiffSha256 ${expected.rawDiffSha256}→${entry.rawDiffSha256}`, entry.path);
       }
       frozen.delete(entry.path);
@@ -169,10 +177,12 @@ function stagedEntries(cwd, parent, phase) {
   for (let i = 0; i < records.length; i += 1) {
     const meta = records[i].match(/^:(\d{6}) (\d{6}) ([0-9a-f]{40,64}) ([0-9a-f]{40,64}) ([A-Z])(\d+)?$/);
     if (!meta) fail('guard_failed', 'index_observation', `unparsable raw diff record: ${records[i]}`);
-    const entry = { srcMode: meta[1], dstMode: meta[2], srcOid: meta[3], dstOid: meta[4], status: meta[5], path: records[i + 1] };
-    i += meta[5] === 'R' || meta[5] === 'C' ? 2 : 1;
-    if (meta[5] === 'R' || meta[5] === 'C') entry.path = records[i];
+    const renameOrCopy = meta[5] === 'R' || meta[5] === 'C';
+    const entry = { srcMode: meta[1], dstMode: meta[2], srcOid: meta[3], dstOid: meta[4], status: meta[5], path: renameOrCopy ? records[i + 2] : records[i + 1] };
+    if (renameOrCopy) entry.sourcePath = records[i + 1];
+    i += renameOrCopy ? 2 : 1;
     if (runtimeRooted(entry.path)) fail('guard_failed', 'runtime_root_exclusion', `runtime-root path is staged: ${entry.path}`, entry.path);
+    if (entry.sourcePath !== undefined && runtimeRooted(entry.sourcePath)) fail('guard_failed', 'runtime_root_exclusion', `runtime-root path is a staged rename source: ${entry.sourcePath}`, entry.sourcePath);
     entries.push(entry);
   }
   entries.sort((a, b) => (a.path < b.path ? -1 : 1));
@@ -192,6 +202,8 @@ function manifestCompare(data) {
       if (observed.length === 0) fail('guard_failed', 'manifest_nonempty', 'the index equals the parent; there is no staged manifest to capture', 'empty index diff');
       for (const entry of observed) {
         if (!authorized.has(entry.path)) fail('guard_failed', 'authorized_subset', `staged path is outside the authorized maximum set: ${entry.path}`, entry.path);
+        // A rename mutates its source endpoint; a copy reads it without change.
+        if (entry.status === 'R' && !authorized.has(entry.sourcePath)) fail('guard_failed', 'authorized_subset', `rename source is outside the authorized maximum set: ${entry.sourcePath}`, entry.sourcePath);
       }
       return createResult('manifest_compare', { manifest: { parent: data.parent, entries: observed } });
     }
@@ -203,7 +215,7 @@ function manifestCompare(data) {
     for (const entry of observed) {
       const want = expected.get(entry.path);
       if (!want) fail('guard_failed', 'manifest_drift', `staged path is not in the immutable manifest: ${entry.path}`, entry.path);
-      for (const field of ['srcMode', 'dstMode', 'srcOid', 'dstOid', 'status']) {
+      for (const field of ['srcMode', 'dstMode', 'srcOid', 'dstOid', 'status', 'sourcePath']) {
         if (want[field] !== entry[field]) fail('guard_failed', 'manifest_drift', `manifest ${field} changed for ${entry.path}: ${want[field]}→${entry[field]}`, entry.path);
       }
       expected.delete(entry.path);

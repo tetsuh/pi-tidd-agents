@@ -137,7 +137,11 @@ async function main() {
     const request = validateRequest(JSON.parse(input.toString('utf8')));
     operation = request.operation;
     const shapeProblem = helpers.inputShapeProblem(operation, request.data);
-    if (shapeProblem) { const error = new Error(shapeProblem); error.code = 'input_shape_mismatch'; error.phase = operation; throw error; }
+    if (shapeProblem) {
+      const error = new Error(shapeProblem); error.code = 'input_shape_mismatch'; error.phase = operation;
+      if (GUARD_OPERATIONS.has(operation)) error.details = { subcheck: 'request_shape', observed: shapeProblem };
+      throw error;
+    }
     const result = await dispatch(request);
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.ok || result.data?.ok === false) process.exitCode = 1;

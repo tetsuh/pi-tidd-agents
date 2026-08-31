@@ -12,6 +12,9 @@
 // to be incomplete. `describe` below supplies diagnostic wording for the error message only
 // and plays no part in the accept/reject decision.
 const INPUT_SHAPES = Object.freeze({
+  guard_before_edit: Object.freeze({ expected: 'data:workspace_create' }),
+  overlay_compare: Object.freeze({ overlay: 'data:overlay_freeze' }),
+  manifest_compare: Object.freeze({ manifest: 'data:manifest_compare' }),
   operator_revalidate: Object.freeze({ captured: 'envelope:operator_capture' }),
   workspace_verify: Object.freeze({ expected: 'data:workspace_create' }),
   workspace_cleanup: Object.freeze({ receipt: 'receipt:workspace_create' }),
@@ -32,7 +35,17 @@ const SNAPSHOT_DATA_KEYS = Object.freeze([
 // object silently, while `structured:gate_result` is only a separating probe because the
 // closed CL-D36 schema in gate-result.js remains the sole validator of gate results. The
 // executed positive composition fixtures keep each predicate in lockstep with its producer.
+// manifest_compare's manifest is a compare-mode field; capture mode legitimately omits it,
+// so it is validated only when supplied (CL-D57).
+const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manifest']) });
 const PREDICATES = Object.freeze({
+  // The two guard shapes are separating probes (CL-D44 depth calibration): the guards
+  // themselves revalidate every field they consume.
+  'data:overlay_freeze': (value) => plain(value) && /^[0-9a-f]{40}$/.test(value.parent || '')
+    && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain)
+    && Array.isArray(value.authorizedPaths),
+  'data:manifest_compare': (value) => plain(value) && /^[0-9a-f]{40}$/.test(value.parent || '')
+    && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain),
   'envelope:operator_capture': (value) => plain(value) && value.version === 1 && value.ok === true
     && value.operation === 'operator_capture' && plain(value.data) && !Object.hasOwn(value, 'error'),
   'data:workspace_create': (value) => {
@@ -78,6 +91,7 @@ function inputShapeProblem(operation, data) {
   const declared = INPUT_SHAPES[operation];
   if (!declared || !plain(data)) return null;
   for (const [field, spec] of Object.entries(declared)) {
+    if (!Object.hasOwn(data, field) && (OPTIONAL_INPUTS[operation] || []).includes(field)) continue;
     if (!PREDICATES[spec](data[field])) {
       return `\`${field}\` must be ${spec}, received ${describe(data[field])}`;
     }

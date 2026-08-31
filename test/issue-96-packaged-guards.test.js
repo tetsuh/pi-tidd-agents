@@ -181,6 +181,58 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
   }
 });
 
+test('Issue #96 rename endpoints stay inside the maximum set', async () => {
+  // Review-driven (SOL-99-RENAME-ENDPOINT-SCOPE): a rename mutates its source, so both
+  // endpoints must be authorized; the source endpoint is retained, checked, and bound into
+  // manifest equality instead of being dropped by the record parser.
+  const repository = guardRepository();
+  try {
+    const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
+    assert.equal(created.ok, true, JSON.stringify(created.error));
+    const workspace = created.data.path;
+    git(workspace, ['mv', 'tracked.txt', 'moved.txt']);
+
+    const dirty = named(cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['moved.txt'] }));
+    assert.equal(dirty.error.details.subcheck, 'authorized_subset');
+    assert.match(dirty.error.message, /rename source .* tracked\.txt/);
+
+    const staged = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['moved.txt'] }));
+    assert.equal(staged.error.details.subcheck, 'authorized_subset');
+    assert.match(staged.error.message, /rename source .* tracked\.txt/);
+
+    // Both endpoints authorized: the manifest captures the rename with its source bound.
+    const captured = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt', 'moved.txt'] });
+    assert.equal(captured.ok, true, JSON.stringify(captured.error));
+    const rename = captured.data.manifest.entries.find((entry) => entry.status === 'R');
+    assert.equal(rename.path, 'moved.txt');
+    assert.equal(rename.sourcePath, 'tracked.txt');
+    const recompared = cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data.manifest });
+    assert.equal(recompared.ok, true, JSON.stringify(recompared.error));
+  } finally {
+    fs.rmSync(repository.root, { recursive: true, force: true });
+    fs.rmSync(repository.bare, { recursive: true, force: true });
+  }
+});
+
+test('Issue #96 the guard cross-operation fields are shape-checked before dispatch', () => {
+  // Review-driven (SOL-99-GUARD-CROSS-SHAPES): the wrong producer document is rejected as
+  // input_shape_mismatch before dispatch, named, never as a misleading guard diagnosis.
+  const envelope = { version: 1, ok: true, operation: 'x', data: {} };
+  for (const [operation, data, shape] of [
+    ['guard_before_edit', { cwd: '/w', expected: envelope, authorizedPaths: ['a.txt'] }, 'data:workspace_create'],
+    ['overlay_compare', { cwd: '/w', overlay: envelope }, 'data:overlay_freeze'],
+    ['manifest_compare', { cwd: '/w', parent: 'a'.repeat(40), manifest: envelope }, 'data:manifest_compare'],
+  ]) {
+    const swapped = named(cli(operation, data));
+    assert.equal(swapped.error.code, 'input_shape_mismatch');
+    assert.equal(swapped.operation, operation);
+    assert.ok(swapped.error.message.includes(shape), `${operation} must name ${shape}`);
+  }
+  // Capture mode legitimately omits the optional manifest field.
+  const capture = cli('manifest_compare', { cwd: '/nonexistent-not-a-repo', parent: 'a'.repeat(40), authorizedPaths: ['a.txt'] });
+  assert.notEqual(capture.error?.code, 'input_shape_mismatch', 'an omitted optional manifest must not fail shape validation');
+});
+
 test('Issue #96 a guard request that fails before dispatch is still a named failure', () => {
   // Review-driven (SOL-99-NAMED-OBSERVED-FAILURES, round 2): missing and unknown request
   // fields on a recognized guard operation must carry the guard's name, a request_shape
