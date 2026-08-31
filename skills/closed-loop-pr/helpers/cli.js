@@ -22,6 +22,10 @@ const SCHEMAS = Object.freeze({
   workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
+  guard_before_edit: { required: ['cwd', 'expected', 'authorizedPaths'], optional: [] },
+  overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
+  overlay_compare: { required: ['cwd', 'overlay'], optional: [] },
+  manifest_compare: { required: ['cwd', 'parent'], optional: ['authorizedPaths', 'manifest'] },
   build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead'] },
   build_workspace_verify: { required: ['created', 'cwd'], optional: ['transition'] },
   build_workspace_cleanup: { required: ['created', 'cwd'], optional: [] },
@@ -75,6 +79,10 @@ async function dispatch(request) {
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
     case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));
+    case 'guard_before_edit': return wrap(operation, helpers.guardBeforeEdit(data));
+    case 'overlay_freeze': return wrap(operation, helpers.overlayFreeze(data));
+    case 'overlay_compare': return wrap(operation, helpers.overlayCompare(data));
+    case 'manifest_compare': return wrap(operation, helpers.manifestCompare(data));
     case 'build_operator_revalidate': return wrap(operation, helpers.buildOperatorRevalidate(data));
     case 'build_workspace_verify': return wrap(operation, helpers.buildWorkspaceVerify(data));
     case 'build_workspace_cleanup': return wrap(operation, helpers.buildWorkspaceCleanup(data));

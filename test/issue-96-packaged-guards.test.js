@@ -141,6 +141,12 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
     assert.equal(sneaked.error.details.subcheck, 'manifest_drift');
     assert.match(sneaked.error.message, /sneak\.txt/);
 
+    // Capture mode enforces the same maximum set: the sneaked path is named there too.
+    const sneakCaptured = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt', 'extra.txt', 'unused.md'] });
+    assert.equal(sneakCaptured.ok, false);
+    assert.equal(sneakCaptured.error.details.subcheck, 'authorized_subset');
+    assert.match(sneakCaptured.error.message, /sneak\.txt/);
+
     // Exactly one of authorizedPaths or manifest.
     const both = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt'], manifest: captured.data.manifest });
     assert.equal(both.ok, false);
@@ -167,5 +173,5 @@ test('Issue #96 CL-D57 records the guard family and the reviewed alarm reset', (
   assert.match(decision, /160,000 to 200,000/);
   assert.match(decision, /authorized paths are a maximum set/);
   assert.match(decision, /never against only the authorized changed files/);
-  assert.match(decision, /packaging changes who implements the check, not what happens when it truly fails/);
+  assert.match(decision, /Packaging changes who implements the check, not what happens when it truly fails/);
 });

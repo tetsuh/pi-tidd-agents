@@ -12,12 +12,12 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
-  'builders.js', 'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'index.js', 'operator.js', 'paths.js',
+  'builders.js', 'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'operator.js', 'paths.js',
   'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
   'build_fingerprint_snapshot', 'build_gate_expectation', 'build_operator_revalidate', 'build_workspace_cleanup',
-  'build_workspace_verify', 'evidence_verify', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
+  'build_workspace_verify', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_validate',
   'marker_create', 'marker_reconcile',
   'operator_capture', 'operator_revalidate', 'snapshot', 'workspace_cleanup', 'workspace_create',
@@ -55,9 +55,9 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './builders': 1, './composition': 2, './evidence': 1, './fingerprints': 2, './gate-result': 2, './index': 1, './operator': 1,
-  './paths': 3, './process': 4, './protocol': 11, './reply': 1, './snapshot': 1, './workspace': 1, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 5, 'node:fs': 4, 'node:os': 2, 'node:path': 4,
+  './builders': 1, './composition': 2, './evidence': 1, './fingerprints': 2, './gate-result': 2, './guards': 1, './index': 1, './operator': 2,
+  './paths': 3, './process': 5, './protocol': 12, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 6, 'node:fs': 4, 'node:os': 2, 'node:path': 4,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
 const PROVENANCE_ANCHORS = [
@@ -80,7 +80,7 @@ const ROOT_GUARDS = [
   [`${HELPER_DIR}/workspace.js`, "if (isInside(requested, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
   [`${HELPER_DIR}/workspace.js`, "if (isInside(root, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
 ];
-const AGGREGATE_SMOKE_ALARM = 160000; // CL-D53 reset after the 140,000 alarm fired at 139,835
+const AGGREGATE_SMOKE_ALARM = 200000; // CL-D57 planned-growth reset from 160,000 (CL-D53) for the guard family
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
