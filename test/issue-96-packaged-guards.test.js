@@ -217,13 +217,24 @@ test('Issue #96 envelope-level defects on a recognized guard are named too', () 
     assert.equal(topLevel.error.details.subcheck, 'request_shape');
     assert.equal(topLevel.error.details.observed, 'mystery');
 
-    const badVersion = named(rawCli({ version: 2, operation, data: { cwd: '/w' } }));
-    assert.equal(badVersion.operation, operation);
-    assert.equal(badVersion.error.details.observed, 'version 2');
-
-    const noData = named(rawCli({ version: 1, operation }));
-    assert.equal(noData.operation, operation);
-    assert.equal(noData.error.details.observed, 'data undefined');
+    // Review-driven (SOL-99-NAMED-OBSERVED-FAILURES, round 4): the observed value is a
+    // truthful bounded description — missing and null are distinct, scalars keep their
+    // concrete value, containers are summarized, and typeof null never says object.
+    for (const [payload, observed] of [
+      [{ version: 1, operation, data: null }, 'data null'],
+      [{ version: 1, operation }, 'data undefined'],
+      [{ version: 1, operation, data: [] }, 'data array of 0'],
+      [{ version: 1, operation, data: 'x' }, 'data string "x"'],
+      [{ version: 1, operation, data: 5 }, 'data number 5'],
+      [{ version: 1, operation, data: true }, 'data boolean true'],
+      [{ version: 2, operation, data: { cwd: '/w' } }, 'version number 2'],
+      [{ version: '1', operation, data: { cwd: '/w' } }, 'version string "1"'],
+      [{ version: null, operation, data: { cwd: '/w' } }, 'version null'],
+    ]) {
+      const result = named(rawCli(payload));
+      assert.equal(result.operation, operation, `${operation}: ${observed}`);
+      assert.equal(result.error.details.observed, observed);
+    }
   }
   const stranger = rawCli({ version: 2, operation: 'workspace_verify', data: {} });
   assert.equal(stranger.ok, false);

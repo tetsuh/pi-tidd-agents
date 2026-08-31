@@ -35,6 +35,16 @@ const SCHEMAS = Object.freeze({
   marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },
 });
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+// Bounded, JSON-aware description of a received value: missing and null are distinct,
+// scalars keep their concrete value, and containers are summarized — never typeof null.
+function describeReceived(value) {
+  if (value === undefined) return 'undefined';
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return `array of ${value.length}`;
+  if (typeof value === 'object') return `object with ${Object.keys(value).length} keys`;
+  if (typeof value === 'string') return `string ${JSON.stringify(value.length > 40 ? `${value.slice(0, 37)}...` : value)}`;
+  return `${typeof value} ${String(value)}`;
+}
 const GUARD_OPERATIONS = new Set(['guard_before_edit', 'overlay_freeze', 'overlay_compare', 'manifest_compare']);
 // A recognized guard request that fails validation before dispatch still names its subcheck
 // and observed value (CL-D55): a request-shape defect is a named failure, never a bare one.
@@ -52,10 +62,10 @@ function validateRequest(value) {
   // envelope-validation failure is named too; unrecognized operations keep reporting as cli.
   const guardOperation = object(value) && typeof value.operation === 'string' && GUARD_OPERATIONS.has(value.operation) ? value.operation : undefined;
   if (!object(value) || value.version !== 1 || typeof value.operation !== 'string' || !object(value.data)) {
-    const observed = !object(value) ? `request ${Array.isArray(value) ? 'array' : typeof value}`
-      : value.version !== 1 ? `version ${JSON.stringify(value.version)}`
-        : typeof value.operation !== 'string' ? `operation ${typeof value.operation}`
-          : `data ${Array.isArray(value.data) ? 'array' : typeof value.data}`;
+    const observed = !object(value) ? `request ${describeReceived(value)}`
+      : value.version !== 1 ? `version ${describeReceived(value.version)}`
+        : typeof value.operation !== 'string' ? `operation ${describeReceived(value.operation)}`
+          : `data ${describeReceived(value.data)}`;
     invalid('request must contain version:1, a known operation, and object data', guardOperation, observed);
   }
   for (const key of Object.keys(value)) if (!['version', 'operation', 'data'].includes(key)) invalid(`unknown request envelope field: ${key}`, guardOperation, key);
