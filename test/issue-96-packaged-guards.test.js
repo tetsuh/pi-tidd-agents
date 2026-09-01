@@ -233,6 +233,61 @@ test('Issue #96 the guard cross-operation fields are shape-checked before dispat
   assert.notEqual(capture.error?.code, 'input_shape_mismatch', 'an omitted optional manifest must not fail shape validation');
 });
 
+test('Issue #96 unobservable authorized paths are refused by name', () => {
+  // Self-audit before review: Git never reports `.git` contents as worktree or index state,
+  // so an authorized path there could be written while every guard reported a clean,
+  // in-bounds overlay — the same authorized-but-unobservable class as a runtime root. A
+  // blank path or one carrying control characters is likewise not a path any guard can match.
+  const rejected = (paths, subcheck) => {
+    const result = named(cli('overlay_freeze', { cwd: '/tmp', authorizedPaths: paths }));
+    assert.equal(result.error.details.subcheck, subcheck, `${JSON.stringify(paths)} must fail ${subcheck}`);
+    return result;
+  };
+  const metadata = rejected(['tracked.txt', '.git/hooks/pre-commit'], 'repository_metadata_exclusion');
+  assert.match(metadata.error.message, /\.git\/hooks\/pre-commit/);
+  rejected(['sub/.git/config'], 'repository_metadata_exclusion');
+  rejected(['sub/.GIT/config'], 'repository_metadata_exclusion');
+  for (const blank of [' ', '\t', 'a\u0000b', 'a\nb']) rejected([blank], 'authorized_paths_shape');
+});
+
+test('Issue #96 the frozen digest covers literal content and full blob identity', () => {
+  // Self-audit before review: the contract freezes the overlay by raw diff/content bytes and
+  // blob identity. Without `--binary --no-abbrev` a binary change is represented only by a
+  // "Binary files differ" line plus an abbreviated index line, so the digest is pinned here
+  // against an independently computed patch over the exact flag set.
+  const repository = guardRepository();
+  try {
+    const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
+    assert.equal(created.ok, true, JSON.stringify(created.error));
+    const workspace = created.data.path;
+    fs.writeFileSync(path.join(workspace, 'payload.bin'), Buffer.from([0, 1, 2, 250, 0, 9]));
+
+    const frozen = cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['payload.bin'] });
+    assert.equal(frozen.ok, true, JSON.stringify(frozen.error));
+    // `git diff --no-index` exits 1 when the inputs differ, which is the expected case here.
+    let patchBytes;
+    try {
+      patchBytes = execFileSync('git', ['diff', '--no-ext-diff', '--binary', '--no-abbrev', '--no-index', '--', '/dev/null', 'payload.bin'], {
+        cwd: workspace, encoding: 'buffer',
+        env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' },
+      });
+    } catch (error) {
+      assert.equal(error.status, 1, 'only a difference exit is expected');
+      patchBytes = error.stdout;
+    }
+    const patch = patchBytes.toString('utf8');
+    assert.match(patch, /GIT binary patch/, 'the pinned flag set must produce a literal binary patch');
+    assert.doesNotMatch(patch, /Binary files .* differ/);
+    // The guard's digest is over the same bytes this patch carries: any weaker flag set here
+    // changes the digest and fails.
+    const digest = require('node:crypto').createHash('sha256').update(patchBytes).digest('hex');
+    assert.equal(frozen.data.entries[0].rawDiffSha256, digest, 'the frozen digest must cover the literal binary patch');
+  } finally {
+    fs.rmSync(repository.root, { recursive: true, force: true });
+    fs.rmSync(repository.bare, { recursive: true, force: true });
+  }
+});
+
 test('Issue #96 the guards accept SHA-256 repository object names', () => {
   // Review-driven (SOL-99-SHA256-GUARD-OIDS): a SHA-256 repository yields 64-hex OIDs; the
   // freeze-to-compare and capture-to-compare compositions must round-trip there too.

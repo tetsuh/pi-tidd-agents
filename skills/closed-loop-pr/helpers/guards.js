@@ -49,10 +49,21 @@ function runtimeRooted(entry) {
 function checkAuthorizedPaths(paths) {
   if (!Array.isArray(paths) || paths.length === 0) fail('invalid_request', 'authorized_paths_shape', 'authorizedPaths must be a nonempty array', Array.isArray(paths) ? `length ${paths.length}` : typeof paths);
   for (const entry of paths) {
-    if (!text(entry) || entry.startsWith('/') || entry.split('/').some((part) => ['', '.', '..'].includes(part))) {
+    // Control characters would make a path unmatchable against NUL-delimited Git output, and
+    // a blank path is not a path at all; both are rejected here rather than by a later Git
+    // invocation whose failure would name the wrong subcheck.
+    if (!text(entry) || entry.startsWith('/') || entry.trim().length === 0
+      // eslint-disable-next-line no-control-regex
+      || /[\u0000-\u001f\u007f]/.test(entry)
+      || entry.split('/').some((part) => ['', '.', '..'].includes(part))) {
       fail('invalid_request', 'authorized_paths_shape', `authorized path is not a normalized relative path: ${JSON.stringify(entry)}`, entry);
     }
   }
+  // Repository metadata is unobservable to these guards: Git never reports `.git` contents as
+  // worktree or index state, so an authorized path there could be written while every guard
+  // reported a clean, in-bounds overlay. It is refused for the same reason runtime roots are.
+  const metadata = paths.find((entry) => entry.split('/').some((part) => part.toLowerCase() === '.git'));
+  if (metadata !== undefined) fail('invalid_request', 'repository_metadata_exclusion', `authorized path is inside repository metadata, which no guard can observe: ${metadata}`, metadata);
   if (new Set(paths).size !== paths.length) fail('invalid_request', 'authorized_paths_shape', 'authorizedPaths carries a duplicate', paths.find((entry, i) => paths.indexOf(entry) !== i));
   const rooted = paths.find(runtimeRooted);
   if (rooted !== undefined) fail('invalid_request', 'runtime_root_exclusion', `authorized path is under a runtime root: ${rooted}`, rooted);
@@ -77,9 +88,12 @@ function porcelainEntries(cwd, phase) {
   return entries;
 }
 function diffDigest(cwd, entry, phase) {
+  // `--binary` puts literal content in the patch and `--no-abbrev` prints full blob names, so
+  // the frozen digest covers raw content bytes and complete blob identity as the contract
+  // states, rather than an abbreviated index line and a "Binary files differ" placeholder.
   const bytes = entry.staged === '?'
-    ? gitBytes(cwd, ['diff', '--no-ext-diff', '--no-index', '--', '/dev/null', entry.path], phase, [1])
-    : gitBytes(cwd, ['diff', '--no-ext-diff', '--', entry.path], phase);
+    ? gitBytes(cwd, ['diff', '--no-ext-diff', '--binary', '--no-abbrev', '--no-index', '--', '/dev/null', entry.path], phase, [1])
+    : gitBytes(cwd, ['diff', '--no-ext-diff', '--binary', '--no-abbrev', '--', entry.path], phase);
   return crypto.createHash('sha256').update(bytes).digest('hex');
 }
 
