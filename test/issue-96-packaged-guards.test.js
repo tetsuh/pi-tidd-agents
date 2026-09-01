@@ -228,6 +228,26 @@ test('Issue #96 the guard cross-operation fields are shape-checked before dispat
     assert.equal(swapped.operation, operation);
     assert.ok(swapped.error.message.includes(shape), `${operation} must name ${shape}`);
   }
+  // Review-driven (SOL-99-GUARD-CROSS-SHAPES, round 3): the two guard producers carry the
+  // same envelope keys, so actual producer data — not just a hand-made envelope — must be
+  // rejected when it is fed to the other field, in both directions.
+  const overlayData = { parent: 'a'.repeat(40), entries: [{ path: 'a.txt', status: 'M', rawDiffSha256: 'b'.repeat(64) }], authorizedPaths: ['a.txt'] };
+  const manifestData = { parent: 'a'.repeat(40), entries: [{ path: 'a.txt', status: 'M', srcMode: '100644', dstMode: '100644', srcOid: 'c'.repeat(40), dstOid: 'd'.repeat(40) }] };
+  const crossed = named(cli('manifest_compare', { cwd: '/w', parent: 'a'.repeat(40), manifest: overlayData }));
+  assert.equal(crossed.error.code, 'input_shape_mismatch');
+  assert.ok(crossed.error.message.includes('data:manifest_compare'));
+  const reversed = named(cli('overlay_compare', { cwd: '/w', overlay: manifestData }));
+  assert.equal(reversed.error.code, 'input_shape_mismatch');
+  assert.ok(reversed.error.message.includes('data:overlay_freeze'));
+  // The valid compositions still pass their predicate: only the git observation fails after.
+  for (const [operation, data] of [
+    ['overlay_compare', { cwd: '/nonexistent-not-a-repo', overlay: overlayData }],
+    ['manifest_compare', { cwd: '/nonexistent-not-a-repo', parent: 'a'.repeat(40), manifest: manifestData }],
+  ]) {
+    const valid = cli(operation, data);
+    assert.notEqual(valid.error?.code, 'input_shape_mismatch', `${operation} must accept its own producer's data`);
+  }
+
   // Capture mode legitimately omits the optional manifest field.
   const capture = cli('manifest_compare', { cwd: '/nonexistent-not-a-repo', parent: 'a'.repeat(40), authorizedPaths: ['a.txt'] });
   assert.notEqual(capture.error?.code, 'input_shape_mismatch', 'an omitted optional manifest must not fail shape validation');

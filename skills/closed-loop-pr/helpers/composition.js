@@ -25,6 +25,9 @@ const INPUT_SHAPES = Object.freeze({
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
 
+const guardShape = (value) => plain(value) && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.parent || '')
+  && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain);
+
 const SNAPSHOT_DATA_KEYS = Object.freeze([
   'after', 'annotations', 'before', 'checkSuites', 'checks', 'comments', 'completeness',
   'inline', 'policies', 'pull', 'reviews', 'statuses', 'threads',
@@ -39,13 +42,14 @@ const SNAPSHOT_DATA_KEYS = Object.freeze([
 // so it is validated only when supplied (CL-D57).
 const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manifest']) });
 const PREDICATES = Object.freeze({
-  // The two guard shapes are separating probes (CL-D44 depth calibration): the guards
-  // themselves revalidate every field they consume.
-  'data:overlay_freeze': (value) => plain(value) && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.parent || '')
-    && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain)
-    && Array.isArray(value.authorizedPaths),
-  'data:manifest_compare': (value) => plain(value) && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.parent || '')
-    && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain),
+  // The two guard shapes carry the same envelope keys, so each predicate is anchored on its
+  // own producer's entry fields: an overlay entry carries a working-tree digest, a manifest
+  // entry carries index blob identity, and neither satisfies the other's predicate.
+  'data:overlay_freeze': (value) => guardShape(value) && Array.isArray(value.authorizedPaths)
+    && value.entries.every((entry) => text(entry.path) && text(entry.status) && /^[0-9a-f]{64}$/.test(entry.rawDiffSha256 || '')),
+  'data:manifest_compare': (value) => guardShape(value)
+    && value.entries.every((entry) => text(entry.path) && text(entry.status)
+      && ['srcMode', 'dstMode', 'srcOid', 'dstOid'].every((field) => text(entry[field]))),
   'envelope:operator_capture': (value) => plain(value) && value.version === 1 && value.ok === true
     && value.operation === 'operator_capture' && plain(value.data) && !Object.hasOwn(value, 'error'),
   'data:workspace_create': (value) => {
