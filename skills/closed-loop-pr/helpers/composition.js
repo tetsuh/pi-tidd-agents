@@ -25,6 +25,10 @@ const INPUT_SHAPES = Object.freeze({
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
 
+// Exact key set: every required key present, no key outside required plus optional.
+const keySet = (value, required, optional) => required.every((key) => Object.hasOwn(value, key))
+  && Object.keys(value).every((key) => required.includes(key) || optional.includes(key));
+
 const guardShape = (value) => plain(value) && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.parent || '')
   && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain);
 
@@ -42,14 +46,18 @@ const SNAPSHOT_DATA_KEYS = Object.freeze([
 // so it is validated only when supplied (CL-D57).
 const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manifest']) });
 const PREDICATES = Object.freeze({
-  // The two guard shapes carry the same envelope keys, so each predicate is anchored on its
-  // own producer's entry fields: an overlay entry carries a working-tree digest, a manifest
-  // entry carries index blob identity, and neither satisfies the other's predicate.
-  'data:overlay_freeze': (value) => guardShape(value) && Array.isArray(value.authorizedPaths)
-    && value.entries.every((entry) => text(entry.path) && text(entry.status) && /^[0-9a-f]{64}$/.test(entry.rawDiffSha256 || '')),
+  // The two guard producers carry the same envelope keys, so each predicate states its own
+  // producer's exact key set. Exactness is what makes them mutually exclusive: a value
+  // carrying both producers' fields satisfies neither, because each rejects the other's.
+  'data:overlay_freeze': (value) => guardShape(value)
+    && keySet(value, ['parent', 'entries', 'authorizedPaths'], [])
+    && Array.isArray(value.authorizedPaths)
+    && value.entries.every((entry) => keySet(entry, ['path', 'status', 'rawDiffSha256'], ['sourcePath'])
+      && text(entry.path) && text(entry.status) && /^[0-9a-f]{64}$/.test(entry.rawDiffSha256)),
   'data:manifest_compare': (value) => guardShape(value)
-    && value.entries.every((entry) => text(entry.path) && text(entry.status)
-      && ['srcMode', 'dstMode', 'srcOid', 'dstOid'].every((field) => text(entry[field]))),
+    && keySet(value, ['parent', 'entries'], [])
+    && value.entries.every((entry) => keySet(entry, ['path', 'status', 'srcMode', 'dstMode', 'srcOid', 'dstOid'], ['sourcePath'])
+      && ['path', 'status', 'srcMode', 'dstMode', 'srcOid', 'dstOid'].every((field) => text(entry[field]))),
   'envelope:operator_capture': (value) => plain(value) && value.version === 1 && value.ok === true
     && value.operation === 'operator_capture' && plain(value.data) && !Object.hasOwn(value, 'error'),
   'data:workspace_create': (value) => {

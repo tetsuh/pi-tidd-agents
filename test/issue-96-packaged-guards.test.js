@@ -246,6 +246,22 @@ test('Issue #96 the guard cross-operation fields are shape-checked before dispat
   assert.equal(hybrid.error.code, 'input_shape_mismatch');
   assert.ok(hybrid.error.message.includes('data:overlay_freeze'));
 
+  // Review-driven (SOL-99-GUARD-CROSS-SHAPES, round 4): mutual exclusion is asserted as a
+  // property, not by example. An all-fields hybrid carrying both producers' keys satisfies
+  // neither predicate, because each states its own producer's exact key set.
+  const { inputShapeProblem } = require('../skills/closed-loop-pr/helpers');
+  const allFields = {
+    parent: 'a'.repeat(40), authorizedPaths: ['a.txt'],
+    entries: [{ ...overlayData.entries[0], ...manifestData.entries[0] }],
+  };
+  for (const candidate of [overlayData, manifestData, allFields, { ...manifestData, authorizedPaths: ['a.txt'] }]) {
+    const asOverlay = inputShapeProblem('overlay_compare', { cwd: '/w', overlay: candidate }) === null;
+    const asManifest = inputShapeProblem('manifest_compare', { cwd: '/w', parent: 'a'.repeat(40), manifest: candidate }) === null;
+    assert.equal(asOverlay && asManifest, false, `no value may satisfy both producer shapes: ${JSON.stringify(candidate).slice(0, 90)}`);
+  }
+  assert.equal(inputShapeProblem('overlay_compare', { cwd: '/w', overlay: allFields }), '`overlay` must be data:overlay_freeze, received an object matching no declared shape');
+  assert.notEqual(inputShapeProblem('manifest_compare', { cwd: '/w', parent: 'a'.repeat(40), manifest: allFields }), null);
+
   // The valid compositions still pass their predicate: only the git observation fails after.
   for (const [operation, data] of [
     ['overlay_compare', { cwd: '/nonexistent-not-a-repo', overlay: overlayData }],
