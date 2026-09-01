@@ -239,6 +239,13 @@ test('Issue #96 the guard cross-operation fields are shape-checked before dispat
   const reversed = named(cli('overlay_compare', { cwd: '/w', overlay: manifestData }));
   assert.equal(reversed.error.code, 'input_shape_mismatch');
   assert.ok(reversed.error.message.includes('data:overlay_freeze'));
+  // A hybrid carrying the overlay's envelope key but the manifest's entry fields must fail
+  // too, or the overlay predicate's entry anchor would be unfalsifiable — a check that
+  // cannot fail is not a check.
+  const hybrid = named(cli('overlay_compare', { cwd: '/w', overlay: { ...manifestData, authorizedPaths: ['a.txt'] } }));
+  assert.equal(hybrid.error.code, 'input_shape_mismatch');
+  assert.ok(hybrid.error.message.includes('data:overlay_freeze'));
+
   // The valid compositions still pass their predicate: only the git observation fails after.
   for (const [operation, data] of [
     ['overlay_compare', { cwd: '/nonexistent-not-a-repo', overlay: overlayData }],
