@@ -72,21 +72,31 @@ function checkAuthorizedPaths(paths) {
 // `git status --porcelain -z` observation of the working tree, runtime roots excluded: the
 // safe untracked runtime churn is outside every overlay by rule, never a finding here.
 function porcelainEntries(cwd, phase) {
-  const raw = gitText(cwd, ['status', '--porcelain', '-z', '--untracked-files=all'], phase);
+  return parsePorcelainRecords(gitText(cwd, ['status', '--porcelain', '-z', '--untracked-files=all'], phase));
+}
+// Pure so the documented short-format cases can be exercised directly: Git's own table lists
+// rename and copy in either column, and a record shape that cannot be produced on demand is
+// still a record shape this parser must not desynchronise on.
+function parsePorcelainRecords(raw) {
   const entries = [];
   const records = raw.split('\0').filter((record) => record.length > 0);
   for (let i = 0; i < records.length; i += 1) {
     const record = records[i];
     const staged = record[0], unstaged = record[1], entry = record.slice(3);
     // Rename/copy records carry the source endpoint as the following NUL record; retain it,
-    // never drop it (SOL-99-RENAME-ENDPOINT-SCOPE).
-    const sourcePath = staged === 'R' || staged === 'C' ? records[i + 1] : undefined;
-    if (staged === 'R' || staged === 'C') i += 1;
+    // never drop it (SOL-99-RENAME-ENDPOINT-SCOPE). The status may sit in either column —
+    // `RM` is an index rename with a later worktree edit — and consuming the extra record on
+    // the index column alone would desynchronise the parse and read a source path as its own
+    // entry (SOL-99-UNSTAGED-RENAME-PARSER).
+    const renameOrCopy = ['R', 'C'].includes(staged) || ['R', 'C'].includes(unstaged);
+    const sourcePath = renameOrCopy ? records[i + 1] : undefined;
+    if (renameOrCopy) i += 1;
     if (runtimeRooted(entry) && (sourcePath === undefined || runtimeRooted(sourcePath))) continue;
     entries.push({ path: entry, staged, unstaged, ...(sourcePath === undefined ? {} : { sourcePath }) });
   }
   return entries;
 }
+
 function diffDigest(cwd, entry, phase) {
   // `--binary` puts literal content in the patch and `--no-abbrev` prints full blob names, so
   // the frozen digest covers raw content bytes and complete blob identity as the contract
@@ -119,7 +129,7 @@ function overlayObservation(cwd, authorized, phase) {
   for (const entry of porcelainEntries(cwd, phase)) {
     // A rename mutates its source; the source endpoint must be inside the maximum set too.
     // A copy leaves its source untouched, so only the destination is required.
-    if (authorized && entry.staged === 'R' && entry.sourcePath !== undefined && !authorized.has(entry.sourcePath)) {
+    if (authorized && (entry.staged === 'R' || entry.unstaged === 'R') && entry.sourcePath !== undefined && !authorized.has(entry.sourcePath)) {
       fail('guard_failed', 'authorized_subset', `rename source is outside the authorized maximum set: ${entry.sourcePath}`, entry.sourcePath);
     }
     if (entry.staged !== ' ' && entry.staged !== '?') {
@@ -242,4 +252,4 @@ function manifestCompare(data) {
   });
 }
 
-module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare };
+module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, parsePorcelainRecords };

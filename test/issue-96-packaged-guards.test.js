@@ -214,6 +214,63 @@ test('Issue #96 rename endpoints stay inside the maximum set', async () => {
   }
 });
 
+test('Issue #96 the porcelain parser consumes a rename source from either column', () => {
+  // Review-driven (SOL-99-UNSTAGED-RENAME-PARSER, recovered from a review run terminated
+  // before it could publish). Git's short-format table lists rename and copy in the work
+  // tree column as well as the index column; those records still carry the source endpoint
+  // as an extra NUL field. Consuming it on the index column alone reads the source path as
+  // its own entry — a phantom change on a path nothing touched. The records below cannot be
+  // produced on demand from this Git build, so the parser is exercised directly.
+  const { parsePorcelainRecords } = require('../skills/closed-loop-pr/helpers/guards');
+  for (const [label, raw] of [
+    ['index rename', 'R  b.txt\0a.txt\0'],
+    ['index rename with worktree edit', 'RM b.txt\0a.txt\0'],
+    ['work tree rename', ' R b.txt\0a.txt\0'],
+    ['work tree copy', ' C b.txt\0a.txt\0'],
+  ]) {
+    const entries = parsePorcelainRecords(raw);
+    assert.equal(entries.length, 1, `${label}: the source record must be consumed, not read as an entry`);
+    assert.equal(entries[0].path, 'b.txt', label);
+    assert.equal(entries[0].sourcePath, 'a.txt', `${label}: the source endpoint must be retained`);
+  }
+  // A plain record keeps its neighbour: consuming an extra field unconditionally would eat it.
+  const plain = parsePorcelainRecords(' M a.txt\0?? b.txt\0');
+  assert.deepEqual(plain.map((entry) => entry.path), ['a.txt', 'b.txt']);
+  assert.equal(plain.every((entry) => entry.sourcePath === undefined), true);
+});
+
+test('Issue #96 a rename with a later edit does not desynchronise the parse', () => {
+  // Review-driven (SOL-99-UNSTAGED-RENAME-PARSER, recovered from a review run that was
+  // terminated before it could publish): `git mv` followed by an edit reports `RM`, whose
+  // source endpoint still arrives as an extra NUL record. Consuming that record on the index
+  // column alone would read the source path as its own entry, so the guard would report a
+  // path that never changed and miss the rename's own source authorization.
+  const repository = guardRepository();
+  try {
+    const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
+    assert.equal(created.ok, true, JSON.stringify(created.error));
+    const workspace = created.data.path;
+    git(workspace, ['mv', 'tracked.txt', 'moved.txt']);
+    fs.appendFileSync(path.join(workspace, 'moved.txt'), 'edited\n');
+    assert.match(git(workspace, ['status', '--porcelain']), /^RM /m, 'the fixture must produce a two-column rename record');
+
+    // The source endpoint is still required inside the authorized set, named as the source.
+    const destinationOnly = named(cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['moved.txt'] }));
+    assert.equal(destinationOnly.error.details.subcheck, 'authorized_subset');
+    assert.match(destinationOnly.error.message, /rename source .* tracked\.txt/);
+
+    // With both endpoints authorized the parse stays aligned: the record names the
+    // destination, never the consumed source, and the staged rename still stops the freeze
+    // on its own index-cleanliness rule rather than on a phantom entry.
+    const aligned = named(cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['tracked.txt', 'moved.txt'] }));
+    assert.equal(aligned.error.details.subcheck, 'index_clean');
+    assert.equal(aligned.error.details.observed, 'moved.txt');
+  } finally {
+    fs.rmSync(repository.root, { recursive: true, force: true });
+    fs.rmSync(repository.bare, { recursive: true, force: true });
+  }
+});
+
 test('Issue #96 the guard cross-operation fields are shape-checked before dispatch', () => {
   // Review-driven (SOL-99-GUARD-CROSS-SHAPES): the wrong producer document is rejected as
   // input_shape_mismatch before dispatch, named, never as a misleading guard diagnosis.
