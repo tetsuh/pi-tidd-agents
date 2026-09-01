@@ -14,7 +14,7 @@ const { RUNTIME_ROOTS } = require('./operator');
 const { classifyRuntimeRoots } = require('./paths');
 const { verifyWorkspace } = require('./workspace');
 
-const OID = /^[0-9a-f]{40}$/;
+const OID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const text = (value) => typeof value === 'string' && value.length > 0;
 function fail(code, subcheck, message, observed) {
   throw Object.assign(new Error(`${subcheck}: ${message}`), { code, details: { subcheck, observed: observed === undefined ? message : observed } });
@@ -193,7 +193,7 @@ function manifestCompare(data) {
   return wrap('manifest_compare', () => {
     const phase = 'manifest_compare';
     if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
-    if (!OID.test(data.parent || '')) fail('invalid_request', 'request_shape', 'parent must be a 40-hex commit OID', String(data.parent));
+    if (!OID.test(data.parent || '')) fail('invalid_request', 'request_shape', 'parent must be a 40- or 64-hex commit OID', String(data.parent));
     const capture = Object.hasOwn(data, 'authorizedPaths'), compare = Object.hasOwn(data, 'manifest');
     if (capture === compare) fail('invalid_request', 'request_shape', 'supply exactly one of authorizedPaths (capture) or manifest (compare)', capture ? 'both supplied' : 'neither supplied');
     const observed = stagedEntries(data.cwd, data.parent, phase);
@@ -205,7 +205,9 @@ function manifestCompare(data) {
         // A rename mutates its source endpoint; a copy reads it without change.
         if (entry.status === 'R' && !authorized.has(entry.sourcePath)) fail('guard_failed', 'authorized_subset', `rename source is outside the authorized maximum set: ${entry.sourcePath}`, entry.sourcePath);
       }
-      return createResult('manifest_compare', { manifest: { parent: data.parent, entries: observed } });
+      // The capture data itself is the immutable manifest, so the documented composition —
+      // feed the capture's data straight back as `manifest` — is executable as written.
+      return createResult('manifest_compare', { parent: data.parent, entries: observed });
     }
     const manifest = data.manifest;
     const shaped = manifest !== null && typeof manifest === 'object' && !Array.isArray(manifest)

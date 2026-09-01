@@ -131,15 +131,15 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
     git(workspace, ['add', 'tracked.txt', 'extra.txt']);
     const captured = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt', 'extra.txt', 'unused.md'] });
     assert.equal(captured.ok, true, JSON.stringify(captured.error));
-    assert.deepEqual(captured.data.manifest.entries.map((entry) => entry.path).sort(), ['extra.txt', 'tracked.txt']);
-    assert.equal(captured.data.manifest.entries.some((entry) => entry.path.startsWith('.github/')), false, 'a parent-carried entry never enters the manifest');
+    assert.deepEqual(captured.data.entries.map((entry) => entry.path).sort(), ['extra.txt', 'tracked.txt']);
+    assert.equal(captured.data.entries.some((entry) => entry.path.startsWith('.github/')), false, 'a parent-carried entry never enters the manifest');
 
     // Compare mode re-verifies the immutable manifest, then names an unauthorized staged path.
-    const recompared = cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data.manifest });
+    const recompared = cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data });
     assert.equal(recompared.ok, true, JSON.stringify(recompared.error));
     fs.writeFileSync(path.join(workspace, 'sneak.txt'), 'sneak\n');
     git(workspace, ['add', 'sneak.txt']);
-    const sneaked = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data.manifest }));
+    const sneaked = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data }));
     assert.equal(sneaked.error.details.subcheck, 'manifest_drift');
     assert.match(sneaked.error.message, /sneak\.txt/);
 
@@ -149,7 +149,7 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
     assert.match(sneakCaptured.error.message, /sneak\.txt/);
 
     // Exactly one of authorizedPaths or manifest.
-    const both = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt'], manifest: captured.data.manifest }));
+    const both = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt'], manifest: captured.data }));
     assert.equal(both.error.code, 'invalid_request');
 
     // Review-driven (SOL-99-RUNTIME-ROOT-GUARD): the roots are classified no-follow before
@@ -159,7 +159,7 @@ test('Issue #96 every guard failure names its subcheck and the observed value', 
     const dirtyUnsafe = named(cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['tracked.txt'] }));
     assert.equal(dirtyUnsafe.error.details.subcheck, 'runtime_root_classification');
     assert.match(dirtyUnsafe.error.message, /\.pi is symlink/);
-    const stagedUnsafe = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data.manifest }));
+    const stagedUnsafe = named(cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data }));
     assert.equal(stagedUnsafe.error.details.subcheck, 'runtime_root_classification');
     fs.rmSync(path.join(workspace, '.pi'));
     fs.writeFileSync(path.join(workspace, '.pi-subagents'), 'not a directory\n');
@@ -203,10 +203,10 @@ test('Issue #96 rename endpoints stay inside the maximum set', async () => {
     // Both endpoints authorized: the manifest captures the rename with its source bound.
     const captured = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt', 'moved.txt'] });
     assert.equal(captured.ok, true, JSON.stringify(captured.error));
-    const rename = captured.data.manifest.entries.find((entry) => entry.status === 'R');
+    const rename = captured.data.entries.find((entry) => entry.status === 'R');
     assert.equal(rename.path, 'moved.txt');
     assert.equal(rename.sourcePath, 'tracked.txt');
-    const recompared = cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data.manifest });
+    const recompared = cli('manifest_compare', { cwd: workspace, parent: repository.head, manifest: captured.data });
     assert.equal(recompared.ok, true, JSON.stringify(recompared.error));
   } finally {
     fs.rmSync(repository.root, { recursive: true, force: true });
@@ -231,6 +231,37 @@ test('Issue #96 the guard cross-operation fields are shape-checked before dispat
   // Capture mode legitimately omits the optional manifest field.
   const capture = cli('manifest_compare', { cwd: '/nonexistent-not-a-repo', parent: 'a'.repeat(40), authorizedPaths: ['a.txt'] });
   assert.notEqual(capture.error?.code, 'input_shape_mismatch', 'an omitted optional manifest must not fail shape validation');
+});
+
+test('Issue #96 the guards accept SHA-256 repository object names', () => {
+  // Review-driven (SOL-99-SHA256-GUARD-OIDS): a SHA-256 repository yields 64-hex OIDs; the
+  // freeze-to-compare and capture-to-compare compositions must round-trip there too.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-96-sha256-'));
+  try {
+    git(root, ['init', '-b', 'main', '--object-format=sha256']);
+    git(root, ['config', 'user.name', 'Issue 96 Test']);
+    git(root, ['config', 'user.email', 'issue96@example.invalid']);
+    fs.writeFileSync(path.join(root, 'tracked.txt'), 'base\n');
+    git(root, ['add', 'tracked.txt']);
+    git(root, ['commit', '-m', 'test: sha256 base']);
+    const head = git(root, ['rev-parse', 'HEAD']);
+    assert.equal(head.length, 64, 'the fixture repository must produce 64-hex object names');
+
+    fs.appendFileSync(path.join(root, 'tracked.txt'), 'edited\n');
+    const frozen = cli('overlay_freeze', { cwd: root, authorizedPaths: ['tracked.txt'] });
+    assert.equal(frozen.ok, true, JSON.stringify(frozen.error));
+    assert.equal(frozen.data.parent, head);
+    const compared = cli('overlay_compare', { cwd: root, overlay: frozen.data });
+    assert.equal(compared.ok, true, JSON.stringify(compared.error));
+
+    git(root, ['add', 'tracked.txt']);
+    const captured = cli('manifest_compare', { cwd: root, parent: head, authorizedPaths: ['tracked.txt'] });
+    assert.equal(captured.ok, true, JSON.stringify(captured.error));
+    const recompared = cli('manifest_compare', { cwd: root, parent: head, manifest: captured.data });
+    assert.equal(recompared.ok, true, JSON.stringify(recompared.error));
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test('Issue #96 a guard request that fails before dispatch is still a named failure', () => {

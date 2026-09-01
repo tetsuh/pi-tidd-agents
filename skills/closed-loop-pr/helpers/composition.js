@@ -41,10 +41,10 @@ const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manife
 const PREDICATES = Object.freeze({
   // The two guard shapes are separating probes (CL-D44 depth calibration): the guards
   // themselves revalidate every field they consume.
-  'data:overlay_freeze': (value) => plain(value) && /^[0-9a-f]{40}$/.test(value.parent || '')
+  'data:overlay_freeze': (value) => plain(value) && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.parent || '')
     && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain)
     && Array.isArray(value.authorizedPaths),
-  'data:manifest_compare': (value) => plain(value) && /^[0-9a-f]{40}$/.test(value.parent || '')
+  'data:manifest_compare': (value) => plain(value) && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.parent || '')
     && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain),
   'envelope:operator_capture': (value) => plain(value) && value.version === 1 && value.ok === true
     && value.operation === 'operator_capture' && plain(value.data) && !Object.hasOwn(value, 'error'),
