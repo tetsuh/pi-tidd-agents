@@ -31,6 +31,12 @@ function envelopeOf(operation, data) { return { version: 1, ok: true, operation,
 function captureData() { return { root: '/repo', head: OID, tree: 'b'.repeat(40), identity: { repository: 'tetsuh/pi-tidd-agents' }, trackingRef: OID }; }
 function receipt() { return { version: 1, id: 'run-1', root: '/run', storedPath: '/run/.cleanup-receipt.json', creationIdentity: { kind: 'linked', path: '/run/workspace' } }; }
 function createData() { return { path: '/run/workspace', head: OID, tree: 'b'.repeat(40), root: '/run', kind: 'linked', receipt: receipt(), cleanupAllowed: true }; }
+function overlayData() {
+  return { parent: OID, entries: [{ path: 'a.txt', status: 'M', rawDiffSha256: 'e'.repeat(64) }], authorizedPaths: ['a.txt'] };
+}
+function manifestData() {
+  return { parent: OID, entries: [{ path: 'a.txt', status: 'M', srcMode: '100644', dstMode: '100644', srcOid: 'c'.repeat(40), dstOid: 'd'.repeat(40) }] };
+}
 function snapshotData() { return { before: {}, after: {}, pull: {}, comments: [], reviews: [], inline: [], threads: [], checks: [], statuses: [] }; }
 function producerSnapshotData() {
   return {
@@ -275,6 +281,10 @@ test('Issue #74 every other declared field rejects the shapes it does not take',
     ['workspace_verify', 'expected', { cwd: '/run/workspace' }, [envelopeOf('workspace_create', createData()), receipt()]],
     ['workspace_cleanup', 'receipt', { cwd: '/repo' }, [envelopeOf('workspace_create', createData()), createData()]],
     ['fingerprint_snapshot', 'snapshot', {}, [envelopeOf('snapshot', snapshotData()), receipt(), { foo: 'bar' }, { head: OID }, captureData()]],
+    // The three guard fields joined the table under CL-D57 and are swept the same way.
+    ['guard_before_edit', 'expected', { cwd: '/run/workspace', authorizedPaths: ['a.txt'] }, [envelopeOf('workspace_create', createData()), receipt(), overlayData(), manifestData()]],
+    ['overlay_compare', 'overlay', { cwd: '/run/workspace' }, [envelopeOf('overlay_freeze', overlayData()), receipt(), createData(), manifestData()]],
+    ['manifest_compare', 'manifest', { cwd: '/run/workspace', parent: OID }, [envelopeOf('manifest_compare', manifestData()), receipt(), createData(), overlayData()]],
   ]) {
     for (const value of wrong) {
       const rejected = cli(operation, { ...extra, [field]: value });

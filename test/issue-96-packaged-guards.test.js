@@ -331,6 +331,71 @@ test('Issue #96 the frozen digest covers literal content and full blob identity'
   }
 });
 
+test('Issue #96 every guard cross-operation field takes only its declared producer', () => {
+  // Review-driven (SOL-99-GUARD-CROSS-SHAPES, round 5): the matrix is black-box and built
+  // from genuine packaged producer outputs — no synthetic stand-ins — so each declared field
+  // accepts exactly its producer's data and rejects every other envelope, data, and receipt.
+  const repository = guardRepository();
+  try {
+    const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
+    assert.equal(created.ok, true, JSON.stringify(created.error));
+    const workspace = created.data.path;
+    const captured = cli('operator_capture', {
+      cwd: repository.root,
+      identity: {
+        repository: 'owner/repo', prNumber: 96, lifecycle: 'open', baseOid: repository.head,
+        publicHead: repository.head, headRepository: 'owner/repo', headBranch: 'main',
+        originFetch: repository.bare, originPush: repository.bare,
+      },
+    });
+    assert.equal(captured.ok, true, JSON.stringify(captured.error));
+
+    fs.appendFileSync(path.join(workspace, 'tracked.txt'), 'edited\n');
+    const frozen = cli('overlay_freeze', { cwd: workspace, authorizedPaths: ['tracked.txt'] });
+    assert.equal(frozen.ok, true, JSON.stringify(frozen.error));
+    git(workspace, ['add', 'tracked.txt']);
+    const manifest = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt'] });
+    assert.equal(manifest.ok, true, JSON.stringify(manifest.error));
+
+    // Genuine producer outputs, each in every shape that producer publishes.
+    const produced = {
+      'operator_capture envelope': captured,
+      'operator_capture data': captured.data,
+      'workspace_create envelope': created,
+      'workspace_create data': created.data,
+      'workspace_create receipt': created.data.receipt,
+      'overlay_freeze envelope': frozen,
+      'overlay_freeze data': frozen.data,
+      'manifest_compare envelope': manifest,
+      'manifest_compare data': manifest.data,
+    };
+    const targets = [
+      ['guard_before_edit', 'expected', 'workspace_create data', 'data:workspace_create', { cwd: workspace, authorizedPaths: ['tracked.txt'] }],
+      ['overlay_compare', 'overlay', 'overlay_freeze data', 'data:overlay_freeze', { cwd: workspace }],
+      ['manifest_compare', 'manifest', 'manifest_compare data', 'data:manifest_compare', { cwd: workspace, parent: repository.head }],
+    ];
+    for (const [operation, field, declared, shape, extra] of targets) {
+      // Positive: the declared producer's data passes the boundary; only later observation may fail.
+      const accepted = cli(operation, { ...extra, [field]: produced[declared] });
+      assert.notEqual(accepted.error?.code, 'input_shape_mismatch', `${operation}.${field} must accept ${declared}`);
+      // Negative: every other genuine producer shape is refused by name, before dispatch.
+      for (const [label, value] of Object.entries(produced)) {
+        if (label === declared) continue;
+        const rejected = named(cli(operation, { ...extra, [field]: value }));
+        assert.equal(rejected.error.code, 'input_shape_mismatch', `${operation}.${field} must reject ${label}: ${JSON.stringify(rejected.error)}`);
+        assert.equal(rejected.error.phase, operation);
+        assert.ok(rejected.error.message.includes(`\`${field}\``) && rejected.error.message.includes(shape), `${operation}.${field} must name its field and shape when rejecting ${label}`);
+      }
+    }
+    // The optional capture mode still omits the manifest field entirely.
+    const capture = cli('manifest_compare', { cwd: workspace, parent: repository.head, authorizedPaths: ['tracked.txt'] });
+    assert.equal(capture.ok, true, JSON.stringify(capture.error));
+  } finally {
+    fs.rmSync(repository.root, { recursive: true, force: true });
+    fs.rmSync(repository.bare, { recursive: true, force: true });
+  }
+});
+
 test('Issue #96 the guards accept SHA-256 repository object names', () => {
   // Review-driven (SOL-99-SHA256-GUARD-OIDS): a SHA-256 repository yields 64-hex OIDs; the
   // freeze-to-compare and capture-to-compare compositions must round-trip there too.
