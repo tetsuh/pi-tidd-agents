@@ -237,6 +237,28 @@ test('Issue #96 the porcelain parser consumes a rename source from either column
   const plain = parsePorcelainRecords(' M a.txt\0?? b.txt\0');
   assert.deepEqual(plain.map((entry) => entry.path), ['a.txt', 'b.txt']);
   assert.equal(plain.every((entry) => entry.sourcePath === undefined), true);
+
+  // Review-driven (SOL-99-PORCELAIN-MALFORMED-RECORDS, recovered from a terminated run): a
+  // malformed or truncated observation must be a named failure. Returning a rename entry
+  // whose source endpoint is simply absent would skip the rename-source authorization check
+  // — the guard would pass a rename out of an unauthorized path.
+  for (const [label, raw] of [
+    ['missing source after an index rename', 'R  b.txt\0'],
+    ['missing source after a work tree rename', ' R b.txt\0'],
+    ['missing source after a copy', ' C b.txt\0'],
+    ['empty source record', 'R  b.txt\0\0'],
+    ['unterminated observation', ' M a.txt'],
+    ['empty record in the middle', ' M a.txt\0\0?? b.txt\0'],
+    ['status prefix without a separator', 'RMb.txt\0a.txt\0'],
+    ['record shorter than the grammar', 'R \0'],
+    ['unknown status letter', 'ZZ a.txt\0'],
+  ]) {
+    assert.throws(() => parsePorcelainRecords(raw), (error) => {
+      assert.equal(error.details.subcheck, 'porcelain_grammar', `${label} must fail as a grammar violation`);
+      assert.notEqual(error.details.observed, undefined, `${label} must name what it observed`);
+      return true;
+    }, label);
+  }
 });
 
 test('Issue #96 a rename with a later edit does not desynchronise the parse', () => {

@@ -77,11 +77,20 @@ function porcelainEntries(cwd, phase) {
 // Pure so the documented short-format cases can be exercised directly: Git's own table lists
 // rename and copy in either column, and a record shape that cannot be produced on demand is
 // still a record shape this parser must not desynchronise on.
+const PORCELAIN_STATUS = /^[ MTADRCU?!]{2} /;
 function parsePorcelainRecords(raw) {
   const entries = [];
-  const records = raw.split('\0').filter((record) => record.length > 0);
+  if (raw.length === 0) return entries;
+  // The grammar is checked before anything is read from it: a truncated observation must be a
+  // named failure, never a rename entry that quietly lost its source endpoint and with it the
+  // authorized-maximum-set check (SOL-99-PORCELAIN-MALFORMED-RECORDS).
+  if (!raw.endsWith('\0')) fail('guard_failed', 'porcelain_grammar', 'porcelain observation is not NUL-terminated', `${raw.length} bytes`);
+  const records = raw.slice(0, -1).split('\0');
   for (let i = 0; i < records.length; i += 1) {
     const record = records[i];
+    if (!PORCELAIN_STATUS.test(record) || record.length < 4) {
+      fail('guard_failed', 'porcelain_grammar', `porcelain record is malformed: ${JSON.stringify(record)}`, record);
+    }
     const staged = record[0], unstaged = record[1], entry = record.slice(3);
     // Rename/copy records carry the source endpoint as the following NUL record; retain it,
     // never drop it (SOL-99-RENAME-ENDPOINT-SCOPE). The status may sit in either column —
@@ -89,6 +98,9 @@ function parsePorcelainRecords(raw) {
     // the index column alone would desynchronise the parse and read a source path as its own
     // entry (SOL-99-UNSTAGED-RENAME-PARSER).
     const renameOrCopy = ['R', 'C'].includes(staged) || ['R', 'C'].includes(unstaged);
+    if (renameOrCopy && (i + 1 >= records.length || records[i + 1].length === 0)) {
+      fail('guard_failed', 'porcelain_grammar', `rename or copy record carries no source endpoint: ${JSON.stringify(record)}`, record);
+    }
     const sourcePath = renameOrCopy ? records[i + 1] : undefined;
     if (renameOrCopy) i += 1;
     if (runtimeRooted(entry) && (sourcePath === undefined || runtimeRooted(sourcePath))) continue;
