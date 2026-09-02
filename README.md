@@ -94,7 +94,7 @@ The original model-derived names remain as transitional aliases for one release 
 | `terra-reviewer` | `tidd-safety-reviewer` |
 | `luna-worker` | `tidd-autofix-worker` |
 
-An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only, so re-key existing overrides to the role name. The standalone `glm-worker` and `terra-worker` agents were removed with CL-D59.
+An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only, so re-key existing overrides to the role name. Likewise, an exact configured name always resolves before an alias, so a copy of an old agent file in your own agent directory wins over the alias for that old name and bypasses the role; remove such copies. The standalone `glm-worker` and `terra-worker` agents were removed with CL-D59.
 
 ## Closed-loop workflow (opt-in)
 

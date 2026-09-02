@@ -80,6 +80,7 @@ test('Issue #100 the README documents the roles, the alias transition, and overr
   }
   assert.match(readme, /An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only/);
   assert.match(readme, /`subagents\.agentOverrides\.tidd-adversarial-reviewer\.model`/);
+  assert.match(readme, /an exact configured name always resolves before an alias/);
   assert.doesNotMatch(readme, /`glm-worker` is not used by the closed-loop workflow/);
 });
 
@@ -92,6 +93,11 @@ test('Issue #100 CL-D59 records the role split, the agents/ widening, and the re
   assert.match(record, /`glm-worker` and `terra-worker` are removed/);
   assert.match(record, /widens the CL-D1 `agents\/` freeze exactly once more/);
   assert.match(record, /overrides\[agent\.name\]/);
+  // SOL-104-ALIAS-COLLISION: resolveAgentName returns a unique exact configured name before it
+  // ever consults aliases, so a leftover legacy definition bypasses the role; it is no collision.
+  assert.match(record, /a unique exact configured name resolves before any alias is consulted/);
+  assert.match(record, /a leftover legacy definition would silently bypass the role/);
+  assert.doesNotMatch(record, /registry collision/);
   const cl1 = sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files');
   assert.match(cl1, /CL-D59 later renamed the agent files to role identities under its own widening/);
   const cl3 = sectionOf(contract, '## CL-D3 — Writer selection');
