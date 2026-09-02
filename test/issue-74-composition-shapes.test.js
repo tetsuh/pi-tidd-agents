@@ -31,6 +31,12 @@ function envelopeOf(operation, data) { return { version: 1, ok: true, operation,
 function captureData() { return { root: '/repo', head: OID, tree: 'b'.repeat(40), identity: { repository: 'tetsuh/pi-tidd-agents' }, trackingRef: OID }; }
 function receipt() { return { version: 1, id: 'run-1', root: '/run', storedPath: '/run/.cleanup-receipt.json', creationIdentity: { kind: 'linked', path: '/run/workspace' } }; }
 function createData() { return { path: '/run/workspace', head: OID, tree: 'b'.repeat(40), root: '/run', kind: 'linked', receipt: receipt(), cleanupAllowed: true }; }
+function overlayData() {
+  return { parent: OID, entries: [{ path: 'a.txt', status: 'M', rawDiffSha256: 'e'.repeat(64) }], authorizedPaths: ['a.txt'] };
+}
+function manifestData() {
+  return { parent: OID, entries: [{ path: 'a.txt', status: 'M', srcMode: '100644', dstMode: '100644', srcOid: 'c'.repeat(40), dstOid: 'd'.repeat(40) }] };
+}
 function snapshotData() { return { before: {}, after: {}, pull: {}, comments: [], reviews: [], inline: [], threads: [], checks: [], statuses: [] }; }
 function producerSnapshotData() {
   return {
@@ -189,9 +195,14 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
   assert.deepEqual(
     Object.entries(shapes).map(([operation, fields]) => [operation, ...Object.entries(fields).flat()]).sort(),
     [
+      // The three guard fields joined the table under CL-D57 — the new-owner-decision route
+      // the freeze names — and are pinned exactly the same way.
       ['fingerprint_snapshot', 'snapshot', 'data:snapshot'],
       ['gate_result_validate', 'result', 'structured:gate_result'],
+      ['guard_before_edit', 'expected', 'data:workspace_create'],
+      ['manifest_compare', 'manifest', 'data:manifest_compare'],
       ['operator_revalidate', 'captured', 'envelope:operator_capture'],
+      ['overlay_compare', 'overlay', 'data:overlay_freeze'],
       ['workspace_cleanup', 'receipt', 'receipt:workspace_create'],
       ['workspace_verify', 'expected', 'data:workspace_create'],
     ],
@@ -204,9 +215,16 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
   // Every declared field must exist in the CLI schema it constrains, or the declaration is
   // decorative.
   const schemas = cliSchemas();
+  // Optional request fields (manifest_compare.manifest) are declared too; cliSchemas returns
+  // only the required list, so the optional lists are read beside it.
+  const optionalFields = Object.fromEntries(
+    [...readText('skills/closed-loop-pr/helpers/cli.js').matchAll(/^\s{2}([a-z][a-z0-9_]*): \{ required: \[[^\]]*\], optional: \[([^\]]*)\] \}/gm)]
+      .map((match) => [match[1], (match[2].match(/'([^']+)'/g) || []).map((field) => field.slice(1, -1))]),
+  );
   for (const [operation, fields] of Object.entries(shapes)) {
     assert.ok(schemas[operation], `${operation} must be a known operation`);
-    for (const field of Object.keys(fields)) assert.ok(schemas[operation].includes(field), `${operation}.${field} must be a declared request field`);
+    const declared = [...schemas[operation], ...(optionalFields[operation] || [])];
+    for (const field of Object.keys(fields)) assert.ok(declared.includes(field), `${operation}.${field} must be a declared request field`);
   }
 });
 
@@ -263,6 +281,10 @@ test('Issue #74 every other declared field rejects the shapes it does not take',
     ['workspace_verify', 'expected', { cwd: '/run/workspace' }, [envelopeOf('workspace_create', createData()), receipt()]],
     ['workspace_cleanup', 'receipt', { cwd: '/repo' }, [envelopeOf('workspace_create', createData()), createData()]],
     ['fingerprint_snapshot', 'snapshot', {}, [envelopeOf('snapshot', snapshotData()), receipt(), { foo: 'bar' }, { head: OID }, captureData()]],
+    // The three guard fields joined the table under CL-D57 and are swept the same way.
+    ['guard_before_edit', 'expected', { cwd: '/run/workspace', authorizedPaths: ['a.txt'] }, [envelopeOf('workspace_create', createData()), receipt(), overlayData(), manifestData()]],
+    ['overlay_compare', 'overlay', { cwd: '/run/workspace' }, [envelopeOf('overlay_freeze', overlayData()), receipt(), createData(), manifestData()]],
+    ['manifest_compare', 'manifest', { cwd: '/run/workspace', parent: OID }, [envelopeOf('manifest_compare', manifestData()), receipt(), createData(), overlayData()]],
   ]) {
     for (const value of wrong) {
       const rejected = cli(operation, { ...extra, [field]: value });

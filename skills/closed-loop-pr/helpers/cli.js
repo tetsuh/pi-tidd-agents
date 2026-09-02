@@ -22,6 +22,10 @@ const SCHEMAS = Object.freeze({
   workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
+  guard_before_edit: { required: ['cwd', 'expected', 'authorizedPaths'], optional: [] },
+  overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
+  overlay_compare: { required: ['cwd', 'overlay'], optional: [] },
+  manifest_compare: { required: ['cwd', 'parent'], optional: ['authorizedPaths', 'manifest'] },
   build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead'] },
   build_workspace_verify: { required: ['created', 'cwd'], optional: ['transition'] },
   build_workspace_cleanup: { required: ['created', 'cwd'], optional: [] },
@@ -31,15 +35,52 @@ const SCHEMAS = Object.freeze({
   marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },
 });
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
-function invalid(message) { const error = new Error(message); error.code = 'invalid_request'; error.phase = 'cli'; throw error; }
+// Bounded, JSON-aware description of a received value: missing and null are distinct,
+// scalars keep their concrete value, and containers are summarized — never typeof null.
+function describeReceived(value) {
+  if (value === undefined) return 'undefined';
+  if (value === null) return 'null';
+  if (Array.isArray(value)) return `array of ${value.length}`;
+  if (typeof value === 'object') return `object with ${Object.keys(value).length} keys`;
+  if (typeof value === 'string') {
+    // Truncate on Unicode code-point boundaries so the report never fabricates a lone
+    // surrogate that was not in the input.
+    const points = [...value];
+    return `string ${JSON.stringify(points.length > 40 ? `${points.slice(0, 37).join('')}...` : value)}`;
+  }
+  // String(-0) is "0"; the parsed value is negative zero and the report says so.
+  if (typeof value === 'number' && Object.is(value, -0)) return 'number -0';
+  return `${typeof value} ${String(value)}`;
+}
+const GUARD_OPERATIONS = new Set(['guard_before_edit', 'overlay_freeze', 'overlay_compare', 'manifest_compare']);
+// A recognized guard request that fails validation before dispatch still names its subcheck
+// and observed value (CL-D55): a request-shape defect is a named failure, never a bare one.
+function invalid(message, operation, observed) {
+  const error = new Error(message); error.code = 'invalid_request'; error.phase = 'cli';
+  if (operation && GUARD_OPERATIONS.has(operation)) {
+    error.operation = operation;
+    error.phase = operation;
+    error.details = { subcheck: 'request_shape', observed: observed === undefined ? message : observed };
+  }
+  throw error;
+}
 function validateRequest(value) {
-  if (!object(value) || value.version !== 1 || typeof value.operation !== 'string' || !object(value.data)) invalid('request must contain version:1, a known operation, and object data');
-  for (const key of Object.keys(value)) if (!['version', 'operation', 'data'].includes(key)) invalid(`unknown request envelope field: ${key}`);
+  // Recognize a guard operation before any envelope check fires, so every applicable
+  // envelope-validation failure is named too; unrecognized operations keep reporting as cli.
+  const guardOperation = object(value) && typeof value.operation === 'string' && GUARD_OPERATIONS.has(value.operation) ? value.operation : undefined;
+  if (!object(value) || value.version !== 1 || typeof value.operation !== 'string' || !object(value.data)) {
+    const observed = !object(value) ? `request ${describeReceived(value)}`
+      : value.version !== 1 ? `version ${describeReceived(value.version)}`
+        : typeof value.operation !== 'string' ? `operation ${describeReceived(value.operation)}`
+          : `data ${describeReceived(value.data)}`;
+    invalid('request must contain version:1, a known operation, and object data', guardOperation, observed);
+  }
+  for (const key of Object.keys(value)) if (!['version', 'operation', 'data'].includes(key)) invalid(`unknown request envelope field: ${key}`, guardOperation, key);
   const schema = SCHEMAS[value.operation];
   if (!schema) invalid('unknown operation');
   const allowed = new Set([...schema.required, ...schema.optional]);
-  for (const key of Object.keys(value.data)) if (!allowed.has(key)) invalid(`unknown request field: ${key}`);
-  for (const key of schema.required) if (!Object.hasOwn(value.data, key)) invalid(`missing request field: ${key}`);
+  for (const key of Object.keys(value.data)) if (!allowed.has(key)) invalid(`unknown request field: ${key}`, value.operation, key);
+  for (const key of schema.required) if (!Object.hasOwn(value.data, key)) invalid(`missing request field: ${key}`, value.operation, key);
   if (value.operation === 'workspace_verify' && Object.hasOwn(value.data, 'transition')) {
     const transition = value.data.transition;
     if (!object(transition) || Object.keys(transition).some((key) => !['from', 'to'].includes(key)) || !Object.hasOwn(transition, 'from') || !Object.hasOwn(transition, 'to') || !Object.values(transition).every((oid) => typeof oid === 'string' && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(oid))) invalid('workspace transition requires only from and to OIDs');
@@ -75,6 +116,10 @@ async function dispatch(request) {
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
     case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));
+    case 'guard_before_edit': return wrap(operation, helpers.guardBeforeEdit(data));
+    case 'overlay_freeze': return wrap(operation, helpers.overlayFreeze(data));
+    case 'overlay_compare': return wrap(operation, helpers.overlayCompare(data));
+    case 'manifest_compare': return wrap(operation, helpers.manifestCompare(data));
     case 'build_operator_revalidate': return wrap(operation, helpers.buildOperatorRevalidate(data));
     case 'build_workspace_verify': return wrap(operation, helpers.buildWorkspaceVerify(data));
     case 'build_workspace_cleanup': return wrap(operation, helpers.buildWorkspaceCleanup(data));
@@ -92,12 +137,16 @@ async function main() {
     const request = validateRequest(JSON.parse(input.toString('utf8')));
     operation = request.operation;
     const shapeProblem = helpers.inputShapeProblem(operation, request.data);
-    if (shapeProblem) { const error = new Error(shapeProblem); error.code = 'input_shape_mismatch'; error.phase = operation; throw error; }
+    if (shapeProblem) {
+      const error = new Error(shapeProblem); error.code = 'input_shape_mismatch'; error.phase = operation;
+      if (GUARD_OPERATIONS.has(operation)) error.details = { subcheck: 'request_shape', observed: shapeProblem };
+      throw error;
+    }
     const result = await dispatch(request);
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.ok || result.data?.ok === false) process.exitCode = 1;
   } catch (error) {
-    process.stdout.write(`${JSON.stringify(createError(operation, error.code || 'helper_failed', error.message, error.phase || 'cli'))}\n`);
+    process.stdout.write(`${JSON.stringify(createError(error.operation || operation, error.code || 'helper_failed', error.message, error.phase || 'cli', error.details))}\n`);
     process.exitCode = 1;
   }
 }

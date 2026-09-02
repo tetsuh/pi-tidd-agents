@@ -10,6 +10,7 @@ module.exports = {
   ...require('./evidence'),
   ...require('./composition'),
   ...require('./builders'),
+  ...require('./guards'),
   ...require('./reply'),
   ...require('./protocol'),
   protocol: require('./protocol'),

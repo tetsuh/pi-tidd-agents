@@ -12,6 +12,9 @@
 // to be incomplete. `describe` below supplies diagnostic wording for the error message only
 // and plays no part in the accept/reject decision.
 const INPUT_SHAPES = Object.freeze({
+  guard_before_edit: Object.freeze({ expected: 'data:workspace_create' }),
+  overlay_compare: Object.freeze({ overlay: 'data:overlay_freeze' }),
+  manifest_compare: Object.freeze({ manifest: 'data:manifest_compare' }),
   operator_revalidate: Object.freeze({ captured: 'envelope:operator_capture' }),
   workspace_verify: Object.freeze({ expected: 'data:workspace_create' }),
   workspace_cleanup: Object.freeze({ receipt: 'receipt:workspace_create' }),
@@ -21,6 +24,13 @@ const INPUT_SHAPES = Object.freeze({
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
+
+// Exact key set: every required key present, no key outside required plus optional.
+const keySet = (value, required, optional) => required.every((key) => Object.hasOwn(value, key))
+  && Object.keys(value).every((key) => required.includes(key) || optional.includes(key));
+
+const guardShape = (value) => plain(value) && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(value.parent || '')
+  && Array.isArray(value.entries) && value.entries.length > 0 && value.entries.every(plain);
 
 const SNAPSHOT_DATA_KEYS = Object.freeze([
   'after', 'annotations', 'before', 'checkSuites', 'checks', 'comments', 'completeness',
@@ -32,7 +42,22 @@ const SNAPSHOT_DATA_KEYS = Object.freeze([
 // object silently, while `structured:gate_result` is only a separating probe because the
 // closed CL-D36 schema in gate-result.js remains the sole validator of gate results. The
 // executed positive composition fixtures keep each predicate in lockstep with its producer.
+// manifest_compare's manifest is a compare-mode field; capture mode legitimately omits it,
+// so it is validated only when supplied (CL-D57).
+const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manifest']) });
 const PREDICATES = Object.freeze({
+  // The two guard producers carry the same envelope keys, so each predicate states its own
+  // producer's exact key set. Exactness is what makes them mutually exclusive: a value
+  // carrying both producers' fields satisfies neither, because each rejects the other's.
+  'data:overlay_freeze': (value) => guardShape(value)
+    && keySet(value, ['parent', 'entries', 'authorizedPaths'], [])
+    && Array.isArray(value.authorizedPaths)
+    && value.entries.every((entry) => keySet(entry, ['path', 'status', 'rawDiffSha256'], ['sourcePath'])
+      && text(entry.path) && text(entry.status) && /^[0-9a-f]{64}$/.test(entry.rawDiffSha256)),
+  'data:manifest_compare': (value) => guardShape(value)
+    && keySet(value, ['parent', 'entries'], [])
+    && value.entries.every((entry) => keySet(entry, ['path', 'status', 'srcMode', 'dstMode', 'srcOid', 'dstOid'], ['sourcePath'])
+      && ['path', 'status', 'srcMode', 'dstMode', 'srcOid', 'dstOid'].every((field) => text(entry[field]))),
   'envelope:operator_capture': (value) => plain(value) && value.version === 1 && value.ok === true
     && value.operation === 'operator_capture' && plain(value.data) && !Object.hasOwn(value, 'error'),
   'data:workspace_create': (value) => {
@@ -78,6 +103,7 @@ function inputShapeProblem(operation, data) {
   const declared = INPUT_SHAPES[operation];
   if (!declared || !plain(data)) return null;
   for (const [field, spec] of Object.entries(declared)) {
+    if (!Object.hasOwn(data, field) && (OPTIONAL_INPUTS[operation] || []).includes(field)) continue;
     if (!PREDICATES[spec](data[field])) {
       return `\`${field}\` must be ${spec}, received ${describe(data[field])}`;
     }

@@ -2773,8 +2773,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 160000;",
-        "CL-D53 reset after the 140,000 alarm fired at 139,835"
+        "const AGGREGATE_SMOKE_ALARM = 200000;",
+        "CL-D57 planned-growth reset from 160,000 (CL-D53) for the guard family"
       ]
     },
     {
@@ -2859,6 +2859,45 @@
         "the workspace chain round-trips: create, built verify, built cleanup",
         "builders reject with the boundary vocabulary, not new codes",
         "CL-D56 records the builder family and its correctness mechanism"
+      ]
+    },
+    {
+      "id": "CL-D57-map",
+      "marker": "CL-D57",
+      "title": "The invocation map offers the packaged guard family",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "authorized paths are a maximum set: the overlay must stay inside them and must not be empty, but no authorized path is required to change",
+        "compares the index against the immutable staged manifest, never against only the authorized changed files, so an entry the parent commit already carries cannot be misclassified",
+        "a true failure keeps its CL-D39 consequences unchanged"
+      ]
+    },
+    {
+      "id": "CL-D57-addendum",
+      "marker": "CL-D57",
+      "title": "Luna uses the packaged guards and substitutes no local re-derivation",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "Luna obtains every guard observation in this batch sequence from the packaged guard operations and never substitutes a local re-derivation for one (CL-D57)."
+      ]
+    },
+    {
+      "id": "CL-D57-tests",
+      "marker": "CL-D57",
+      "title": "Guard fixtures pin the surface, the named failures, and the reset",
+      "files": [
+        "test/issue-96-packaged-guards.test.js"
+      ],
+      "requires": [
+        "the map offers the guard family and the addendum requires it",
+        "the CLI exposes exactly the four guard operations",
+        "every guard failure names its subcheck and the observed value",
+        "the aggregate alarm reset is the one the suites assert",
+        "CL-D57 records the guard family and the reviewed alarm reset"
       ]
     }
   ]
