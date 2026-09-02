@@ -41,7 +41,7 @@ A near-miss token signals intent to mutate, so it must surface as an error rathe
 
 ## Preflight (CL-D22, CL-D5)
 
-1. Confirm that the workflow-specific required agents resolve: `sol-reviewer`, `terra-reviewer`, and, conditionally for autofix mode, `luna-worker`.
+1. Confirm that the workflow-specific required roles resolve with their required capability: `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally for autofix mode, `tidd-autofix-worker`.
 2. If one does not resolve, apply the shared `BLOCKED` rule in `gate-contract.md`; do not begin a gate that cannot finish.
 
 A preflight failure is not a review round.

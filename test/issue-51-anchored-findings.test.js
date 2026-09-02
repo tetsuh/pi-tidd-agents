@@ -15,7 +15,7 @@ const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
-const AGENT_FILES = ['agents/sol-reviewer.md', 'agents/terra-reviewer.md', 'agents/luna-worker.md', 'agents/terra-oracle.md', 'agents/terra-worker.md', 'agents/glm-worker.md'];
+const AGENT_FILES = ['agents/tidd-adversarial-reviewer.md', 'agents/tidd-safety-reviewer.md', 'agents/tidd-autofix-worker.md', 'agents/tidd-drift-reviewer.md'];
 
 
 test('Issue #51 shared gate contract anchors blocking findings to criteria, clauses, or invariants', () => {
@@ -150,7 +150,7 @@ const ANCHORING_FIXTURES = [
   },
   {
     name: 'a clause anchor alone is sufficient to block',
-    finding: { claim: 'only luna-worker may publish corrections', basis: 'counterexample', clause: 'CL-D3' },
+    finding: { claim: 'only tidd-autofix-worker may publish corrections', basis: 'counterexample', clause: 'CL-D3' },
     expected: { anchoring: 'criterion-anchored', canBlock: true, disposition: 'fixed' },
   },
   {

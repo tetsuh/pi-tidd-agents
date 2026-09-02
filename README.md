@@ -19,11 +19,11 @@ Requirements differ between the two ways of using this package:
 | Standalone agents | À la carte. Run whichever agents resolve in your environment; an unavailable model affects only that one agent. |
 | Closed-loop workflow | Composes a fixed set of four agents. The complete loop needs all four; a single command needs only the agents in its own preflight. |
 
-The closed-loop workflow uses `sol-reviewer` (`gpt-5.6-sol`), `terra-oracle` (`gpt-5.6-terra`), `terra-reviewer` (`gpt-5.6-terra`), and `luna-worker` (`gpt-5.6-luna`), which are OpenAI GPT-5.6 Sol, Terra, and Luna. `glm-worker` is not used by the closed-loop workflow and remains a standalone agent.
+The closed-loop workflow uses four roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`. Their shipped defaults are OpenAI GPT-5.6 Sol (`gpt-5.6-sol`), Terra (`gpt-5.6-terra`, both Terra roles), and Luna (`gpt-5.6-luna`); those defaults are deployment configuration, not role semantics (CL-D59).
 
-Per command: `/tidd-issue` preflights `sol-reviewer` and `terra-oracle`; `/tidd-pr` preflights `sol-reviewer` and `terra-reviewer`, and adds `luna-worker` in `autofix` mode.
+Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer` and `tidd-drift-reviewer`; `/tidd-pr` preflights `tidd-adversarial-reviewer` and `tidd-safety-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode.
 
-The skills name agents by runtime name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `sol-reviewer`, `terra-oracle`, `terra-reviewer`, and `luna-worker`.
+The skills name agents by role name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`.
 
 Install `pi-subagents` first (the package was validated with 0.36.0; do not assume support for older versions):
 
@@ -47,25 +47,23 @@ pi install git:github.com/<owner>/pi-tidd-agents
 
 ## Included agents
 
-| Agent | Model | Purpose |
+| Role | Default model | Purpose |
 | --- | --- | --- |
-| `luna-worker` | `gpt-5.6-luna` | General implementation work |
-| `terra-worker` | `gpt-5.6-terra` | Implementation work with an emphasis on low-level correctness |
-| `glm-worker` | `glm-5.2` | Alternative implementation worker |
-| `sol-reviewer` | `gpt-5.6-sol` | Read-only requirements, contract, scope, and maintainability review |
-| `terra-reviewer` | `gpt-5.6-terra` | Read-only concurrency, lifetime, ownership, and portability review |
-| `terra-oracle` | `gpt-5.6-terra` | Read-only decision-drift and contradiction review |
+| `tidd-adversarial-reviewer` | `gpt-5.6-sol` | Read-only adversarial requirements, contract, scope, and maintainability review |
+| `tidd-drift-reviewer` | `gpt-5.6-terra` | Read-only decision-drift and contradiction review |
+| `tidd-safety-reviewer` | `gpt-5.6-terra` | Read-only concurrency, lifetime, ownership, and safety review |
+| `tidd-autofix-worker` | `gpt-5.6-luna` | Bounded sole-writer implementation and correction work |
 
 ## Simple usage
 
 Ask Pi to delegate in ordinary language:
 
 ```text
-Use sol-reviewer to review Issue #18 and append pre-implementation notes.
+Use tidd-adversarial-reviewer to review Issue #18 and append pre-implementation notes.
 ```
 
 ```text
-Use luna-worker to implement Issue #18 and create a pull request.
+Use tidd-autofix-worker to implement Issue #18 and create a pull request.
 ```
 
 For a typical Issue-to-pull-request workflow, use the following sequence.
@@ -74,14 +72,29 @@ For a typical Issue-to-pull-request workflow, use the following sequence.
 
 | Stage | Agent | Example prompt |
 | --- | --- | --- |
-| Issue pre-implementation notes | `sol-reviewer` | `Use sol-reviewer to review Issue #18 and append pre-implementation notes.` |
-| Issue pre-implementation addendum | `terra-oracle` | `Use terra-oracle to review Issue #18 and append a pre-implementation addendum.` |
-| Implementation and pull request | `luna-worker` | `Use luna-worker to implement Issue #18 and create a pull request.` |
-| Standard pull request review | `sol-reviewer` | `Use sol-reviewer to review PR #42 and append the review.` |
-| Concurrency, lifetime, and ownership review when relevant | `terra-reviewer` | `Use terra-reviewer to review PR #42 for concurrency, lifetime, and ownership issues, then append the review.` |
-| Address approved pull request findings | `luna-worker` | `Use luna-worker to address the approved findings on PR #42 and push the fixes.` |
+| Issue pre-implementation notes | `tidd-adversarial-reviewer` | `Use tidd-adversarial-reviewer to review Issue #18 and append pre-implementation notes.` |
+| Issue pre-implementation addendum | `tidd-drift-reviewer` | `Use tidd-drift-reviewer to review Issue #18 and append a pre-implementation addendum.` |
+| Implementation and pull request | `tidd-autofix-worker` | `Use tidd-autofix-worker to implement Issue #18 and create a pull request.` |
+| Standard pull request review | `tidd-adversarial-reviewer` | `Use tidd-adversarial-reviewer to review PR #42 and append the review.` |
+| Concurrency, lifetime, and ownership review when relevant | `tidd-safety-reviewer` | `Use tidd-safety-reviewer to review PR #42 for concurrency, lifetime, and ownership issues, then append the review.` |
+| Address approved pull request findings | `tidd-autofix-worker` | `Use tidd-autofix-worker to address the approved findings on PR #42 and push the fixes.` |
 
-The reviewer and oracle agents remain read-only. The parent Pi session is responsible for any requested issue or pull-request comment.
+The reviewer roles remain read-only. The parent Pi session is responsible for any requested issue or pull-request comment.
+
+### Roles and deployment (CL-D59)
+
+A role name describes a workflow responsibility; the provider, model, and thinking level that serve it are deployment configuration. Override a role in your Pi settings, for example `subagents.agentOverrides.tidd-adversarial-reviewer.model`, and reviewer roles must still resolve read-only (no `edit` or `write`) while the writer role must resolve with both, or preflight stops with `BLOCKED`. See the pi-subagents `docs/models.md` for the override precedence.
+
+The original model-derived names remain as transitional aliases for one release and resolve to the role for explicit `agent` inputs:
+
+| Alias (one release) | Role |
+| --- | --- |
+| `sol-reviewer` | `tidd-adversarial-reviewer` |
+| `terra-oracle` | `tidd-drift-reviewer` |
+| `terra-reviewer` | `tidd-safety-reviewer` |
+| `luna-worker` | `tidd-autofix-worker` |
+
+An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only, so re-key existing overrides to the role name. The standalone `glm-worker` and `terra-worker` agents were removed with CL-D59.
 
 ## Closed-loop workflow (opt-in)
 
@@ -139,11 +152,11 @@ CL-D40: A missing path does not prove a stale worktree registration. Fresh works
 
 `pi-subagents` 0.36.0+ accepts `artifactDir: "session"` and `artifactDir: "temp"`; these are optional ways to move artifact and chain-run output outside the working directory. They do **not** guarantee that `.pi-subagents/` is absent: beginning with supported `pi-subagents` 0.41.0 (verified against installed 0.42.1), default-on project missions may persist records under `.pi-subagents/missions` independently of `artifactDir`. The default configuration must work, and these options are not a substitute for the runtime-root contract.
 
-Autofix selects the bounded public-head loop in the Skill. `luna-worker` is always the mandatory sole writer/publisher: it performs at most one correction batch per reviewed public head, one normal commit, and one non-force push. A request for any other worker stops before mutation, ends the exact-autofix run, and has no resume because it would change the CL-D30 contract. Every push restarts at Sol. Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow remains separate and receives no CL-D30 authority. `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement. Exact identity guards, immutable run-local records, finding replies, circuit breakers, and fail-stop behavior are defined only by the Skill.
+Autofix selects the bounded public-head loop in the Skill. `tidd-autofix-worker` is always the mandatory sole writer/publisher: it performs at most one correction batch per reviewed public head, one normal commit, and one non-force push. A request for any other worker stops before mutation, ends the exact-autofix run, and has no resume because it would change the CL-D30 contract. Every push restarts at Sol. Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow remains separate and receives no CL-D30 authority. `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement. Exact identity guards, immutable run-local records, finding replies, circuit breakers, and fail-stop behavior are defined only by the Skill.
 
 ### Bounded publication
 
-In exact `autofix` mode, `luna-worker` is the sole writer/publisher for one bounded normal correction commit and one non-force push per reviewed public head. Every successful push invalidates prior approvals and restarts at Sol. The parent is the only GitHub comment actor and may post only confirmed, source-bound finding replies; the aggregate final summary remains a separate owner-approved one-shot action. Every reply body ends with one deterministic `pi-tidd-agents:source-reply:v1` marker (CL-D45), and after an unknown reply outcome a read-only reconciliation classifies refetched evidence as published, absent, ambiguous, or conflict; every outcome is terminal and authorizes no second POST. All publication authority is run-scoped. Exact autofix owns complete identity guards, staged manifests, deterministic circuit breakers, immutable run-local records, and fail-stop/no-retry/no-resume behavior. Review-only mode and Issue behavior remain unchanged.
+In exact `autofix` mode, `tidd-autofix-worker` is the sole writer/publisher for one bounded normal correction commit and one non-force push per reviewed public head. Every successful push invalidates prior approvals and restarts at Sol. The parent is the only GitHub comment actor and may post only confirmed, source-bound finding replies; the aggregate final summary remains a separate owner-approved one-shot action. Every reply body ends with one deterministic `pi-tidd-agents:source-reply:v1` marker (CL-D45), and after an unknown reply outcome a read-only reconciliation classifies refetched evidence as published, absent, ambiguous, or conflict; every outcome is terminal and authorizes no second POST. All publication authority is run-scoped. Exact autofix owns complete identity guards, staged manifests, deterministic circuit breakers, immutable run-local records, and fail-stop/no-retry/no-resume behavior. Review-only mode and Issue behavior remain unchanged.
 
 ### Stop, status, and fresh runs (CL-D30)
 
@@ -160,13 +173,13 @@ Workers can edit files and run tests, but they do not commit, push, create branc
 For example:
 
 ```text
-Use luna-worker to implement Issue #18.
+Use tidd-autofix-worker to implement Issue #18.
 ```
 
 This permits implementation and validation, but not a local commit.
 
 ```text
-Use luna-worker to implement Issue #18 and create a pull request.
+Use tidd-autofix-worker to implement Issue #18 and create a pull request.
 ```
 
 This authorizes the parent workflow to delegate the required local commits, push, and pull-request creation. It does not authorize merging or history rewriting.

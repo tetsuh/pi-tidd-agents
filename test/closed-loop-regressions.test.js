@@ -337,15 +337,15 @@ test('exact-autofix Luna ownership is protected within its authored sections', (
   for (const [name, section] of [['Skill writer', writer], ['Skill addendum', addendum], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
     assert.ok(section, `${name} section must exist for scoped protection`);
   }
-  assert.match(writer, /For exact `\/tidd-pr \.\.\. autofix`, `luna-worker` is mandatory/);
+  assert.match(writer, /For exact `\/tidd-pr \.\.\. autofix`, `tidd-autofix-worker` is mandatory/);
   assert.match(writer, /sole correction writer and publisher/);
   assert.match(exactOwner, /exact-autofix writer is not replaceable/);
-  assert.match(exactOwner, /always `luna-worker`/);
+  assert.match(exactOwner, /always `tidd-autofix-worker`/);
   assert.match(exactOwner, /ends there and has no resume/);
-  assert.match(contract, /For exact PR `autofix`, `luna-worker` is the mandatory and sole correction writer\/publisher/);
-  assert.match(readmeAutofix, /`luna-worker` is always the mandatory sole writer\/publisher/);
+  assert.match(contract, /For exact PR `autofix`, `tidd-autofix-worker` is the mandatory and sole correction writer\/publisher/);
+  assert.match(readmeAutofix, /`tidd-autofix-worker` is always the mandatory sole writer\/publisher/);
   for (const [name, section] of [['Skill writer', writer], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
-    assert.doesNotMatch(section, /default writer|default autofix writer|`luna-worker` by default|Choosing a different worker requires an explicit owner instruction|Selecting an alternate worker requires an explicit owner instruction/i, `${name} restores replaceable exact-autofix wording`);
+    assert.doesNotMatch(section, /default writer|default autofix writer|`tidd-autofix-worker` by default|Choosing a different worker requires an explicit owner instruction|Selecting an alternate worker requires an explicit owner instruction/i, `${name} restores replaceable exact-autofix wording`);
   }
 });
 

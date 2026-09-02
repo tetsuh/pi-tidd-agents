@@ -31,7 +31,7 @@ Do not infer a target, do not scan for candidate issues, and do not start any ga
 
 ## Preflight (CL-D22, CL-D5)
 
-Before the first gate, confirm the workflow-specific required agents resolve: `sol-reviewer` and `terra-oracle`. If one does not resolve, apply the shared `BLOCKED` rule in `gate-contract.md`. Do not begin a gate that cannot finish. A preflight failure is not a review round.
+Before the first gate, confirm the workflow-specific required roles resolve with their required capability: `tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve, apply the shared `BLOCKED` rule in `gate-contract.md`. Do not begin a gate that cannot finish. A preflight failure is not a review round.
 
 ## Workflow target-kind boundary (CL-D7, CL-D8)
 
@@ -71,7 +71,7 @@ Copy exactly one of these owning-root blocks verbatim into each Issue gate paylo
 
 The Issue workflow retains these obligations outside the shared references:
 
-- `terra-oracle` has no verdict contract of its own; the parent requires the shared Every-gate invariant payload block verbatim in every Issue Terra invocation, plus one concrete Issue Terra role-authority block.
+- `tidd-drift-reviewer` has no verdict contract of its own; the parent requires the shared Every-gate invariant payload block verbatim in every Issue Terra invocation, plus one concrete Issue Terra role-authority block.
 - Every Issue Sol invocation composes the shared Every-gate and Sol-only adversarial invariant payload blocks verbatim, one concrete Issue Sol role-authority block, and the volatile envelope/history projection. The same composition is mandatory for ordinary Sol/Terra, candidate rereview Sol/Terra, and every CL-D32 post-decision rereview route; Terra receives only the Every-gate block, never the Sol-only block.
 - External review services, external static-analysis sites, and pull-request checks **are not part of issue readiness** (AC-ISSUE-NO-EXTERNAL).
 - Issue finding records retain the `issue_spec` raised-against field, candidate identity, revised passage, validation evidence, and explicit snapshot-C assignment.
@@ -99,12 +99,12 @@ Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-leve
 The order is fixed and sequential for legacy review, and the CL-D31 candidate path is a bounded extension:
 
 ```text
-specification → sol-reviewer gate → disposition/revision → Sol MERGE → terra-oracle gate → disposition/revision → Terra MERGE
+specification → tidd-adversarial-reviewer gate → disposition/revision → Sol MERGE → tidd-drift-reviewer gate → disposition/revision → Terra MERGE
 ```
 
 Before candidate construction, legacy review-and-draft status/resume remains available. Once CL-D31 candidate construction begins, the candidate phase is non-resumable and the exact preview/publication rules in the CL-D31 section apply.
 
-`sol-reviewer` owns requirements, contracts, scope, acceptance, feasibility, and the shared adversarial falsification procedure. `terra-oracle` then checks the revised specification against inherited decisions for contradiction and drift. **Never start the Terra gate before the Sol gate returns `MERGE`.**
+`tidd-adversarial-reviewer` owns requirements, contracts, scope, acceptance, feasibility, and the shared adversarial falsification procedure. `tidd-drift-reviewer` then checks the revised specification against inherited decisions for contradiction and drift. **Never start the Terra gate before the Sol gate returns `MERGE`.**
 
 ## Owner-gated Issue candidate publication (CL-D31)
 

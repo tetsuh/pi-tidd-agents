@@ -51,7 +51,7 @@ function freshFinding(findingId) {
     evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', validationEvidence: 'v',
     transport: 'pending',
     workflowRecord: {
-      sourceKind: 'gate', sourceId: findingId, authorIdentity: 'sol-reviewer', authorType: 'Agent',
+      sourceKind: 'gate', sourceId: findingId, authorIdentity: 'tidd-adversarial-reviewer', authorType: 'Agent',
       observedHeadOid: OID, fingerprint: SHA, semanticFingerprint: SHA, correctiveChange: 'narrowed',
     },
   };

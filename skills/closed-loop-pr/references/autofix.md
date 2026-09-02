@@ -99,7 +99,7 @@ Before the first gate or mutation, the operator runs `gh pr checkout` when neede
 
 ### The writer (CL-D3)
 
-For exact `/tidd-pr ... autofix`, `luna-worker` is mandatory: it is the sole correction writer and publisher, never merely a default. `terra-worker` is excluded because its model **also grades the Terra gate**, and a gate verdict here is an automated exit condition rather than advice to a human, so a model must not grade its own fixes. `glm-worker`'s model does not grade a gate either, but choosing it would require a second model family on top of the reviewers', so `luna-worker`, the package's general-purpose worker, **keeps the closed-loop requirement inside one model family**.
+For exact `/tidd-pr ... autofix`, `tidd-autofix-worker` is mandatory: it is the sole correction writer and publisher, never merely a default. The package ships no other worker: a gate verdict here is an automated exit condition rather than advice to a human, so a model must not grade its own fixes, and the shipped writer default **keeps the closed-loop requirement inside one model family**.
 
 A run has **exactly one writer**. If Luna fails to start, stop. **Do not fall back to another worker**: a partially written tree followed by a second writer breaks the single-writer guarantee. An owner request or selection of any other worker is a CL-D30 contract change: stop before mutation, end the exact-autofix run, and do not resume it. Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow may select another worker under its separate permissions, but it receives no CL-D30 authority and cannot make the exact-autofix writer replaceable.
 

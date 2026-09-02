@@ -1,7 +1,8 @@
 ---
-name: glm-worker
-description: Implementation worker powered by GLM-5.2
-model: glm-5.2
+name: tidd-autofix-worker
+aliases: luna-worker
+description: Bounded sole-writer implementation and correction worker
+model: gpt-5.6-luna
 thinking: "high"
 systemPromptMode: replace
 inheritProjectContext: true

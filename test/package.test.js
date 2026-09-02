@@ -13,12 +13,10 @@ const manifest = readJson('package.json');
 const contractManifest = readJson('test/contract-clauses.json');
 
 const EXPECTED_AGENTS = {
-  'glm-worker': 'glm-5.2',
-  'luna-worker': 'gpt-5.6-luna',
-  'sol-reviewer': 'gpt-5.6-sol',
-  'terra-oracle': 'gpt-5.6-terra',
-  'terra-reviewer': 'gpt-5.6-terra',
-  'terra-worker': 'gpt-5.6-terra',
+  'tidd-adversarial-reviewer': 'gpt-5.6-sol',
+  'tidd-autofix-worker': 'gpt-5.6-luna',
+  'tidd-drift-reviewer': 'gpt-5.6-terra',
+  'tidd-safety-reviewer': 'gpt-5.6-terra',
 };
 
 const SKILLS = {
@@ -191,7 +189,7 @@ test('the package runs tests without any devDependency', () => {
   );
 });
 
-test('the six existing agents remain discoverable and unchanged in identity', () => {
+test('the four role agents are discoverable with their shipped default models (CL-D59)', () => {
   const files = fs.readdirSync(repoPath('agents')).filter((name) => name.endsWith('.md')).sort();
   assert.deepEqual(files, Object.keys(EXPECTED_AGENTS).map((name) => `${name}.md`).sort());
 
@@ -584,7 +582,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 36, `packed file count changed: ${files.join(', ')}`);
+    assert.equal(files.length, 34, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);
@@ -602,10 +600,10 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
 test('the packed tarball contains the closed-loop resources', () => {
   const files = packFileList();
   const required = [
-    'agents/sol-reviewer.md',
-    'agents/terra-oracle.md',
-    'agents/terra-reviewer.md',
-    'agents/luna-worker.md',
+    'agents/tidd-adversarial-reviewer.md',
+    'agents/tidd-drift-reviewer.md',
+    'agents/tidd-safety-reviewer.md',
+    'agents/tidd-autofix-worker.md',
     'skills/closed-loop-issue/SKILL.md',
     'skills/closed-loop-pr/SKILL.md',
     ...Object.values(PR_MODE_REFERENCES),
@@ -693,12 +691,12 @@ test('the README documents the closed-loop workflow and its requirements', () =>
     'autofix',
     '/skill:closed-loop-issue',
     '/skill:closed-loop-pr',
-    'sol-reviewer',
-    'terra-oracle',
-    'terra-reviewer',
-    'luna-worker',
+    'tidd-adversarial-reviewer',
+    'tidd-drift-reviewer',
+    'tidd-safety-reviewer',
+    'tidd-autofix-worker',
     'gpt-5.6-sol',
-    '`glm-worker` is not used by the closed-loop workflow',
+    'Roles and deployment (CL-D59)',
     'run-scoped',
     'no workflow is forced by default',
   ]) {

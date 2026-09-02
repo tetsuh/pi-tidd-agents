@@ -107,7 +107,7 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "For exact `/tidd-pr ... autofix`, `luna-worker` is mandatory",
+        "For exact `/tidd-pr ... autofix`, `tidd-autofix-worker` is mandatory",
         "sole correction writer and publisher",
         "never merely a default",
         "exactly one writer",
@@ -117,7 +117,6 @@
         "Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow",
         "no CL-D30 authority",
         "cannot make the exact-autofix writer replaceable",
-        "also grades the Terra gate",
         "keeps the closed-loop requirement inside one model family"
       ]
     },
@@ -140,9 +139,9 @@
       "requires": [
         "pi-subagents",
         "If `pi-subagents` is unavailable, stop and report `BLOCKED`",
-        "Refer to agents **by runtime name** only, **never by model ID**"
+        "Refer to agents **by role name** only, **never by model ID**"
       ],
-      "section": "## Name-level agent resolution (CL-D22, CL-D5)"
+      "section": "## Name-level agent resolution (CL-D22, CL-D5, CL-D59)"
     },
     {
       "id": "CL-D6-skill",
@@ -490,12 +489,12 @@
       ],
       "requires": [
         "Preflight",
-        "by runtime name",
+        "by role name",
         "never by model ID",
         "stop and report `BLOCKED`",
-        "name-level override guidance"
+        "override under the role name"
       ],
-      "section": "## Name-level agent resolution (CL-D22, CL-D5)"
+      "section": "## Name-level agent resolution (CL-D22, CL-D5, CL-D59)"
     },
     {
       "id": "CL-D22-pr",
@@ -506,12 +505,12 @@
       ],
       "requires": [
         "Preflight",
-        "by runtime name",
+        "by role name",
         "never by model ID",
         "stop and report `BLOCKED`",
-        "name-level override guidance"
+        "override under the role name"
       ],
-      "section": "## Name-level agent resolution (CL-D22, CL-D5)"
+      "section": "## Name-level agent resolution (CL-D22, CL-D5, CL-D59)"
     },
     {
       "id": "CL-D27",
@@ -546,7 +545,7 @@
         "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
-        "sol-reviewer",
+        "tidd-adversarial-reviewer",
         "Never start the Terra gate before the Sol gate returns `MERGE`"
       ]
     },
@@ -1893,7 +1892,7 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "`terra-oracle` has no verdict contract of its own"
+        "`tidd-drift-reviewer` has no verdict contract of its own"
       ]
     },
     {
@@ -1958,8 +1957,8 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "sol-reviewer",
-        "terra-oracle"
+        "tidd-adversarial-reviewer",
+        "tidd-drift-reviewer"
       ]
     },
     {
@@ -1971,9 +1970,9 @@
         "skills/closed-loop-pr/SKILL.md"
       ],
       "requires": [
-        "sol-reviewer",
-        "terra-reviewer",
-        "conditionally for autofix mode, `luna-worker`"
+        "tidd-adversarial-reviewer",
+        "tidd-safety-reviewer",
+        "conditionally for autofix mode, `tidd-autofix-worker`"
       ]
     },
     {
@@ -2929,6 +2928,37 @@
         "the transport section names the designated output and its read path",
         "CL-D51 points at the read path it now depends on",
         "CL-D58 records the read path as an application of the no-information principle"
+      ]
+    },
+    {
+      "id": "CL-D59-resolution",
+      "marker": "CL-D59",
+      "title": "Resolution names roles, keeps deployment separate, and fails closed on capability",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "## Name-level agent resolution (CL-D22, CL-D5, CL-D59)",
+      "requires": [
+        "Refer to agents **by role name** only, **never by model ID**",
+        "`tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`",
+        "which provider, model, and thinking level serve a role is deployment configuration, never role semantics",
+        "the old model-derived names resolve only as transitional aliases for one release",
+        "If a required role is missing, disabled, unresolved, or lacks its required capability"
+      ]
+    },
+    {
+      "id": "CL-D59-tests",
+      "marker": "CL-D59",
+      "title": "Role fixtures pin the agent files, the prose, the README, and the record",
+      "files": [
+        "test/issue-100-tidd-roles.test.js"
+      ],
+      "requires": [
+        "the package ships exactly the four role agents, each aliasing its old name",
+        "skills and prompts name roles, never model-derived agents",
+        "the shared resolution section separates role from deployment and fails closed on capability",
+        "the README documents the roles, the alias transition, and override keying",
+        "CL-D59 records the role split, the agents/ widening, and the removals"
       ]
     }
   ]

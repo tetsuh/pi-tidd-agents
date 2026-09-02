@@ -11,8 +11,10 @@ const assert = require('node:assert/strict');
 
 const { readText, readJson, parseFrontmatter, sectionOf } = require('./helpers');
 
-const REVIEWERS = ['sol-reviewer', 'terra-reviewer', 'terra-oracle'];
-const WORKERS = ['luna-worker', 'glm-worker', 'terra-worker'];
+const REVIEWERS = ['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer'];
+const WORKERS = ['tidd-autofix-worker'];
+// CL-D35 was decided against the six model-derived files; its record keeps those names (CL-D59).
+const CL_D35_AGENTS = ['sol-reviewer', 'terra-reviewer', 'terra-oracle', 'luna-worker', 'glm-worker', 'terra-worker'];
 const AGENTS = [...REVIEWERS, ...WORKERS];
 const REVIEWER_TOOLS = ['read', 'grep', 'find', 'ls', 'bash'];
 const WORKER_TOOLS = ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write', 'contact_supervisor'];
@@ -69,7 +71,7 @@ test('Issue #49 CL-D35 narrows the agents/** freeze without reopening it', () =>
   // The exception is one-time: it must not read as a general permission.
   assert.match(section, /authorizes no other removal and creates no general permission to drop a runtime-unprovided tool; a later removal requires its own owner decision/);
   assert.match(section, /It expires on merge of that change and authorizes nothing further/);
-  for (const name of AGENTS) assert.ok(section.includes(`\`${name}\``), `CL-D35 must name agents/${name}.md explicitly`);
+  for (const name of CL_D35_AGENTS) assert.ok(section.includes(`\`${name}\``), `CL-D35 must name agents/${name}.md explicitly`);
 
   const cl1 = sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files');
   assert.match(cl1, /CL-D35 approves one capability-reducing removal for Issue #49[^.]*grants no further permission/);

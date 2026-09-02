@@ -1,6 +1,7 @@
 ---
-name: terra-reviewer
-description: Read-only concurrency and safety reviewer powered by GPT-5.6 Terra
+name: tidd-safety-reviewer
+aliases: terra-reviewer
+description: Read-only concurrency, lifetime, ownership, and safety reviewer
 model: gpt-5.6-terra
 thinking: "high"
 systemPromptMode: replace

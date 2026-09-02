@@ -84,7 +84,7 @@ test('artifact: Issue 13 safety boundaries are explicit and PR behavior stays se
   const pr = `${readText('skills/closed-loop-pr/SKILL.md')}\n${(readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'))}`;
   assert.match(pr, /CL-D31 exception/);
   assert.match(pr, /does not originate from `\/tidd-pr`/);
-  assert.match(pr, /luna-worker/);
+  assert.match(pr, /tidd-autofix-worker/);
   assert.doesNotMatch(pr, /Issue PATCH.*POST.*CL-D30/s);
 });
 
