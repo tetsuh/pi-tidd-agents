@@ -2899,6 +2899,35 @@
         "the aggregate alarm reset is the one the suites assert",
         "CL-D57 records the guard family and the reviewed alarm reset"
       ]
+    },
+    {
+      "id": "CL-D58-transport",
+      "marker": "CL-D58",
+      "title": "The transport section names the designated output and its read path",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Structured gate result transport (CL-D36)",
+      "requires": [
+        "the gate envelope is the file at the run's structured output path, as reported by the runner's run status; the parent reads it from that path after completion",
+        "A completion notice, wait result, or preview is a courier and never the envelope",
+        "`(no output)` in one is transport indeterminacy, not zero output, and the parent must read the path before classifying the run",
+        "Zero designated output bytes (CL-D51) means that file is absent or empty after completion",
+        "a validated envelope at that path is the verdict whatever the runner's status says; a failed validation there is terminal exactly as before"
+      ]
+    },
+    {
+      "id": "CL-D58-tests",
+      "marker": "CL-D58",
+      "title": "Read-path fixtures pin the section, the CL-D51 pointer, and the record",
+      "files": [
+        "test/issue-86-designated-output-path.test.js"
+      ],
+      "requires": [
+        "the transport section names the designated output and its read path",
+        "CL-D51 points at the read path it now depends on",
+        "CL-D58 records the read path as an application of the no-information principle"
+      ]
     }
   ]
 }
