@@ -3,9 +3,10 @@
 // Issue #100 PR 1 (CL-D59) — agent identities describe workflow responsibilities; provider,
 // model, and thinking level are deployment configuration. The package ships exactly four
 // roles, each carrying its old model-derived name as a transitional alias, and no skill or
-// prompt names a model-derived agent any more. pi-subagents 0.63.0 looks `agentOverrides` up
-// by the canonical agent name only (src/agents/agents.ts: `overrides[agent.name]`), so an
-// override keyed by an alias does not apply; the README says so.
+// prompt names a model-derived agent any more. pi-subagents looks `agentOverrides` up by the
+// canonical agent name only (src/agents/agents.ts: `overrides[agent.name]`; byte-identical at
+// tags v0.63.0 4f7eb2b and v0.64.0 57fda3f), so an override keyed by an alias does not apply;
+// the README says so.
 //
 // TDD provenance: recorded with the focused command below at 0 passes, all compile/contract
 // RED against the model-derived agent files, prose, and the missing record. No behavioral
