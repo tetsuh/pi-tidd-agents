@@ -28,11 +28,11 @@ const BUDGET_TEST = readText('test/issue-73-authority-budget.test.js');
 test('Issue #87 the headroom property is asserted at the raise, not against live growth', () => {
   // The live check on the authority aggregate is the ceiling alone; no further margin may
   // bound that total. Subset guards over parts of the graph are out of scope here.
-  assert.match(BUDGET_TEST, /assert\.ok\(total < 128000,/);
+  assert.match(BUDGET_TEST, /assert\.ok\(total < 140000,/);
   // Any live margin against the aggregate is a floor, whatever constant it uses, so the
   // rejection is written against the shape rather than against the retired 8,000.
-  assert.equal(/128000\s*-\s*total\s*>/.test(BUDGET_TEST), false, 'no live margin may be asserted against the aggregate total');
-  assert.equal(/128000\s*-\s*total\s*>/.test(readText('test/issue-87-authority-floor.test.js')), false, 'this suite must not reintroduce one either');
+  assert.equal(/\d+\s*-\s*total\s*>/.test(BUDGET_TEST), false, 'no live margin may be asserted against the aggregate total');
+  assert.equal(/\d+\s*-\s*total\s*>/.test(readText('test/issue-87-authority-floor.test.js')), false, 'this suite must not reintroduce one either');
 
   // The raise-time property is still asserted, against the measurement recorded when CL-D43
   // was taken — a static fact that cannot drift as the graph grows.
@@ -44,7 +44,7 @@ test('Issue #87 the headroom property is asserted at the raise, not against live
   // defect this issue exists to remove — the files measured 119,973 bytes at 66d8c91,
   // revision-qualified evidence rather than a persistent bound.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 128000, `authority files total ${total}`);
+  assert.ok(total < 140000, `authority files total ${total}`);
 });
 
 test('Issue #87 CL-D48 records why the constant form failed', () => {

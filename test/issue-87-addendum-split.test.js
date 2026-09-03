@@ -24,7 +24,7 @@ test('Issue #87 the addendum is its own authority file and the aggregate set has
   assert.ok(AUTHORITY_FILES.includes(ADDENDUM), 'the addendum file must be inside the measured aggregate');
   assert.ok(AUTHORITY_FILES.includes(BASE));
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 128000, `authority files total ${total}`);
+  assert.ok(total < 140000, `authority files total ${total}`);
 });
 
 test('Issue #87 the addendum content moved whole and the base directs to it', () => {

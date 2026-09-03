@@ -276,10 +276,12 @@ test('Issue #24 the authority files remain below the published baseline', () => 
   // the feature that needed it, and each bought about two decisions' worth of prose. CL-D43
   // raises it once to 128,000 so ordinary decision work stops arguing with this guard: the six
   // files measured 114,563 bytes at c2ad0db and 115,874 bytes at 9b5bc10, leaving 126 bytes.
+  // CL-D60 raises it to 140,000 for the versioned gate identities: the seven files measured
+  // 128,618 bytes on that change, 618 bytes over 128,000.
   // The assertion below is the live measurement; the figures here are revision-qualified and
   // are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 128000, `authority files total ${total} bytes, expected less than 128000`);
+  assert.ok(total < 140000, `authority files total ${total} bytes, expected less than 140000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.

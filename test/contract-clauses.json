@@ -2446,7 +2446,7 @@
         "test/package.test.js"
       ],
       "requires": [
-        "assert.ok(total < 128000,",
+        "assert.ok(total < 140000,",
         "const PR_SKILL_PRE_SPLIT_BYTES = 57160;",
         "not a budget",
         "revision-qualified"
@@ -2959,6 +2959,39 @@
         "the shared resolution section separates role from deployment and fails closed on capability",
         "the README documents the roles, the alias transition, and override keying",
         "CL-D59 records the role split, the agents/ widening, and the removals"
+      ]
+    },
+    {
+      "id": "CL-D60-identities",
+      "marker": "CL-D60",
+      "title": "Version 2 gate identities name workflow functions; version 1 is accepted for one release",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Structured gate result transport (CL-D36)",
+      "requires": [
+        "Gate identities (CL-D60): under envelope schema version 2 the gate is `adversarial`",
+        "a version 2 envelope naming a gate outside its root fails closed",
+        "the derived fresh-finding namespaces are `ADV-<n>-`, `DRIFT-<n>-`, and `SAFETY-<n>-`",
+        "remains accepted for one release by an explicit version branch with no cross-mapping between versions",
+        "the packaged expectation builder ships version 2 only"
+      ]
+    },
+    {
+      "id": "CL-D60-tests",
+      "marker": "CL-D60",
+      "title": "Gate identity fixtures pin both versions, the builder, the marker, the prose, and the raise",
+      "files": [
+        "test/issue-100-gate-ids-v2.test.js"
+      ],
+      "requires": [
+        "version 2 envelopes validate with their root's gates and reject the other root's gate",
+        "fresh findings bind to the derived version 2 namespace, never the version 1 one",
+        "version 1 stays accepted verbatim for one release, with no cross-mapping in either direction",
+        "the packaged expectation builder ships version 2 only",
+        "the composition table accepts both envelope versions and the reply marker parses both gate vocabularies",
+        "the shared contract, the addendum, the README, and CL-D60 record the version 2 identities",
+        "CL-D60 raises the authority ceiling once, with the headroom property asserted at the raise"
       ]
     }
   ]

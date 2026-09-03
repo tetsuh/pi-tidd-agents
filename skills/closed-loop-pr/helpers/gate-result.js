@@ -2,7 +2,13 @@
 
 const { createResult, createError } = require('./protocol');
 const words = (s) => s.split(' ');
-const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'], GATES = ['sol', 'terra'], ROOTS = ['issue', 'pr'];
+const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'], ROOTS = ['issue', 'pr'];
+// Gate identities per envelope version (CL-D60): version 2 names workflow functions, each valid
+// only on the root that runs it; version 1 stays accepted verbatim for one release, unmapped.
+const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety'] };
+const ROOT_GATES = { issue: ['adversarial', 'decision-drift'], pr: ['adversarial', 'safety'] };
+const PREFIX = { sol: 'SOL', terra: 'TERRA', adversarial: 'ADV', 'decision-drift': 'DRIFT', safety: 'SAFETY' };
+const ADVERSARIAL = { 1: 'sol', 2: 'adversarial' };
 const SEVERITIES = ['Blocker', 'Major', 'Minor'], ANCHORING = ['criterion-anchored', 'reword', 'follow-up'];
 const DISPOSITIONS = words('fixed accepted-as-designed deferred duplicate not-applicable needs-owner-decision');
 const CONFIRMS = words('confirmed rejected unverifiable'), KINDS = words('file git github snapshot');
@@ -18,26 +24,30 @@ const list = (items) => ({ type: 'array', items }), choice = (enumValues) => ({ 
 const fields = (s) => Object.fromEntries(words(s).map((key) => [key, TEXT]));
 
 const CORR_REQ = words('repository number baseOid headRepository headBranch headOid lifecycle draft gate invocation contractInput snapshotFingerprint');
-const CORR = closed({ ...fields('headBranch'), repository: NWO, number: { type: 'integer', minimum: 1 }, baseOid: OID,
+const corr = (gate) => closed({ ...fields('headBranch'), repository: NWO, number: { type: 'integer', minimum: 1 }, baseOid: OID,
   headRepository: NWO, headOid: OID, lifecycle: choice(words('open closed merged')), draft: { type: 'boolean' },
-  gate: choice(GATES), invocation: { type: 'integer', minimum: 1 }, contractInput: SHA256, snapshotFingerprint: SHA256 }, CORR_REQ);
+  gate, invocation: { type: 'integer', minimum: 1 }, contractInput: SHA256, snapshotFingerprint: SHA256 }, CORR_REQ);
 const RECORD = closed({ ...fields('candidateIdentity revisedPassage snapshotAssignment sourceId sourceUrl authorIdentity authorType createdAt updatedAt path correctiveChange replyUrl'),
   sourceKind: choice(SOURCES), bodyDigest: SHA256, reviewCommitOid: OID, line: { type: 'integer', minimum: 1 },
   observedHeadOid: OID, fingerprint: SHA256, semanticFingerprint: SHA256 });
-const FINDING = closed({ ...fields('findingId blockerKey anchor proposedIssueTitle evidence impact rationale correction validationEvidence transport'),
-  origin: choice(words('assigned fresh')), gate: choice(GATES), headOid: OID, raisedAgainstFingerprint: SHA256,
+const finding = (gate) => closed({ ...fields('findingId blockerKey anchor proposedIssueTitle evidence impact rationale correction validationEvidence transport'),
+  origin: choice(words('assigned fresh')), gate, headOid: OID, raisedAgainstFingerprint: SHA256,
   severity: choice(SEVERITIES), anchoring: choice(ANCHORING), outOfScope: { type: 'boolean' },
   proposedDisposition: choice(DISPOSITIONS), workflowRecord: RECORD },
   words('findingId origin gate headOid raisedAgainstFingerprint severity proposedDisposition evidence impact rationale correction transport workflowRecord'));
-const CONFIRM = closed({ ...fields('findingId evidence'), gate: choice(GATES), headOid: OID,
+const confirm = (gate) => closed({ ...fields('findingId evidence'), gate, headOid: OID,
   confirmation: choice(CONFIRMS) }, words('findingId gate headOid confirmation evidence'));
 const DEC = closed({ ...fields('decisionId kind targetAndRevision question options recommendation ownerChoice rationale validity'),
   status: choice(words('pending recorded')) }, words('decisionId kind targetAndRevision question options recommendation rationale validity status'));
 const EVID = closed({ ...fields('source identity'), kind: choice(KINDS), readCompletely: { type: 'boolean' } }, words('source kind identity readCompletely'));
 const ADV = closed({ ...fields('claim searched evidence findingId'), outcome: choice(OUTCOMES) }, words('claim searched outcome evidence'));
-const SCHEMA = closed({ schemaVersion: { type: 'integer', const: 1 }, correlation: CORR, verdict: choice(VERDICTS),
-  evidenceRead: list(EVID), findings: list(FINDING), confirmations: list(CONFIRM), decisions: list(DEC),
-  adversarialResults: list(ADV) }, words('schemaVersion correlation verdict evidenceRead findings confirmations decisions adversarialResults'));
+const schemaFor = (version) => {
+  const gate = choice(GATES[version]);
+  return closed({ schemaVersion: { type: 'integer', const: version }, correlation: corr(gate), verdict: choice(VERDICTS),
+    evidenceRead: list(EVID), findings: list(finding(gate)), confirmations: list(confirm(gate)), decisions: list(DEC),
+    adversarialResults: list(ADV) }, words('schemaVersion correlation verdict evidenceRead findings confirmations decisions adversarialResults'));
+};
+const SCHEMAS = { 1: schemaFor(1), 2: schemaFor(2) }, SCHEMA = SCHEMAS[2];
 
 const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
@@ -84,14 +94,14 @@ function checkRequiredEvidence(req) {
   if (new Set(e).size !== e.length) fail('invalid_request', 'duplicate expected evidence');
   return e;
 }
-function checkEvidence(v, req) {
+function checkEvidence(v, req, adversarialGate) {
   const bad = (m) => fail('evidence_records_invalid', m), key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
   const e = checkRequiredEvidence(req), a = v.evidenceRead.map(key);
   if (new Set(a).size !== a.length) bad('duplicate evidence');
   if (v.evidenceRead.some((x) => !x.readCompletely)) bad('incomplete evidence');
   if (e.some((x) => !a.includes(x))) bad('required evidence omitted');
   if (a.some((x) => !e.includes(x))) bad('unexpected evidence');
-  if (v.correlation.gate === 'sol' && !v.adversarialResults.length) bad('Sol adversarial missing');
+  if (v.correlation.gate === adversarialGate && !v.adversarialResults.length) bad(`${adversarialGate} results missing`);
   const ids = new Set(v.findings.map((x) => x.findingId)), material = new Set();
   for (const x of v.adversarialResults) {
     if ((x.outcome !== 'no-counterexample') !== Boolean(x.findingId) || (x.findingId && !ids.has(x.findingId))) bad('adversarial linkage');
@@ -166,13 +176,18 @@ function checkVerdict(v, confirmed, material) {
 }
 function validateGateResult(v, e) {
   try {
-    check(SCHEMA, v); const assigned = expectedState(e);
+    // The version branch is explicit: an envelope is checked against its own version's schema,
+    // so a version 1 gate inside a version 2 envelope (or the reverse) is an unknown enum, never
+    // a mapped value; an unlisted version falls to the shipping schema's const and fails there.
+    const version = plain(v) && Object.hasOwn(SCHEMAS, v.schemaVersion) ? v.schemaVersion : 2;
+    check(SCHEMAS[version], v); const assigned = expectedState(e);
     checkCorrelation(v.correlation, e.correlation);
+    if (version === 2 && !ROOT_GATES[e.workflow].includes(v.correlation.gate)) fail('correlation_mismatch', `gate ${v.correlation.gate} is not a ${e.workflow} gate`);
     // The namespace is derived, never supplied: a hand-copied duplicate of a derivable value
     // can only ever be wrong, and in the field a copy mismatch destroyed completed verdicts.
     if ('freshFindingIdPrefix' in e) fail('invalid_request', 'freshFindingIdPrefix is derived from the correlation; do not supply it');
-    const prefix = `${v.correlation.gate === 'sol' ? 'SOL' : 'TERRA'}-${v.correlation.number}-`;
-    const material = checkEvidence(v, e.requiredEvidence);
+    const prefix = `${PREFIX[v.correlation.gate]}-${v.correlation.number}-`;
+    const material = checkEvidence(v, e.requiredEvidence, ADVERSARIAL[version]);
     checkFindings(v.findings, v.correlation, assigned, prefix, e.workflow);
     const confirmed = checkConfirmations(v.findings, v.confirmations, assigned, v.correlation);
     checkVerdict(v, confirmed, material);
@@ -183,4 +198,4 @@ function validateGateResult(v, e) {
 // checkSchema exposes the same structural walk validateGateResult applies, so builders can
 // validate a correlation with the boundary's own checker instead of a re-derivation.
 function checkSchema(schema, value, pathName = 'value') { check(schema, value, pathName); }
-module.exports = { SCHEMA, validateGateResult, expectedState, checkRequiredEvidence, checkSchema };
+module.exports = { SCHEMA, SCHEMAS, validateGateResult, expectedState, checkRequiredEvidence, checkSchema };

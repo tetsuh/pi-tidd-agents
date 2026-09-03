@@ -43,7 +43,7 @@ function correlation() {
   return {
     repository: 'tetsuh/pi-tidd-agents', number: 83, baseOid: 'c'.repeat(40),
     headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'feat/issue-83-request-builders',
-    headOid: OID, lifecycle: 'open', draft: false, gate: 'sol', invocation: 1,
+    headOid: OID, lifecycle: 'open', draft: false, gate: 'adversarial', invocation: 1,
     contractInput: 'd'.repeat(64), snapshotFingerprint: 'e'.repeat(64),
   };
 }
@@ -55,7 +55,7 @@ function expectationInput() {
 }
 function gateOutput() {
   return {
-    schemaVersion: 1, correlation: correlation(), verdict: 'MERGE',
+    schemaVersion: 2, correlation: correlation(), verdict: 'MERGE',
     evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64), readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'builders', searched: 'the helper boundary', outcome: 'no-counterexample', evidence: 'complete' }],
@@ -169,7 +169,7 @@ test('Issue #83 built operator and snapshot requests satisfy the boundary by con
 test('Issue #83 the built gate expectation validates a real gate result and carries the schema', () => {
   const built = cli('build_gate_expectation', expectationInput());
   assert.equal(built.ok, true, JSON.stringify(built.error));
-  assert.equal(built.data.outputSchema.properties.schemaVersion.const, 1, 'the canonical CL-D36 schema rides along');
+  assert.equal(built.data.outputSchema.properties.schemaVersion.const, 2, 'the canonical CL-D36 schema rides along, at the shipping version (CL-D60)');
   const validated = cli('gate_result_validate', { result: gateOutput(), expected: built.data.expected });
   assert.equal(validated.ok, true, JSON.stringify(validated.error));
   assert.equal(validated.data.verdict, 'MERGE');

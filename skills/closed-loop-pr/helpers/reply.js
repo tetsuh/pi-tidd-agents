@@ -32,7 +32,9 @@ function utcInstant(value) { return TIMESTAMP.test(value) && new Date(value).toI
 // gate accepts and rejects only what would corrupt its own serialization separators.
 const FINDING_ID = /^[^\s:,]+$/;
 const DISPOSITIONS = ['fixed', 'accepted-as-designed', 'deferred', 'duplicate', 'not-applicable', 'needs-owner-decision'];
-const GATES = ['sol', 'terra', 'sol+terra'];
+// Version 1 and version 2 gate vocabularies both parse for one release (CL-D60): a marker
+// names its gates in the vocabulary of the envelope it was written from.
+const GATES = ['sol', 'terra', 'sol+terra', 'adversarial', 'safety', 'decision-drift', 'adversarial+safety', 'adversarial+decision-drift'];
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }

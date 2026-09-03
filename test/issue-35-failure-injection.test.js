@@ -324,7 +324,7 @@ test('Issue #35 fixtures carry an explicit schema version and unknown versions a
   const fixture = { schemaVersion: 1, pull: pull(), checks: [] };
   assert.equal(fixture.schemaVersion, protocol.VERSION);
   assert.equal(protocol.isResult({ version: 2, ok: true, operation: 'snapshot', data: {} }), false);
-  assert.equal(gateResult.validateGateResult(envelope({ schemaVersion: 2 }), expectation()).error.code, 'unknown_version');
+  assert.equal(gateResult.validateGateResult(envelope({ schemaVersion: 3 }), expectation()).error.code, 'unknown_version');
 });
 
 test('Issue #35 a CL-D39 row that disappears is reported as missing, not as terminal', () => {
