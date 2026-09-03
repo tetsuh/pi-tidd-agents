@@ -10,11 +10,11 @@ The prompt template passes the complete raw argument vector (`$@`) to the workfl
 
 A target in another repository may be reviewed, but publication and local implementation authority remain bound to the repository of the current checkout. Verify that the resolved target is the expected kind after this shared parse; the workflow root applies its wrong-kind rejection and foreign-target boundary. The target is never inferred from the current branch. Each root resolves its reference only after this shared grammar has consumed the target reference, and runs only against an explicit target supplied by the operator (CL-D20).
 
-## Name-level agent resolution (CL-D22, CL-D5)
+## Name-level agent resolution (CL-D22, CL-D5, CL-D59)
 
 Preflight begins by confirming that subagent execution comes from `pi-subagents`. If `pi-subagents` is unavailable, stop and report `BLOCKED` with installation guidance. Never substitute local execution for a formal gate.
 
-Refer to agents **by runtime name** only, **never by model ID**. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so an operator whose environment lacks a model can supply their own definition under the same name through name-level override guidance. Naming a model here would remove that escape hatch. Each workflow root retains its own required runtime-agent set and routing. If a required agent does not resolve, stop and report `BLOCKED`, naming the missing agent and the override path.
+Refer to agents **by role name** only, **never by model ID**. The roles are `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`; which provider, model, and thinking level serve a role is deployment configuration, never role semantics, and the old model-derived names resolve only as transitional aliases for one release. User and project agent definitions take discovery precedence over package-provided definitions with the same role name, so an operator whose environment lacks a model can supply their own definition or override under the role name. Naming a model here would remove that escape hatch. Each workflow root retains its own required role set and routing. If a required role is missing, disabled, unresolved, or lacks its required capability — a reviewer role resolves without `edit` or `write` and returns the CL-D36 envelope; the writer role resolves with `edit` and `write` — stop and report `BLOCKED`, naming the role and the override path.
 
 ## Language Profile (CL-D16)
 

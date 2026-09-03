@@ -50,7 +50,7 @@ const finding = (over = {}) => ({
   validationEvidence: 'npm test 400/400',
   transport: 'pending',
   workflowRecord: {
-    sourceKind: 'gate', sourceId: 'SOL-56-001', authorIdentity: 'sol-reviewer', authorType: 'Agent',
+    sourceKind: 'gate', sourceId: 'SOL-56-001', authorIdentity: 'tidd-adversarial-reviewer', authorType: 'Agent',
     observedHeadOid: correlation().headOid, fingerprint: '1'.repeat(64),
     semanticFingerprint: '2'.repeat(64), correctiveChange: 'narrowed the row',
   },

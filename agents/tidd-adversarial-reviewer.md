@@ -1,6 +1,7 @@
 ---
-name: sol-reviewer
-description: Read-only requirements and contract reviewer powered by GPT-5.6 Sol
+name: tidd-adversarial-reviewer
+aliases: sol-reviewer
+description: Read-only adversarial requirements, contract, scope, and maintainability reviewer
 model: gpt-5.6-sol
 thinking: "high"
 systemPromptMode: replace

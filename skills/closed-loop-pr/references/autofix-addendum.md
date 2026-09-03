@@ -10,7 +10,7 @@ Exact PR `autofix` never resumes: a later command is a fresh run.
 
 ### Exact owner and safety boundary (CL-D30)
 
-The exact-autofix writer is not replaceable: it is always `luna-worker`, and an owner request or selection of another worker stops the run before mutation because it would change the CL-D30 contract. The exact-autofix run ends there and has no resume. Standalone explicit worker delegation outside this workflow remains separate, receives no CL-D30 authority, and does not alter this rule.
+The exact-autofix writer is not replaceable: it is always `tidd-autofix-worker`, and an owner request or selection of another worker stops the run before mutation because it would change the CL-D30 contract. The exact-autofix run ends there and has no resume. Standalone explicit worker delegation outside this workflow remains separate, receives no CL-D30 authority, and does not alter this rule.
 
 Before any exact-autofix edit, unclear, conflicting, scope-changing, architectural, compatibility, security/risk, or contract-changing finding always stops at `WAITING_FOR_OWNER(reason=owner_decision_required)`. A security or risk finding cannot be delegated merely because its mechanical patch appears obvious. The run ends at that boundary with no resume.
 
