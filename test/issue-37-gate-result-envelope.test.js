@@ -116,7 +116,7 @@ test('Issue #37 unknown fields, unknown versions, and unknown enums fail closed'
   // absent subschema and the resulting TypeError surfaced as generic `gate_result_invalid`.
   const cases = [
     ['unknown_field', envelope({ extra: true }), 'unknown_field'],
-    ['unknown_version', envelope({ schemaVersion: 2 }), 'unknown_version'],
+    ['unknown_version', envelope({ schemaVersion: 3 }), 'unknown_version'],
     ['unknown_verdict', envelope({ verdict: 'LGTM' }), 'unknown_enum'],
     ['unknown_gate', envelope({ correlation: { ...correlation(), gate: 'luna' } }), 'unknown_enum'],
     ['unknown_nested_field', envelope({ evidenceRead: [{ ...attestation(), extra: true }] }), 'unknown_field'],

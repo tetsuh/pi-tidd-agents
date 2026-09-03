@@ -96,6 +96,8 @@ The original model-derived names remain as transitional aliases for one release 
 
 An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only, so re-key existing overrides to the role name. Likewise, an exact configured name always resolves before an alias, so a copy of an old agent file in your own agent directory wins over the alias for that old name and bypasses the role; remove such copies. The standalone `glm-worker` and `terra-worker` agents were removed with CL-D59.
 
+Gate identities in the structured envelope (schema version 2) are `adversarial`, `decision-drift`, and `safety`, with fresh-finding prefixes `ADV-`, `DRIFT-`, and `SAFETY-` (CL-D60); version 1 (`sol` / `terra`) is accepted for one release. Sol and Terra remain the gate nicknames in prose.
+
 ## Closed-loop workflow (opt-in)
 
 The closed-loop workflow runs the stages above as a loop: review, disposition every finding, apply only authorized fixes, and revalidate the evidence the change invalidated. It is opt-in. Installing the package starts nothing and changes nothing.

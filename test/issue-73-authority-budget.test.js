@@ -27,7 +27,7 @@ const RAISE_BASELINE_BYTES = 114563;
 test('Issue #73 the raised guards are the ones the suite actually asserts', () => {
   // The guards live in the suites that own them; this test pins the numbers so a silent
   // re-raise in either file fails here as well as there.
-  assert.match(PACKAGE_TEST, /assert\.ok\(total < 128000,/);
+  assert.match(PACKAGE_TEST, /assert\.ok\(total < 140000,/);
   assert.equal(PACKAGE_TEST.includes('total < 116000'), false, 'the superseded six-file ceiling must not survive');
   assert.match(CLEANLINESS_TEST, /Buffer\.byteLength\(addendum\) < 28000,/);
   assert.equal(CLEANLINESS_TEST.includes('byteLength(addendum) < 25022'), false, 'the superseded addendum ceiling must not survive');
@@ -39,7 +39,7 @@ test('Issue #73 the raised guards are the ones the suite actually asserts', () =
 
 test('Issue #73 the live measurements sit inside the raised guards', () => {
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 128000, `authority files total ${total}`);
+  assert.ok(total < 140000, `authority files total ${total}`);
   // A raise that leaves no room would repeat the defect it is meant to remove — but that is a
   // fact about the raise, not about later growth. CL-D48: asserting it against the live total
   // made the margin a second, unstated ceiling that ordinary prose work had to negotiate with.

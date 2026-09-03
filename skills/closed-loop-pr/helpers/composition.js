@@ -76,7 +76,7 @@ const PREDICATES = Object.freeze({
     && plain(value.completeness) && plain(value.policies)
     && ['annotations', 'checkSuites', 'checks', 'comments', 'inline', 'reviews', 'statuses', 'threads']
       .every((key) => Array.isArray(value[key])),
-  'structured:gate_result': (value) => plain(value) && value.schemaVersion === 1
+  'structured:gate_result': (value) => plain(value) && [1, 2].includes(value.schemaVersion)
     && plain(value.correlation) && typeof value.verdict === 'string',
 });
 
