@@ -122,7 +122,11 @@ test('Issue #100 version 1 stays accepted verbatim for one release, with no cros
   // The adversarial-results duty follows the adversarial gate under each version.
   assert.equal(gateResult.validateGateResult(envelope(2, 'adversarial', { adversarialResults: [] }), expectation('pr', 'adversarial')).error.code, 'evidence_records_invalid');
   assert.equal(gateResult.validateGateResult(envelope(2, 'safety', { adversarialResults: [] }), expectation('pr', 'safety')).ok, true);
-  assert.equal(gateResult.validateGateResult(envelope(1, 'sol', { adversarialResults: [] }), expectation('pr', 'sol')).error.code, 'evidence_records_invalid');
+  // ADV-106-V1-VERBATIM: version 1 keeps its exact legacy diagnostic; version 2 has its own.
+  const legacy = gateResult.validateGateResult(envelope(1, 'sol', { adversarialResults: [] }), expectation('pr', 'sol'));
+  assert.equal(legacy.error.code, 'evidence_records_invalid');
+  assert.equal(legacy.error.message, 'Sol adversarial missing', 'the version 1 diagnostic is verbatim');
+  assert.equal(gateResult.validateGateResult(envelope(2, 'adversarial', { adversarialResults: [] }), expectation('pr', 'adversarial')).error.message, 'adversarial results missing');
 });
 
 test('Issue #100 the packaged expectation builder ships version 2 only', () => {

@@ -8,7 +8,8 @@ const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'], ROOTS = ['issu
 const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety'] };
 const ROOT_GATES = { issue: ['adversarial', 'decision-drift'], pr: ['adversarial', 'safety'] };
 const PREFIX = { sol: 'SOL', terra: 'TERRA', adversarial: 'ADV', 'decision-drift': 'DRIFT', safety: 'SAFETY' };
-const ADVERSARIAL = { 1: 'sol', 2: 'adversarial' };
+// Version 1 keeps its exact legacy diagnostic (ADV-106-V1-VERBATIM); version 2 has its own.
+const ADVERSARIAL = { 1: 'sol', 2: 'adversarial' }, ADVERSARIAL_MISSING = { sol: 'Sol adversarial missing', adversarial: 'adversarial results missing' };
 const SEVERITIES = ['Blocker', 'Major', 'Minor'], ANCHORING = ['criterion-anchored', 'reword', 'follow-up'];
 const DISPOSITIONS = words('fixed accepted-as-designed deferred duplicate not-applicable needs-owner-decision');
 const CONFIRMS = words('confirmed rejected unverifiable'), KINDS = words('file git github snapshot');
@@ -101,7 +102,7 @@ function checkEvidence(v, req, adversarialGate) {
   if (v.evidenceRead.some((x) => !x.readCompletely)) bad('incomplete evidence');
   if (e.some((x) => !a.includes(x))) bad('required evidence omitted');
   if (a.some((x) => !e.includes(x))) bad('unexpected evidence');
-  if (v.correlation.gate === adversarialGate && !v.adversarialResults.length) bad(`${adversarialGate} results missing`);
+  if (v.correlation.gate === adversarialGate && !v.adversarialResults.length) bad(ADVERSARIAL_MISSING[adversarialGate]);
   const ids = new Set(v.findings.map((x) => x.findingId)), material = new Set();
   for (const x of v.adversarialResults) {
     if ((x.outcome !== 'no-counterexample') !== Boolean(x.findingId) || (x.findingId && !ids.has(x.findingId))) bad('adversarial linkage');
