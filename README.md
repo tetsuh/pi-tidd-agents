@@ -193,8 +193,8 @@ User and project agent definitions have higher discovery precedence than package
 ## Design
 
 - Workers use forked conversation context and inherit project instructions.
-- Reviewers use fresh context and have read-only tool allowlists.
-- The oracle uses forked context to reconstruct inherited decisions and detect drift.
+- The adversarial and safety reviewers use fresh context; all reviewers have read-only tool allowlists.
+- The drift reviewer uses forked context to reconstruct inherited decisions and detect drift.
 - External side effects require explicit delegation.
 - Agent runtime names stay short and unqualified.
 

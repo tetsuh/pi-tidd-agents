@@ -19,10 +19,10 @@ const fs = require('node:fs');
 const { readText, readJson, repoPath, parseFrontmatter, sectionOf } = require('./helpers');
 
 const ROLES = {
-  'tidd-adversarial-reviewer': { alias: 'sol-reviewer', model: 'gpt-5.6-sol', writer: false },
-  'tidd-drift-reviewer': { alias: 'terra-oracle', model: 'gpt-5.6-terra', writer: false },
-  'tidd-safety-reviewer': { alias: 'terra-reviewer', model: 'gpt-5.6-terra', writer: false },
-  'tidd-autofix-worker': { alias: 'luna-worker', model: 'gpt-5.6-luna', writer: true },
+  'tidd-adversarial-reviewer': { alias: 'sol-reviewer', model: 'gpt-5.6-sol', writer: false, context: 'fresh' },
+  'tidd-drift-reviewer': { alias: 'terra-oracle', model: 'gpt-5.6-terra', writer: false, context: 'fork' },
+  'tidd-safety-reviewer': { alias: 'terra-reviewer', model: 'gpt-5.6-terra', writer: false, context: 'fresh' },
+  'tidd-autofix-worker': { alias: 'luna-worker', model: 'gpt-5.6-luna', writer: true, context: 'fork' },
 };
 const LEGACY = /sol-reviewer|terra-reviewer|terra-oracle|luna-worker|glm-worker|terra-worker/;
 const REVIEWER_TOOLS = ['read', 'grep', 'find', 'ls', 'bash'];
@@ -40,6 +40,9 @@ test('Issue #100 the package ships exactly the four role agents, each aliasing i
     assert.equal(String(frontmatter.thinking).replace(/"/g, ''), 'high');
     assert.equal(String(frontmatter.inheritSkills), 'false');
     assert.deepEqual(frontmatter.tools.split(',').map((tool) => tool.trim()), expected.writer ? WORKER_TOOLS : REVIEWER_TOOLS);
+    // SOL-104-DRIFT-CONTEXT (owner Option A): the adversarial and safety reviewers run fresh-context;
+    // the drift reviewer keeps the forked context its decision-oracle function depends on.
+    assert.equal(frontmatter.defaultContext, expected.context, `${role} context mode is part of the role`);
     // The role description names the responsibility, never the model that serves it.
     assert.doesNotMatch(frontmatter.description, /gpt|glm|powered by|\bsol\b|\bterra\b|\bluna\b/i, `${role} description names a model`);
     // The body does not assert which model is running it either.
@@ -81,6 +84,8 @@ test('Issue #100 the README documents the roles, the alias transition, and overr
   assert.match(readme, /An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only/);
   assert.match(readme, /`subagents\.agentOverrides\.tidd-adversarial-reviewer\.model`/);
   assert.match(readme, /an exact configured name always resolves before an alias/);
+  assert.match(readme, /The adversarial and safety reviewers use fresh context/);
+  assert.match(readme, /The drift reviewer uses forked context to reconstruct inherited decisions and detect drift/);
   assert.doesNotMatch(readme, /`glm-worker` is not used by the closed-loop workflow/);
 });
 
@@ -98,6 +103,8 @@ test('Issue #100 CL-D59 records the role split, the agents/ widening, and the re
   assert.match(record, /a unique exact configured name resolves before any alias is consulted/);
   assert.match(record, /a leftover legacy definition would silently bypass the role/);
   assert.doesNotMatch(record, /registry collision/);
+  assert.match(record, /The adversarial and safety reviewer roles remain read-only and fresh-context, the drift reviewer role remains read-only in the forked context its decision-oracle function depends on/);
+  assert.doesNotMatch(record, /Reviewer roles remain read-only and fresh-context/);
   const cl1 = sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files');
   assert.match(cl1, /CL-D59 later renamed the agent files to role identities under its own widening/);
   const cl3 = sectionOf(contract, '## CL-D3 — Writer selection');
