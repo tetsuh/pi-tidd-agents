@@ -2853,7 +2853,7 @@
       ],
       "requires": [
         "the invocation map offers every builder and the builder paragraph",
-        "the CLI exposes exactly the five builder operations with frozen inputs",
+        "the CLI exposes exactly the seven builder operations with frozen inputs",
         "builders are pure: no filesystem, process, network, or Git reach",
         "the workspace chain round-trips: create, built verify, built cleanup",
         "builders reject with the boundary vocabulary, not new codes",
@@ -2992,6 +2992,52 @@
         "the composition table accepts both envelope versions and the reply marker parses both gate vocabularies",
         "the shared contract, the addendum, the README, and CL-D60 record the version 2 identities",
         "CL-D60 raises the authority ceiling once, with the headroom property asserted at the raise"
+      ]
+    },
+    {
+      "id": "CL-D61-map",
+      "marker": "CL-D61",
+      "title": "The invocation map offers the manifest builders and the required-evidence check",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
+      "requires": [
+        "| `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |",
+        "| `build_manifest_compare` | `captured` (data of `manifest_compare`), `cwd` |",
+        "| `required_evidence_check` | `cwd`, `requiredEvidence` |",
+        "with requests built by `build_manifest_capture` and `build_manifest_compare` (CL-D61)",
+        "so a request carrying both mode fields is unrepresentable",
+        "it requires every `file`-kind required-evidence entry to exist before the expectation is built"
+      ]
+    },
+    {
+      "id": "CL-D61-shared",
+      "marker": "CL-D61",
+      "title": "A required file that does not exist is an assembly error, never a gate outcome",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Structured gate result transport (CL-D36)",
+      "requires": [
+        "every `file`-kind entry of that set must exist, verified through packaged `required_evidence_check` before the expectation is built",
+        "a required file that does not exist is an assembly error and never a gate outcome (CL-D61)"
+      ]
+    },
+    {
+      "id": "CL-D61-tests",
+      "marker": "CL-D61",
+      "title": "Builder and check fixtures pin the surface, the unrepresentable request, the round trip, and the record",
+      "files": [
+        "test/issue-105-manifest-builders.test.js"
+      ],
+      "requires": [
+        "the invocation map names the manifest builders and the evidence check",
+        "the CLI exposes the two builders and the check with frozen inputs",
+        "a request carrying both mode fields cannot be produced by a builder",
+        "the built requests round-trip through manifest_compare at AFTER_STAGING and BEFORE_COMMIT",
+        "required_evidence_check makes a nonexistent required file an assembly error",
+        "CL-D61 records the builders, the check, and the CL-D56 widening"
       ]
     }
   ]

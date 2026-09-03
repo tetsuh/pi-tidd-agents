@@ -31,6 +31,9 @@ const SCHEMAS = Object.freeze({
   build_workspace_cleanup: { required: ['created', 'cwd'], optional: [] },
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
   build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },
+  build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },
+  build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },
+  required_evidence_check: { required: ['cwd', 'requiredEvidence'], optional: [] },
   marker_create: { required: ['binding', 'visibleBody'], optional: [] },
   marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },
 });
@@ -125,6 +128,9 @@ async function dispatch(request) {
     case 'build_workspace_cleanup': return wrap(operation, helpers.buildWorkspaceCleanup(data));
     case 'build_fingerprint_snapshot': return wrap(operation, helpers.buildFingerprintSnapshot(data));
     case 'build_gate_expectation': return wrap(operation, helpers.buildGateExpectation(data));
+    case 'build_manifest_capture': return wrap(operation, helpers.buildManifestCapture(data));
+    case 'build_manifest_compare': return wrap(operation, helpers.buildManifestCompare(data));
+    case 'required_evidence_check': return wrap(operation, helpers.requiredEvidenceCheck(data));
     case 'marker_create': return wrap(operation, helpers.createReplyMarker(data));
     case 'marker_reconcile': return wrap(operation, helpers.reconcileReply(data));
     default: invalid('unknown operation');

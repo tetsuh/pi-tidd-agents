@@ -72,6 +72,26 @@ function buildFingerprintSnapshot(data) {
   return wrap('build_fingerprint_snapshot', () => built('build_fingerprint_snapshot', 'fingerprint_snapshot', { snapshot: data.snapshot }));
 }
 
+// CL-D61: the two manifest_compare requests derive every value from a producing operation —
+// the frozen overlay's parent and authorized set, the capture's parent — so a request carrying
+// both mode fields (the PR #103 killer) is unrepresentable here.
+function buildManifestCapture(data) {
+  return wrap('build_manifest_capture', () => {
+    if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
+    const problem = inputShapeProblem('overlay_compare', { cwd: data.cwd, overlay: data.overlay });
+    if (problem !== null) fail('input_shape_mismatch', problem);
+    return built('build_manifest_capture', 'manifest_compare', { cwd: data.cwd, parent: data.overlay.parent, authorizedPaths: [...data.overlay.authorizedPaths] });
+  });
+}
+
+function buildManifestCompare(data) {
+  return wrap('build_manifest_compare', () => {
+    if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
+    const captured = data.captured, parent = captured !== null && typeof captured === 'object' ? captured.parent : undefined;
+    return built('build_manifest_compare', 'manifest_compare', { cwd: data.cwd, parent, manifest: captured }, { from: 'manifest', to: 'captured' });
+  });
+}
+
 function buildGateExpectation(data) {
   return wrap('build_gate_expectation', () => {
     if (!['issue', 'pr'].includes(data.workflow)) fail('invalid_request', 'workflow must be issue or pr');
@@ -90,4 +110,4 @@ function buildGateExpectation(data) {
   });
 }
 
-module.exports = { buildOperatorRevalidate, buildWorkspaceVerify, buildWorkspaceCleanup, buildFingerprintSnapshot, buildGateExpectation };
+module.exports = { buildOperatorRevalidate, buildWorkspaceVerify, buildWorkspaceCleanup, buildFingerprintSnapshot, buildGateExpectation, buildManifestCapture, buildManifestCompare };

@@ -8,10 +8,12 @@
 // failure with nothing to name cannot be produced, because each check reports what it saw.
 
 const crypto = require('node:crypto');
+const path = require('node:path');
 const { createResult, createError } = require('./protocol');
 const { runSync, gitArgs } = require('./process');
 const { RUNTIME_ROOTS } = require('./operator');
-const { classifyRuntimeRoots } = require('./paths');
+const { classifyRuntimeRoots, lstatKind } = require('./paths');
+const { checkRequiredEvidence } = require('./gate-result');
 const { verifyWorkspace } = require('./workspace');
 
 const OID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
@@ -264,4 +266,22 @@ function manifestCompare(data) {
   });
 }
 
-module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, parsePorcelainRecords };
+// CL-D61: a required-evidence entry naming a file that does not exist is an assembly error to
+// catch before any gate runs (PR #104 spent Terra's only retry on one), never a gate outcome.
+// Only `file`-kind sources are paths; the other kinds carry digests or GitHub identities.
+function requiredEvidenceCheck(data) {
+  return wrap('required_evidence_check', () => {
+    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
+    try { checkRequiredEvidence(data.requiredEvidence); } catch (error) { fail('invalid_request', 'required_evidence_shape', error.message, error.message); }
+    let checked = 0, skipped = 0;
+    for (const entry of data.requiredEvidence) {
+      if (entry.kind !== 'file') { skipped += 1; continue; }
+      const kind = lstatKind(path.isAbsolute(entry.source) ? entry.source : path.join(data.cwd, entry.source));
+      if (kind !== 'file') fail('invalid_request', 'required_evidence_presence', `required evidence source is not an existing file (${kind}): ${entry.source}`, entry.source);
+      checked += 1;
+    }
+    return createResult('required_evidence_check', { checked, skipped });
+  });
+}
+
+module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, parsePorcelainRecords, requiredEvidenceCheck };
