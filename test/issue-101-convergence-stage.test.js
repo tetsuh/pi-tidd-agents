@@ -1,0 +1,195 @@
+'use strict';
+
+// Issue #101 (CL-D62) — a non-authoritative convergence stage runs once per candidate identity
+// before the adversarial gate on both roots, so ordinary omissions are found and corrected
+// before the expensive formal gates run. It returns the CL-D36 envelope with gate `convergence`
+// and namespace `CONV-`, its findings reach Sol as assigned findings, its rounds are accounted
+// separately, exhaustion hands the candidate to Sol, and no convergence outcome can declare
+// readiness. Owner decisions: issues/101#issuecomment-5541436767 (all five as recommended).
+//
+// TDD provenance: recorded with `node --test test/issue-101-convergence-stage.test.js` at RED
+// before the role file, the gate identity, the prose, and the record existed. That local output
+// is not claimed as repository-preserved evidence.
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const helpers = require('../skills/closed-loop-pr/helpers');
+const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
+const { readText, sectionOf, parseFrontmatter, exists } = require('./helpers');
+
+const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
+const OID = 'a'.repeat(40);
+const SHA = '1'.repeat(64);
+const REVIEWER_TOOLS = ['read', 'grep', 'find', 'ls', 'bash'];
+
+function cli(operation, data) {
+  const run = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' });
+  return JSON.parse(run.stdout);
+}
+function correlation(gate) {
+  return {
+    repository: 'tetsuh/pi-tidd-agents', number: 101, baseOid: 'b'.repeat(40),
+    headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'feat/issue-101-convergence-stage',
+    headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1,
+    contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64),
+  };
+}
+function envelope(gate, over = {}) {
+  return {
+    schemaVersion: 2, correlation: correlation(gate), verdict: 'MERGE',
+    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA, readCompletely: true }],
+    findings: [], confirmations: [], decisions: [], adversarialResults: [],
+    ...over,
+  };
+}
+function expectation(workflow, gate) {
+  return { workflow, correlation: correlation(gate), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] };
+}
+function fresh(findingId, root) {
+  return {
+    findingId, origin: 'fresh', gate: 'convergence', headOid: OID, raisedAgainstFingerprint: SHA,
+    severity: 'Minor', anchoring: 'criterion-anchored', anchor: 'AC-TESTS', proposedDisposition: 'fixed',
+    evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 'pending',
+    workflowRecord: root === 'pr'
+      ? { sourceKind: 'gate', sourceId: findingId, authorIdentity: 'tidd-convergence-reviewer', authorType: 'Agent', observedHeadOid: OID, fingerprint: SHA, semanticFingerprint: SHA, correctiveChange: 'narrowed' }
+      : { candidateIdentity: 'candidate-1', revisedPassage: 'revised', snapshotAssignment: 'snapshot-1' },
+  };
+}
+const decision = () => ({
+  decisionId: 'DEC-101-001', kind: 'contract', targetAndRevision: 'Issue #101 at head', question: 'q',
+  options: 'a or b', recommendation: 'a', rationale: 'r', validity: 'this revision', status: 'pending',
+});
+
+test('Issue #101 the package ships the convergence role as a read-only, fresh-context, non-authoritative reviewer', () => {
+  assert.ok(exists('agents/tidd-convergence-reviewer.md'), 'the role file must exist');
+  const text = readText('agents/tidd-convergence-reviewer.md');
+  const frontmatter = parseFrontmatter(text);
+  assert.equal(frontmatter.name, 'tidd-convergence-reviewer');
+  assert.equal(frontmatter.aliases, undefined, 'a new role carries no transitional alias');
+  assert.equal(frontmatter.model, 'gpt-5.6-luna', 'owner decision 1: the shipped default is Luna');
+  assert.equal(String(frontmatter.thinking).replace(/"/g, ''), 'high');
+  assert.equal(frontmatter.defaultContext, 'fresh');
+  assert.equal(String(frontmatter.inheritSkills), 'false');
+  assert.deepEqual(frontmatter.tools.split(',').map((tool) => tool.trim()), REVIEWER_TOOLS);
+  assert.doesNotMatch(frontmatter.description, /gpt|glm|powered by|\bsol\b|\bterra\b|\bluna\b/i, 'the description names the responsibility, never the model');
+  assert.match(frontmatter.description, /preliminary/i);
+  const body = text.slice(text.indexOf('---', 3) + 3);
+  assert.match(body, /never declare `IMPLEMENTATION_READY` or `MERGE_READY`/);
+  assert.match(body, /MERGE \| FIX BEFORE MERGE \| NEEDS DECISION/);
+  assert.match(body, /You never apply fixes/);
+});
+
+test('Issue #101 the envelope accepts the convergence gate on both roots with its own namespace and no adversarial duty', () => {
+  for (const root of ['pr', 'issue']) {
+    const clean = gateResult.validateGateResult(envelope('convergence'), expectation(root, 'convergence'));
+    assert.equal(clean.ok, true, `${root}: ${JSON.stringify(clean.error ?? {})}`);
+    const findings = gateResult.validateGateResult(envelope('convergence', { verdict: 'FIX BEFORE MERGE', findings: [fresh('CONV-101-OMISSION', root)] }), expectation(root, 'convergence'));
+    assert.equal(findings.ok, true, `${root} findings: ${JSON.stringify(findings.error ?? {})}`);
+    const wrongNamespace = gateResult.validateGateResult(envelope('convergence', { verdict: 'FIX BEFORE MERGE', findings: [fresh('ADV-101-OMISSION', root)] }), expectation(root, 'convergence'));
+    assert.equal(wrongNamespace.error.code, 'finding_records_invalid', `${root}: a convergence finding under the adversarial namespace is a record error`);
+    // Owner decision 4: a NEEDS DECISION verdict takes the ordinary owner-decision path.
+    const needs = gateResult.validateGateResult(envelope('convergence', { verdict: 'NEEDS DECISION', decisions: [decision()] }), expectation(root, 'convergence'));
+    assert.equal(needs.ok, true, `${root} decision: ${JSON.stringify(needs.error ?? {})}`);
+    // Malformed output is a tool failure in the boundary's vocabulary, never a verdict.
+    const malformed = gateResult.validateGateResult({ ...envelope('convergence'), verdict: undefined }, expectation(root, 'convergence'));
+    assert.equal(malformed.ok, false);
+    assert.equal(malformed.error.code, 'schema_invalid');
+  }
+  // The adversarial-results duty stays with the adversarial gate; version 1 knows no convergence.
+  assert.equal(gateResult.validateGateResult(envelope('adversarial'), expectation('pr', 'adversarial')).error.code, 'evidence_records_invalid');
+  assert.equal(gateResult.validateGateResult({ ...envelope('convergence'), schemaVersion: 1 }, expectation('pr', 'convergence')).error.code, 'unknown_enum');
+  assert.deepEqual(gateResult.SCHEMA.properties.correlation.properties.gate.enum, ['adversarial', 'decision-drift', 'safety', 'convergence']);
+  const built = cli('build_gate_expectation', expectation('issue', 'convergence'));
+  assert.equal(built.ok, true, JSON.stringify(built.error));
+  assert.ok(built.data.outputSchema.properties.correlation.properties.gate.enum.includes('convergence'));
+  const marker = helpers.createReplyMarker({
+    binding: {
+      repository: 'tetsuh/pi-tidd-agents', number: 101, sourceKind: 'issue_comment', sourceId: '1',
+      sourceUrl: 'https://github.com/tetsuh/pi-tidd-agents/pull/101#issuecomment-1', sourceBodySha256: SHA,
+      sourceCreatedAt: '2026-09-04T00:00:00Z', sourceUpdatedAt: '2026-09-04T00:00:00Z', head: OID,
+      findings: [{ findingId: 'CONV-101-OMISSION', disposition: 'fixed' }], gates: 'convergence', commit: null,
+    },
+    visibleBody: 'Confirming gate: convergence at the exact head.\n',
+  });
+  assert.equal(marker.ok, true, JSON.stringify(marker.error ?? {}));
+});
+
+test('Issue #101 the shared contract defines the stage: order, one per candidate, caps, hand-over, invalidation, disabled skip, telemetry', () => {
+  const contract = readText('skills/closed-loop-shared/references/gate-contract.md');
+  const section = sectionOf(contract, '## Convergence stage (CL-D62)');
+  assert.ok(section, 'the shared contract must carry the convergence section');
+  assert.match(section, /read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity before the adversarial gate on both roots/);
+  assert.match(section, /Issue `convergence → adversarial → decision-drift`, PR `convergence → adversarial → safety`/);
+  assert.match(section, /gate `convergence` and the derived namespace `CONV-<n>-`/);
+  assert.match(section, /reach the adversarial gate as assigned findings/);
+  assert.match(section, /no convergence outcome can declare `IMPLEMENTATION_READY` or `MERGE_READY`/);
+  assert.match(section, /invalidates convergence results exactly as it invalidates formal results, and the sequence restarts at convergence/);
+  assert.match(section, /accounted separately as `convergence <used>\/<cap>`, never against a formal gate's budget/);
+  assert.match(section, /the cap is 3 per run on the Issue root and PR review-only and 5 on exact autofix/);
+  assert.match(section, /hands the current candidate to the adversarial gate with those findings assigned and does not invoke convergence again; `ROUND_LIMIT_REACHED` remains reserved for the formal gates/);
+  assert.match(section, /A `NEEDS DECISION` verdict from convergence takes the ordinary owner-decision path/);
+  assert.match(section, /the stage is skipped and the status block reports `convergence: disabled`/);
+  assert.match(section, /present but unresolved or resolves with `edit` or `write` is `BLOCKED`/);
+  assert.match(section, /reports `resolved:` with the provider, model, and thinking level each role ran with/);
+  const resolution = sectionOf(contract, '## Name-level agent resolution (CL-D22, CL-D5, CL-D59)');
+  assert.match(resolution, /plus the non-authoritative preliminary `tidd-convergence-reviewer` \(CL-D62\)/);
+  assert.match(resolution, /a disabled `tidd-convergence-reviewer` skips its stage \(CL-D62\)/);
+  const transport = sectionOf(contract, '### Structured gate result transport (CL-D36)');
+  assert.match(transport, /or `convergence` \(the non-authoritative preliminary stage on both roots, CL-D62\)/);
+  assert.match(transport, /`CONV-<n>-` for convergence/);
+});
+
+test('Issue #101 both roots run convergence before the adversarial gate and report it in the status block', () => {
+  const issue = readText('skills/closed-loop-issue/SKILL.md');
+  assert.match(issue, /`tidd-convergence-reviewer` runs the CL-D62 convergence stage when it resolves and is skipped when disabled/);
+  assert.match(issue, /`tidd-convergence-reviewer` first runs the non-authoritative convergence stage \(CL-D62\) once per candidate identity; its findings reach Sol as assigned findings and it never authorizes readiness/);
+  assert.match(issue, /the convergence stage reviews the complete unchanged object once \(CL-D62\), Sol reviews the complete unchanged object/);
+  assert.match(issue, /restarts at convergence, then Sol/);
+  assert.match(issue, /active_gate: <convergence\|sol\|terra\|none>/);
+  assert.match(issue, /rounds: convergence <used>\/3, sol <used>\/3, terra <used>\/3/);
+  assert.match(issue, /resolved: <role provider\/model:thinking, one per role that ran; convergence: disabled when skipped>/);
+  const pr = readText('skills/closed-loop-pr/SKILL.md');
+  assert.match(pr, /`tidd-convergence-reviewer` runs the CL-D62 convergence stage in both modes when it resolves and is skipped when disabled/);
+  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
+  assert.match(reviewOnly, /→ tidd-convergence-reviewer stage \(non-authoritative, CL-D62\)\n→ preliminary disposition \(a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol\)\n→ tidd-adversarial-reviewer gate/);
+  assert.match(reviewOnly, /a preliminary `FIX BEFORE MERGE` is reported through the disposition\/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol/);
+  assert.match(reviewOnly, /Convergence rounds are accounted separately as `convergence <used>\/3`, one per candidate identity; at the cap the candidate goes to Sol with open convergence findings assigned \(CL-D62\)/);
+  assert.match(reviewOnly, /active_gate: <convergence\|sol\|terra\|external\|none>/);
+  assert.match(reviewOnly, /rounds: convergence <used>\/3, sol <used>\/3, terra <used>\/3/);
+  assert.match(reviewOnly, /resolved: <role provider\/model:thinking, one per role that ran; convergence: disabled when skipped>/);
+  assert.match(reviewOnly, /\*\*Never start the Terra gate before the Sol gate returns `MERGE`\.\*\*/);
+  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
+  assert.match(addendum, /The CL-D62 convergence stage runs once per candidate identity before each Sol invocation, is accounted separately as `convergence <used>\/5` outside the 15 counted gate invocations, and at its cap hands the candidate to Sol with open convergence findings assigned/);
+  assert.match(addendum, /the final summary reports `resolved:` with each role's provider, model, and thinking level/);
+  assert.match(addendum, /the convergence stage's payload and result are bound the same way \(CL-D62\)/);
+  assert.match(addendum, /gate \(`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1\)/);
+});
+
+test('Issue #101 the README documents the role, its default, the self-review caveat, and the design rule', () => {
+  const readme = readText('README.md');
+  assert.match(readme, /\| Preliminary convergence review inside the closed loop \(non-authoritative\) \| `tidd-convergence-reviewer` \|/);
+  assert.match(readme, /`tidd-convergence-reviewer` \(CL-D62\) is the non-authoritative preliminary reviewer that runs before the adversarial gate/);
+  assert.match(readme, /ships with the `gpt-5.6-luna` default/);
+  assert.match(readme, /In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102/);
+  assert.match(readme, /Disable the agent through pi-subagents configuration to skip the stage/);
+  assert.match(readme, /- The convergence reviewer uses fresh context and is never readiness authority\./);
+});
+
+test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60', () => {
+  const contract = readText('CONTRACT.md');
+  const record = sectionOf(contract, '## CL-D62 — A non-authoritative convergence stage runs before the adversarial gate');
+  assert.ok(record, 'CL-D62 must exist');
+  for (const field of ['*Decision ID:* CL-D62', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D62 must carry ${field}`);
+  assert.match(record, /issues\/101#issuecomment-5541436767/);
+  assert.match(record, /widens the CL-D1 `agents\/` freeze exactly once more/);
+  assert.match(record, /`convergence` identity under CL-D60/);
+  assert.match(record, /3 per run on the Issue root and PR review-only and 5 on exact autofix/);
+  assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D62 later added the convergence role file under its own widening/);
+  assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
+  assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D62').map((clause) => clause.id).sort(), ['CL-D62-autofix', 'CL-D62-issue', 'CL-D62-pr', 'CL-D62-readme', 'CL-D62-shared', 'CL-D62-tests']);
+});

@@ -75,6 +75,7 @@ For a typical Issue-to-pull-request workflow, use the following sequence.
 | Issue pre-implementation notes | `tidd-adversarial-reviewer` | `Use tidd-adversarial-reviewer to review Issue #18 and append pre-implementation notes.` |
 | Issue pre-implementation addendum | `tidd-drift-reviewer` | `Use tidd-drift-reviewer to review Issue #18 and append a pre-implementation addendum.` |
 | Implementation and pull request | `tidd-autofix-worker` | `Use tidd-autofix-worker to implement Issue #18 and create a pull request.` |
+| Preliminary convergence review inside the closed loop (non-authoritative) | `tidd-convergence-reviewer` | Runs automatically before the adversarial gate in `/tidd-issue` and `/tidd-pr`; no standalone prompt is needed. |
 | Standard pull request review | `tidd-adversarial-reviewer` | `Use tidd-adversarial-reviewer to review PR #42 and append the review.` |
 | Concurrency, lifetime, and ownership review when relevant | `tidd-safety-reviewer` | `Use tidd-safety-reviewer to review PR #42 for concurrency, lifetime, and ownership issues, then append the review.` |
 | Address approved pull request findings | `tidd-autofix-worker` | `Use tidd-autofix-worker to address the approved findings on PR #42 and push the fixes.` |
@@ -97,6 +98,8 @@ The original model-derived names remain as transitional aliases for one release 
 An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only, so re-key existing overrides to the role name. Likewise, an exact configured name always resolves before an alias, so a copy of an old agent file in your own agent directory wins over the alias for that old name and bypasses the role; remove such copies. The standalone `glm-worker` and `terra-worker` agents were removed with CL-D59.
 
 Gate identities in the structured envelope (schema version 2) are `adversarial`, `decision-drift`, and `safety`, with fresh-finding prefixes `ADV-`, `DRIFT-`, and `SAFETY-` (CL-D60); version 1 (`sol` / `terra`) is accepted for one release. Sol and Terra remain the gate nicknames in prose.
+
+`tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate on both roots, once per candidate, with its own round budget; it has no alias, ships with the `gpt-5.6-luna` default, and can point at an economical model through the same override. In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102. Disable the agent through pi-subagents configuration to skip the stage.
 
 ## Closed-loop workflow (opt-in)
 
@@ -197,6 +200,7 @@ User and project agent definitions have higher discovery precedence than package
 - Workers use forked conversation context and inherit project instructions.
 - The adversarial and safety reviewers use fresh context; all reviewers have read-only tool allowlists.
 - The drift reviewer uses forked context to reconstruct inherited decisions and detect drift.
+- The convergence reviewer uses fresh context and is never readiness authority.
 - External side effects require explicit delegation.
 - Agent runtime names stay short and unqualified.
 
