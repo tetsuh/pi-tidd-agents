@@ -55,7 +55,7 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './builders': 1, './composition': 2, './evidence': 1, './fingerprints': 2, './gate-result': 3, './guards': 1, './index': 1, './operator': 2,
+  './builders': 1, './composition': 3, './evidence': 1, './fingerprints': 2, './gate-result': 3, './guards': 1, './index': 1, './operator': 3,
   './paths': 4, './process': 5, './protocol': 12, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
   'node:child_process': 1, 'node:crypto': 6, 'node:fs': 4, 'node:os': 2, 'node:path': 5,
 };

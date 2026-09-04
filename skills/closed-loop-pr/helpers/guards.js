@@ -14,6 +14,7 @@ const { runSync, gitArgs } = require('./process');
 const { RUNTIME_ROOTS } = require('./operator');
 const { classifyRuntimeRoots, lstatKind } = require('./paths');
 const { checkRequiredEvidence } = require('./gate-result');
+const { authorizedPathsProblem } = require('./composition');
 const { verifyWorkspace } = require('./workspace');
 
 const OID = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
@@ -48,27 +49,11 @@ function gitText(cwd, args, phase, acceptExitCodes) {
 function runtimeRooted(entry) {
   return RUNTIME_ROOTS.some((root) => entry === root || entry.startsWith(`${root}/`));
 }
+// The rules live in composition.js as the boundary's shared pure predicate, so the builder that
+// emits an authorized set applies exactly the check the consumer applies (CL-D61).
 function checkAuthorizedPaths(paths) {
-  if (!Array.isArray(paths) || paths.length === 0) fail('invalid_request', 'authorized_paths_shape', 'authorizedPaths must be a nonempty array', Array.isArray(paths) ? `length ${paths.length}` : typeof paths);
-  for (const entry of paths) {
-    // Control characters would make a path unmatchable against NUL-delimited Git output, and
-    // a blank path is not a path at all; both are rejected here rather than by a later Git
-    // invocation whose failure would name the wrong subcheck.
-    if (!text(entry) || entry.startsWith('/') || entry.trim().length === 0
-      // eslint-disable-next-line no-control-regex
-      || /[\u0000-\u001f\u007f]/.test(entry)
-      || entry.split('/').some((part) => ['', '.', '..'].includes(part))) {
-      fail('invalid_request', 'authorized_paths_shape', `authorized path is not a normalized relative path: ${JSON.stringify(entry)}`, entry);
-    }
-  }
-  // Repository metadata is unobservable to these guards: Git never reports `.git` contents as
-  // worktree or index state, so an authorized path there could be written while every guard
-  // reported a clean, in-bounds overlay. It is refused for the same reason runtime roots are.
-  const metadata = paths.find((entry) => entry.split('/').some((part) => part.toLowerCase() === '.git'));
-  if (metadata !== undefined) fail('invalid_request', 'repository_metadata_exclusion', `authorized path is inside repository metadata, which no guard can observe: ${metadata}`, metadata);
-  if (new Set(paths).size !== paths.length) fail('invalid_request', 'authorized_paths_shape', 'authorizedPaths carries a duplicate', paths.find((entry, i) => paths.indexOf(entry) !== i));
-  const rooted = paths.find(runtimeRooted);
-  if (rooted !== undefined) fail('invalid_request', 'runtime_root_exclusion', `authorized path is under a runtime root: ${rooted}`, rooted);
+  const problem = authorizedPathsProblem(paths);
+  if (problem !== null) fail('invalid_request', problem.subcheck, problem.message, problem.observed);
   return new Set(paths);
 }
 // `git status --porcelain -z` observation of the working tree, runtime roots excluded: the

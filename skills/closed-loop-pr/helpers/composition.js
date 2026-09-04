@@ -22,8 +22,39 @@ const INPUT_SHAPES = Object.freeze({
   gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),
 });
 
+const { RUNTIME_ROOTS } = require('./operator');
+
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
+
+// The authorized-path rules manifest_compare, overlay_freeze, and guard_before_edit apply to a
+// request, as one pure predicate shared with the builder that emits such a request, so a set
+// the consumer would refuse never leaves the builder (ADV-108-MANIFEST-CAPTURE-VALIDATION).
+// Returns null, or the consumer's own { subcheck, message, observed }.
+function authorizedPathsProblem(paths) {
+  const problem = (subcheck, message, observed) => ({ subcheck, message, observed });
+  if (!Array.isArray(paths) || paths.length === 0) return problem('authorized_paths_shape', 'authorizedPaths must be a nonempty array', Array.isArray(paths) ? `length ${paths.length}` : typeof paths);
+  for (const entry of paths) {
+    // Control characters would make a path unmatchable against NUL-delimited Git output, and
+    // a blank path is not a path at all; both are rejected here rather than by a later Git
+    // invocation whose failure would name the wrong subcheck.
+    if (!text(entry) || entry.startsWith('/') || entry.trim().length === 0
+      // eslint-disable-next-line no-control-regex
+      || /[\u0000-\u001f\u007f]/.test(entry)
+      || entry.split('/').some((part) => ['', '.', '..'].includes(part))) {
+      return problem('authorized_paths_shape', `authorized path is not a normalized relative path: ${JSON.stringify(entry)}`, entry);
+    }
+  }
+  // Repository metadata is unobservable to the guards: Git never reports `.git` contents as
+  // worktree or index state, so an authorized path there could be written while every guard
+  // reported a clean, in-bounds overlay. It is refused for the same reason runtime roots are.
+  const metadata = paths.find((entry) => entry.split('/').some((part) => part.toLowerCase() === '.git'));
+  if (metadata !== undefined) return problem('repository_metadata_exclusion', `authorized path is inside repository metadata, which no guard can observe: ${metadata}`, metadata);
+  if (new Set(paths).size !== paths.length) return problem('authorized_paths_shape', 'authorizedPaths carries a duplicate', paths.find((entry, i) => paths.indexOf(entry) !== i));
+  const rooted = paths.find((entry) => RUNTIME_ROOTS.some((root) => entry === root || entry.startsWith(`${root}/`)));
+  if (rooted !== undefined) return problem('runtime_root_exclusion', `authorized path is under a runtime root: ${rooted}`, rooted);
+  return null;
+}
 
 // Exact key set: every required key present, no key outside required plus optional.
 const keySet = (value, required, optional) => required.every((key) => Object.hasOwn(value, key))
@@ -111,4 +142,4 @@ function inputShapeProblem(operation, data) {
   return null;
 }
 
-module.exports = { INPUT_SHAPES, inputShapeProblem };
+module.exports = { INPUT_SHAPES, inputShapeProblem, authorizedPathsProblem };

@@ -137,6 +137,51 @@ test('Issue #105 the built requests round-trip through manifest_compare at AFTER
   }
 });
 
+// ADV-108-MANIFEST-CAPTURE-VALIDATION: the declared overlay predicate only separates shapes; the
+// consumer's authorized-path rules are a second, deeper check. Every rejection manifest_compare
+// makes on the authorized set, the builder must make first, naming the same subcheck.
+test("Issue #105 every built capture request passes the consumer's authorized-path rules, differentially", () => {
+  const repo = repository();
+  try {
+    const created = cli('workspace_create', { cwd: repo.root, head: repo.head, tree: repo.tree });
+    assert.equal(created.ok, true, JSON.stringify(created.error));
+    const workspace = created.data.path;
+    fs.appendFileSync(path.join(workspace, 'tracked.txt'), 'edited\n');
+    git(workspace, ['add', 'tracked.txt']);
+    const cases = [
+      [[], 'authorized_paths_shape'],
+      [['tracked.txt', 'tracked.txt'], 'authorized_paths_shape'],
+      [['/tracked.txt'], 'authorized_paths_shape'],
+      [['a/../tracked.txt'], 'authorized_paths_shape'],
+      [[' '], 'authorized_paths_shape'],
+      [['tracked.txt', '.git/hooks/pre-commit'], 'repository_metadata_exclusion'],
+      [['tracked.txt', '.pi/task.json'], 'runtime_root_exclusion'],
+    ];
+    for (const [authorizedPaths, subcheck] of cases) {
+      const consumer = cli('manifest_compare', { cwd: workspace, parent: repo.head, authorizedPaths });
+      assert.equal(consumer.ok, false, `consumer must reject ${JSON.stringify(authorizedPaths)}`);
+      assert.equal(consumer.error.details.subcheck, subcheck, `consumer subcheck for ${JSON.stringify(authorizedPaths)}`);
+      const builder = cli('build_manifest_capture', { overlay: { parent: repo.head, entries: [{ path: 'tracked.txt', status: 'M', rawDiffSha256: SHA }], authorizedPaths }, cwd: workspace });
+      assert.equal(builder.ok, false, `builder must reject ${JSON.stringify(authorizedPaths)}`);
+      assert.equal(builder.error.code, 'input_shape_mismatch');
+      assert.equal(builder.error.phase, 'build');
+      assert.match(builder.error.message, /^`overlay` must be data:overlay_freeze/);
+      assert.ok(builder.error.message.includes(subcheck), `builder names the consumer subcheck ${subcheck}: ${builder.error.message}`);
+    }
+    // And the accepted side agrees: a set the consumer takes, the builder emits unchanged.
+    const good = ['tracked.txt', 'unused.md'];
+    const built = cli('build_manifest_capture', { overlay: { parent: repo.head, entries: [{ path: 'tracked.txt', status: 'M', rawDiffSha256: SHA }], authorizedPaths: good }, cwd: workspace });
+    assert.equal(built.ok, true, JSON.stringify(built.error));
+    const accepted = cli('manifest_compare', built.data.request.data);
+    assert.equal(accepted.ok, true, JSON.stringify(accepted.error));
+    git(workspace, ['reset', '-q', '--hard']);
+    assert.equal(cli('workspace_cleanup', { receipt: created.data.receipt, cwd: repo.root }).ok, true);
+  } finally {
+    fs.rmSync(repo.root, { recursive: true, force: true });
+    fs.rmSync(repo.bare, { recursive: true, force: true });
+  }
+});
+
 test('Issue #105 required_evidence_check makes a nonexistent required file an assembly error', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-105-evidence-'));
   try {

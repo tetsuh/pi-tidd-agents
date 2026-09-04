@@ -7,7 +7,7 @@
 // network, or Git reach, and no authority beyond assembling a request the caller still runs.
 
 const { createResult, createError } = require('./protocol');
-const { inputShapeProblem } = require('./composition');
+const { inputShapeProblem, authorizedPathsProblem } = require('./composition');
 const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema } = require('./gate-result');
 
 // Transition OIDs mirror the CLI's 40-or-64 hex rule; postPushHead mirrors
@@ -80,6 +80,11 @@ function buildManifestCapture(data) {
     if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
     const problem = inputShapeProblem('overlay_compare', { cwd: data.cwd, overlay: data.overlay });
     if (problem !== null) fail('input_shape_mismatch', problem);
+    // The declared shape only separates producers; the consumer's authorized-path rules are the
+    // deeper check, applied here so an empty, duplicate, non-normalized, metadata, or runtime-root
+    // set fails at build, naming the consumer's subcheck, never at the post-writer boundary.
+    const paths = authorizedPathsProblem(data.overlay.authorizedPaths);
+    if (paths !== null) fail('input_shape_mismatch', `\`overlay\` must be data:overlay_freeze with an authorized set manifest_compare accepts (${paths.subcheck}): ${paths.message}`);
     return built('build_manifest_capture', 'manifest_compare', { cwd: data.cwd, parent: data.overlay.parent, authorizedPaths: [...data.overlay.authorizedPaths] });
   });
 }

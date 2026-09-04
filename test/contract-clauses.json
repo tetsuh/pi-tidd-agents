@@ -3036,6 +3036,7 @@
         "the CLI exposes the two builders and the check with frozen inputs",
         "a request carrying both mode fields cannot be produced by a builder",
         "the built requests round-trip through manifest_compare at AFTER_STAGING and BEFORE_COMMIT",
+        "every built capture request passes the consumer's authorized-path rules, differentially",
         "required_evidence_check makes a nonexistent required file an assembly error",
         "CL-D61 records the builders, the check, and the CL-D56 widening"
       ]
