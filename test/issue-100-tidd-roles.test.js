@@ -24,12 +24,14 @@ const ROLES = {
   'tidd-drift-reviewer': { alias: 'terra-oracle', model: 'gpt-5.6-terra', writer: false, context: 'fork' },
   'tidd-safety-reviewer': { alias: 'terra-reviewer', model: 'gpt-5.6-terra', writer: false, context: 'fresh' },
   'tidd-autofix-worker': { alias: 'luna-worker', model: 'gpt-5.6-luna', writer: true, context: 'fork' },
+  // CL-D62 added the convergence role: no transitional alias, same reviewer shape.
+  'tidd-convergence-reviewer': { alias: undefined, model: 'gpt-5.6-luna', writer: false, context: 'fresh' },
 };
 const LEGACY = /sol-reviewer|terra-reviewer|terra-oracle|luna-worker|glm-worker|terra-worker/;
 const REVIEWER_TOOLS = ['read', 'grep', 'find', 'ls', 'bash'];
 const WORKER_TOOLS = ['read', 'grep', 'find', 'ls', 'bash', 'edit', 'write', 'contact_supervisor'];
 
-test('Issue #100 the package ships exactly the four role agents, each aliasing its old name', () => {
+test('Issue #100 the package ships the four CL-D59 role agents, each aliasing its old name, plus the CL-D62 convergence role', () => {
   const files = fs.readdirSync(repoPath('agents')).filter((name) => name.endsWith('.md')).sort();
   assert.deepEqual(files, Object.keys(ROLES).map((name) => `${name}.md`).sort());
   for (const [role, expected] of Object.entries(ROLES)) {
@@ -79,7 +81,7 @@ test('Issue #100 the shared resolution section separates role from deployment an
 test('Issue #100 the README documents the roles, the alias transition, and override keying', () => {
   const readme = readText('README.md');
   for (const [role, expected] of Object.entries(ROLES)) {
-    assert.ok(readme.includes(`| \`${expected.alias}\` | \`${role}\` |`), `README alias table lacks ${expected.alias} → ${role}`);
+    if (expected.alias) assert.ok(readme.includes(`| \`${expected.alias}\` | \`${role}\` |`), `README alias table lacks ${expected.alias} → ${role}`);
     assert.ok(readme.includes(`\`${role}\``));
   }
   assert.match(readme, /An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only/);

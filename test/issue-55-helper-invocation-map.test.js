@@ -128,7 +128,8 @@ test('Issue #55 both pre-push invariants are mapped at every boundary the contra
 test('Issue #55 snapshot refresh is mapped at every boundary the contract requires', () => {
   const rows = mapRows(mapSection()).filter((row) => backticked(row.operation).includes('snapshot'));
   const named = enumerationTokens(rows.map((row) => row.phase).join(', '));
-  for (const boundary of ['Sol/Terra invocation', 'reply', 'reply batch', 'final classification', 'post-reply', 'summary mutation']) {
+  // CL-D62 added the convergence stage to the gate boundary.
+  for (const boundary of ['convergence/Sol/Terra invocation', 'reply', 'reply batch', 'final classification', 'post-reply', 'summary mutation']) {
     assert.ok(named.has(boundary), `snapshot phase cell omits the ${boundary} boundary; parsed tokens: ${[...named].join(' | ')}`);
   }
 });

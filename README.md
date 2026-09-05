@@ -17,13 +17,13 @@ Requirements differ between the two ways of using this package:
 | Use | Requirement |
 | --- | --- |
 | Standalone agents | À la carte. Run whichever agents resolve in your environment; an unavailable model affects only that one agent. |
-| Closed-loop workflow | Composes a fixed set of four agents. The complete loop needs all four; a single command needs only the agents in its own preflight. |
+| Closed-loop workflow | Composes a fixed set of five agents: four formal roles plus the non-authoritative convergence reviewer. The complete loop needs all five; a single command needs only the agents in its own preflight, and a disabled convergence reviewer skips its stage. |
 
-The closed-loop workflow uses four roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`. Their shipped defaults are OpenAI GPT-5.6 Sol (`gpt-5.6-sol`), Terra (`gpt-5.6-terra`, both Terra roles), and Luna (`gpt-5.6-luna`); those defaults are deployment configuration, not role semantics (CL-D59).
+The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer` (CL-D62). Their shipped defaults are OpenAI GPT-5.6 Sol (`gpt-5.6-sol`), Terra (`gpt-5.6-terra`, both Terra roles), and Luna (`gpt-5.6-luna`, the writer and the convergence reviewer); those defaults are deployment configuration, not role semantics (CL-D59).
 
-Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer` and `tidd-drift-reviewer`; `/tidd-pr` preflights `tidd-adversarial-reviewer` and `tidd-safety-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode.
+Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, and `tidd-convergence-reviewer`; `/tidd-pr` preflights `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-convergence-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode. A disabled `tidd-convergence-reviewer` is not a preflight failure: its stage is skipped and the status block reports `convergence: disabled`.
 
-The skills name agents by role name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`.
+The skills name agents by role name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and `tidd-convergence-reviewer`, or disabling `tidd-convergence-reviewer` when no model is available for it.
 
 Install `pi-subagents` first (the package was validated with 0.36.0; do not assume support for older versions):
 
@@ -53,6 +53,7 @@ pi install git:github.com/<owner>/pi-tidd-agents
 | `tidd-drift-reviewer` | `gpt-5.6-terra` | Read-only decision-drift and contradiction review |
 | `tidd-safety-reviewer` | `gpt-5.6-terra` | Read-only concurrency, lifetime, ownership, and safety review |
 | `tidd-autofix-worker` | `gpt-5.6-luna` | Bounded sole-writer implementation and correction work |
+| `tidd-convergence-reviewer` | `gpt-5.6-luna` | Read-only preliminary convergence review before the formal gates (non-authoritative) |
 
 ## Simple usage
 
@@ -75,6 +76,7 @@ For a typical Issue-to-pull-request workflow, use the following sequence.
 | Issue pre-implementation notes | `tidd-adversarial-reviewer` | `Use tidd-adversarial-reviewer to review Issue #18 and append pre-implementation notes.` |
 | Issue pre-implementation addendum | `tidd-drift-reviewer` | `Use tidd-drift-reviewer to review Issue #18 and append a pre-implementation addendum.` |
 | Implementation and pull request | `tidd-autofix-worker` | `Use tidd-autofix-worker to implement Issue #18 and create a pull request.` |
+| Preliminary convergence review inside the closed loop (non-authoritative) | `tidd-convergence-reviewer` | Runs automatically before the adversarial gate in `/tidd-issue` and `/tidd-pr`; no standalone prompt is needed. |
 | Standard pull request review | `tidd-adversarial-reviewer` | `Use tidd-adversarial-reviewer to review PR #42 and append the review.` |
 | Concurrency, lifetime, and ownership review when relevant | `tidd-safety-reviewer` | `Use tidd-safety-reviewer to review PR #42 for concurrency, lifetime, and ownership issues, then append the review.` |
 | Address approved pull request findings | `tidd-autofix-worker` | `Use tidd-autofix-worker to address the approved findings on PR #42 and push the fixes.` |
@@ -96,7 +98,9 @@ The original model-derived names remain as transitional aliases for one release 
 
 An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only, so re-key existing overrides to the role name. Likewise, an exact configured name always resolves before an alias, so a copy of an old agent file in your own agent directory wins over the alias for that old name and bypasses the role; remove such copies. The standalone `glm-worker` and `terra-worker` agents were removed with CL-D59.
 
-Gate identities in the structured envelope (schema version 2) are `adversarial`, `decision-drift`, and `safety`, with fresh-finding prefixes `ADV-`, `DRIFT-`, and `SAFETY-` (CL-D60); version 1 (`sol` / `terra`) is accepted for one release. Sol and Terra remain the gate nicknames in prose.
+Gate identities in the structured envelope (schema version 2) are `adversarial`, `decision-drift`, and `safety` (CL-D60), plus the non-authoritative `convergence` (CL-D62), with fresh-finding prefixes `ADV-`, `DRIFT-`, `SAFETY-`, and `CONV-`; version 1 (`sol` / `terra`) is accepted for one release. Sol and Terra remain the gate nicknames in prose.
+
+`tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate on both roots, once per candidate identity and snapshot fingerprint, with its own round budget; it has no alias, ships with the `gpt-5.6-luna` default, and can point at an economical model through the same override. In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102. Disable the agent through pi-subagents configuration to skip the stage.
 
 ## Closed-loop workflow (opt-in)
 
@@ -120,11 +124,11 @@ An explicit target is always required; the workflow never infers a pull request 
 
 ### Owner-gated Issue candidate publication
 
-Issue readiness remains opt-in and is exposed through the equivalent `/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` entrypoints. In the ordinary CL-D31 route, a complete candidate is reviewed by Sol then Terra before the Skill shows one exact frozen preview containing the full body diff and English disposition ledger. Only the current session operator's exact response can authorize the bounded attempt.
+Issue readiness remains opt-in and is exposed through the equivalent `/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` entrypoints. In the ordinary CL-D31 route, a complete candidate is reviewed by convergence, then Sol, then Terra before the Skill shows one exact frozen preview containing the full body diff and English disposition ledger. Only the current session operator's exact response can authorize the bounded attempt.
 
 #### Combined scope-freeze approval
 
-CL-D32 adds a narrow combined route. An eligible current-repository Issue may show one exact combined scope-freeze preview before post-decision rereview: one exact owner response binds or conditionally approves the already-frozen complete decision-containing candidate, then mandatory Sol rereview and Terra review occur in that order. A dormant at-most-one counted Sol round activates only when the decision arose on the last already-authorized Sol round; otherwise it remains unused. The target-specific scope-freeze decision is never a standalone comment: after matching gates, existing Snapshot A, optional body PATCH, Snapshot B, one ledger POST, and Snapshot C proof remain mandatory. The route does not authorize starting implementation. Foreign Issues, PR/CL-D30, legacy decisions, and all other boundaries remain unchanged.
+CL-D32 adds a narrow combined route. An eligible current-repository Issue may show one exact combined scope-freeze preview before post-decision rereview: one exact owner response binds or conditionally approves the already-frozen complete decision-containing candidate, then a mandatory convergence review precedes the mandatory Sol rereview and Terra review, which occur in that order (CL-D62). A dormant at-most-one counted Sol round activates only when the decision arose on the last already-authorized Sol round; otherwise it remains unused. The target-specific scope-freeze decision is never a standalone comment: after matching gates, existing Snapshot A, optional body PATCH, Snapshot B, one ledger POST, and Snapshot C proof remain mandatory. The route does not authorize starting implementation. Foreign Issues, PR/CL-D30, legacy decisions, and all other boundaries remain unchanged.
 
 The bounded attempt may perform at most one optional body update in the current checkout repository followed by one ledger comment, in that order. There is no retry or compensating overwrite after failure; deletion, cross-session resume, and a second attempt remain prohibited. A failure after the first mutation reports the observed partial state and requires a fresh run. Foreign-repository Issues remain review-and-draft-only. Snapshot-C byte/content identity may establish readiness without duplicate gates, but the proof is observational and cannot exclude every provider race. This is legacy Skill/prompt orchestration, not an executable controller or extension. PR review-only and exact PR `autofix` behavior, including Luna ownership and their separate boundaries, remain unchanged.
 
@@ -154,11 +158,11 @@ CL-D40: A missing path does not prove a stale worktree registration. Fresh works
 
 `pi-subagents` 0.36.0+ accepts `artifactDir: "session"` and `artifactDir: "temp"`; these are optional ways to move artifact and chain-run output outside the working directory. They do **not** guarantee that `.pi-subagents/` is absent: beginning with supported `pi-subagents` 0.41.0 (verified against installed 0.42.1), default-on project missions may persist records under `.pi-subagents/missions` independently of `artifactDir`. The default configuration must work, and these options are not a substitute for the runtime-root contract.
 
-Autofix selects the bounded public-head loop in the Skill. `tidd-autofix-worker` is always the mandatory sole writer/publisher: it performs at most one correction batch per reviewed public head, one normal commit, and one non-force push. A request for any other worker stops before mutation, ends the exact-autofix run, and has no resume because it would change the CL-D30 contract. Every push restarts at Sol. Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow remains separate and receives no CL-D30 authority. `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement. Exact identity guards, immutable run-local records, finding replies, circuit breakers, and fail-stop behavior are defined only by the Skill.
+Autofix selects the bounded public-head loop in the Skill. `tidd-autofix-worker` is always the mandatory sole writer/publisher: it performs at most one correction batch per reviewed public head, one normal commit, and one non-force push. A request for any other worker stops before mutation, ends the exact-autofix run, and has no resume because it would change the CL-D30 contract. Every push restarts at convergence, then Sol. Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow remains separate and receives no CL-D30 authority. `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement. Exact identity guards, immutable run-local records, finding replies, circuit breakers, and fail-stop behavior are defined only by the Skill.
 
 ### Bounded publication
 
-In exact `autofix` mode, `tidd-autofix-worker` is the sole writer/publisher for one bounded normal correction commit and one non-force push per reviewed public head. Every successful push invalidates prior approvals and restarts at Sol. The parent is the only GitHub comment actor and may post only confirmed, source-bound finding replies; the aggregate final summary remains a separate owner-approved one-shot action. Every reply body ends with one deterministic `pi-tidd-agents:source-reply:v1` marker (CL-D45), and after an unknown reply outcome a read-only reconciliation classifies refetched evidence as published, absent, ambiguous, or conflict; every outcome is terminal and authorizes no second POST. All publication authority is run-scoped. Exact autofix owns complete identity guards, staged manifests, deterministic circuit breakers, immutable run-local records, and fail-stop/no-retry/no-resume behavior. Review-only mode and Issue behavior remain unchanged.
+In exact `autofix` mode, `tidd-autofix-worker` is the sole writer/publisher for one bounded normal correction commit and one non-force push per reviewed public head. Every successful push invalidates prior approvals and restarts at convergence, then Sol. The parent is the only GitHub comment actor and may post only confirmed, source-bound finding replies; the aggregate final summary remains a separate owner-approved one-shot action. Every reply body ends with one deterministic `pi-tidd-agents:source-reply:v1` marker (CL-D45), and after an unknown reply outcome a read-only reconciliation classifies refetched evidence as published, absent, ambiguous, or conflict; every outcome is terminal and authorizes no second POST. All publication authority is run-scoped. Exact autofix owns complete identity guards, staged manifests, deterministic circuit breakers, immutable run-local records, and fail-stop/no-retry/no-resume behavior. Review-only mode and Issue behavior remain unchanged.
 
 ### Stop, status, and fresh runs (CL-D30)
 
@@ -190,13 +194,14 @@ This authorizes the parent workflow to delegate the required local commits, push
 
 The included definitions use provider-unqualified model IDs. Pi resolves each ID through the active provider when that provider offers it. If a model is unavailable in your environment, copy or override the agent definition through `pi-subagents` configuration before running it.
 
-User and project agent definitions have higher discovery precedence than package-provided definitions with the same runtime name.
+User and project agent definitions have higher discovery precedence than package-provided definitions with the same runtime name. Overrides are keyed by role name, for all five roles including `tidd-convergence-reviewer` (see *Roles and deployment*).
 
 ## Design
 
 - Workers use forked conversation context and inherit project instructions.
 - The adversarial and safety reviewers use fresh context; all reviewers have read-only tool allowlists.
 - The drift reviewer uses forked context to reconstruct inherited decisions and detect drift.
+- The convergence reviewer uses fresh context and is never readiness authority.
 - External side effects require explicit delegation.
 - Agent runtime names stay short and unqualified.
 
