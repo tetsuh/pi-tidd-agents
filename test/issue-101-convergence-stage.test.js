@@ -1,6 +1,7 @@
 'use strict';
 
-// Issue #101 (CL-D62) — a non-authoritative convergence stage runs once per candidate identity
+// Issue #101 (CL-D62) — a non-authoritative convergence stage runs once per candidate identity and
+// snapshot fingerprint (DEC-109-CONV-SNAPSHOT-001)
 // before the adversarial gate on both roots, so ordinary omissions are found and corrected
 // before the expensive formal gates run. It returns the CL-D36 envelope with gate `convergence`
 // and namespace `CONV-`, its findings reach Sol as assigned findings, its rounds are accounted
@@ -78,6 +79,7 @@ test('Issue #101 the package ships the convergence role as a read-only, fresh-co
   assert.match(frontmatter.description, /preliminary/i);
   const body = text.slice(text.indexOf('---', 3) + 3);
   assert.match(body, /never declare `IMPLEMENTATION_READY` or `MERGE_READY`/);
+  assert.match(body, /You run once per candidate identity and snapshot fingerprint before the formal adversarial gate/);
   assert.match(body, /MERGE \| FIX BEFORE MERGE \| NEEDS DECISION/);
   assert.match(body, /You never apply fixes/);
 });
@@ -117,7 +119,7 @@ test('Issue #101 the envelope accepts the convergence gate on both roots with it
   assert.equal(marker.ok, true, JSON.stringify(marker.error ?? {}));
 });
 
-test('Issue #101 the shared contract defines the stage: order, one per candidate, caps, hand-over, invalidation, disabled skip, telemetry', () => {
+test('Issue #101 the shared contract defines the stage: order, one per candidate and snapshot, caps, hand-over, invalidation, disabled skip, telemetry', () => {
   const contract = readText('skills/closed-loop-shared/references/gate-contract.md');
   const section = sectionOf(contract, '## Convergence stage (CL-D62)');
   assert.ok(section, 'the shared contract must carry the convergence section');
@@ -150,7 +152,7 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   // SOL-109-ISSUE-FIXED-ORDER-OMITS-CONVERGENCE: the legacy sequence and its order sentence start at convergence.
   assert.match(issue, /specification → tidd-convergence-reviewer stage \(non-authoritative, CL-D62\) → preliminary disposition\/revision → tidd-adversarial-reviewer gate → disposition\/revision → Sol MERGE/);
   assert.match(issue, /The fixed review order is convergence first, then Sol-before-Terra\./);
-  assert.match(issue, /`tidd-convergence-reviewer` first runs the non-authoritative convergence stage \(CL-D62\) once per candidate identity; its findings reach Sol as assigned findings and it never authorizes readiness/);
+  assert.match(issue, /`tidd-convergence-reviewer` first runs the non-authoritative convergence stage \(CL-D62\) once per candidate identity and snapshot fingerprint; its findings reach Sol as assigned findings and it never authorizes readiness/);
   assert.match(issue, /the convergence stage reviews the complete unchanged object once \(CL-D62\), Sol reviews the complete unchanged object/);
   assert.match(issue, /restarts at convergence, then Sol/);
   assert.match(issue, /active_gate: <convergence\|sol\|terra\|none>/);
@@ -161,13 +163,14 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
   assert.match(reviewOnly, /→ tidd-convergence-reviewer stage \(non-authoritative, CL-D62\)\n→ preliminary disposition \(a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol\)\n→ tidd-adversarial-reviewer gate/);
   assert.match(reviewOnly, /a preliminary `FIX BEFORE MERGE` is reported through the disposition\/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol/);
-  assert.match(reviewOnly, /Convergence rounds are accounted separately as `convergence <used>\/3`, one per candidate identity; at the cap the candidate goes to Sol with open convergence findings assigned \(CL-D62\)/);
+  assert.match(reviewOnly, /Convergence rounds are accounted separately as `convergence <used>\/3`, one per candidate identity and snapshot fingerprint; at the cap the candidate goes to Sol with open convergence findings assigned \(CL-D62\)/);
+  assert.match(reviewOnly, /runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage/);
   assert.match(reviewOnly, /active_gate: <convergence\|sol\|terra\|external\|none>/);
   assert.match(reviewOnly, /rounds: convergence <used>\/3, sol <used>\/3, terra <used>\/3/);
   assert.match(reviewOnly, /resolved: <role provider\/model:thinking, one per role that ran; convergence: disabled when skipped>/);
   assert.match(reviewOnly, /\*\*Never start the Terra gate before the Sol gate returns `MERGE`\.\*\*/);
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.match(addendum, /The CL-D62 convergence stage runs once per candidate identity before each Sol invocation, is accounted separately as `convergence <used>\/5` outside the 15 counted gate invocations, and at its cap hands the candidate to Sol with open convergence findings assigned/);
+  assert.match(addendum, /The CL-D62 convergence stage runs once per candidate identity and snapshot fingerprint before each Sol invocation, is accounted separately as `convergence <used>\/5` outside the 15 counted gate invocations, and at its cap hands the candidate to Sol with open convergence findings assigned/);
   assert.match(addendum, /the final summary reports `resolved:` with each role's provider, model, and thinking level/);
   assert.match(addendum, /the convergence stage's payload and result are bound the same way \(CL-D62\)/);
   assert.match(addendum, /New evidence on the same public head also reruns the convergence stage before Sol, keyed by head and snapshot fingerprint within its cap of five \(CL-D62, DEC-109-CONV-SNAPSHOT-001\)/);
@@ -181,6 +184,10 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   assert.match(readme, /ships with the `gpt-5.6-luna` default/);
   assert.match(readme, /In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102/);
   assert.match(readme, /Disable the agent through pi-subagents configuration to skip the stage/);
+  assert.match(readme, /runs before the adversarial gate on both roots, once per candidate identity and snapshot fingerprint, with its own round budget/);
+  // Included agents and Model overrides inventories name the fifth role.
+  assert.match(readme, /\| `tidd-convergence-reviewer` \| `gpt-5.6-luna` \| Read-only preliminary convergence review before the formal gates \(non-authoritative\) \|/);
+  assert.match(readme, /Overrides are keyed by role name, for all five roles including `tidd-convergence-reviewer`/);
   assert.match(readme, /- The convergence reviewer uses fresh context and is never readiness authority\./);
   // SOL-109-README-INVENTORIES-OMIT-CONVERGENCE: the exhaustive inventories count the fifth role and the fourth identity.
   assert.match(readme, /Composes a fixed set of five agents: four formal roles plus the non-authoritative convergence reviewer\./);
@@ -200,6 +207,7 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(record, /3 per run on the Issue root and PR review-only and 5 on exact autofix/);
   assert.match(record, /issues\/101#issuecomment-5549173659/);
   assert.match(record, /keyed by public head and snapshot fingerprint/);
+  assert.doesNotMatch(record, /per candidate identity(?! and snapshot fingerprint)/, 'the record carries no candidate-only wording');
   assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D62 later added the convergence role file under its own widening/);
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);

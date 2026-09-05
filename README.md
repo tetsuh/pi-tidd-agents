@@ -53,6 +53,7 @@ pi install git:github.com/<owner>/pi-tidd-agents
 | `tidd-drift-reviewer` | `gpt-5.6-terra` | Read-only decision-drift and contradiction review |
 | `tidd-safety-reviewer` | `gpt-5.6-terra` | Read-only concurrency, lifetime, ownership, and safety review |
 | `tidd-autofix-worker` | `gpt-5.6-luna` | Bounded sole-writer implementation and correction work |
+| `tidd-convergence-reviewer` | `gpt-5.6-luna` | Read-only preliminary convergence review before the formal gates (non-authoritative) |
 
 ## Simple usage
 
@@ -99,7 +100,7 @@ An `agentOverrides` entry keyed by an old name does not apply to the role: pi-su
 
 Gate identities in the structured envelope (schema version 2) are `adversarial`, `decision-drift`, and `safety` (CL-D60), plus the non-authoritative `convergence` (CL-D62), with fresh-finding prefixes `ADV-`, `DRIFT-`, `SAFETY-`, and `CONV-`; version 1 (`sol` / `terra`) is accepted for one release. Sol and Terra remain the gate nicknames in prose.
 
-`tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate on both roots, once per candidate, with its own round budget; it has no alias, ships with the `gpt-5.6-luna` default, and can point at an economical model through the same override. In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102. Disable the agent through pi-subagents configuration to skip the stage.
+`tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate on both roots, once per candidate identity and snapshot fingerprint, with its own round budget; it has no alias, ships with the `gpt-5.6-luna` default, and can point at an economical model through the same override. In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102. Disable the agent through pi-subagents configuration to skip the stage.
 
 ## Closed-loop workflow (opt-in)
 
@@ -193,7 +194,7 @@ This authorizes the parent workflow to delegate the required local commits, push
 
 The included definitions use provider-unqualified model IDs. Pi resolves each ID through the active provider when that provider offers it. If a model is unavailable in your environment, copy or override the agent definition through `pi-subagents` configuration before running it.
 
-User and project agent definitions have higher discovery precedence than package-provided definitions with the same runtime name.
+User and project agent definitions have higher discovery precedence than package-provided definitions with the same runtime name. Overrides are keyed by role name, for all five roles including `tidd-convergence-reviewer` (see *Roles and deployment*).
 
 ## Design
 

@@ -104,7 +104,7 @@ specification â†’ tidd-convergence-reviewer stage (non-authoritative, CL-D62) â†
 
 Before candidate construction, legacy review-and-draft status/resume remains available. Once CL-D31 candidate construction begins, the candidate phase is non-resumable and the exact preview/publication rules in the CL-D31 section apply.
 
-`tidd-convergence-reviewer` first runs the non-authoritative convergence stage (CL-D62) once per candidate identity; its findings reach Sol as assigned findings and it never authorizes readiness. `tidd-adversarial-reviewer` owns requirements, contracts, scope, acceptance, feasibility, and the shared adversarial falsification procedure. `tidd-drift-reviewer` then checks the revised specification against inherited decisions for contradiction and drift. **Never start the Terra gate before the Sol gate returns `MERGE`.**
+`tidd-convergence-reviewer` first runs the non-authoritative convergence stage (CL-D62) once per candidate identity and snapshot fingerprint; its findings reach Sol as assigned findings and it never authorizes readiness. `tidd-adversarial-reviewer` owns requirements, contracts, scope, acceptance, feasibility, and the shared adversarial falsification procedure. `tidd-drift-reviewer` then checks the revised specification against inherited decisions for contradiction and drift. **Never start the Terra gate before the Sol gate returns `MERGE`.**
 
 ## Owner-gated Issue candidate publication (CL-D31)
 

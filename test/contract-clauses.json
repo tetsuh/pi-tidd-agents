@@ -3085,7 +3085,7 @@
       "requires": [
         "→ tidd-convergence-reviewer stage (non-authoritative, CL-D62)",
         "a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs",
-        "Convergence rounds are accounted separately as `convergence <used>/3`, one per candidate identity",
+        "Convergence rounds are accounted separately as `convergence <used>/3`, one per candidate identity and snapshot fingerprint",
         "rounds: convergence <used>/3, sol <used>/3, terra <used>/3"
       ]
     },
@@ -3097,7 +3097,7 @@
         "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
-        "The CL-D62 convergence stage runs once per candidate identity before each Sol invocation, is accounted separately as `convergence <used>/5` outside the 15 counted gate invocations",
+        "The CL-D62 convergence stage runs once per candidate identity and snapshot fingerprint before each Sol invocation, is accounted separately as `convergence <used>/5` outside the 15 counted gate invocations",
         "gate (`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1)"
       ]
     },
@@ -3124,7 +3124,7 @@
       "requires": [
         "the package ships the convergence role as a read-only, fresh-context, non-authoritative reviewer",
         "the envelope accepts the convergence gate on both roots with its own namespace and no adversarial duty",
-        "the shared contract defines the stage: order, one per candidate, caps, hand-over, invalidation, disabled skip, telemetry",
+        "the shared contract defines the stage: order, one per candidate and snapshot, caps, hand-over, invalidation, disabled skip, telemetry",
         "both roots run convergence before the adversarial gate and report it in the status block",
         "the README documents the role, its default, the self-review caveat, and the design rule",
         "CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60"

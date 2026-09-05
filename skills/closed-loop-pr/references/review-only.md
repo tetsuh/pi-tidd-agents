@@ -59,7 +59,7 @@ implementation and validation
 → MERGE_READY
 ```
 
-Each review-only gate payload composes the shared Every-gate invariant payload block verbatim, exactly one selected PR root role-authority block verbatim, and the volatile envelope/history projection; Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim. `tidd-adversarial-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `tidd-safety-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.** `tidd-convergence-reviewer` runs first, once per candidate, as the non-authoritative CL-D62 stage; a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol.
+Each review-only gate payload composes the shared Every-gate invariant payload block verbatim, exactly one selected PR root role-authority block verbatim, and the volatile envelope/history projection; Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim. `tidd-adversarial-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `tidd-safety-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.** `tidd-convergence-reviewer` runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage; a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol.
 
 ### Review-only round deltas (CL-D11, CL-D12)
 
@@ -69,7 +69,7 @@ The shared gate contract supplies the common three-round, passing-round, failure
 - If a Terra finding forces a change to something Sol already approved, the Sol gate must run again and consumes one of its own rounds. The same applies to a fix that originates from an external finding.
 - At the limit, stop and report `ROUND_LIMIT_REACHED` and ask the owner whether to grant more rounds.
 - A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`.
-- Convergence rounds are accounted separately as `convergence <used>/3`, one per candidate identity; at the cap the candidate goes to Sol with open convergence findings assigned (CL-D62).
+- Convergence rounds are accounted separately as `convergence <used>/3`, one per candidate identity and snapshot fingerprint; at the cap the candidate goes to Sol with open convergence findings assigned (CL-D62).
 
 ## External review (PR review-only baseline; CL-D18, CL-D24, CL-D17)
 
