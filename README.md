@@ -17,9 +17,9 @@ Requirements differ between the two ways of using this package:
 | Use | Requirement |
 | --- | --- |
 | Standalone agents | À la carte. Run whichever agents resolve in your environment; an unavailable model affects only that one agent. |
-| Closed-loop workflow | Composes a fixed set of four agents. The complete loop needs all four; a single command needs only the agents in its own preflight. |
+| Closed-loop workflow | Composes a fixed set of five agents: four formal roles plus the non-authoritative convergence reviewer. The complete loop needs all five; a single command needs only the agents in its own preflight, and a disabled convergence reviewer skips its stage. |
 
-The closed-loop workflow uses four roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`. Their shipped defaults are OpenAI GPT-5.6 Sol (`gpt-5.6-sol`), Terra (`gpt-5.6-terra`, both Terra roles), and Luna (`gpt-5.6-luna`); those defaults are deployment configuration, not role semantics (CL-D59).
+The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer` (CL-D62). Their shipped defaults are OpenAI GPT-5.6 Sol (`gpt-5.6-sol`), Terra (`gpt-5.6-terra`, both Terra roles), and Luna (`gpt-5.6-luna`, the writer and the convergence reviewer); those defaults are deployment configuration, not role semantics (CL-D59).
 
 Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer` and `tidd-drift-reviewer`; `/tidd-pr` preflights `tidd-adversarial-reviewer` and `tidd-safety-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode.
 
@@ -97,7 +97,7 @@ The original model-derived names remain as transitional aliases for one release 
 
 An `agentOverrides` entry keyed by an old name does not apply to the role: pi-subagents looks overrides up by the canonical agent name only, so re-key existing overrides to the role name. Likewise, an exact configured name always resolves before an alias, so a copy of an old agent file in your own agent directory wins over the alias for that old name and bypasses the role; remove such copies. The standalone `glm-worker` and `terra-worker` agents were removed with CL-D59.
 
-Gate identities in the structured envelope (schema version 2) are `adversarial`, `decision-drift`, and `safety`, with fresh-finding prefixes `ADV-`, `DRIFT-`, and `SAFETY-` (CL-D60); version 1 (`sol` / `terra`) is accepted for one release. Sol and Terra remain the gate nicknames in prose.
+Gate identities in the structured envelope (schema version 2) are `adversarial`, `decision-drift`, and `safety` (CL-D60), plus the non-authoritative `convergence` (CL-D62), with fresh-finding prefixes `ADV-`, `DRIFT-`, `SAFETY-`, and `CONV-`; version 1 (`sol` / `terra`) is accepted for one release. Sol and Terra remain the gate nicknames in prose.
 
 `tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate on both roots, once per candidate, with its own round budget; it has no alias, ships with the `gpt-5.6-luna` default, and can point at an economical model through the same override. In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102. Disable the agent through pi-subagents configuration to skip the stage.
 

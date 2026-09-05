@@ -121,7 +121,9 @@ test('Issue #101 the shared contract defines the stage: order, one per candidate
   const contract = readText('skills/closed-loop-shared/references/gate-contract.md');
   const section = sectionOf(contract, '## Convergence stage (CL-D62)');
   assert.ok(section, 'the shared contract must carry the convergence section');
-  assert.match(section, /read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity before the adversarial gate on both roots/);
+  // DEC-109-CONV-SNAPSHOT-001 (Option B): attempts are keyed by candidate identity and snapshot fingerprint.
+  assert.match(section, /read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity and snapshot fingerprint before the adversarial gate on both roots/);
+  assert.match(section, /new snapshot evidence on an unchanged head reruns convergence before Sol within the same cap/);
   assert.match(section, /Issue `convergence → adversarial → decision-drift`, PR `convergence → adversarial → safety`/);
   assert.match(section, /gate `convergence` and the derived namespace `CONV-<n>-`/);
   assert.match(section, /reach the adversarial gate as assigned findings/);
@@ -145,6 +147,9 @@ test('Issue #101 the shared contract defines the stage: order, one per candidate
 test('Issue #101 both roots run convergence before the adversarial gate and report it in the status block', () => {
   const issue = readText('skills/closed-loop-issue/SKILL.md');
   assert.match(issue, /`tidd-convergence-reviewer` runs the CL-D62 convergence stage when it resolves and is skipped when disabled/);
+  // SOL-109-ISSUE-FIXED-ORDER-OMITS-CONVERGENCE: the legacy sequence and its order sentence start at convergence.
+  assert.match(issue, /specification → tidd-convergence-reviewer stage \(non-authoritative, CL-D62\) → preliminary disposition\/revision → tidd-adversarial-reviewer gate → disposition\/revision → Sol MERGE/);
+  assert.match(issue, /The fixed review order is convergence first, then Sol-before-Terra\./);
   assert.match(issue, /`tidd-convergence-reviewer` first runs the non-authoritative convergence stage \(CL-D62\) once per candidate identity; its findings reach Sol as assigned findings and it never authorizes readiness/);
   assert.match(issue, /the convergence stage reviews the complete unchanged object once \(CL-D62\), Sol reviews the complete unchanged object/);
   assert.match(issue, /restarts at convergence, then Sol/);
@@ -165,6 +170,7 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(addendum, /The CL-D62 convergence stage runs once per candidate identity before each Sol invocation, is accounted separately as `convergence <used>\/5` outside the 15 counted gate invocations, and at its cap hands the candidate to Sol with open convergence findings assigned/);
   assert.match(addendum, /the final summary reports `resolved:` with each role's provider, model, and thinking level/);
   assert.match(addendum, /the convergence stage's payload and result are bound the same way \(CL-D62\)/);
+  assert.match(addendum, /New evidence on the same public head also reruns the convergence stage before Sol, keyed by head and snapshot fingerprint within its cap of five \(CL-D62, DEC-109-CONV-SNAPSHOT-001\)/);
   assert.match(addendum, /gate \(`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1\)/);
 });
 
@@ -176,6 +182,11 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   assert.match(readme, /In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102/);
   assert.match(readme, /Disable the agent through pi-subagents configuration to skip the stage/);
   assert.match(readme, /- The convergence reviewer uses fresh context and is never readiness authority\./);
+  // SOL-109-README-INVENTORIES-OMIT-CONVERGENCE: the exhaustive inventories count the fifth role and the fourth identity.
+  assert.match(readme, /Composes a fixed set of five agents: four formal roles plus the non-authoritative convergence reviewer\./);
+  assert.match(readme, /The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer`/);
+  assert.match(readme, /plus the non-authoritative `convergence` \(CL-D62\), with fresh-finding prefixes `ADV-`, `DRIFT-`, `SAFETY-`, and `CONV-`/);
+  assert.doesNotMatch(readme, /uses four roles/);
 });
 
 test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60', () => {
@@ -187,6 +198,8 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(record, /widens the CL-D1 `agents\/` freeze exactly once more/);
   assert.match(record, /`convergence` identity under CL-D60/);
   assert.match(record, /3 per run on the Issue root and PR review-only and 5 on exact autofix/);
+  assert.match(record, /issues\/101#issuecomment-5549173659/);
+  assert.match(record, /keyed by public head and snapshot fingerprint/);
   assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D62 later added the convergence role file under its own widening/);
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);

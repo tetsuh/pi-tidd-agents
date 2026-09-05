@@ -3050,7 +3050,7 @@
       ],
       "section": "## Convergence stage (CL-D62)",
       "requires": [
-        "read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity before the adversarial gate on both roots",
+        "read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity and snapshot fingerprint before the adversarial gate on both roots",
         "no convergence outcome can declare `IMPLEMENTATION_READY` or `MERGE_READY`",
         "the sequence restarts at convergence",
         "accounted separately as `convergence <used>/<cap>`, never against a formal gate's budget",

@@ -99,7 +99,7 @@ Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-leve
 The order is fixed and sequential for legacy review, and the CL-D31 candidate path is a bounded extension:
 
 ```text
-specification → tidd-adversarial-reviewer gate → disposition/revision → Sol MERGE → tidd-drift-reviewer gate → disposition/revision → Terra MERGE
+specification → tidd-convergence-reviewer stage (non-authoritative, CL-D62) → preliminary disposition/revision → tidd-adversarial-reviewer gate → disposition/revision → Sol MERGE → tidd-drift-reviewer gate → disposition/revision → Terra MERGE
 ```
 
 Before candidate construction, legacy review-and-draft status/resume remains available. Once CL-D31 candidate construction begins, the candidate phase is non-resumable and the exact preview/publication rules in the CL-D31 section apply.
@@ -108,7 +108,7 @@ Before candidate construction, legacy review-and-draft status/resume remains ava
 
 ## Owner-gated Issue candidate publication (CL-D31)
 
-This legacy Skill/prompt package remains prose orchestration with no executable controller or extension. The bounded authority is one optional body PATCH and one exact ledger POST. The fixed review order is Sol-before-Terra. In the ordinary CL-D31 route only, after both gates return MERGE the parent shows an exact same-session owner preview; readiness retains the disclosed observational residual risk. CL-D32 is the sole narrow pre-rereview combined-preview exception and grants no mutation before the mandatory unchanged Sol then Terra sequence.
+This legacy Skill/prompt package remains prose orchestration with no executable controller or extension. The bounded authority is one optional body PATCH and one exact ledger POST. The fixed review order is convergence first, then Sol-before-Terra. In the ordinary CL-D31 route only, after both gates return MERGE the parent shows an exact same-session owner preview; readiness retains the disclosed observational residual risk. CL-D32 is the sole narrow pre-rereview combined-preview exception and grants no mutation before the mandatory unchanged Sol then Terra sequence.
 
 This section is the authoritative implementation of published Issue #13 and applies identically to the two equivalent entrypoints `/tidd-issue <ref>` and `/skill:closed-loop-issue <ref>`. The legacy Skill/prompt package remains the orchestrating runtime; this is a Skill/prompt-only orchestration contract: it is normative prose, not an executable controller. A foreign-repository Issue remains review-and-draft-only and never receives an exact preview or mutation authority.
 
