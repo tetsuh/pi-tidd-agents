@@ -221,6 +221,11 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   assert.match(readme, /then a mandatory convergence review precedes the mandatory Sol rereview and Terra review, which occur in that order \(CL-D62\)/);
   assert.match(readme, /Every successful push invalidates prior approvals and restarts at convergence, then Sol\./);
   assert.doesNotMatch(readme, /restarts? at Sol\b/, 'no README route may restart at Sol');
+  // ADV-109-README-PREFLIGHT-OVERRIDE-OMITS-CONVERGENCE: the per-command preflight lists and the
+  // custom-definition guidance name the convergence role and the disable-to-skip rule.
+  assert.match(readme, /`\/tidd-issue` preflights `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, and `tidd-convergence-reviewer`; `\/tidd-pr` preflights `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-convergence-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode\. A disabled `tidd-convergence-reviewer` is not a preflight failure: its stage is skipped and the status block reports `convergence: disabled`\./);
+  assert.match(readme, /defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and `tidd-convergence-reviewer`, or disabling `tidd-convergence-reviewer` when no model is available for it/);
+  assert.doesNotMatch(readme, /preflights `tidd-adversarial-reviewer` and `tidd-drift-reviewer`;|`tidd-safety-reviewer`, and `tidd-autofix-worker`\.\n/, 'no four-role operational inventory remains');
 });
 
 test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60', () => {

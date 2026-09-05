@@ -21,9 +21,9 @@ Requirements differ between the two ways of using this package:
 
 The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer` (CL-D62). Their shipped defaults are OpenAI GPT-5.6 Sol (`gpt-5.6-sol`), Terra (`gpt-5.6-terra`, both Terra roles), and Luna (`gpt-5.6-luna`, the writer and the convergence reviewer); those defaults are deployment configuration, not role semantics (CL-D59).
 
-Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer` and `tidd-drift-reviewer`; `/tidd-pr` preflights `tidd-adversarial-reviewer` and `tidd-safety-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode.
+Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, and `tidd-convergence-reviewer`; `/tidd-pr` preflights `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-convergence-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode. A disabled `tidd-convergence-reviewer` is not a preflight failure: its stage is skipped and the status block reports `convergence: disabled`.
 
-The skills name agents by role name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`.
+The skills name agents by role name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and `tidd-convergence-reviewer`, or disabling `tidd-convergence-reviewer` when no model is available for it.
 
 Install `pi-subagents` first (the package was validated with 0.36.0; do not assume support for older versions):
 

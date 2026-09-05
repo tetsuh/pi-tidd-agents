@@ -3139,7 +3139,8 @@
         "`tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate",
         "independent patch review is tracked in #102",
         "The convergence reviewer uses fresh context and is never readiness authority.",
-        "Every successful push invalidates prior approvals and restarts at convergence, then Sol."
+        "Every successful push invalidates prior approvals and restarts at convergence, then Sol.",
+        "A disabled `tidd-convergence-reviewer` is not a preflight failure: its stage is skipped and the status block reports `convergence: disabled`."
       ]
     },
     {
