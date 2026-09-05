@@ -214,6 +214,13 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   assert.match(readme, /The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(readme, /plus the non-authoritative `convergence` \(CL-D62\), with fresh-finding prefixes `ADV-`, `DRIFT-`, `SAFETY-`, and `CONV-`/);
   assert.doesNotMatch(readme, /uses four roles/);
+  // ADV-109-README-RESTARTS-AT-SOL / ADV-109-README-AUTOFIX-RESTARTS-AT-SOL (Sol envelopes at b843485 that the
+  // parent failed to read): the README route summaries and both autofix restart sentences name convergence.
+  assert.match(readme, /a complete candidate is reviewed by convergence, then Sol, then Terra before the Skill shows one exact frozen preview/);
+  assert.match(readme, /Every push restarts at convergence, then Sol\./);
+  assert.match(readme, /then a mandatory convergence review precedes the mandatory Sol rereview and Terra review, which occur in that order \(CL-D62\)/);
+  assert.match(readme, /Every successful push invalidates prior approvals and restarts at convergence, then Sol\./);
+  assert.doesNotMatch(readme, /restarts? at Sol\b/, 'no README route may restart at Sol');
 });
 
 test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60', () => {

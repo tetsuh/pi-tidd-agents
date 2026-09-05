@@ -3138,7 +3138,8 @@
       "requires": [
         "`tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate",
         "independent patch review is tracked in #102",
-        "The convergence reviewer uses fresh context and is never readiness authority."
+        "The convergence reviewer uses fresh context and is never readiness authority.",
+        "Every successful push invalidates prior approvals and restarts at convergence, then Sol."
       ]
     },
     {
