@@ -155,6 +155,14 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(issue, /`tidd-convergence-reviewer` first runs the non-authoritative convergence stage \(CL-D62\) once per candidate identity and snapshot fingerprint; its findings reach Sol as assigned findings and it never authorizes readiness/);
   assert.match(issue, /the convergence stage reviews the complete unchanged object once \(CL-D62\), Sol reviews the complete unchanged object/);
   assert.match(issue, /restarts at convergence, then Sol/);
+  // ADV-109-CLD32-POST-DECISION-OMITS-CONVERGENCE: the CL-D32 combined-decision route and the
+  // candidate-phase identity allocation include convergence; the pinned CL-D32 phrases survive.
+  assert.match(issue, /grants no mutation before the mandatory unchanged convergence review and the mandatory unchanged Sol then Terra sequence/);
+  assert.match(issue, /After the exact affirmative response, convergence reviews the unchanged decision-containing candidate first \(CL-D62\); Sol must re-review the unchanged candidate containing the decision, and Terra starts only after Sol returns `MERGE`/);
+  assert.match(issue, /before every physical convergence, Sol, or Terra launch/);
+  assert.match(issue, /mandatory unchanged convergence review, then mandatory unchanged Sol then Terra review, follows the exact affirmative response/);
+  assert.match(issue, /once its unchanged convergence stage has run and its unchanged Sol and Terra gates match/);
+  assert.doesNotMatch(issue, /before every physical Sol or Terra launch/);
   assert.match(issue, /active_gate: <convergence\|sol\|terra\|none>/);
   assert.match(issue, /rounds: convergence <used>\/3, sol <used>\/3, terra <used>\/3/);
   assert.match(issue, /resolved: <role provider\/model:thinking, one per role that ran; convergence: disabled when skipped>/);
@@ -208,6 +216,8 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(record, /issues\/101#issuecomment-5549173659/);
   assert.match(record, /keyed by public head and snapshot fingerprint/);
   assert.doesNotMatch(record, /per candidate identity(?! and snapshot fingerprint)/, 'the record carries no candidate-only wording');
+  assert.match(record, /the CL-D32 post-decision route runs convergence on the unchanged decision-containing candidate before Sol/);
+  assert.match(sectionOf(contract, '## CL-D32 — Scope-freeze approval stays inside the candidate transaction'), /CL-D62 later placed the convergence stage before the mandatory unchanged Sol then Terra rereview/);
   assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D62 later added the convergence role file under its own widening/);
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);

@@ -3072,6 +3072,8 @@
         "its findings reach Sol as assigned findings and it never authorizes readiness",
         "the convergence stage reviews the complete unchanged object once (CL-D62)",
         "restarts at convergence, then Sol",
+        "before every physical convergence, Sol, or Terra launch",
+        "convergence reviews the unchanged decision-containing candidate first (CL-D62)",
         "rounds: convergence <used>/3, sol <used>/3, terra <used>/3"
       ]
     },
