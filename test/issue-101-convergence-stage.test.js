@@ -237,6 +237,14 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.doesNotMatch(record, /per candidate identity(?! and snapshot fingerprint)/, 'the record carries no candidate-only wording');
   assert.match(record, /the CL-D32 post-decision route runs convergence on the unchanged decision-containing candidate before Sol/);
   assert.match(record, /exact autofix's canonical flow starts at convergence and every correction or same-head evidence route returns there/);
+  assert.match(record, /reference transition models in the test fixtures route every correction and every new actionable evidence through convergence before Sol/);
+  // ADV-109-STALE-REFERENCE-FIXTURES-RESTART-AT-SOL: the reference models carry no direct-to-Sol restart.
+  const regressions = readText('test/closed-loop-regressions.test.js');
+  assert.match(regressions, /restart: 'convergence'/);
+  assert.doesNotMatch(regressions, /restart: 'sol'|newActionableEvidence \? 'sol'|newActionableEvidence\) return 'sol'/);
+  const candidate = readText('test/issue-candidate-publication.test.js');
+  assert.match(candidate, /next: 'convergence', accepted: true/);
+  assert.doesNotMatch(candidate, /return \{ rounds, next: 'sol', accepted: true \};\n  return \{ rounds, next: 'stop'/, 'a correction never returns directly to Sol');
   assert.match(sectionOf(contract, '## CL-D32 — Scope-freeze approval stays inside the candidate transaction'), /CL-D62 later placed the convergence stage before the mandatory unchanged Sol then Terra rereview/);
   assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D62 later added the convergence role file under its own widening/);
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
