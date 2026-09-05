@@ -3057,7 +3057,8 @@
         "the cap is 3 per run on the Issue root and PR review-only and 5 on exact autofix",
         "hands the current candidate to the adversarial gate with those findings assigned and does not invoke convergence again",
         "the stage is skipped and the status block reports `convergence: disabled`",
-        "reports `resolved:` with the provider, model, and thinking level each role ran with"
+        "reports `resolved:` with the provider, model, and thinking level each role ran with",
+        "the third observation across convergence and formal gates stops the run"
       ]
     },
     {
@@ -3100,7 +3101,8 @@
       ],
       "requires": [
         "The CL-D62 convergence stage runs once per candidate identity and snapshot fingerprint before each Sol invocation, is accounted separately as `convergence <used>/5` outside the 15 counted gate invocations",
-        "gate (`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1)"
+        "gate (`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1)",
+        "a convergence result that observes an assigned blocker unresolved counts toward that key's history"
       ]
     },
     {

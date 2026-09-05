@@ -410,8 +410,9 @@ function noProgressHistory(observations) {
   const seen = new Set();
   for (const observation of observations) {
     const owner = observation.breakerOwner || 'shared';
-    if (owner === 'sol' && observation.gate !== 'sol') continue;
-    if (owner === 'terra' && observation.gate !== 'terra') continue;
+    // CL-D62: a convergence observation counts toward any owner's history; formal results stay owner-bound.
+    if (owner === 'sol' && observation.gate !== 'sol' && observation.gate !== 'convergence') continue;
+    if (owner === 'terra' && observation.gate !== 'terra' && observation.gate !== 'convergence') continue;
     const key = `${observation.blockerKey}:${owner}`;
     const resultKey = `${observation.resultId || `${observation.gate || 'gate'}:${observation.blockerKey}`}:${key}`;
     if (!seen.has(resultKey)) {
@@ -524,10 +525,11 @@ const SCENARIOS = [
   ['21 concurrent local dirtiness/staged race and post-commit checkout mismatch fail without cleanup/retry', () => { const results = [publicationPhase({ phase: 'gate', fullyClean: false }), publicationPhase({ phase: 'reply', fullyClean: false }), publicationPhase({ phase: 'edit', fullyClean: false }), publicationPhase({ phase: 'commit', indexMatchesManifest: false }), publicationPhase({ phase: 'commit', indexTree: 'raced' }), publicationPhase({ phase: 'push', checkoutHead: 'P' })]; assert.deepEqual(results, ['BLOCKED:gate_guard', 'BLOCKED:reply_guard', 'BLOCKED:edit_guard', 'BLOCKED:commit_guard', 'BLOCKED:commit_guard', 'BLOCKED:push_guard']); assert.equal(publicationPhase({ phase: 'push', localHead: 'C', checkoutHead: 'C' }), 'push'); assert.deepEqual(results.map(blockedEffects), results.map(() => ({ commit: 0, push: 0, cleanup: 0, retry: 0 }))); }],
   ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)); assert.match(skill, /final raw argument token is exactly `autofix`/); assert.doesNotMatch(readText(PR_REVIEW_ONLY), /Exact PR `autofix`/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
   ['23 convergence precedes Sol and no exact-autofix route returns directly to Sol (CL-D62)', () => { assert.equal(gateSuccess('convergence', 'P').next, 'sol'); assert.equal(gateSuccess('sol', 'P').next, 'terra', 'Sol-before-Terra is unchanged'); assert.equal(evidenceRoute('before-terra', false), 'terra'); for (const stale of [publishedCorrection().restart, finalClassification({ newActionableEvidence: true }), evidenceRoute('before-terra', true), evidenceRoute('final-before-replies', true), evidenceRoute('final-after-replies', true)]) assert.notEqual(stale, 'sol', 'stale direct-to-Sol transition'); }],
+  ['24 convergence observations count toward the no-progress breaker across gates (CL-D62)', () => { const mixed = noProgressHistory([{ resultId: 'conv-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'conv-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'sol-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'conv-2', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'conv-2', blockerKey: 't', breakerOwner: 'terra', gate: 'convergence' }]); assert.equal(mixed.get('k:sol'), 3, 'one observation per convergence result, counted beside the Sol result'); assert.equal(mixed.get('t:terra'), 1, 'a Terra-owned blocker observed by convergence counts too'); assert.equal(breaker('successor', { observations: mixed.get('k:sol') }), 'ROUND_LIMIT_REACHED:no_progress', 'the third mixed observation stops the run'); assert.equal(noProgressHistory([{ resultId: 'terra-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'terra' }]).get('k:sol'), undefined, 'a Terra result still does not count a Sol-owned blocker'); }],
 ];
 
-test('fixture: all 23 Issue #10 acceptance scenarios execute against the reference model', () => {
-  assert.equal(SCENARIOS.length, 23);
+test('fixture: all 24 Issue #10 acceptance scenarios execute against the reference model', () => {
+  assert.equal(SCENARIOS.length, 24);
   for (const [name, scenario] of SCENARIOS) assert.doesNotThrow(scenario, name);
 });
 

@@ -138,6 +138,8 @@ test('Issue #101 the shared contract defines the stage: order, one per candidate
   assert.match(section, /the stage is skipped and the status block reports `convergence: disabled`/);
   assert.match(section, /present but unresolved or resolves with `edit` or `write` is `BLOCKED`/);
   assert.match(section, /reports `resolved:` with the provider, model, and thinking level each role ran with/);
+  // ADV-109-CONVERGENCE-NO-PROGRESS-OMITTED: the no-progress circuit breaker counts convergence observations.
+  assert.match(section, /The no-progress rule is shared: a convergence result's unresolved observation of an assigned `blockerKey × breakerOwner` counts toward that key's history exactly as a formal result's does, at most one per result, and the third observation across convergence and formal gates stops the run/);
   const resolution = sectionOf(contract, '## Name-level agent resolution (CL-D22, CL-D5, CL-D59)');
   assert.match(resolution, /plus the non-authoritative preliminary `tidd-convergence-reviewer` \(CL-D62\)/);
   assert.match(resolution, /a disabled `tidd-convergence-reviewer` skips its stage \(CL-D62\)/);
@@ -181,6 +183,8 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(addendum, /The CL-D62 convergence stage runs once per candidate identity and snapshot fingerprint before each Sol invocation, is accounted separately as `convergence <used>\/5` outside the 15 counted gate invocations, and at its cap hands the candidate to Sol with open convergence findings assigned/);
   assert.match(addendum, /the final summary reports `resolved:` with each role's provider, model, and thinking level/);
   assert.match(addendum, /the convergence stage's payload and result are bound the same way \(CL-D62\)/);
+  assert.match(addendum, /a convergence result that observes an assigned blocker unresolved counts toward that key's history whatever its `breakerOwner`, at most one observation per result, while convergence stays outside the 15 counted invocations \(CL-D62\)/);
+  assert.doesNotMatch(addendum, /Sol-owned blockers count only in Sol results/);
   // ADV-109-EXACT-AUTOFIX-MAP-OMITS-CONVERGENCE: the canonical flow starts at convergence and every
   // correction or same-head evidence route returns there; the helper map rows cover convergence.
   assert.match(addendum, /^CONVERGENCE: MERGE -> SOL; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; CAP -> SOL \(open findings assigned\); DECISION\/FAILURE -> STOP$/m);
@@ -243,9 +247,11 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(record, /the CL-D32 post-decision route runs convergence on the unchanged decision-containing candidate before Sol/);
   assert.match(record, /exact autofix's canonical flow starts at convergence and every correction or same-head evidence route returns there/);
   assert.match(record, /reference transition models in the test fixtures route every correction and every new actionable evidence through convergence before Sol/);
+  assert.match(record, /convergence observations count toward the `blockerKey × breakerOwner` no-progress history/);
   // ADV-109-STALE-REFERENCE-FIXTURES-RESTART-AT-SOL: the reference models carry no direct-to-Sol restart.
   const regressions = readText('test/closed-loop-regressions.test.js');
   assert.match(regressions, /restart: 'convergence'/);
+  assert.match(regressions, /observation\.gate !== 'sol' && observation\.gate !== 'convergence'/, 'the reference no-progress history counts convergence observations');
   assert.doesNotMatch(regressions, /restart: 'sol'|newActionableEvidence \? 'sol'|newActionableEvidence\) return 'sol'/);
   const candidate = readText('test/issue-candidate-publication.test.js');
   assert.match(candidate, /next: 'convergence', accepted: true/);
