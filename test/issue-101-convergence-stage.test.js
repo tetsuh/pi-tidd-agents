@@ -181,6 +181,18 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(addendum, /The CL-D62 convergence stage runs once per candidate identity and snapshot fingerprint before each Sol invocation, is accounted separately as `convergence <used>\/5` outside the 15 counted gate invocations, and at its cap hands the candidate to Sol with open convergence findings assigned/);
   assert.match(addendum, /the final summary reports `resolved:` with each role's provider, model, and thinking level/);
   assert.match(addendum, /the convergence stage's payload and result are bound the same way \(CL-D62\)/);
+  // ADV-109-EXACT-AUTOFIX-MAP-OMITS-CONVERGENCE: the canonical flow starts at convergence and every
+  // correction or same-head evidence route returns there; the helper map rows cover convergence.
+  assert.match(addendum, /^CONVERGENCE: MERGE -> SOL; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; CAP -> SOL \(open findings assigned\); DECISION\/FAILURE -> STOP$/m);
+  assert.match(addendum, /^SOL:   MERGE -> TERRA; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; DECISION\/FAILURE\/LIMIT -> STOP$/m);
+  assert.match(addendum, /^TERRA: MERGE -> FINAL_CHECK; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; DECISION\/FAILURE\/LIMIT -> STOP$/m);
+  assert.match(addendum, /^FINAL_CHECK: new actionable evidence -> CONVERGENCE; missing\/pending\/failed policy -> STOP; stable evidence -> replies -> MERGE_READY$/m);
+  assert.match(addendum, /Convergence runs first, then Sol, and Terra starts only after Sol returns `MERGE` for the exact current public head/);
+  assert.doesNotMatch(addendum, /LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> SOL;|new actionable evidence -> SOL;/, 'no route may return directly to Sol');
+  const autofix = readText('skills/closed-loop-pr/references/autofix.md');
+  assert.match(autofix, /\| Snapshot refresh — before each convergence\/Sol\/Terra invocation, before the first reply, each reply batch, final classification, post-reply, summary mutation \| `snapshot` \|/);
+  assert.match(autofix, /\| Every convergence, Sol, or Terra result, before it is read as a verdict \(CL-D36, CL-D62\) \| `gate_result_validate` \|/);
+  assert.doesNotMatch(autofix, /before each Sol\/Terra invocation|Every Sol or Terra result/, 'no helper boundary may name only Sol and Terra');
   assert.match(addendum, /New evidence on the same public head also reruns the convergence stage before Sol, keyed by head and snapshot fingerprint within its cap of five \(CL-D62, DEC-109-CONV-SNAPSHOT-001\)/);
   assert.match(addendum, /gate \(`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1\)/);
 });
@@ -217,10 +229,11 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(record, /keyed by public head and snapshot fingerprint/);
   assert.doesNotMatch(record, /per candidate identity(?! and snapshot fingerprint)/, 'the record carries no candidate-only wording');
   assert.match(record, /the CL-D32 post-decision route runs convergence on the unchanged decision-containing candidate before Sol/);
+  assert.match(record, /exact autofix's canonical flow starts at convergence and every correction or same-head evidence route returns there/);
   assert.match(sectionOf(contract, '## CL-D32 — Scope-freeze approval stays inside the candidate transaction'), /CL-D62 later placed the convergence stage before the mandatory unchanged Sol then Terra rereview/);
   assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D62 later added the convergence role file under its own widening/);
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D62').map((clause) => clause.id).sort(), ['CL-D62-autofix', 'CL-D62-issue', 'CL-D62-pr', 'CL-D62-readme', 'CL-D62-shared', 'CL-D62-tests']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D62').map((clause) => clause.id).sort(), ['CL-D62-autofix', 'CL-D62-autofix-flow', 'CL-D62-autofix-map', 'CL-D62-issue', 'CL-D62-pr', 'CL-D62-readme', 'CL-D62-shared', 'CL-D62-tests']);
 });

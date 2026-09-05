@@ -29,12 +29,13 @@ Exact autofix assumes these operator conditions cooperative unless an Issue acce
 The exact public PR head OID (public-head OID) is the only candidate identity; no cross-run candidate digest exists and no uncommitted candidate is submitted to a formal gate. Run:
 
 ```text
-SOL:   MERGE -> TERRA; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> SOL; DECISION/FAILURE/LIMIT -> STOP
-TERRA: MERGE -> FINAL_CHECK; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> SOL; DECISION/FAILURE/LIMIT -> STOP
-FINAL_CHECK: new actionable evidence -> SOL; missing/pending/failed policy -> STOP; stable evidence -> replies -> MERGE_READY
+CONVERGENCE: MERGE -> SOL; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; CAP -> SOL (open findings assigned); DECISION/FAILURE -> STOP
+SOL:   MERGE -> TERRA; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; DECISION/FAILURE/LIMIT -> STOP
+TERRA: MERGE -> FINAL_CHECK; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; DECISION/FAILURE/LIMIT -> STOP
+FINAL_CHECK: new actionable evidence -> CONVERGENCE; missing/pending/failed policy -> STOP; stable evidence -> replies -> MERGE_READY
 ```
 
-Sol runs first and Terra starts only after Sol returns `MERGE` for the exact current public head. Every successful push invalidates all earlier Sol and Terra approvals and restarts at convergence, then Sol (CL-D62). A Terra correction never proceeds directly to final check. A gate result has at most one correction batch for that reviewed public head; all unambiguous actionable findings are synthesized into one Luna request.
+Convergence runs first, then Sol, and Terra starts only after Sol returns `MERGE` for the exact current public head (CL-D62). Every successful push invalidates all earlier Sol and Terra approvals and restarts at convergence, then Sol (CL-D62). A Terra correction never proceeds directly to final check. A gate result has at most one correction batch for that reviewed public head; all unambiguous actionable findings are synthesized into one Luna request.
 
 Before every Sol or Terra invocation, immediately before the first reply and every reply batch, at final classification, after the reply batch, and immediately before any separately approved aggregate-summary action, capture or refresh a current GitHub-visible snapshot. Every pre-push boundary—before each gate, route-to-Sol, reply, final classification, post-reply snapshot, and summary mutation—requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` at current public `H`; immediately after a push require `WORKSPACE_POST_PUSH(C, O)` for its child `C`. Safe untracked runtime-root churn permitted by `OPERATOR_CHECKOUT@H` contributes no candidate/evidence bytes and never changes raw Git evidence. Correction-overlay and staged-manifest boundaries use the named condition deltas below; post-commit/pre-push boundaries use `WORKSPACE_POST_COMMIT(C, P)`, never `OPERATOR_CHECKOUT@H`. A concurrent local edit, candidate edit, index change, unsafe root, forbidden candidate/public `HEAD` or index entry, or unexpected outside untracked path fails closed as `BLOCKED` and cannot enter a gate, reply, final classification, or summary mutation.
 

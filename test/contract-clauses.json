@@ -3104,6 +3104,31 @@
       ]
     },
     {
+      "id": "CL-D62-autofix-flow",
+      "marker": "CL-D62",
+      "title": "The exact-autofix canonical flow starts at convergence and returns there",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "CONVERGENCE: MERGE -> SOL; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; CAP -> SOL (open findings assigned); DECISION/FAILURE -> STOP",
+        "FINAL_CHECK: new actionable evidence -> CONVERGENCE",
+        "Convergence runs first, then Sol, and Terra starts only after Sol returns `MERGE` for the exact current public head (CL-D62)"
+      ]
+    },
+    {
+      "id": "CL-D62-autofix-map",
+      "marker": "CL-D62",
+      "title": "The packaged helper map covers the convergence stage",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "before each convergence/Sol/Terra invocation",
+        "Every convergence, Sol, or Terra result, before it is read as a verdict (CL-D36, CL-D62)"
+      ]
+    },
+    {
       "id": "CL-D62-readme",
       "marker": "CL-D62",
       "title": "The README documents the role, its default, and the self-review caveat",
