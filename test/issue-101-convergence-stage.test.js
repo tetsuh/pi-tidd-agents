@@ -248,6 +248,11 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(record, /exact autofix's canonical flow starts at convergence and every correction or same-head evidence route returns there/);
   assert.match(record, /reference transition models in the test fixtures route every correction and every new actionable evidence through convergence before Sol/);
   assert.match(record, /convergence observations count toward the `blockerKey × breakerOwner` no-progress history/);
+  // ADV-109-CONTRACT-CLD30-RESTARTS-AT-SOL: CL-D30's historical owner choice keeps its words but carries the
+  // CL-D62 qualification, and no unqualified claim to restart directly at Sol survives anywhere in CONTRACT.md.
+  const cl30 = sectionOf(contract, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
+  assert.match(cl30, /restart at Sol after every push, and parent-only `REPLY_EXCEPTION`\. \(CL-D62 later inserts the convergence stage before Sol: every successful push now restarts at convergence, then Sol, superseding the direct post-push restart\.\)/);
+  for (const claim of contract.match(/[^\n]*\brestarts? (?:directly )?at Sol\b[^\n]*/g) || []) assert.match(claim, /CL-D62 later inserts the convergence stage before Sol/, `unqualified direct-to-Sol restart: ${claim.slice(0, 120)}`);
   // ADV-109-STALE-REFERENCE-FIXTURES-RESTART-AT-SOL: the reference models carry no direct-to-Sol restart.
   const regressions = readText('test/closed-loop-regressions.test.js');
   assert.match(regressions, /restart: 'convergence'/);
