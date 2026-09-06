@@ -429,7 +429,7 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Validity and invalidation conditions:* Applies to both workflow roots' gate order, status blocks, and preflight, and to `gate_result_validate`'s identity set. It changes no formal gate's authority, budget, order relative to each other, verdict vocabulary, or confirmation duty, and grants no mutation in review-only mode. Changing the caps, the exhaustion rule, the default model, or making any preliminary outcome readiness-relevant requires a new owner decision; the worker-output-specific patch review is #102's, not this decision's.
 
 ## CL-D65 — Gate children carry the envelope duties and validate their own envelope
-**Clauses:** CL-D65-payload, CL-D65-tests
+**Clauses:** CL-D65-payload, CL-D65-record, CL-D65-tests
 
 *Decision ID:* CL-D65
 *Kind:* contract
