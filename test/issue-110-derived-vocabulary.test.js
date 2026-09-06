@@ -26,6 +26,9 @@ const byRoot = (root, kinds) => ROLES.filter((role) => role.roots.includes(root)
 const code = (name) => `\`${name}\``;
 const list = (names) => names.length === 2 ? `${code(names[0])} and ${code(names[1])}` : `${names.slice(0, -1).map(code).join(', ')}, and ${code(names[names.length - 1])}`;
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64);
+const display = (gate) => { const role = ROLES.find((candidate) => candidate.gate === gate); return role.nickname ?? gate; };
+const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+const ROLE_TOKEN = /tidd-[a-z-]+-(?:reviewer|worker)/g;
 
 function proseFiles() {
   const out = ['README.md', 'CONTRACT.md'];
@@ -76,6 +79,13 @@ test('Issue #110 every declared role surface derives from the source', () => {
   for (const name of [...prPre, ...byRoot('pr', ['writer'])]) assert.ok(prSkill.includes(code(name)), `PR root preflight names ${name}`);
   const resolution = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '## Name-level agent resolution (CL-D22, CL-D5, CL-D59)');
   for (const role of ROLES) assert.ok(resolution.includes(code(role.name)), `shared resolution names ${role.name}`);
+  // CONV-113-SURFACE-COVERAGE-001: the README role paragraph and the helper-map rows derive too.
+  const canonical = ROLES.filter((role) => role.alias).map((role) => role.name), preliminary = ROLES.filter((role) => role.kind === 'preliminary').map((role) => role.name);
+  assert.ok(readme.includes(`The closed-loop workflow uses ${NUMBER_WORDS[ROLES.length]} roles: ${canonical.map(code).join(', ')}, and the non-authoritative ${code(preliminary[0])} (CL-D62).`), 'README role paragraph derives from the source');
+  const prDisplay = VOCAB.gateOrder.pr.map(display);
+  const autofix = readText('skills/closed-loop-pr/references/autofix.md');
+  assert.ok(autofix.includes(`| Snapshot refresh — before each ${prDisplay.join('/')} invocation, before the first reply`), 'helper map snapshot row derives from the PR gate order');
+  assert.ok(autofix.includes(`| Every ${prDisplay[0]}, ${prDisplay[1]}, or ${prDisplay[2]} result, before it is read as a verdict (CL-D36, CL-D62) | \`gate_result_validate\` |`), 'helper map validate row derives from the PR gate order');
 });
 
 test('Issue #110 every declared gate-order surface follows the source order', () => {
@@ -86,7 +96,7 @@ test('Issue #110 every declared gate-order surface follows the source order', ()
   assert.ok(legacy, 'the Issue legacy sequence line exists');
   inOrder(legacy, VOCAB.gateOrder.issue.map((gate) => `→ ${roleOf(gate)} `), 'Issue legacy sequence');
   const flow = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  inOrder(flow, ['\nCONVERGENCE: ', '\nSOL:   ', '\nTERRA: ', '\nFINAL_CHECK: '], 'exact-autofix flow block');
+  inOrder(flow, [...VOCAB.gateOrder.pr.map((gate) => `\n${display(gate).toUpperCase()}: `), '\nFINAL_CHECK: '], 'exact-autofix flow block');
   const shared = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '## Convergence stage (CL-D62)');
   assert.ok(shared.includes(`Issue \`${VOCAB.gateOrder.issue.join(' → ')}\`, PR \`${VOCAB.gateOrder.pr.join(' → ')}\``), 'shared order sentence derives from the source');
 });
@@ -159,5 +169,23 @@ test('Issue #110 existing role and gate fixtures cross-check the source', () => 
   assert.ok(requires('CL-D60-identities').includes(`Gate identities (CL-D60): under envelope schema version 2 the gate is \`${VOCAB.gateIdentities[0]}\``), 'CL-D60-identities starts with the first declared identity');
   assert.ok(requires('CL-D62-shared').includes('the sequence restarts at convergence'), 'CL-D62-shared names the convergence restart');
   for (const id of ['CL-D62-issue', 'CL-D62-pr']) assert.ok(requires(id).includes(VOCAB.statusLines.rounds), `${id} pins the declared rounds line`);
-  assert.ok(requires('CL-D62-autofix-flow').some((literal) => literal.startsWith('CONVERGENCE: MERGE -> SOL;')), 'CL-D62-autofix-flow pins the declared first flow line');
+  assert.ok(requires('CL-D62-autofix-flow').some((literal) => literal.startsWith(`${display('convergence').toUpperCase()}: MERGE -> ${display('adversarial').toUpperCase()};`)), 'CL-D62-autofix-flow pins the declared first flow line');
+  // CONV-113-MANIFEST-CROSSCHECK-001 / CONV-113-SURFACE-COVERAGE-001: the checks are two-way. The fixture
+  // constants carry exactly the declared role set, and every role-shaped token in the role/gate clauses
+  // and the named fixtures is a declared role; a stale extra fails by name.
+  const declared = ROLES.map((role) => role.name).sort();
+  assert.deepEqual([...rolesFixture.matchAll(/'(tidd-[a-z-]+)': \{ alias:/g)].map((match) => match[1]).sort(), declared, 'issue-100 ROLES keys are exactly the declared roles');
+  assert.deepEqual([...packageTest.matchAll(/^  '(tidd-[a-z-]+)': 'gpt-[^']+',$/gm)].map((match) => match[1]).sort(), declared, 'package.test EXPECTED_AGENTS keys are exactly the declared roles');
+  const reviewers = agentTools.match(/const REVIEWERS = \[([^\]]+)\]/), workers = agentTools.match(/const WORKERS = \[([^\]]+)\]/);
+  assert.deepEqual([...`${reviewers[1]},${workers[1]}`.matchAll(/'(tidd-[a-z-]+)'/g)].map((match) => match[1]).sort(), declared, 'issue-49 REVIEWERS plus WORKERS are exactly the declared roles');
+  const roleClauses = manifest.clauses.filter((clause) => ['CL-D59', 'CL-D60', 'CL-D62', 'CL-D63'].includes(clause.marker));
+  assert.ok(roleClauses.length >= 10, 'the role and gate clauses are present');
+  const gateWords = new Set([...VOCAB.gateIdentities, 'sol', 'terra']);
+  for (const clause of roleClauses) for (const literal of clause.requires) {
+    for (const token of literal.match(ROLE_TOKEN) || []) assert.ok(declared.includes(token), `${clause.id}: undeclared role ${token}`);
+    for (const match of literal.matchAll(/`(adversarial|decision-drift|safety|convergence|sol|terra)`/g)) assert.ok(gateWords.has(match[1]), `${clause.id}: undeclared gate ${match[1]}`);
+  }
+  for (const file of [...proseFiles(), 'test/contract-clauses.json', 'test/issue-100-tidd-roles.test.js', 'test/issue-101-convergence-stage.test.js', 'test/issue-49-agent-tools.test.js', 'test/package.test.js', 'test/issue-100-gate-ids-v2.test.js']) {
+    for (const token of readText(file).match(ROLE_TOKEN) || []) assert.ok(declared.includes(token), `${file}: undeclared role ${token}`);
+  }
 });
