@@ -80,3 +80,5 @@ Need from main agent:
 Suggested execution prompt:
 - a concrete prompt for `worker`, only if an implementation handoff is actually warranted
 - if no handoff is warranted, say so explicitly
+
+Before submitting the structured envelope, run the packaged `gate_result_validate` named in the payload on your draft with the supplied expectation and submit only a validated envelope; a rejected draft is yours to fix, not the parent's.

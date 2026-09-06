@@ -3161,6 +3161,52 @@
         "the README documents the role, its default, the self-review caveat, and the design rule",
         "CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60"
       ]
+    },
+    {
+      "id": "CL-D65-payload",
+      "marker": "CL-D65",
+      "title": "The Every-gate block states the envelope duties and the self-validation duty",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Every-gate invariant payload block (CL-D2)",
+      "requires": [
+        "every parent-assigned finding appears in `findings` with `origin: assigned`, its exact tuple, and exactly one confirmation",
+        "a fresh finding carries no `blockerKey`",
+        "an adversarial result links a `findingId` only for a counterexample or unavailable-evidence outcome, and only to an id present in `findings`",
+        "the child runs `gate_result_validate` on its draft with that expectation and submits only a validated envelope (CL-D65)"
+      ]
+    },
+    {
+      "id": "CL-D65-record",
+      "marker": "CL-D65",
+      "title": "The CL-D65 record states the duties, the declined alternatives, and the no-substitution boundary",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D65 — Gate children carry the envelope duties and validate their own envelope",
+      "requires": [
+        "every parent-assigned finding appears in `findings` with `origin: assigned`, its exact tuple, and exactly one confirmation",
+        "a fresh finding carries no `blockerKey`",
+        "an adversarial result links a `findingId` only for a counterexample or unavailable-evidence outcome, and only to an id present in `findings`",
+        "the child submits only an envelope `gate_result_validate` accepted against the supplied expectation",
+        "Option B relaxes the validator or adds a repair step, which moves verdict authority toward an unvalidated document and is declined",
+        "a child that submits a rejected envelope is handled exactly as before",
+        "letting the child's own run substitute for the parent's `gate_result_validate` requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D65-tests",
+      "marker": "CL-D65",
+      "title": "Self-validation fixtures pin the block, the four reviewer bodies, and the record",
+      "files": [
+        "test/issue-117-gate-self-validation.test.js"
+      ],
+      "requires": [
+        "the Every-gate block states the envelope duties and the self-validation duty",
+        "every reviewer body carries the self-validation sentence and the writer does not",
+        "CL-D65 records the duty and widens CL-D1 once more"
+      ]
     }
   ]
 }

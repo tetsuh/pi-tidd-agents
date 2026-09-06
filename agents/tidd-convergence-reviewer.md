@@ -54,4 +54,4 @@ When the invocation supplies a structured output schema, return exactly that env
 - MERGE | FIX BEFORE MERGE | NEEDS DECISION
 ```
 
-`MERGE` here means only that the candidate is ready for the formal gates. Cite file paths and line numbers. Do not include a `Fixed` section because this agent never changes files.
+`MERGE` here means only that the candidate is ready for the formal gates. Cite file paths and line numbers. Do not include a `Fixed` section because this agent never changes files. Before submitting the structured envelope, run the packaged `gate_result_validate` named in the payload on your draft with the supplied expectation and submit only a validated envelope; a rejected draft is yours to fix, not the parent's.
