@@ -41,7 +41,7 @@ A near-miss token signals intent to mutate, so it must surface as an error rathe
 
 ## Preflight (CL-D22, CL-D5)
 
-1. Confirm that the workflow-specific required roles resolve with their required capability: `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally for autofix mode, `tidd-autofix-worker`. `tidd-convergence-reviewer` runs the CL-D62 convergence stage in both modes when it resolves and is skipped when disabled.
+1. Confirm that the workflow-specific required roles resolve with their required capability: `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally for autofix mode, `tidd-autofix-worker`. `tidd-convergence-reviewer` is required in both modes for the CL-D62 convergence stage unless it is explicitly disabled: a disabled role skips the stage and reports `convergence: disabled`; a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule.
 2. If one does not resolve, apply the shared `BLOCKED` rule in `gate-contract.md`; do not begin a gate that cannot finish.
 
 A preflight failure is not a review round.
@@ -95,7 +95,7 @@ Copy exactly one of these owning-root blocks verbatim into each PR gate payload:
 - `PR Sol role-authority block`: `You are the read-only PR requirements, contract, scope, correctness, and test reviewer.`
 - `PR Terra role-authority block`: `You are the read-only concurrency, lifetime, ownership, cleanup, and decision-drift reviewer for this PR.`
 
-Every PR review-only Sol/Terra invocation and every exact-autofix Sol/Terra invocation composes the shared Every-gate invariant payload block verbatim, the shared Sol-only adversarial invariant payload block verbatim for Sol (including every post-push Sol), exactly one selected PR gate role-authority block verbatim, and the volatile envelope/history projection. Review-only and exact-autofix mode references must not restate the retired all-history requirement; mode-specific correlation and safety duties remain in their owning references.
+Every PR review-only Sol/Terra invocation and every exact-autofix Sol/Terra invocation composes the shared Every-gate invariant payload block verbatim, the shared Sol-only adversarial invariant payload block verbatim for Sol (including every post-push Sol), exactly one selected PR gate role-authority block verbatim, and the volatile envelope/history projection. Every convergence invocation in either mode composes the shared Every-gate invariant payload block verbatim and the volatile envelope/history projection, requests the packaged schema through `outputSchema`, and receives neither the Sol-only adversarial block nor a formal role-authority block (CL-D62). Review-only and exact-autofix mode references must not restate the retired all-history requirement; mode-specific correlation and safety duties remain in their owning references.
 
 ### Validation sandbox delta (CL-D38)
 

@@ -3069,7 +3069,8 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "`tidd-convergence-reviewer` runs the CL-D62 convergence stage when it resolves and is skipped when disabled",
+        "`tidd-convergence-reviewer` is required for the CL-D62 convergence stage unless it is explicitly disabled",
+        "a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule",
         "its findings reach Sol as assigned findings and it never authorizes readiness",
         "the convergence stage reviews the complete unchanged object once (CL-D62)",
         "restarts at convergence, then Sol",
