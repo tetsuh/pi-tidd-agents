@@ -189,3 +189,26 @@ test('Issue #110 existing role and gate fixtures cross-check the source', () => 
     for (const token of readText(file).match(ROLE_TOKEN) || []) assert.ok(declared.includes(token), `${file}: undeclared role ${token}`);
   }
 });
+
+// Convergence lead on PR #113 (non-authoritative): the version 1 window's gates, prefixes, and the
+// marker's gate vocabulary were outside the source. They are declared now and checked against the
+// shipping code and the one fixture that names them.
+test('Issue #110 the version 1 window and the marker gate vocabulary derive from the source', () => {
+  const helpers = require('../skills/closed-loop-pr/helpers');
+  const window = VOCAB.version1Window;
+  assert.deepEqual(gateResult.SCHEMAS[1].properties.correlation.properties.gate.enum, window.gates, 'the version 1 schema carries exactly the declared window gates');
+  for (const gate of window.gates) {
+    const findingId = `${window.prefixes[gate]}-110-WINDOW`;
+    const correlation = { repository: 'o/r', number: 110, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
+    const finding = { findingId, origin: 'fresh', gate, headOid: OID, raisedAgainstFingerprint: SHA, severity: 'Minor', anchoring: 'criterion-anchored', anchor: 'AC', proposedDisposition: 'fixed', evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 'pending', workflowRecord: { sourceKind: 'gate', sourceId: findingId, authorIdentity: 'x', authorType: 'Agent', observedHeadOid: OID, fingerprint: SHA, semanticFingerprint: SHA, correctiveChange: 'c' } };
+    const envelope = { schemaVersion: 1, correlation, verdict: 'FIX BEFORE MERGE', evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA, readCompletely: true }], findings: [finding], confirmations: [], decisions: [], adversarialResults: gate === 'sol' ? [{ claim: 'c', searched: 's', outcome: 'counterexample', evidence: 'e', findingId }] : [] };
+    const result = gateResult.validateGateResult(envelope, { workflow: 'pr', correlation, assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
+    assert.equal(result.ok, true, `${gate}: the declared window prefix is the version 1 namespace: ${JSON.stringify(result.error ?? {})}`);
+  }
+  for (const gates of window.markerGates) {
+    const made = helpers.createReplyMarker({ binding: { repository: 'o/r', number: 110, sourceKind: 'issue_comment', sourceId: '1', sourceUrl: 'https://github.com/o/r/pull/110#issuecomment-1', sourceBodySha256: SHA, sourceCreatedAt: '2026-09-07T00:00:00Z', sourceUpdatedAt: '2026-09-07T00:00:00Z', head: OID, findings: [{ findingId: 'ADV-110-M', disposition: 'fixed' }], gates, commit: null }, visibleBody: 'Confirming gate.\n' });
+    assert.equal(made.ok, true, `marker gates ${gates}: ${JSON.stringify(made.error ?? {})}`);
+  }
+  assert.equal(helpers.createReplyMarker({ binding: { repository: 'o/r', number: 110, sourceKind: 'issue_comment', sourceId: '1', sourceUrl: 'https://github.com/o/r/pull/110#issuecomment-1', sourceBodySha256: SHA, sourceCreatedAt: '2026-09-07T00:00:00Z', sourceUpdatedAt: '2026-09-07T00:00:00Z', head: OID, findings: [{ findingId: 'ADV-110-M', disposition: 'fixed' }], gates: 'luna', commit: null }, visibleBody: 'Confirming gate.\n' }).ok, false, 'an undeclared marker gate is rejected');
+  assert.ok(readText('test/issue-100-gate-ids-v2.test.js').includes(`const V1_GATES = [${window.gates.map((gate) => `'${gate}'`).join(', ')}];`), 'issue-100-gate-ids-v2 V1_GATES equals the declared window gates');
+});
