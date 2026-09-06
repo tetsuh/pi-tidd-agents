@@ -34,7 +34,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Preflight, before any gate or mutation | `operator_capture` | `cwd`, `identity` |
 | Preflight writability | `writability` | `owner`, `repo`, `branchRef`, `enterprisePolicyComplete`, `enterpriseRulesets` |
 | Workspace creation at public `H` | `workspace_create` | `cwd`, `head`, `tree` |
-| Snapshot refresh — before each Sol/Terra invocation, before the first reply, each reply batch, final classification, post-reply, summary mutation | `snapshot` | `owner`, `repo`, `number` |
+| Snapshot refresh — before each convergence/Sol/Terra invocation, before the first reply, each reply batch, final classification, post-reply, summary mutation | `snapshot` | `owner`, `repo`, `number` |
 | CL-D9 `issue_spec` | `fingerprint_issue_spec` | `body`, `comments` |
 | CL-D9 `pr_base` | `fingerprint_pr_base` | `oid` |
 | CL-D9 `pr_tree` | `fingerprint_pr_tree` | `oid` |
@@ -46,7 +46,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Sole-parent transition evidence toward `WORKSPACE_POST_COMMIT(C, P)`, `WORKSPACE_POST_PUSH(C, O)` | `workspace_verify` | `cwd`, `expected` (data of `workspace_create`), `transition` |
 | `OPERATOR_CHECKOUT_UNCHANGED@O` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and every terminal recheck | `operator_revalidate` | `captured` (envelope of `operator_capture`), `cwd` |
 | Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt` (receipt inside `workspace_create` data), `cwd` |
-| Every Sol or Terra result, before it is read as a verdict (CL-D36) | `gate_result_validate` | `result` (structured gate output), `expected` |
+| Every convergence, Sol, or Terra result, before it is read as a verdict (CL-D36, CL-D62) | `gate_result_validate` | `result` (structured gate output), `expected` |
 | Reply body construction (CL-D45) | `marker_create` | `binding`, `visibleBody` |
 | Post-attempt reconciliation (CL-D45) | `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |
 | Before each gate invocation, on the assembled evidence (CL-D42) | `evidence_verify` | `envelope`, `expected` |

@@ -16,7 +16,7 @@ const { readText, readJson } = require('./helpers');
 const REQUIRED_COVERAGE = new Set([
   'delimiter', 'crlf', 'unicode', 'scalar-grammar', 'body-comment-boundary', 'legacy-issue-spec-collision', 'schema-version', 'alternate-diff',
   'foreign-repository', 'https-ssh-canonicalization', 'branch-upstream', 'all-remotes', 'multiple-fetch-urls', 'independent-fetch-push', 'explicit-push', 'fallback-push', 'insteadOf', 'conflicting-pushInsteadOf', 'missing-url-sets', 'non-github-url', 'fetch-push-conflict', 'fork-upstream-ambiguity', 'preview-identity-movement',
-  'nonce-grammar', 'cross-run', 'physical-attempt-failures', 'verdict-retry', 'missing-result', 'duplicate-result', 'reused-result', 'consumed-result', 'stale-result', 'mismatched-result', 'sol-before-terra', 'terra-to-sol', 'round-accounting',
+  'nonce-grammar', 'cross-run', 'physical-attempt-failures', 'verdict-retry', 'missing-result', 'duplicate-result', 'reused-result', 'consumed-result', 'stale-result', 'mismatched-result', 'sol-before-terra', 'terra-to-sol', 'convergence-before-sol', 'convergence-cap-handover', 'round-accounting',
   'candidate-status-no-resume', 'live-owner-continuation', 'legacy-issue-resume', 'pr-resume', 'complete-findings', 'duplicate-ownership', 'nine-field-decisions', 'decline', 'non-affirmative', 'approval-expiry',
   'snapshot-a-mismatch', 'snapshot-a-failure', 'no-body-snapshot-b', 'post-patch-snapshot-b', 'pre-post-resolver-movement', 'over-100-pagination', 'addition-edit-deletion-reclassification', 'missing-repeated-cursor', 'duplicate-comment-id', 'large-comment-ids', 'total-count-mismatch', 'truncation', 'missing-terminal', 'page-failure', 'ordering-ambiguity',
   'one-time-approval', 'patch-post-order', 'post-mutation-failure', 'no-retry-compensation', 'snapshot-c-body', 'snapshot-c-comment-transport', 'snapshot-c-cld9', 'snapshot-c-issue-spec', 'authoritative-invalidation', 'advisory-no-change',
@@ -447,7 +447,7 @@ function tupleValid(result, expected) {
     result.runNonce === expected.runNonce && result.attempt === expected.attempt &&
     result.identity === invocationId(result.runNonce, result.attempt) && result.identity === expected.identity &&
     result.target === expected.target && result.issueSpec === expected.issueSpec &&
-    result.candidate === expected.candidate && ['sol', 'terra'].includes(result.gate) &&
+    result.candidate === expected.candidate && ['convergence', 'sol', 'terra'].includes(result.gate) &&
     result.gate === expected.gate && result.round === expected.round;
 }
 function terminalResult(result, expected, mapped, consumed) {
@@ -456,11 +456,14 @@ function terminalResult(result, expected, mapped, consumed) {
   return tupleValid(result, expected);
 }
 function gateTransition(state, { gate, verdict, candidateChanged = false }) {
+  // CL-D62: at the convergence cap the candidate is handed to Sol with open findings assigned.
+  if (gate === 'convergence' && gate === state.next && state.rounds.convergence >= 3) return { ...state, next: 'sol', accepted: false, handedOver: true };
   if (state.rounds[gate] >= 3 || gate !== state.next) return { ...state, accepted: false };
   const rounds = { ...state.rounds, [gate]: state.rounds[gate] + 1 };
+  if (verdict === 'MERGE' && gate === 'convergence') return { rounds, next: 'sol', accepted: true };
   if (verdict === 'MERGE' && gate === 'sol') return { rounds, next: 'terra', accepted: true };
   if (verdict === 'MERGE' && gate === 'terra' && !candidateChanged) return { rounds, next: 'preview', accepted: true };
-  if (candidateChanged || verdict === 'FIX BEFORE MERGE') return { rounds, next: 'sol', accepted: true };
+  if (candidateChanged || verdict === 'FIX BEFORE MERGE') return { rounds, next: 'convergence', accepted: true };
   return { rounds, next: 'stop', accepted: true };
 }
 function launch(state, kind, gate, proposedRound) {
@@ -500,16 +503,24 @@ test('fixture: exact gate identity/tuple table covers attempts, retries, consump
   assert.equal(startup.proposedRound, retryVerdict.proposedRound); assert.notEqual(malformed.identity, retryVerdict.identity);
   launch(state, 'verdict', 'sol', 2); launch(state, 'verdict', 'sol', 3);
   assert.equal(state.rounds.sol, 3, 'passing round counts');
-  let phase = { rounds: { sol: 0, terra: 0 }, next: 'sol' };
+  // CL-D62: convergence runs first, once per candidate identity and snapshot fingerprint; every correction
+  // restarts there; at its cap the candidate is handed to Sol; Sol-before-Terra is unchanged.
+  let phase = { rounds: { convergence: 0, sol: 0, terra: 0 }, next: 'convergence' };
+  assert.equal(gateTransition(phase, { gate: 'sol', verdict: 'MERGE' }).accepted, false, 'Sol cannot run before convergence (CL-D62)');
   assert.equal(gateTransition(phase, { gate: 'terra', verdict: 'MERGE' }).accepted, false, 'Terra cannot run before Sol MERGE');
+  phase = gateTransition(phase, { gate: 'convergence', verdict: 'MERGE' });
+  assert.equal(phase.next, 'sol', 'a converged candidate goes to Sol');
   phase = gateTransition(phase, { gate: 'sol', verdict: 'MERGE' });
   assert.equal(phase.next, 'terra');
   phase = gateTransition(phase, { gate: 'terra', verdict: 'FIX BEFORE MERGE', candidateChanged: true });
-  assert.equal(phase.next, 'sol', 'candidate-changing Terra correction restarts at Sol');
-  const exhausted = { rounds: { sol: 3, terra: 0 }, next: 'sol' };
+  assert.equal(phase.next, 'convergence', 'candidate-changing Terra correction restarts at convergence, then Sol');
+  assert.notEqual(phase.next, 'sol', 'no correction route returns directly to Sol');
+  const capped = gateTransition({ rounds: { convergence: 3, sol: 0, terra: 0 }, next: 'convergence' }, { gate: 'convergence', verdict: 'FIX BEFORE MERGE' });
+  assert.deepEqual([capped.accepted, capped.next, capped.handedOver], [false, 'sol', true], 'at the convergence cap the candidate goes to Sol with open findings assigned');
+  const exhausted = { rounds: { convergence: 1, sol: 3, terra: 0 }, next: 'sol' };
   assert.equal(gateTransition(exhausted, { gate: 'sol', verdict: 'MERGE' }).accepted, false, 'fourth counted round is rejected without owner extension');
   assert.equal(provider.kind, 'provider-failure'); assert.equal(tool.kind, 'tool-failure');
-  covered('nonce-grammar', 'cross-run', 'physical-attempt-failures', 'verdict-retry', 'missing-result', 'duplicate-result', 'reused-result', 'consumed-result', 'stale-result', 'mismatched-result', 'sol-before-terra', 'terra-to-sol', 'round-accounting');
+  covered('nonce-grammar', 'cross-run', 'physical-attempt-failures', 'verdict-retry', 'missing-result', 'duplicate-result', 'reused-result', 'consumed-result', 'stale-result', 'mismatched-result', 'sol-before-terra', 'terra-to-sol', 'convergence-before-sol', 'convergence-cap-handover', 'round-accounting');
 });
 
 const DISPOSITIONS = new Set(['fixed', 'accepted-as-designed', 'deferred', 'duplicate', 'not-applicable', 'needs-owner-decision']);

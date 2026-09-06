@@ -352,10 +352,11 @@ test('exact-autofix Luna ownership is protected within its authored sections', (
 // The following is a deterministic, non-authoritative reference model. It
 // executes intended artifact semantics only; it cannot prove LLM runtime behavior.
 function gateSuccess(gate, head, verdict = 'MERGE') {
-  return { gate, head, verdict, next: verdict === 'MERGE' ? (gate === 'sol' ? 'terra' : 'final') : verdict === 'FIX BEFORE MERGE' ? 'luna' : 'stop' };
+  // CL-D62: convergence precedes Sol; Sol-before-Terra is unchanged.
+  return { gate, head, verdict, next: verdict === 'MERGE' ? (gate === 'convergence' ? 'sol' : gate === 'sol' ? 'terra' : 'final') : verdict === 'FIX BEFORE MERGE' ? 'luna' : 'stop' };
 }
 function publishedCorrection(parent = 'P', child = 'C') {
-  return { parent, head: child, solApproval: false, terraApproval: false, restart: 'sol' };
+  return { parent, head: child, solApproval: false, terraApproval: false, restart: 'convergence' };
 }
 function pushResult({ accepted = true, ambiguous = false } = {}) {
   if (ambiguous) return { localCommit: true, remoteHead: 'unknown', retry: false, retryAttempts: 0, cleanupMutations: 0, laterGateMutations: 0, laterReplyMutations: 0, status: 'push_outcome_unknown' };
@@ -409,8 +410,9 @@ function noProgressHistory(observations) {
   const seen = new Set();
   for (const observation of observations) {
     const owner = observation.breakerOwner || 'shared';
-    if (owner === 'sol' && observation.gate !== 'sol') continue;
-    if (owner === 'terra' && observation.gate !== 'terra') continue;
+    // CL-D62: a convergence observation counts toward any owner's history; formal results stay owner-bound.
+    if (owner === 'sol' && observation.gate !== 'sol' && observation.gate !== 'convergence') continue;
+    if (owner === 'terra' && observation.gate !== 'terra' && observation.gate !== 'convergence') continue;
     const key = `${observation.blockerKey}:${owner}`;
     const resultKey = `${observation.resultId || `${observation.gate || 'gate'}:${observation.blockerKey}`}:${key}`;
     if (!seen.has(resultKey)) {
@@ -462,10 +464,10 @@ function replyAttempt({ priorReplies = 0, ambiguous = false } = {}) {
   return ambiguous ? { priorReplies, attempts: 1, posted: 'unknown', retry: false, retryAttempts: 0, additionalReplies: 0, cleanupMutations: 0, status: 'reply_outcome_unknown' } : { priorReplies, attempts: 1, posted: 1, retry: false, additionalReplies: 1, status: 'reply_posted' };
 }
 function finalClassification({ newActionableEvidence = false } = {}) {
-  return newActionableEvidence ? 'sol' : 'final';
+  return newActionableEvidence ? 'convergence' : 'final';
 }
 function evidenceRoute(boundary, newActionableEvidence) {
-  if ((boundary === 'before-terra' || boundary === 'final-before-replies' || boundary === 'final-after-replies') && newActionableEvidence) return 'sol';
+  if ((boundary === 'before-terra' || boundary === 'final-before-replies' || boundary === 'final-after-replies') && newActionableEvidence) return 'convergence';
   return boundary === 'before-terra' ? 'terra' : 'final';
 }
 function replyBatch(findings, confirmed) {
@@ -500,13 +502,13 @@ function policyOutcome(kind) {
 }
 
 const SCENARIOS = [
-  ['01 Sol fix publishes P->C and restarts at Sol', () => assert.deepEqual({ ...publishedCorrection(), route: [gateSuccess('sol', 'P', 'FIX BEFORE MERGE').next, 'sol'] }, { parent: 'P', head: 'C', solApproval: false, terraApproval: false, restart: 'sol', route: ['luna', 'sol'] })],
-  ['02 Terra fix publishes P->C and restarts at Sol', () => assert.deepEqual({ ...publishedCorrection(), route: [gateSuccess('terra', 'P', 'FIX BEFORE MERGE').next, 'sol'] }, { parent: 'P', head: 'C', solApproval: false, terraApproval: false, restart: 'sol', route: ['luna', 'sol'] })],
+  ['01 Sol fix publishes P->C and restarts at convergence, then Sol (CL-D62)', () => assert.deepEqual({ ...publishedCorrection(), route: [gateSuccess('sol', 'P', 'FIX BEFORE MERGE').next, publishedCorrection().restart, gateSuccess('convergence', 'C').next] }, { parent: 'P', head: 'C', solApproval: false, terraApproval: false, restart: 'convergence', route: ['luna', 'convergence', 'sol'] })],
+  ['02 Terra fix publishes P->C and restarts at convergence, then Sol (CL-D62)', () => assert.deepEqual({ ...publishedCorrection(), route: [gateSuccess('terra', 'P', 'FIX BEFORE MERGE').next, publishedCorrection().restart, gateSuccess('convergence', 'C').next] }, { parent: 'P', head: 'C', solApproval: false, terraApproval: false, restart: 'convergence', route: ['luna', 'convergence', 'sol'] })],
   ['03 grouped corrections and multi-finding gate confirmations use one batch', () => { const a = { findingId: 'a', blockerKey: 'ba', headOid: 'P', confirmationGate: 'sol', proposedDisposition: 'fixed' }; const b = { findingId: 'b', blockerKey: 'bb', headOid: 'P', confirmationGate: 'sol', proposedDisposition: 'fixed' }; const records = [{ ...a, gate: 'sol', confirmation: 'confirmed', evidence: 'a' }, { ...b, gate: 'sol', confirmation: 'confirmed', evidence: 'b' }]; assert.equal(confirmation(a, records, [a, b]), true); assert.equal(confirmation(b, records, [a, b]), true); assert.deepEqual({ ...correctionBatch(['b', 'a']), ...replyBatch(['b', 'a'], ['a', 'b']) }, { tasks: 1, commits: 1, pushes: 1, replies: 1, order: ['a', 'b'] }); }],
   ['04 rejected no-code remains open for correction/owner decision', () => assert.equal(confirmation({ findingId: 'f', blockerKey: 'b', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'accepted-as-designed' }, [{ findingId: 'f', blockerKey: 'b', gate: 'sol', headOid: 'H', proposedDisposition: 'accepted-as-designed', confirmation: 'rejected', evidence: 'e' }]), false)],
   ['05 one finding replies while same gate remains FIX for another with complete body', () => { assert.deepEqual(gateWithFindings(['a', 'b'], ['a']), { verdict: 'FIX BEFORE MERGE', replyable: ['a'] }); assert.equal(replyBodyValid({ disposition: 'fixed', commit: 'C', gate: 'sol', head: 'H', validation: 'tests-pass' }), true); assert.equal(replyBodyValid({ disposition: 'fixed', gate: 'sol', head: 'H' }), false); assert.equal(replyBodyValid({ disposition: 'fixed', commit: 'C', gate: 'sol', head: 'H', validation: 'tests-pass', claimsWholeReady: true, finalReady: false }), false); }],
   ['06 both requires valid same-head Sol and Terra confirmations', () => assert.equal(confirmation({ findingId: 'f', blockerKey: 'b', headOid: 'H', confirmationGate: 'both', proposedDisposition: 'fixed' }, [{ findingId: 'f', blockerKey: 'b', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'sol' }]), false)],
-  ['07 new evidence before Terra and both final snapshots routes Sol', () => assert.deepEqual([evidenceRoute('before-terra', true), evidenceRoute('final-before-replies', true), evidenceRoute('final-after-replies', true)], ['sol', 'sol', 'sol'])],
+  ['07 new evidence before Terra and both final snapshots routes convergence, then Sol (CL-D62)', () => assert.deepEqual([evidenceRoute('before-terra', true), evidenceRoute('final-before-replies', true), evidenceRoute('final-after-replies', true), finalClassification({ newActionableEvidence: true })], ['convergence', 'convergence', 'convergence', 'convergence'])],
   ['08 only exact source/body/head markers are intake-excluded', () => { const expected = { source: 'S', bodyDigest: 'B', head: 'H' }; assert.equal(replyMarkerMatches(expected, { source: 'S', bodyDigest: 'B', head: 'H' }), true); assert.equal(replyMarkerMatches(expected, { source: 'S', bodyDigest: 'partial', head: 'H' }), false); assert.equal(replyOutcome({ markerVisible: true }), 'already_marked'); }],
   ['09 no-op and any unexpected validation mutation stop before commit with no forbidden effects', () => { const noOp = validationResult({ changed: false }); const unauthorized = validationResult({ unauthorized: true }); const authorizedPathUnexpected = validationResult({ unexpectedValidationMutation: true }); const commitBlocked = publicationPhase({ phase: 'commit', unstagedEmpty: false }); assert.equal(noOp.status, 'validation_failed'); assert.equal(unauthorized.status, 'validation_failed'); assert.equal(authorizedPathUnexpected.status, 'validation_failed'); assert.deepEqual([noOp.mutations, unauthorized.mutations, authorizedPathUnexpected.mutations, blockedEffects(commitBlocked)], [{ commit: 0, push: 0, cleanup: 0, retry: 0 }, { commit: 0, push: 0, cleanup: 0, retry: 0 }, { commit: 0, push: 0, cleanup: 0, retry: 0 }, { commit: 0, push: 0, cleanup: 0, retry: 0 }]); }],
   ['10 push failure leaves local commit and stops without retry/cleanup', () => assert.deepEqual(pushResult({ accepted: false }), { localCommit: true, remoteHead: 'P', retry: false, retryAttempts: 0, cleanupMutations: 0, status: 'local_commit_unpushed' })],
@@ -522,10 +524,12 @@ const SCENARIOS = [
   ['20 blockerKey x breakerOwner deduplicates within result but counts separate results', () => { const history = noProgressHistory([{ resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'terra' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-2', blockerKey: 'shared', breakerOwner: 'shared', gate: 'terra' }, { resultId: 'shared-3', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }]); assert.equal(history.get('owned:sol'), 1); assert.equal(history.get('shared:shared'), 3); assert.equal(breaker('final', { observations: history.get('shared:shared') }), 'ROUND_LIMIT_REACHED:no_progress'); assert.equal(noProgressObservation([{ blockerKey: 'shared' }, { blockerKey: 'shared' }]), 1); }],
   ['21 concurrent local dirtiness/staged race and post-commit checkout mismatch fail without cleanup/retry', () => { const results = [publicationPhase({ phase: 'gate', fullyClean: false }), publicationPhase({ phase: 'reply', fullyClean: false }), publicationPhase({ phase: 'edit', fullyClean: false }), publicationPhase({ phase: 'commit', indexMatchesManifest: false }), publicationPhase({ phase: 'commit', indexTree: 'raced' }), publicationPhase({ phase: 'push', checkoutHead: 'P' })]; assert.deepEqual(results, ['BLOCKED:gate_guard', 'BLOCKED:reply_guard', 'BLOCKED:edit_guard', 'BLOCKED:commit_guard', 'BLOCKED:commit_guard', 'BLOCKED:push_guard']); assert.equal(publicationPhase({ phase: 'push', localHead: 'C', checkoutHead: 'C' }), 'push'); assert.deepEqual(results.map(blockedEffects), results.map(() => ({ commit: 0, push: 0, cleanup: 0, retry: 0 }))); }],
   ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)); assert.match(skill, /final raw argument token is exactly `autofix`/); assert.doesNotMatch(readText(PR_REVIEW_ONLY), /Exact PR `autofix`/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
+  ['23 convergence precedes Sol and no exact-autofix route returns directly to Sol (CL-D62)', () => { assert.equal(gateSuccess('convergence', 'P').next, 'sol'); assert.equal(gateSuccess('sol', 'P').next, 'terra', 'Sol-before-Terra is unchanged'); assert.equal(evidenceRoute('before-terra', false), 'terra'); for (const stale of [publishedCorrection().restart, finalClassification({ newActionableEvidence: true }), evidenceRoute('before-terra', true), evidenceRoute('final-before-replies', true), evidenceRoute('final-after-replies', true)]) assert.notEqual(stale, 'sol', 'stale direct-to-Sol transition'); }],
+  ['24 convergence observations count toward the no-progress breaker across gates (CL-D62)', () => { const mixed = noProgressHistory([{ resultId: 'conv-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'conv-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'sol-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'conv-2', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'conv-2', blockerKey: 't', breakerOwner: 'terra', gate: 'convergence' }]); assert.equal(mixed.get('k:sol'), 3, 'one observation per convergence result, counted beside the Sol result'); assert.equal(mixed.get('t:terra'), 1, 'a Terra-owned blocker observed by convergence counts too'); assert.equal(breaker('successor', { observations: mixed.get('k:sol') }), 'ROUND_LIMIT_REACHED:no_progress', 'the third mixed observation stops the run'); assert.equal(noProgressHistory([{ resultId: 'terra-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'terra' }]).get('k:sol'), undefined, 'a Terra result still does not count a Sol-owned blocker'); }],
 ];
 
-test('fixture: all 22 Issue #10 acceptance scenarios execute against the reference model', () => {
-  assert.equal(SCENARIOS.length, 22);
+test('fixture: all 24 Issue #10 acceptance scenarios execute against the reference model', () => {
+  assert.equal(SCENARIOS.length, 24);
   for (const [name, scenario] of SCENARIOS) assert.doesNotThrow(scenario, name);
 });
 

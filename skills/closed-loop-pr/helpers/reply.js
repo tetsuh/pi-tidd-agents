@@ -34,7 +34,7 @@ const FINDING_ID = /^[^\s:,]+$/;
 const DISPOSITIONS = ['fixed', 'accepted-as-designed', 'deferred', 'duplicate', 'not-applicable', 'needs-owner-decision'];
 // Version 1 and version 2 gate vocabularies both parse for one release (CL-D60): a marker
 // names its gates in the vocabulary of the envelope it was written from.
-const GATES = ['sol', 'terra', 'sol+terra', 'adversarial', 'safety', 'decision-drift', 'adversarial+safety', 'adversarial+decision-drift'];
+const GATES = ['sol', 'terra', 'sol+terra', 'adversarial', 'safety', 'decision-drift', 'adversarial+safety', 'adversarial+decision-drift', 'convergence'];
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }

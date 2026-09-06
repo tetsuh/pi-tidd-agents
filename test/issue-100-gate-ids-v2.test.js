@@ -26,7 +26,7 @@ const { AUTHORITY_FILES, readText, repoPath, sectionOf } = require('./helpers');
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
 const SHA = '1'.repeat(64);
-const V2_GATES = ['adversarial', 'decision-drift', 'safety'];
+const V2_GATES = ['adversarial', 'decision-drift', 'safety', 'convergence'];
 const V1_GATES = ['sol', 'terra'];
 const MARKER_GATES = ['sol', 'terra', 'sol+terra', 'adversarial', 'safety', 'decision-drift', 'adversarial+safety', 'adversarial+decision-drift'];
 
@@ -167,7 +167,7 @@ test('Issue #100 the shared contract, the addendum, the README, and CL-D60 recor
   assert.match(transport, /the packaged expectation builder ships version 2 only/);
   assert.match(transport, /a publication marker names its gates in the vocabulary of the envelope it was written from, and both vocabularies parse for that release/);
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.match(addendum, /gate \(`adversarial` or `safety`; `sol` or `terra` under schema version 1\)/);
+  assert.match(addendum, /gate \(`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1\)/);
   assert.doesNotMatch(addendum, /gate \(`sol` or `terra`\)/);
   const readme = readText('README.md');
   assert.match(readme, /structured envelope \(schema version 2\) are `adversarial`, `decision-drift`, and `safety`/);

@@ -5,9 +5,10 @@ const words = (s) => s.split(' ');
 const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'], ROOTS = ['issue', 'pr'];
 // Gate identities per envelope version (CL-D60): version 2 names workflow functions, each valid
 // only on the root that runs it; version 1 stays accepted verbatim for one release, unmapped.
-const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety'] };
-const ROOT_GATES = { issue: ['adversarial', 'decision-drift'], pr: ['adversarial', 'safety'] };
-const PREFIX = { sol: 'SOL', terra: 'TERRA', adversarial: 'ADV', 'decision-drift': 'DRIFT', safety: 'SAFETY' };
+// `convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots.
+const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety', 'convergence'] };
+const ROOT_GATES = { issue: ['adversarial', 'decision-drift', 'convergence'], pr: ['adversarial', 'safety', 'convergence'] };
+const PREFIX = { sol: 'SOL', terra: 'TERRA', adversarial: 'ADV', 'decision-drift': 'DRIFT', safety: 'SAFETY', convergence: 'CONV' };
 // Version 1 keeps its exact legacy diagnostic (ADV-106-V1-VERBATIM); version 2 has its own.
 const ADVERSARIAL = { 1: 'sol', 2: 'adversarial' }, ADVERSARIAL_MISSING = { sol: 'Sol adversarial missing', adversarial: 'adversarial results missing' };
 const SEVERITIES = ['Blocker', 'Major', 'Minor'], ANCHORING = ['criterion-anchored', 'reword', 'follow-up'];

@@ -11,7 +11,7 @@ const assert = require('node:assert/strict');
 
 const { readText, readJson, parseFrontmatter, sectionOf } = require('./helpers');
 
-const REVIEWERS = ['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer'];
+const REVIEWERS = ['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'];
 const WORKERS = ['tidd-autofix-worker'];
 // CL-D35 was decided against the six model-derived files; its record keeps those names (CL-D59).
 const CL_D35_AGENTS = ['sol-reviewer', 'terra-reviewer', 'terra-oracle', 'luna-worker', 'glm-worker', 'terra-worker'];
