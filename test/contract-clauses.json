@@ -3207,6 +3207,35 @@
         "every reviewer body carries the self-validation sentence and the writer does not",
         "CL-D65 records the duty and widens CL-D1 once more"
       ]
+    },
+    {
+      "id": "CL-D63-payload",
+      "marker": "CL-D63",
+      "title": "The adversarial gate does not re-raise deterministically pre-checked surfaces and enumerates gaps exhaustively",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
+      "requires": [
+        "those surfaces are pre-checked deterministically: do not re-raise a surface-agreement gap they cover as a finding",
+        "enumerate every instance across the target in one result rather than one per round (CL-D63)"
+      ]
+    },
+    {
+      "id": "CL-D63-tests",
+      "marker": "CL-D63",
+      "title": "The derived-vocabulary fixtures pin the source, every declared surface, the denylist, and the payload duty",
+      "files": [
+        "test/issue-110-derived-vocabulary.test.js"
+      ],
+      "requires": [
+        "the vocabulary source matches the packaged agents and the envelope schema",
+        "every declared role surface derives from the source",
+        "every declared gate-order surface follows the source order",
+        "status grammar lines derive from the source",
+        "retired phrases do not survive outside their recorded qualification",
+        "the Sol-only payload block pre-checks derived surfaces and CL-D63 records the layer"
+      ]
     }
   ]
 }
