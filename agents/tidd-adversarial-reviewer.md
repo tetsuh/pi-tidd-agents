@@ -86,4 +86,4 @@ Structure your findings clearly:
 - MERGE | FIX BEFORE MERGE | NEEDS DECISION
 ```
 
-When reviewing code, cite file paths and line numbers. When reviewing plans, cite specific sections and assumptions. Do not include a `Fixed` section because this agent never changes files.
+When reviewing code, cite file paths and line numbers. When reviewing plans, cite specific sections and assumptions. Do not include a `Fixed` section because this agent never changes files. Before submitting the structured envelope, run the packaged `gate_result_validate` named in the payload on your draft with the supplied expectation and submit only a validated envelope; a rejected draft is yours to fix, not the parent's.
