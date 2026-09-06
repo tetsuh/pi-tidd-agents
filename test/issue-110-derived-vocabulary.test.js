@@ -130,3 +130,34 @@ test('Issue #110 the Sol-only payload block pre-checks derived surfaces and CL-D
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D63').map((clause) => clause.id).sort(), ['CL-D63-payload', 'CL-D63-tests']);
 });
+
+// CONV-113-VOCAB-CROSSCHECK (convergence, PR #113): acceptance criterion 1 also requires the role and
+// gate literals that older fixtures and manifest clauses carry to be cross-checked against the source.
+// Each check below is a literal on a declared line of a declared file, never a rewrite of that fixture.
+test('Issue #110 existing role and gate fixtures cross-check the source', () => {
+  const rolesFixture = readText('test/issue-100-tidd-roles.test.js');
+  for (const role of ROLES) {
+    const alias = role.alias === undefined ? 'undefined' : `'${role.alias}'`;
+    assert.ok(rolesFixture.includes(`'${role.name}': { alias: ${alias}, model: '${role.model}', writer: ${role.kind === 'writer'}, context: '${role.context}' }`), `issue-100 ROLES entry for ${role.name}`);
+  }
+  const packageTest = readText('test/package.test.js');
+  for (const role of ROLES) assert.ok(packageTest.includes(`'${role.name}': '${role.model}',`), `package.test EXPECTED_AGENTS entry for ${role.name}`);
+  const agentTools = readText('test/issue-49-agent-tools.test.js');
+  for (const role of ROLES) assert.ok(agentTools.includes(`'${role.name}'`), `issue-49 lists ${role.name}`);
+  const gateIds = readText('test/issue-100-gate-ids-v2.test.js');
+  assert.ok(gateIds.includes(`const V2_GATES = [${VOCAB.gateIdentities.map((gate) => `'${gate}'`).join(', ')}];`), 'issue-100-gate-ids-v2 V2_GATES equals the declared identities');
+  const convergence = readText('test/issue-101-convergence-stage.test.js');
+  assert.ok(convergence.includes(`[${VOCAB.gateIdentities.map((gate) => `'${gate}'`).join(', ')}]`), 'issue-101 pins the declared identity list');
+  assert.ok(convergence.includes(`Issue \`${VOCAB.gateOrder.issue.join(' → ')}\`, PR \`${VOCAB.gateOrder.pr.join(' → ')}\``), 'issue-101 pins the declared gate order');
+  assert.ok(convergence.includes(`${VOCAB.prefixes.convergence}-101-`), 'issue-101 uses the declared convergence namespace');
+  const manifest = readJson('test/contract-clauses.json');
+  const requires = (id) => { const clause = manifest.clauses.find((candidate) => candidate.id === id); assert.ok(clause, `manifest clause ${id}`); return clause.requires; };
+  const canonical = ROLES.filter((role) => role.alias).map((role) => role.name);
+  assert.ok(requires('CL-D59-resolution').includes(list(canonical)), 'CL-D59-resolution names the four CL-D59 roles from the source');
+  const formalPrefixes = VOCAB.gateIdentities.filter((gate) => gate !== 'convergence').map((gate) => `\`${VOCAB.prefixes[gate]}-<n>-\``);
+  assert.ok(requires('CL-D60-identities').includes(`the derived fresh-finding namespaces are ${formalPrefixes[0]}, ${formalPrefixes[1]}, and ${formalPrefixes[2]}`), 'CL-D60-identities names the derived namespaces from the source');
+  assert.ok(requires('CL-D60-identities').includes(`Gate identities (CL-D60): under envelope schema version 2 the gate is \`${VOCAB.gateIdentities[0]}\``), 'CL-D60-identities starts with the first declared identity');
+  assert.ok(requires('CL-D62-shared').includes('the sequence restarts at convergence'), 'CL-D62-shared names the convergence restart');
+  for (const id of ['CL-D62-issue', 'CL-D62-pr']) assert.ok(requires(id).includes(VOCAB.statusLines.rounds), `${id} pins the declared rounds line`);
+  assert.ok(requires('CL-D62-autofix-flow').some((literal) => literal.startsWith('CONVERGENCE: MERGE -> SOL;')), 'CL-D62-autofix-flow pins the declared first flow line');
+});

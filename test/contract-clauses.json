@@ -3234,7 +3234,8 @@
         "every declared gate-order surface follows the source order",
         "status grammar lines derive from the source",
         "retired phrases do not survive outside their recorded qualification",
-        "the Sol-only payload block pre-checks derived surfaces and CL-D63 records the layer"
+        "the Sol-only payload block pre-checks derived surfaces and CL-D63 records the layer",
+        "existing role and gate fixtures cross-check the source"
       ]
     }
   ]
