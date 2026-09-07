@@ -15,8 +15,9 @@
 // tree, which is the point of deriving them. Later tests are review-driven regressions; the last one
 // (ADV-113-EXHAUSTIVE-GAPS-001) was a compile RED at 8 passes / 1 failure before the collectors it
 // calls existed, and its wrong-root and duplicate-stage mutations (ADV-113-GATE-ORDER-EXACTNESS-001)
-// were a contract RED at 8 passes / 1 failure while the order scan was still a subsequence search.
-// That local output is not claimed as repository-preserved evidence.
+// were a contract RED at 8 passes / 1 failure while the order scan was still a subsequence search, as
+// were its relocated-status-line and second-fence mutations (ADV-113-STATUS-BLOCK-SCOPE-001) while the
+// status check was a whole-file search. That local output is not claimed as repository-preserved evidence.
 //
 // Shape (ADV-113-EXHAUSTIVE-GAPS-001): each surface check is a collector that takes a reader and
 // returns every gap it found as a string; a test asserts the collector's result is empty exactly once,
@@ -86,8 +87,8 @@ function roleSurfaceGaps(read) {
   expect(readme.includes(`\`/tidd-issue\` preflights ${list(issuePre)}; \`/tidd-pr\` preflights ${list(prPre)}, and adds ${code(byRoot('pr', ['writer'])[0])} in \`autofix\` mode`), 'README per-command preflight sentence');
   const issuePreflight = section(read('skills/closed-loop-issue/SKILL.md'), '## Preflight (CL-D22, CL-D5)', 'Issue root');
   for (const name of issuePre) expect(issuePreflight.includes(code(name)), `Issue root preflight names ${name}`);
-  const prSkill = read('skills/closed-loop-pr/SKILL.md');
-  for (const name of [...prPre, ...byRoot('pr', ['writer'])]) expect(prSkill.includes(code(name)), `PR root preflight names ${name}`);
+  const prPreflight = section(read('skills/closed-loop-pr/SKILL.md'), '## Preflight (CL-D22, CL-D5)', 'PR root');
+  for (const name of [...prPre, ...byRoot('pr', ['writer'])]) expect(prPreflight.includes(code(name)), `PR root preflight names ${name}`);
   const resolution = section(read('skills/closed-loop-shared/references/gate-contract.md'), '## Name-level agent resolution (CL-D22, CL-D5, CL-D59)', 'shared resolution');
   for (const role of ROLES) expect(resolution.includes(code(role.name)), `shared resolution names ${role.name}`);
   // CONV-113-SURFACE-COVERAGE-001: the README role paragraph and the helper-map rows derive too.
@@ -126,11 +127,16 @@ function gateOrderGaps(read) {
   return gaps;
 }
 
+// ADV-113-STATUS-BLOCK-SCOPE-001: the status lines are required inside the one declared fenced
+// tidd-status block of each root, compared line for line; a file with no block or more than one is a
+// gap by itself and its lines are not guessed at. The restart phrase is prose and stays a file literal.
 function statusGaps(read) {
   const { gaps, expect } = collector();
   for (const [root, file] of [['issue', 'skills/closed-loop-issue/SKILL.md'], ['pr', 'skills/closed-loop-pr/references/review-only.md']]) {
-    const text = read(file);
-    for (const line of [VOCAB.statusLines.rounds, VOCAB.statusLines.resolved, VOCAB.statusLines.activeGate[root]]) expect(text.includes(`\n${line}\n`), `${file} status block carries: ${line}`);
+    const blocks = [...read(file).matchAll(/^```tidd-status\n([\s\S]*?)^```$/gm)].map((match) => match[1].split('\n'));
+    expect(blocks.length === 1, `${file} declares exactly one tidd-status block: found ${blocks.length}`);
+    if (blocks.length !== 1) continue;
+    for (const line of [VOCAB.statusLines.rounds, VOCAB.statusLines.resolved, VOCAB.statusLines.activeGate[root]]) expect(blocks[0].includes(line), `${file} tidd-status block carries: ${line}`);
   }
   for (const file of ['README.md', 'skills/closed-loop-issue/SKILL.md', 'skills/closed-loop-pr/references/autofix-addendum.md']) expect(read(file).includes(VOCAB.restart), `${file} uses the declared restart phrase`);
   return gaps;
@@ -292,19 +298,26 @@ test('Issue #110 the version 1 window and the marker gate vocabulary derive from
 });
 
 // ADV-113-EXHAUSTIVE-GAPS-001 (Sol, PR #113): every surface check collects its gaps and asserts once, so a
-// single run names every location. The regression mutates six surfaces across three collectors at the
-// same time through an in-memory overlay and requires all seven gaps in one result.
+// single run names every location. The regression mutates eight surfaces across three collectors at the
+// same time through an in-memory overlay and requires all nine gaps in one result.
 // ADV-113-GATE-ORDER-EXACTNESS-001 (Sol, PR #113): two of the mutations are a declared Issue-only stage
 // inserted into the PR order block and a duplicated declared stage in the Issue sequence; a subsequence
 // scan accepts both, an exact ordered comparison names both.
+// ADV-113-STATUS-BLOCK-SCOPE-001 (Sol, PR #113): two more are a status line relocated out of the PR
+// tidd-status fence into prose below the title (the literal survives in the file) and a second
+// tidd-status fence appended to the Issue root; a whole-file search accepts both, a block-scoped
+// comparison names the missing line and refuses to guess between two blocks.
 test('Issue #110 one run names every simultaneous surface gap', () => {
   const overlay = new Map();
   overlay.set('README.md', readText('README.md').split('\n').filter((line) => !/^\| `tidd-(?:drift|safety)-reviewer` \|/.test(line)).join('\n'));
-  overlay.set('skills/closed-loop-pr/references/review-only.md', readText('skills/closed-loop-pr/references/review-only.md').replace(`\n${VOCAB.statusLines.resolved}\n`, '\n').replace('\n→ tidd-safety-reviewer gate\n', '\n→ tidd-drift-reviewer gate\n→ tidd-safety-reviewer gate\n'));
-  overlay.set('skills/closed-loop-issue/SKILL.md', readText('skills/closed-loop-issue/SKILL.md').replace(/^(specification → .*)$/m, '$1 → tidd-adversarial-reviewer gate'));
+  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
+  overlay.set('skills/closed-loop-pr/references/review-only.md', reviewOnly.replace(`\n${VOCAB.statusLines.resolved}\n`, '\n').replace(`\n${VOCAB.statusLines.rounds}\n`, '\n').replace('\n\n', `\n\n${VOCAB.statusLines.rounds}\n\n`).replace('\n→ tidd-safety-reviewer gate\n', '\n→ tidd-drift-reviewer gate\n→ tidd-safety-reviewer gate\n'));
+  const issueSkill = readText('skills/closed-loop-issue/SKILL.md');
+  overlay.set('skills/closed-loop-issue/SKILL.md', `${issueSkill.replace(/^(specification → .*)$/m, '$1 → tidd-adversarial-reviewer gate')}\n${issueSkill.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`);
   overlay.set('test/package.test.js', `${readText('test/package.test.js')}\n  'tidd-legacy-reviewer': 'gpt-5.6-legacy',\n`);
   const read = withOverlay(overlay);
   for (const [file, text] of overlay) assert.notEqual(text, readText(file), `${file}: the mutation must change the surface`);
+  assert.ok(overlay.get('skills/closed-loop-pr/references/review-only.md').includes(`\n${VOCAB.statusLines.rounds}\n`), 'the relocated rounds line survives in the file outside its block');
   const gaps = [...roleSurfaceGaps(read), ...gateOrderGaps(read), ...statusGaps(read), ...fixtureGaps(read)];
   const prRoles = VOCAB.gateOrder.pr.map(roleOf), issueRoles = VOCAB.gateOrder.issue.map(roleOf);
   assert.deepEqual(gaps.sort(), [
@@ -313,7 +326,9 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
     `review-only order block stage roles: found ${[prRoles[0], prRoles[1], 'tidd-drift-reviewer', prRoles[2]].join(', ')}; declared ${prRoles.join(', ')}`,
     `Issue legacy sequence stage roles: found ${[...issueRoles, 'tidd-adversarial-reviewer'].join(', ')}; declared ${issueRoles.join(', ')}`,
     `package.test EXPECTED_AGENTS keys are exactly the declared roles: extra tidd-legacy-reviewer`,
-    `skills/closed-loop-pr/references/review-only.md status block carries: ${VOCAB.statusLines.resolved}`,
+    `skills/closed-loop-pr/references/review-only.md tidd-status block carries: ${VOCAB.statusLines.resolved}`,
+    `skills/closed-loop-pr/references/review-only.md tidd-status block carries: ${VOCAB.statusLines.rounds}`,
+    'skills/closed-loop-issue/SKILL.md declares exactly one tidd-status block: found 2',
     'test/package.test.js: undeclared role tidd-legacy-reviewer',
   ].sort());
 });
