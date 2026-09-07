@@ -433,7 +433,7 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 
 *Decision ID:* CL-D63
 *Kind:* contract
-*Target and revision:* `tetsuh/pi-tidd-agents#110` at its body and the owner decision https://github.com/tetsuh/pi-tidd-agents/issues/110#issuecomment-5556572213
+*Target and revision:* `tetsuh/pi-tidd-agents#110` at its body and the owner decision https://github.com/tetsuh/pi-tidd-agents/issues/110#issuecomment-5556555805
 *Question:* PR #109 took nine adversarial rounds; nine of its eleven findings were surface-agreement gaps (a sentence, table, or fixture that still named only Sol and Terra, or kept a superseded restart phrase), each decidable without a model and each paid for at the formal gate. Where should that class of judgment be placed?
 *Options and trade-offs:* Option A declares the role set, gate identities, gate order, status grammar, and restart phrase once, derives a literal for every declared prose surface from that source, denies phrases a decision has retired, and tells the adversarial gate that those surfaces are pre-checked. Option B keeps finding them through the adversarial gate, one per round. Option C adds a heuristic lint that decides whether an arbitrary sentence should mention a stage, which is the total classification CL-D44 recorded as failing under review and would become the kind of guard CL-D43 and CL-D48 removed.
 *Recommendation:* Option A.
