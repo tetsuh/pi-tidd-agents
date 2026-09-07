@@ -14,7 +14,9 @@
 // envelopes through `gate_result_validate`; the derived-surface checks were GREEN against the CL-D62
 // tree, which is the point of deriving them. Later tests are review-driven regressions; the last one
 // (ADV-113-EXHAUSTIVE-GAPS-001) was a compile RED at 8 passes / 1 failure before the collectors it
-// calls existed. That local output is not claimed as repository-preserved evidence.
+// calls existed, and its wrong-root and duplicate-stage mutations (ADV-113-GATE-ORDER-EXACTNESS-001)
+// were a contract RED at 8 passes / 1 failure while the order scan was still a subsequence search.
+// That local output is not claimed as repository-preserved evidence.
 //
 // Shape (ADV-113-EXHAUSTIVE-GAPS-001): each surface check is a collector that takes a reader and
 // returns every gap it found as a string; a test asserts the collector's result is empty exactly once,
@@ -98,15 +100,27 @@ function roleSurfaceGaps(read) {
   return gaps;
 }
 
+// ADV-113-GATE-ORDER-EXACTNESS-001: each order surface is compared as a complete ordered list, never as
+// a subsequence. Every role token in the block, every "<Nickname> MERGE" step, and every flow label is
+// extracted and must equal the vocabulary-derived sequence exactly, so a wrong-root, duplicated,
+// reordered, or missing stage is named with the full found and declared lists.
 function gateOrderGaps(read) {
   const { gaps, expect, section } = collector();
-  // A missing or misplaced stage is recorded and the scan continues from the last stage found.
-  const inOrder = (text, needles, label) => { let at = -1; for (const needle of needles) { const next = text.indexOf(needle, at + 1); expect(next > at, `${label}: ${JSON.stringify(needle)} must follow the previous stage`); if (next > at) at = next; } };
-  inOrder(section(read('skills/closed-loop-pr/references/review-only.md'), '## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)', 'review-only order block'), VOCAB.gateOrder.pr.map((gate) => `→ ${roleOf(gate)} `), 'review-only order block');
+  const exact = (actual, expected, label) => expect(JSON.stringify(actual) === JSON.stringify(expected), `${label}: found ${actual.join(', ')}; declared ${expected.join(', ')}`);
+  const authoritative = (root) => VOCAB.gateOrder[root].filter((gate) => ROLES.find((role) => role.gate === gate).kind === 'reviewer');
+  const merges = (text) => [...text.matchAll(/→ ([A-Z][a-z]+) MERGE(?=\n|$| )/g)].map((match) => match[1]);
+  const loop = section(read('skills/closed-loop-pr/references/review-only.md'), '## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)', 'review-only order block');
+  const fenced = loop.match(/```text\n([\s\S]*?)```/);
+  expect(fenced, 'review-only order block: the fenced sequence exists');
+  const block = fenced ? fenced[1] : '';
+  exact(block.match(ROLE_TOKEN) || [], VOCAB.gateOrder.pr.map(roleOf), 'review-only order block stage roles');
+  exact(merges(block), authoritative('pr').map(display), 'review-only order block MERGE steps');
   const legacy = read('skills/closed-loop-issue/SKILL.md').split('\n').find((line) => line.startsWith('specification → '));
   expect(legacy, 'the Issue legacy sequence line exists');
-  inOrder(legacy ?? '', VOCAB.gateOrder.issue.map((gate) => `→ ${roleOf(gate)} `), 'Issue legacy sequence');
-  inOrder(read('skills/closed-loop-pr/references/autofix-addendum.md'), [...VOCAB.gateOrder.pr.map((gate) => `\n${display(gate).toUpperCase()}: `), '\nFINAL_CHECK: '], 'exact-autofix flow block');
+  exact((legacy ?? '').match(ROLE_TOKEN) || [], VOCAB.gateOrder.issue.map(roleOf), 'Issue legacy sequence stage roles');
+  exact(merges(legacy ?? ''), authoritative('issue').map(display), 'Issue legacy sequence MERGE steps');
+  const flow = read('skills/closed-loop-pr/references/autofix-addendum.md');
+  exact([...flow.matchAll(/^([A-Z_]+): /gm)].map((match) => match[1]), [...VOCAB.gateOrder.pr.map((gate) => display(gate).toUpperCase()), 'FINAL_CHECK'], 'exact-autofix flow labels');
   const shared = section(read('skills/closed-loop-shared/references/gate-contract.md'), '## Convergence stage (CL-D62)', 'shared convergence section');
   expect(shared.includes(`Issue \`${VOCAB.gateOrder.issue.join(' → ')}\`, PR \`${VOCAB.gateOrder.pr.join(' → ')}\``), 'shared order sentence derives from the source');
   return gaps;
@@ -278,18 +292,26 @@ test('Issue #110 the version 1 window and the marker gate vocabulary derive from
 });
 
 // ADV-113-EXHAUSTIVE-GAPS-001 (Sol, PR #113): every surface check collects its gaps and asserts once, so a
-// single run names every location. The regression mutates four surfaces across three collectors at the
-// same time through an in-memory overlay and requires all five gaps in one result.
+// single run names every location. The regression mutates six surfaces across three collectors at the
+// same time through an in-memory overlay and requires all seven gaps in one result.
+// ADV-113-GATE-ORDER-EXACTNESS-001 (Sol, PR #113): two of the mutations are a declared Issue-only stage
+// inserted into the PR order block and a duplicated declared stage in the Issue sequence; a subsequence
+// scan accepts both, an exact ordered comparison names both.
 test('Issue #110 one run names every simultaneous surface gap', () => {
   const overlay = new Map();
   overlay.set('README.md', readText('README.md').split('\n').filter((line) => !/^\| `tidd-(?:drift|safety)-reviewer` \|/.test(line)).join('\n'));
-  overlay.set('skills/closed-loop-pr/references/review-only.md', readText('skills/closed-loop-pr/references/review-only.md').replace(`\n${VOCAB.statusLines.resolved}\n`, '\n'));
+  overlay.set('skills/closed-loop-pr/references/review-only.md', readText('skills/closed-loop-pr/references/review-only.md').replace(`\n${VOCAB.statusLines.resolved}\n`, '\n').replace('\n→ tidd-safety-reviewer gate\n', '\n→ tidd-drift-reviewer gate\n→ tidd-safety-reviewer gate\n'));
+  overlay.set('skills/closed-loop-issue/SKILL.md', readText('skills/closed-loop-issue/SKILL.md').replace(/^(specification → .*)$/m, '$1 → tidd-adversarial-reviewer gate'));
   overlay.set('test/package.test.js', `${readText('test/package.test.js')}\n  'tidd-legacy-reviewer': 'gpt-5.6-legacy',\n`);
   const read = withOverlay(overlay);
+  for (const [file, text] of overlay) assert.notEqual(text, readText(file), `${file}: the mutation must change the surface`);
   const gaps = [...roleSurfaceGaps(read), ...gateOrderGaps(read), ...statusGaps(read), ...fixtureGaps(read)];
+  const prRoles = VOCAB.gateOrder.pr.map(roleOf), issueRoles = VOCAB.gateOrder.issue.map(roleOf);
   assert.deepEqual(gaps.sort(), [
     'README Included agents row for tidd-drift-reviewer',
     'README Included agents row for tidd-safety-reviewer',
+    `review-only order block stage roles: found ${[prRoles[0], prRoles[1], 'tidd-drift-reviewer', prRoles[2]].join(', ')}; declared ${prRoles.join(', ')}`,
+    `Issue legacy sequence stage roles: found ${[...issueRoles, 'tidd-adversarial-reviewer'].join(', ')}; declared ${issueRoles.join(', ')}`,
     `package.test EXPECTED_AGENTS keys are exactly the declared roles: extra tidd-legacy-reviewer`,
     `skills/closed-loop-pr/references/review-only.md status block carries: ${VOCAB.statusLines.resolved}`,
     'test/package.test.js: undeclared role tidd-legacy-reviewer',
