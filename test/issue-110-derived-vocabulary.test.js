@@ -62,7 +62,8 @@ function collector() {
     if (missing.length || extra.length) gaps.push(`${label}:${missing.length ? ` missing ${missing.join(', ')}` : ''}${extra.length ? ` extra ${extra.join(', ')}` : ''}`);
   };
   const section = (text, heading, label) => { const block = sectionOf(text, heading); expect(block, `${label}: section "${heading}" is missing`); return block ?? ''; };
-  return { gaps, expect, same, section };
+  const exact = (actual, expected, label) => expect(JSON.stringify(actual) === JSON.stringify(expected), `${label}: found ${actual.join(', ')}; declared ${expected.join(', ')}`);
+  return { gaps, expect, same, section, exact };
 }
 const withOverlay = (overlay) => (file) => overlay.has(file) ? overlay.get(file) : readText(file);
 const assertNoGaps = (gaps, label) => assert.deepEqual(gaps, [], `${label}:\n${gaps.join('\n')}`);
@@ -80,9 +81,11 @@ function agentGaps(read) {
 }
 
 function roleSurfaceGaps(read) {
-  const { gaps, expect, section } = collector();
+  const { gaps, expect, section, exact } = collector();
   const readme = read('README.md');
-  for (const role of ROLES) expect(readme.includes(`| ${code(role.name)} | ${code(role.model)} |`), `README Included agents row for ${role.name}`);
+  // The role rows inside the Included agents table are an exact ordered list of role and model cells.
+  const table = section(readme, '## Included agents', 'README');
+  exact(table.split('\n').filter((line) => /^\| `tidd-/.test(line)).map((line) => line.split('|').slice(1, 3).map((cell) => cell.trim()).join(' | ')), ROLES.map((role) => `${code(role.name)} | ${code(role.model)}`), 'README Included agents rows');
   const issuePre = byRoot('issue', ['reviewer', 'preliminary']), prPre = byRoot('pr', ['reviewer', 'preliminary']);
   expect(readme.includes(`\`/tidd-issue\` preflights ${list(issuePre)}; \`/tidd-pr\` preflights ${list(prPre)}, and adds ${code(byRoot('pr', ['writer'])[0])} in \`autofix\` mode`), 'README per-command preflight sentence');
   const issuePreflight = section(read('skills/closed-loop-issue/SKILL.md'), '## Preflight (CL-D22, CL-D5)', 'Issue root');
@@ -106,8 +109,7 @@ function roleSurfaceGaps(read) {
 // extracted and must equal the vocabulary-derived sequence exactly, so a wrong-root, duplicated,
 // reordered, or missing stage is named with the full found and declared lists.
 function gateOrderGaps(read) {
-  const { gaps, expect, section } = collector();
-  const exact = (actual, expected, label) => expect(JSON.stringify(actual) === JSON.stringify(expected), `${label}: found ${actual.join(', ')}; declared ${expected.join(', ')}`);
+  const { gaps, expect, section, exact } = collector();
   const authoritative = (root) => VOCAB.gateOrder[root].filter((gate) => ROLES.find((role) => role.gate === gate).kind === 'reviewer');
   const merges = (text) => [...text.matchAll(/→ ([A-Z][a-z]+) MERGE(?=\n|$| )/g)].map((match) => match[1]);
   const loop = section(read('skills/closed-loop-pr/references/review-only.md'), '## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)', 'review-only order block');
@@ -299,7 +301,9 @@ test('Issue #110 the version 1 window and the marker gate vocabulary derive from
 
 // ADV-113-EXHAUSTIVE-GAPS-001 (Sol, PR #113): every surface check collects its gaps and asserts once, so a
 // single run names every location. The regression mutates eight surfaces across three collectors at the
-// same time through an in-memory overlay and requires all nine gaps in one result.
+// same time through an in-memory overlay and requires all ten gaps in one result. The README table is
+// compared as an exact ordered list of role rows inside its section, the same class of check as the
+// gate-order surfaces, so a stale extra row and the two removed rows are one named comparison.
 // ADV-113-GATE-ORDER-EXACTNESS-001 (Sol, PR #113): two of the mutations are a declared Issue-only stage
 // inserted into the PR order block and a duplicated declared stage in the Issue sequence; a subsequence
 // scan accepts both, an exact ordered comparison names both.
@@ -309,7 +313,7 @@ test('Issue #110 the version 1 window and the marker gate vocabulary derive from
 // comparison names the missing line and refuses to guess between two blocks.
 test('Issue #110 one run names every simultaneous surface gap', () => {
   const overlay = new Map();
-  overlay.set('README.md', readText('README.md').split('\n').filter((line) => !/^\| `tidd-(?:drift|safety)-reviewer` \|/.test(line)).join('\n'));
+  overlay.set('README.md', readText('README.md').split('\n').filter((line) => !/^\| `tidd-(?:drift|safety)-reviewer` \|/.test(line)).join('\n').replace('\n| --- | --- | --- |\n', '\n| --- | --- | --- |\n| `tidd-legacy-reviewer` | `gpt-5.6-legacy` | stale |\n'));
   const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
   overlay.set('skills/closed-loop-pr/references/review-only.md', reviewOnly.replace(`\n${VOCAB.statusLines.resolved}\n`, '\n').replace(`\n${VOCAB.statusLines.rounds}\n`, '\n').replace('\n\n', `\n\n${VOCAB.statusLines.rounds}\n\n`).replace('\n→ tidd-safety-reviewer gate\n', '\n→ tidd-drift-reviewer gate\n→ tidd-safety-reviewer gate\n'));
   const issueSkill = readText('skills/closed-loop-issue/SKILL.md');
@@ -321,8 +325,8 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
   const gaps = [...roleSurfaceGaps(read), ...gateOrderGaps(read), ...statusGaps(read), ...fixtureGaps(read)];
   const prRoles = VOCAB.gateOrder.pr.map(roleOf), issueRoles = VOCAB.gateOrder.issue.map(roleOf);
   assert.deepEqual(gaps.sort(), [
-    'README Included agents row for tidd-drift-reviewer',
-    'README Included agents row for tidd-safety-reviewer',
+    `README Included agents rows: found ${['`tidd-legacy-reviewer` | `gpt-5.6-legacy`', ...ROLES.filter((role) => !['tidd-drift-reviewer', 'tidd-safety-reviewer'].includes(role.name)).map((role) => `${code(role.name)} | ${code(role.model)}`)].join(', ')}; declared ${ROLES.map((role) => `${code(role.name)} | ${code(role.model)}`).join(', ')}`,
+    'README.md: undeclared role tidd-legacy-reviewer',
     `review-only order block stage roles: found ${[prRoles[0], prRoles[1], 'tidd-drift-reviewer', prRoles[2]].join(', ')}; declared ${prRoles.join(', ')}`,
     `Issue legacy sequence stage roles: found ${[...issueRoles, 'tidd-adversarial-reviewer'].join(', ')}; declared ${issueRoles.join(', ')}`,
     `package.test EXPECTED_AGENTS keys are exactly the declared roles: extra tidd-legacy-reviewer`,
