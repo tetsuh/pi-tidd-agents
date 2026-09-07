@@ -7,10 +7,12 @@
 // prose: each check is a literal on a declared surface (CL-D44), and the denylist grows only
 // when a decision retires a phrase (CL-D43/CL-D48).
 //
-// TDD provenance: recorded with `node --test test/issue-110-derived-vocabulary.test.js` at RED
-// before the payload sentences, the CL-D63 record, and the manifest clauses existed; the
-// derived-surface checks were GREEN against the CL-D62 tree, which is the point of deriving
-// them. That local output is not claimed as repository-preserved evidence.
+// TDD provenance: pre-implementation compile/contract RED (not behavioral RED: every assertion
+// inspects artifact text), recorded with `node --test test/issue-110-derived-vocabulary.test.js` at
+// 5 passes / 1 failure before the payload sentences, the CL-D63 record, and the manifest clauses
+// existed; the derived-surface checks were GREEN against the CL-D62 tree, which is the point of
+// deriving them. Later tests are review-driven regressions. That local output is not claimed as
+// repository-preserved evidence.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
