@@ -6,9 +6,10 @@
 // Three PR #113 autofix runs ended BLOCKED on a one-shot assertion the writer never executed before
 // the guard.
 //
-// TDD provenance: recorded with `node --test test/issue-115-writer-pre-guard.test.js` at RED before
-// the prose, the record, and the manifest clauses existed. That local output is not claimed as
-// repository-preserved evidence.
+// TDD provenance: pre-implementation compile/contract RED (not behavioral RED: every assertion
+// inspects artifact text), recorded with `node --test test/issue-115-writer-pre-guard.test.js` at 0
+// passes / 2 failures before the prose, the record, and the manifest clauses existed. That local
+// output is not claimed as repository-preserved evidence.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
