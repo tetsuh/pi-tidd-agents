@@ -339,6 +339,11 @@ const MANIFEST = (() => {
       'those surfaces are pre-checked deterministically: do not re-raise a surface-agreement gap they cover as a finding',
       'enumerate every instance across the target in one result rather than one per round (CL-D63)',
     ],
+    'CL-D63-record': [
+      'the fence extractor recognizes CommonMark leaf fences: backtick or tilde runs of three or more, indented up to three spaces, closed by a same-character run at least as long, with nested fence content included',
+      'container prefixes such as block quotes and list items, and a general Markdown tokenizer, are outside the declared surface: the checks validate declared blocks and do not render Markdown (CL-D44)',
+      'a finding that requires more Markdown grammar than this is not a CL-D63 defect and needs a new owner decision',
+    ],
     'CL-D63-tests': [
       'the vocabulary source matches the packaged agents and the envelope schema',
       'every declared role surface derives from the source',
@@ -428,7 +433,9 @@ test('Issue #110 the Sol-only payload block pre-checks derived surfaces and CL-D
   assert.match(record, /validate declared surfaces with literals derived from one source; never classify prose/);
   assert.match(record, /a denylist entry is added only when a decision retires a phrase/);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D63').map((clause) => clause.id).sort(), ['CL-D63-payload', 'CL-D63-tests']);
+  // Owner decision on PR #113 (2026-09-08): the fence grammar of the checks is bounded, recorded as a CL-D63 amendment.
+  assert.match(record, /amended by the owner decision https:\/\/github\.com\/tetsuh\/pi-tidd-agents\/pull\/113#issuecomment-5584688495/);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D63').map((clause) => clause.id).sort(), ['CL-D63-payload', 'CL-D63-record', 'CL-D63-tests']);
 });
 
 test('Issue #110 existing role and gate fixtures cross-check the source', () => {

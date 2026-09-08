@@ -3222,6 +3222,20 @@
       ]
     },
     {
+      "id": "CL-D63-record",
+      "marker": "CL-D63",
+      "title": "The CL-D63 record bounds the fence grammar of the derived-vocabulary checks",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D63 — Deterministic agreement checks are the first review layer",
+      "requires": [
+        "the fence extractor recognizes CommonMark leaf fences: backtick or tilde runs of three or more, indented up to three spaces, closed by a same-character run at least as long, with nested fence content included",
+        "container prefixes such as block quotes and list items, and a general Markdown tokenizer, are outside the declared surface: the checks validate declared blocks and do not render Markdown (CL-D44)",
+        "a finding that requires more Markdown grammar than this is not a CL-D63 defect and needs a new owner decision"
+      ]
+    },
+    {
       "id": "CL-D63-tests",
       "marker": "CL-D63",
       "title": "The derived-vocabulary fixtures pin the source, every declared surface, the denylist, and the payload duty",
