@@ -28,7 +28,7 @@ const OID = 'a'.repeat(40);
 const SHA = '1'.repeat(64);
 const V2_GATES = ['adversarial', 'decision-drift', 'safety', 'convergence'];
 const V1_GATES = ['sol', 'terra'];
-const MARKER_GATES = ['sol', 'terra', 'sol+terra', 'adversarial', 'safety', 'decision-drift', 'adversarial+safety', 'adversarial+decision-drift'];
+const MARKER_GATES = ['sol', 'terra', 'sol+terra', 'adversarial', 'safety', 'decision-drift', 'adversarial+safety', 'adversarial+decision-drift', 'convergence'];
 
 // The seven authority files measured this when CL-D60 raised the ceiling to 140,000. It is a
 // historical fact about that decision, not a running total (CL-D48).

@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 1,
+  "$comment": "CL-D63: the one source the declared role, gate, status, and restart surfaces are derived from. Adding a role or gate changes this file; the derived-vocabulary test then names every surface that has not followed. Retired phrases are listed only when a decision retired them.",
+  "roles": [
+    {
+      "name": "tidd-adversarial-reviewer",
+      "kind": "reviewer",
+      "gate": "adversarial",
+      "nickname": "Sol",
+      "roots": [
+        "issue",
+        "pr"
+      ],
+      "model": "gpt-5.6-sol",
+      "context": "fresh",
+      "alias": "sol-reviewer"
+    },
+    {
+      "name": "tidd-drift-reviewer",
+      "kind": "reviewer",
+      "gate": "decision-drift",
+      "nickname": "Terra",
+      "roots": [
+        "issue"
+      ],
+      "model": "gpt-5.6-terra",
+      "context": "fork",
+      "alias": "terra-oracle"
+    },
+    {
+      "name": "tidd-safety-reviewer",
+      "kind": "reviewer",
+      "gate": "safety",
+      "nickname": "Terra",
+      "roots": [
+        "pr"
+      ],
+      "model": "gpt-5.6-terra",
+      "context": "fresh",
+      "alias": "terra-reviewer"
+    },
+    {
+      "name": "tidd-autofix-worker",
+      "kind": "writer",
+      "roots": [
+        "pr"
+      ],
+      "model": "gpt-5.6-luna",
+      "context": "fork",
+      "alias": "luna-worker"
+    },
+    {
+      "name": "tidd-convergence-reviewer",
+      "kind": "preliminary",
+      "gate": "convergence",
+      "roots": [
+        "issue",
+        "pr"
+      ],
+      "model": "gpt-5.6-luna",
+      "context": "fresh"
+    }
+  ],
+  "gateIdentities": [
+    "adversarial",
+    "decision-drift",
+    "safety",
+    "convergence"
+  ],
+  "prefixes": {
+    "adversarial": "ADV",
+    "decision-drift": "DRIFT",
+    "safety": "SAFETY",
+    "convergence": "CONV"
+  },
+  "gateOrder": {
+    "issue": [
+      "convergence",
+      "adversarial",
+      "decision-drift"
+    ],
+    "pr": [
+      "convergence",
+      "adversarial",
+      "safety"
+    ]
+  },
+  "restart": "restarts at convergence, then Sol",
+  "statusLines": {
+    "rounds": "rounds: convergence <used>/3, sol <used>/3, terra <used>/3",
+    "resolved": "resolved: <role provider/model:thinking, one per role that ran; convergence: disabled when skipped>",
+    "activeGate": {
+      "issue": "active_gate: <convergence|sol|terra|none>",
+      "pr": "active_gate: <convergence|sol|terra|external|none>"
+    }
+  },
+  "version1Window": {
+    "$comment": "CL-D60: accepted for one release by an explicit version branch; the marker parses both vocabularies for that release.",
+    "gates": [
+      "sol",
+      "terra"
+    ],
+    "prefixes": {
+      "sol": "SOL",
+      "terra": "TERRA"
+    },
+    "markerGates": [
+      "sol",
+      "terra",
+      "sol+terra",
+      "adversarial",
+      "safety",
+      "decision-drift",
+      "adversarial+safety",
+      "adversarial+decision-drift",
+      "convergence"
+    ]
+  },
+  "retiredPhrases": [
+    {
+      "pattern": "restarts? at Sol\\b",
+      "retiredBy": "CL-D62",
+      "allowedWith": "CL-D62 later inserts the convergence stage before Sol"
+    },
+    {
+      "pattern": "before each Sol/Terra invocation",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "Before every Sol or Terra invocation",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "Every Sol or Terra result",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> SOL;",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "new actionable evidence -> SOL;",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "The fixed review order is Sol-before-Terra\\.",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "uses four roles",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "when it resolves and is skipped when disabled",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "Sol-owned blockers count only in Sol results",
+      "retiredBy": "CL-D62"
+    },
+    {
+      "pattern": "gate \\(`sol` or `terra`\\)",
+      "retiredBy": "CL-D60"
+    },
+    {
+      "pattern": "registry collision",
+      "retiredBy": "CL-D59"
+    }
+  ]
+}
