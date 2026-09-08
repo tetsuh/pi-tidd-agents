@@ -24,6 +24,8 @@
 // matched column-zero fences only.
 // The derived manifest table's dropped-literal cases were a compile RED at 8 passes / 3 failures before
 // manifestGaps existed.
+// The four-backtick and tilde fence cases and the wrong-root preflight cases were a contract RED at 9
+// passes / 2 failures while fences were three-backtick runs and preflight roles were presence checks.
 // That local output is not claimed as repository-preserved evidence.
 //
 // Shape (ADV-113-EXHAUSTIVE-GAPS-001): each surface check is a collector that takes a reader and
@@ -49,6 +51,7 @@ const roleOf = (gate) => ROLES.find((role) => role.gate === gate).name;
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 const ROLE_TOKEN = /tidd-[a-z-]+-(?:reviewer|worker)/g;
 const DECLARED = ROLES.map((role) => role.name).sort();
+const PREFLIGHT = (root) => [...byRoot(root, ['reviewer']), ...byRoot(root, ['writer']), ...byRoot(root, ['preliminary'])];
 const STATUS_LINES = (root) => [VOCAB.statusLines.activeGate[root], VOCAB.statusLines.rounds, VOCAB.statusLines.resolved];
 
 function proseFiles() {
@@ -69,9 +72,32 @@ function collector() {
     if (missing.length || extra.length) gaps.push(`${label}:${missing.length ? ` missing ${missing.join(', ')}` : ''}${extra.length ? ` extra ${extra.join(', ')}` : ''}`);
   };
   const section = (text, heading, label) => { const block = sectionOf(text, heading); expect(block, `${label}: section "${heading}" is missing`); return block ?? ''; };
-  // Markdown renders a fence indented by up to three spaces, so the extractors accept that on the
-  // opening and the closing fence; the surface must carry exactly one fence of the declared info string.
-  const fences = (text, info, label) => { const found = [...text.matchAll(new RegExp(`^ {0,3}\`\`\`${info}[ \\t]*\\n([\\s\\S]*?)^ {0,3}\`\`\`[ \\t]*$`, 'gm'))].map((match) => match[1]); expect(found.length === 1, `${label} declares exactly one ${info === 'text' ? 'fenced sequence' : `${info} block`}: found ${found.length}`); return found.length === 1 ? found[0] : null; };
+  // CommonMark fences: an opener is zero to three spaces and a run of three or more backticks or tildes
+  // (a backtick opener's info string carries no backtick); it closes only on a run of the same character
+  // at least as long, or at the end of the text. The declared tidd-status blocks are documented as
+  // examples inside an outer four-backtick text fence, so fence content is parsed recursively and a
+  // block counts at any depth when the first word of its info string is the declared one; the surface
+  // must carry exactly one such block.
+  const parseFences = (text) => {
+    const found = []; let open = null;
+    const record = () => { found.push({ info: open.info, content: open.lines.join('\n') }); open = null; };
+    for (const line of text.split('\n')) {
+      if (open === null) {
+        const opener = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+        if (opener && !(opener[1][0] === '`' && opener[2].includes('`'))) open = { char: opener[1][0], length: opener[1].length, info: opener[2].trim().split(/\s+/)[0], lines: [] };
+        continue;
+      }
+      const closer = line.match(/^ {0,3}(`{3,}|~{3,})[ \t]*$/);
+      if (closer && closer[1][0] === open.char && closer[1].length >= open.length) record(); else open.lines.push(line);
+    }
+    if (open !== null) record();
+    return found.flatMap((block) => [block, ...parseFences(block.content)]);
+  };
+  const fences = (text, info, label) => {
+    const found = parseFences(text).filter((block) => block.info === info);
+    expect(found.length === 1, `${label} declares exactly one ${info === 'text' ? 'fenced sequence' : `${info} block`}: found ${found.length}`);
+    return found.length === 1 ? found[0].content : null;
+  };
   const exact = (actual, expected, label, sep = ', ') => expect(JSON.stringify(actual) === JSON.stringify(expected), `${label}: found ${actual.join(sep)}; declared ${expected.join(sep)}`);
   return { gaps, expect, same, section, exact, fences };
 }
@@ -110,10 +136,13 @@ function roleSurfaceGaps(read) {
   exact(rows, ROLES.map((role) => `${code(role.name)} | ${code(role.model)}`), 'README Included agents rows');
   const issuePre = byRoot('issue', ['reviewer', 'preliminary']), prPre = byRoot('pr', ['reviewer', 'preliminary']);
   expect(readme.includes(`\`/tidd-issue\` preflights ${list(issuePre)}; \`/tidd-pr\` preflights ${list(prPre)}, and adds ${code(byRoot('pr', ['writer'])[0])} in \`autofix\` mode`), 'README per-command preflight sentence');
-  const issuePreflight = section(read('skills/closed-loop-issue/SKILL.md'), '## Preflight (CL-D22, CL-D5)', 'Issue root');
-  for (const name of issuePre) expect(issuePreflight.includes(code(name)), `Issue root preflight names ${name}`);
-  const prPreflight = section(read('skills/closed-loop-pr/SKILL.md'), '## Preflight (CL-D22, CL-D5)', 'PR root');
-  for (const name of [...prPre, ...byRoot('pr', ['writer'])]) expect(prPreflight.includes(code(name)), `PR root preflight names ${name}`);
+  // ADV-113-PREFLIGHT-ROLE-EXACTNESS-001: each root's Preflight section and the README per-command line
+  // carry exactly the derived ordered role inventory (reviewers, the writer on the PR root, the preliminary role).
+  exact(section(read('skills/closed-loop-issue/SKILL.md'), '## Preflight (CL-D22, CL-D5)', 'Issue root').match(ROLE_TOKEN) || [], PREFLIGHT('issue'), 'Issue root preflight roles');
+  exact(section(read('skills/closed-loop-pr/SKILL.md'), '## Preflight (CL-D22, CL-D5)', 'PR root').match(ROLE_TOKEN) || [], PREFLIGHT('pr'), 'PR root preflight roles');
+  const perCommand = readme.split('\n').find((line) => line.startsWith('Per command: '));
+  expect(perCommand, 'README per-command line exists');
+  exact((perCommand ?? '').match(ROLE_TOKEN) || [], [...issuePre, ...prPre, ...byRoot('pr', ['writer']), ...byRoot('pr', ['preliminary'])], 'README per-command line roles');
   const resolution = section(read('skills/closed-loop-shared/references/gate-contract.md'), '## Name-level agent resolution (CL-D22, CL-D5, CL-D59)', 'shared resolution');
   for (const role of ROLES) expect(resolution.includes(code(role.name)), `shared resolution names ${role.name}`);
   // CONV-113-SURFACE-COVERAGE-001: the README role paragraph and the helper-map rows derive too.
@@ -155,8 +184,8 @@ function gateOrderGaps(read) {
 // tidd-status block of each root. Every `active_gate:`, `rounds:`, and `resolved:` line in that block is
 // selected in order and compared exactly with the vocabulary-derived lines, so a missing, duplicated,
 // reordered, or conflicting grammar line is named with the full found and declared lists. A file with no
-// block or more than one is a gap by itself and its lines are not guessed at; a fence indented by up to
-// three spaces counts, as Markdown renders it. The restart phrase is prose and stays a file literal.
+// block or more than one is a gap by itself and its lines are not guessed at; any CommonMark fence counts
+// (see `fences` in the collector). The restart phrase is prose and stays a file literal.
 function statusGaps(read) {
   const { gaps, expect, exact, fences } = collector();
   for (const [root, file] of [['issue', 'skills/closed-loop-issue/SKILL.md'], ['pr', 'skills/closed-loop-pr/references/review-only.md']]) {
@@ -439,7 +468,7 @@ test('Issue #110 the version 1 window and the marker gate vocabulary derive from
 
 // ADV-113-EXHAUSTIVE-GAPS-001 (Sol, PR #113): every surface check collects its gaps and asserts once, so a
 // single run names every location. The regression mutates eight surfaces across three collectors at the
-// same time through an in-memory overlay and requires all ten gaps in one result. The README table is
+// same time through an in-memory overlay and requires all twelve gaps in one result. The README table is
 // compared as an exact ordered list of role rows inside its section, the same class of check as the
 // gate-order surfaces, so a stale extra row and the two removed rows are one named comparison.
 // ADV-113-GATE-ORDER-EXACTNESS-001 (Sol, PR #113): two of the mutations are a declared Issue-only stage
@@ -455,7 +484,8 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
   const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
   overlay.set('skills/closed-loop-pr/references/review-only.md', reviewOnly.replace(`\n${VOCAB.statusLines.resolved}\n`, '\n').replace(`\n${VOCAB.statusLines.rounds}\n`, '\n').replace('\n\n', `\n\n${VOCAB.statusLines.rounds}\n\n`).replace('\n→ tidd-safety-reviewer gate\n', '\n→ tidd-drift-reviewer gate\n→ tidd-safety-reviewer gate\n'));
   const issueSkill = readText('skills/closed-loop-issue/SKILL.md');
-  overlay.set('skills/closed-loop-issue/SKILL.md', `${issueSkill.replace(/^(specification → .*)$/m, '$1 → tidd-adversarial-reviewer gate')}\n${issueSkill.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`);
+  overlay.set('skills/closed-loop-issue/SKILL.md', `${issueSkill.replace(/^(specification → .*)$/m, '$1 → tidd-adversarial-reviewer gate').replace('`tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve', '`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer`. If one does not resolve')}\n${issueSkill.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`);
+  overlay.set('skills/closed-loop-pr/SKILL.md', readText('skills/closed-loop-pr/SKILL.md').replace('`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally', '`tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and, conditionally'));
   overlay.set('test/package.test.js', `${readText('test/package.test.js')}\n  'tidd-legacy-reviewer': 'gpt-5.6-legacy',\n`);
   const read = withOverlay(overlay);
   for (const [file, text] of overlay) assert.notEqual(text, readText(file), `${file}: the mutation must change the surface`);
@@ -472,6 +502,8 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
     `skills/closed-loop-pr/references/review-only.md tidd-status lines: found ${VOCAB.statusLines.activeGate.pr}; declared ${STATUS_LINES('pr').join(' ‖ ')}`,
     'skills/closed-loop-issue/SKILL.md declares exactly one tidd-status block: found 2',
     'test/package.test.js: undeclared role tidd-legacy-reviewer',
+    `Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`,
+    `PR root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-drift-reviewer', 'tidd-safety-reviewer', 'tidd-autofix-worker', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('pr').join(', ')}`,
     `CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`,
   ].sort());
 });
@@ -492,6 +524,11 @@ test('Issue #110 single-surface mutations are named exactly', () => {
     ['second tidd-status fence', issue, (text) => `${text}\n${text.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
     ['one-space-indented second tidd-status fence', issue, (text) => `${text}\n${text.match(/```tidd-status\n[\s\S]*?```\n/)[0].replace(/^/gm, ' ')}`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
     ['one-space-indented second text fence in the gate loop', pr, (text) => text.replace('\n→ MERGE_READY\n```\n', '\n→ MERGE_READY\n```\n\n ```text\n → tidd-safety-reviewer gate\n ```\n'), gateOrderGaps, ['review-only order block declares exactly one fenced sequence: found 2']],
+    ['four-backtick second tidd-status fence', issue, (text) => `${text}\n\`\`\`\`tidd-status\nstate: <token>\n\`\`\`\`\n`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
+    ['tilde second tidd-status fence', issue, (text) => `${text}\n~~~tidd-status\nstate: <token>\n~~~\n`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
+    ['four-backtick second text fence in the gate loop', pr, (text) => text.replace('\n→ MERGE_READY\n```\n', '\n→ MERGE_READY\n```\n\n````text\n→ tidd-safety-reviewer gate\n````\n'), gateOrderGaps, ['review-only order block declares exactly one fenced sequence: found 2']],
+    ['wrong-root role in the Issue preflight', issue, (text) => text.replace('`tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve', '`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer`. If one does not resolve'), roleSurfaceGaps, [`Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`]],
+    ['wrong-root role in the PR preflight', 'skills/closed-loop-pr/SKILL.md', (text) => text.replace('`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally', '`tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and, conditionally'), roleSurfaceGaps, [`PR root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-drift-reviewer', 'tidd-safety-reviewer', 'tidd-autofix-worker', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('pr').join(', ')}`]],
     ['convergence dropped from a manifest literal', 'test/contract-clauses.json', (text) => text.replace('"before each convergence/Sol/Terra invocation"', '"before each Sol/Terra invocation"'), manifestGaps, [`CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`]],
     ['indented duplicate role row', 'README.md', (text) => text.replace('\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |', '\n| `tidd-drift-reviewer` | `gpt-5.6-terra` | duplicate |\n | `tidd-drift-reviewer` | `gpt-5.6-terra` |'), roleSurfaceGaps, [`README Included agents rows: found ${[...rows.slice(0, drift + 1), rows[drift], ...rows.slice(drift + 1)].join(', ')}; declared ${rows.join(', ')}`]],
     ['unbackticked duplicate role row', 'README.md', (text) => text.replace('\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |', '\n| tidd-drift-reviewer | gpt-5.6-terra | duplicate |\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |'), roleSurfaceGaps, ['README Included agents malformed row: | tidd-drift-reviewer | gpt-5.6-terra | duplicate |', `README Included agents rows: found ${[...rows.slice(0, drift), 'tidd-drift-reviewer | gpt-5.6-terra', ...rows.slice(drift)].join(', ')}; declared ${rows.join(', ')}`]],
