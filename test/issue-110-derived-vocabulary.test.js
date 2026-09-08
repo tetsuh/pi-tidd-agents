@@ -20,6 +20,8 @@
 // status check was a whole-file search. The single-surface mutation table (duplicate, reordered, and
 // conflicting status lines; indented and unbackticked table rows) was a contract RED at 8 passes / 2
 // failures while the status lines were presence checks and the table filter skipped irregular rows.
+// Its two indented-second-fence cases were a contract RED at 9 passes / 1 failure while the extractors
+// matched column-zero fences only.
 // That local output is not claimed as repository-preserved evidence.
 //
 // Shape (ADV-113-EXHAUSTIVE-GAPS-001): each surface check is a collector that takes a reader and
@@ -65,8 +67,11 @@ function collector() {
     if (missing.length || extra.length) gaps.push(`${label}:${missing.length ? ` missing ${missing.join(', ')}` : ''}${extra.length ? ` extra ${extra.join(', ')}` : ''}`);
   };
   const section = (text, heading, label) => { const block = sectionOf(text, heading); expect(block, `${label}: section "${heading}" is missing`); return block ?? ''; };
+  // Markdown renders a fence indented by up to three spaces, so the extractors accept that on the
+  // opening and the closing fence; the surface must carry exactly one fence of the declared info string.
+  const fences = (text, info, label) => { const found = [...text.matchAll(new RegExp(`^ {0,3}\`\`\`${info}[ \\t]*\\n([\\s\\S]*?)^ {0,3}\`\`\`[ \\t]*$`, 'gm'))].map((match) => match[1]); expect(found.length === 1, `${label} declares exactly one ${info === 'text' ? 'fenced sequence' : `${info} block`}: found ${found.length}`); return found.length === 1 ? found[0] : null; };
   const exact = (actual, expected, label, sep = ', ') => expect(JSON.stringify(actual) === JSON.stringify(expected), `${label}: found ${actual.join(sep)}; declared ${expected.join(sep)}`);
-  return { gaps, expect, same, section, exact };
+  return { gaps, expect, same, section, exact, fences };
 }
 const withOverlay = (overlay) => (file) => overlay.has(file) ? overlay.get(file) : readText(file);
 const assertNoGaps = (gaps, label) => assert.deepEqual(gaps, [], `${label}:\n${gaps.join('\n')}`);
@@ -124,15 +129,15 @@ function roleSurfaceGaps(read) {
 // extracted and must equal the vocabulary-derived sequence exactly, so a wrong-root, duplicated,
 // reordered, or missing stage is named with the full found and declared lists.
 function gateOrderGaps(read) {
-  const { gaps, expect, section, exact } = collector();
+  const { gaps, expect, section, exact, fences } = collector();
   const authoritative = (root) => VOCAB.gateOrder[root].filter((gate) => ROLES.find((role) => role.gate === gate).kind === 'reviewer');
   const merges = (text) => [...text.matchAll(/→ ([A-Z][a-z]+) MERGE(?=\n|$| )/g)].map((match) => match[1]);
   const loop = section(read('skills/closed-loop-pr/references/review-only.md'), '## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)', 'review-only order block');
-  const fenced = loop.match(/```text\n([\s\S]*?)```/);
-  expect(fenced, 'review-only order block: the fenced sequence exists');
-  const block = fenced ? fenced[1] : '';
-  exact(block.match(ROLE_TOKEN) || [], VOCAB.gateOrder.pr.map(roleOf), 'review-only order block stage roles');
-  exact(merges(block), authoritative('pr').map(display), 'review-only order block MERGE steps');
+  const block = fences(loop, 'text', 'review-only order block');
+  if (block !== null) {
+    exact(block.match(ROLE_TOKEN) || [], VOCAB.gateOrder.pr.map(roleOf), 'review-only order block stage roles');
+    exact(merges(block), authoritative('pr').map(display), 'review-only order block MERGE steps');
+  }
   const legacy = read('skills/closed-loop-issue/SKILL.md').split('\n').find((line) => line.startsWith('specification → '));
   expect(legacy, 'the Issue legacy sequence line exists');
   exact((legacy ?? '').match(ROLE_TOKEN) || [], VOCAB.gateOrder.issue.map(roleOf), 'Issue legacy sequence stage roles');
@@ -148,15 +153,14 @@ function gateOrderGaps(read) {
 // tidd-status block of each root. Every `active_gate:`, `rounds:`, and `resolved:` line in that block is
 // selected in order and compared exactly with the vocabulary-derived lines, so a missing, duplicated,
 // reordered, or conflicting grammar line is named with the full found and declared lists. A file with no
-// block or more than one is a gap by itself and its lines are not guessed at. The restart phrase is
-// prose and stays a file literal.
+// block or more than one is a gap by itself and its lines are not guessed at; a fence indented by up to
+// three spaces counts, as Markdown renders it. The restart phrase is prose and stays a file literal.
 function statusGaps(read) {
-  const { gaps, expect, exact } = collector();
+  const { gaps, expect, exact, fences } = collector();
   for (const [root, file] of [['issue', 'skills/closed-loop-issue/SKILL.md'], ['pr', 'skills/closed-loop-pr/references/review-only.md']]) {
-    const blocks = [...read(file).matchAll(/^```tidd-status\n([\s\S]*?)^```$/gm)].map((match) => match[1].split('\n'));
-    expect(blocks.length === 1, `${file} declares exactly one tidd-status block: found ${blocks.length}`);
-    if (blocks.length !== 1) continue;
-    exact(blocks[0].filter((line) => /^(?:active_gate|rounds|resolved):/.test(line)), STATUS_LINES(root), `${file} tidd-status lines`, ' ‖ ');
+    const block = fences(read(file), 'tidd-status', file);
+    if (block === null) continue;
+    exact(block.split('\n').filter((line) => /^(?:active_gate|rounds|resolved):/.test(line)), STATUS_LINES(root), `${file} tidd-status lines`, ' ‖ ');
   }
   for (const file of ['README.md', 'skills/closed-loop-issue/SKILL.md', 'skills/closed-loop-pr/references/autofix-addendum.md']) expect(read(file).includes(VOCAB.restart), `${file} uses the declared restart phrase`);
   return gaps;
@@ -368,6 +372,8 @@ test('Issue #110 single-surface mutations are named exactly', () => {
     ['reordered grammar lines', issue, (text) => text.replace(`\n${rounds}\n${resolved}\n`, `\n${resolved}\n${rounds}\n`), statusGaps, [`${issue} tidd-status lines: found ${[issueLines[0], resolved, rounds].join(' ‖ ')}; declared ${issueLines.join(' ‖ ')}`]],
     ['conflicting active_gate line', pr, (text) => text.replace(`\n${prLines[0]}\n`, `\n${prLines[0]}\nactive_gate: <sol>\n`), statusGaps, [`${pr} tidd-status lines: found ${[prLines[0], 'active_gate: <sol>', rounds, resolved].join(' ‖ ')}; declared ${prLines.join(' ‖ ')}`]],
     ['second tidd-status fence', issue, (text) => `${text}\n${text.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
+    ['one-space-indented second tidd-status fence', issue, (text) => `${text}\n${text.match(/```tidd-status\n[\s\S]*?```\n/)[0].replace(/^/gm, ' ')}`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
+    ['one-space-indented second text fence in the gate loop', pr, (text) => text.replace('\n→ MERGE_READY\n```\n', '\n→ MERGE_READY\n```\n\n ```text\n → tidd-safety-reviewer gate\n ```\n'), gateOrderGaps, ['review-only order block declares exactly one fenced sequence: found 2']],
     ['indented duplicate role row', 'README.md', (text) => text.replace('\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |', '\n| `tidd-drift-reviewer` | `gpt-5.6-terra` | duplicate |\n | `tidd-drift-reviewer` | `gpt-5.6-terra` |'), roleSurfaceGaps, [`README Included agents rows: found ${[...rows.slice(0, drift + 1), rows[drift], ...rows.slice(drift + 1)].join(', ')}; declared ${rows.join(', ')}`]],
     ['unbackticked duplicate role row', 'README.md', (text) => text.replace('\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |', '\n| tidd-drift-reviewer | gpt-5.6-terra | duplicate |\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |'), roleSurfaceGaps, ['README Included agents malformed row: | tidd-drift-reviewer | gpt-5.6-terra | duplicate |', `README Included agents rows: found ${[...rows.slice(0, drift), 'tidd-drift-reviewer | gpt-5.6-terra', ...rows.slice(drift)].join(', ')}; declared ${rows.join(', ')}`]],
   ];
