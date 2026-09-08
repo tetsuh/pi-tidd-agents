@@ -22,6 +22,8 @@
 // failures while the status lines were presence checks and the table filter skipped irregular rows.
 // Its two indented-second-fence cases were a contract RED at 9 passes / 1 failure while the extractors
 // matched column-zero fences only.
+// The derived manifest table's dropped-literal cases were a compile RED at 8 passes / 3 failures before
+// manifestGaps existed.
 // That local output is not claimed as repository-preserved evidence.
 //
 // Shape (ADV-113-EXHAUSTIVE-GAPS-001): each surface check is a collector that takes a reader and
@@ -191,34 +193,142 @@ function fixtureGaps(read) {
   expect(convergence.includes(`[${quoted(VOCAB.gateIdentities)}]`), 'issue-101 pins the declared identity list');
   expect(convergence.includes(`Issue \`${VOCAB.gateOrder.issue.join(' → ')}\`, PR \`${VOCAB.gateOrder.pr.join(' → ')}\``), 'issue-101 pins the declared gate order');
   expect(convergence.includes(`${VOCAB.prefixes.convergence}-101-`), 'issue-101 uses the declared convergence namespace');
-  const manifest = JSON.parse(read('test/contract-clauses.json'));
-  const requires = (id) => { const clause = manifest.clauses.find((candidate) => candidate.id === id); expect(clause, `manifest clause ${id}`); return clause ? clause.requires : []; };
-  const canonical = ROLES.filter((role) => role.alias).map((role) => role.name);
-  expect(requires('CL-D59-resolution').includes(list(canonical)), 'CL-D59-resolution names the four CL-D59 roles from the source');
-  const formalPrefixes = VOCAB.gateIdentities.filter((gate) => gate !== 'convergence').map((gate) => `\`${VOCAB.prefixes[gate]}-<n>-\``);
-  expect(requires('CL-D60-identities').includes(`the derived fresh-finding namespaces are ${formalPrefixes[0]}, ${formalPrefixes[1]}, and ${formalPrefixes[2]}`), 'CL-D60-identities names the derived namespaces from the source');
-  expect(requires('CL-D60-identities').includes(`Gate identities (CL-D60): under envelope schema version 2 the gate is \`${VOCAB.gateIdentities[0]}\``), 'CL-D60-identities starts with the first declared identity');
-  expect(requires('CL-D62-shared').includes('the sequence restarts at convergence'), 'CL-D62-shared names the convergence restart');
-  for (const id of ['CL-D62-issue', 'CL-D62-pr']) expect(requires(id).includes(VOCAB.statusLines.rounds), `${id} pins the declared rounds line`);
-  expect(requires('CL-D62-autofix-flow').some((literal) => literal.startsWith(`${display('convergence').toUpperCase()}: MERGE -> ${display('adversarial').toUpperCase()};`)), 'CL-D62-autofix-flow pins the declared first flow line');
   // CONV-113-MANIFEST-CROSSCHECK-001 / CONV-113-SURFACE-COVERAGE-001: the checks are two-way. The fixture
-  // constants carry exactly the declared role set, and every role-shaped token in the role/gate clauses
-  // and the named fixtures is a declared role; a stale extra fails by name.
+  // constants carry exactly the declared role set, and every role-shaped token in the named fixtures and
+  // the manifest is a declared role; a stale extra fails by name. The role and gate clauses themselves
+  // are compared literal for literal in manifestGaps.
   same([...rolesFixture.matchAll(/'(tidd-[a-z-]+)': \{ alias:/g)].map((match) => match[1]).sort(), DECLARED, 'issue-100 ROLES keys are exactly the declared roles');
   same([...packageTest.matchAll(/^  '(tidd-[a-z-]+)': 'gpt-[^']+',$/gm)].map((match) => match[1]).sort(), DECLARED, 'package.test EXPECTED_AGENTS keys are exactly the declared roles');
   const reviewers = agentTools.match(/const REVIEWERS = \[([^\]]+)\]/), workers = agentTools.match(/const WORKERS = \[([^\]]+)\]/);
   expect(reviewers && workers, 'issue-49 declares REVIEWERS and WORKERS');
   if (reviewers && workers) same([...`${reviewers[1]},${workers[1]}`.matchAll(/'(tidd-[a-z-]+)'/g)].map((match) => match[1]).sort(), DECLARED, 'issue-49 REVIEWERS plus WORKERS are exactly the declared roles');
-  const roleClauses = manifest.clauses.filter((clause) => ['CL-D59', 'CL-D60', 'CL-D62', 'CL-D63'].includes(clause.marker));
-  expect(roleClauses.length >= 10, 'the role and gate clauses are present');
-  const gateWords = new Set([...VOCAB.gateIdentities, ...VOCAB.version1Window.gates]);
-  for (const clause of roleClauses) for (const literal of clause.requires) {
-    for (const token of literal.match(ROLE_TOKEN) || []) expect(DECLARED.includes(token), `${clause.id}: undeclared role ${token}`);
-    for (const match of literal.matchAll(/`(adversarial|decision-drift|safety|convergence|sol|terra)`/g)) expect(gateWords.has(match[1]), `${clause.id}: undeclared gate ${match[1]}`);
-  }
   for (const file of [...proseFiles(), 'test/contract-clauses.json', 'test/issue-100-tidd-roles.test.js', 'test/issue-101-convergence-stage.test.js', 'test/issue-49-agent-tools.test.js', 'test/package.test.js', 'test/issue-100-gate-ids-v2.test.js']) {
     for (const token of new Set(read(file).match(ROLE_TOKEN) || [])) expect(DECLARED.includes(token), `${file}: undeclared role ${token}`);
   }
+  return gaps;
+}
+
+// CONV-113-MANIFEST-CROSSCHECK-002: every literal of the CL-D59/CL-D60/CL-D62/CL-D63 manifest clauses,
+// derived from the source. A literal that carries no vocabulary is restated verbatim so the comparison
+// is whole-array exact: a dropped, added, reworded, or reordered literal names its clause.
+const MANIFEST = (() => {
+  const gate = { adversarial: VOCAB.gateIdentities[0], drift: VOCAB.gateOrder.issue[2], safety: VOCAB.gateOrder.pr[2], convergence: VOCAB.gateOrder.pr[0] };
+  const C = display(gate.convergence), S = display(gate.adversarial), T = display(gate.safety);
+  const cap = (word) => word[0].toUpperCase() + word.slice(1), up = (word) => word.toUpperCase();
+  const prD = VOCAB.gateOrder.pr.map(display), issueD = VOCAB.gateOrder.issue.map(display);
+  const convergenceRole = code(roleOf(gate.convergence)), canonical = ROLES.filter((role) => role.alias).map((role) => role.name);
+  const formalPrefixes = VOCAB.gateIdentities.filter((identity) => identity !== gate.convergence).map((identity) => `\`${VOCAB.prefixes[identity]}-<n>-\``);
+  const v1 = VOCAB.version1Window.gates;
+  return {
+    'CL-D59-resolution': [
+      'Refer to agents **by role name** only, **never by model ID**',
+      list(canonical),
+      'which provider, model, and thinking level serve a role is deployment configuration, never role semantics',
+      'the old model-derived names resolve only as transitional aliases for one release',
+      'If a required role is missing, disabled, unresolved, or lacks its required capability',
+    ],
+    'CL-D59-tests': [
+      `the package ships the ${NUMBER_WORDS[canonical.length]} CL-D59 role agents, each aliasing its old name, plus the CL-D62 ${C} role`,
+      'skills and prompts name roles, never model-derived agents',
+      'the shared resolution section separates role from deployment and fails closed on capability',
+      'the README documents the roles, the alias transition, and override keying',
+      'CL-D59 records the role split, the agents/ widening, and the removals',
+    ],
+    'CL-D60-identities': [
+      `Gate identities (CL-D60): under envelope schema version 2 the gate is \`${gate.adversarial}\``,
+      'a version 2 envelope naming a gate outside its root fails closed',
+      `the derived fresh-finding namespaces are ${formalPrefixes[0]}, ${formalPrefixes[1]}, and ${formalPrefixes[2]}`,
+      'remains accepted for one release by an explicit version branch with no cross-mapping between versions',
+      'the packaged expectation builder ships version 2 only',
+    ],
+    'CL-D60-tests': [
+      "version 2 envelopes validate with their root's gates and reject the other root's gate",
+      'fresh findings bind to the derived version 2 namespace, never the version 1 one',
+      'version 1 stays accepted verbatim for one release, with no cross-mapping in either direction',
+      'the packaged expectation builder ships version 2 only',
+      'the composition table accepts both envelope versions and the reply marker parses both gate vocabularies',
+      'the shared contract, the addendum, the README, and CL-D60 record the version 2 identities',
+      'CL-D60 raises the authority ceiling once, with the headroom property asserted at the raise',
+    ],
+    'CL-D62-shared': [
+      `read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity and snapshot fingerprint before the ${gate.adversarial} gate on both roots`,
+      `no ${C} outcome can declare \`IMPLEMENTATION_READY\` or \`MERGE_READY\``,
+      `the sequence restarts at ${C}`,
+      `accounted separately as \`${C} <used>/<cap>\`, never against a formal gate's budget`,
+      'the cap is 3 per run on the Issue root and PR review-only and 5 on exact autofix',
+      `hands the current candidate to the ${gate.adversarial} gate with those findings assigned and does not invoke ${C} again`,
+      `the stage is skipped and the status block reports \`${C}: disabled\``,
+      'reports `resolved:` with the provider, model, and thinking level each role ran with',
+      `the third observation across ${C} and formal gates stops the run`,
+    ],
+    'CL-D62-issue': [
+      `${convergenceRole} is required for the CL-D62 ${C} stage unless it is explicitly disabled`,
+      'a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule',
+      `its findings reach ${S} as assigned findings and it never authorizes readiness`,
+      `the ${C} stage reviews the complete unchanged object once (CL-D62)`,
+      VOCAB.restart,
+      `before every physical ${issueD[0]}, ${issueD[1]}, or ${issueD[2]} launch`,
+      `${C} reviews the unchanged decision-containing candidate first (CL-D62)`,
+      VOCAB.statusLines.rounds,
+    ],
+    'CL-D62-pr': [
+      `→ ${roleOf(gate.convergence)} stage (non-authoritative, CL-D62)`,
+      `a preliminary \`FIX BEFORE MERGE\` is reported through the disposition/draft path as \`WAITING_FOR_OWNER\` before ${S} runs`,
+      `${cap(C)} rounds are accounted separately as \`${C} <used>/3\`, one per candidate identity and snapshot fingerprint`,
+      VOCAB.statusLines.rounds,
+    ],
+    'CL-D62-autofix': [
+      `The CL-D62 ${C} stage runs once per candidate identity and snapshot fingerprint before each ${S} invocation, is accounted separately as \`${C} <used>/5\` outside the 15 counted gate invocations`,
+      `gate (\`${gate.adversarial}\`, \`${gate.safety}\`, or \`${gate.convergence}\`; \`${v1[0]}\` or \`${v1[1]}\` under schema version 1)`,
+      `a ${C} result that observes an assigned blocker unresolved counts toward that key's history`,
+    ],
+    'CL-D62-autofix-flow': [
+      `${up(C)}: MERGE -> ${up(S)}; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> ${up(C)}; CAP -> ${up(S)} (open findings assigned); DECISION/FAILURE -> STOP`,
+      `FINAL_CHECK: new actionable evidence -> ${up(C)}`,
+      `${cap(C)} runs first, then ${S}, and ${T} starts only after ${S} returns \`MERGE\` for the exact current public head (CL-D62)`,
+    ],
+    'CL-D62-autofix-map': [
+      `before each ${prD.join('/')} invocation`,
+      `Every ${prD[0]}, ${prD[1]}, or ${prD[2]} result, before it is read as a verdict (CL-D36, CL-D62)`,
+    ],
+    'CL-D62-readme': [
+      `${convergenceRole} (CL-D62) is the non-authoritative preliminary reviewer that runs before the ${gate.adversarial} gate`,
+      'independent patch review is tracked in #102',
+      `The ${C} reviewer uses fresh context and is never readiness authority.`,
+      `Every successful push invalidates prior approvals and ${VOCAB.restart}.`,
+      `A disabled ${convergenceRole} is not a preflight failure: its stage is skipped and the status block reports \`${C}: disabled\`.`,
+    ],
+    'CL-D62-tests': [
+      `the package ships the ${C} role as a read-only, fresh-context, non-authoritative reviewer`,
+      `the envelope accepts the ${C} gate on both roots with its own namespace and no ${gate.adversarial} duty`,
+      'the shared contract defines the stage: order, one per candidate and snapshot, caps, hand-over, invalidation, disabled skip, telemetry',
+      `both roots run ${C} before the ${gate.adversarial} gate and report it in the status block`,
+      'the README documents the role, its default, the self-review caveat, and the design rule',
+      'CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
+    ],
+    'CL-D63-payload': [
+      'those surfaces are pre-checked deterministically: do not re-raise a surface-agreement gap they cover as a finding',
+      'enumerate every instance across the target in one result rather than one per round (CL-D63)',
+    ],
+    'CL-D63-tests': [
+      'the vocabulary source matches the packaged agents and the envelope schema',
+      'every declared role surface derives from the source',
+      'every declared gate-order surface follows the source order',
+      'status grammar lines derive from the source',
+      'retired phrases do not survive outside their recorded qualification',
+      `the ${S}-only payload block pre-checks derived surfaces and CL-D63 records the layer`,
+      'existing role and gate fixtures cross-check the source',
+      'the version 1 window and the marker gate vocabulary derive from the source',
+      'the role and gate manifest clauses derive from the source',
+    ],
+  };
+})();
+
+function manifestGaps(read) {
+  const { gaps, expect, same, exact } = collector();
+  const clauses = JSON.parse(read('test/contract-clauses.json')).clauses.filter((clause) => ['CL-D59', 'CL-D60', 'CL-D62', 'CL-D63'].includes(clause.marker));
+  same(clauses.map((clause) => clause.id).sort(), Object.keys(MANIFEST).sort(), 'the role and gate manifest clauses are exactly the derived set');
+  for (const clause of clauses) if (MANIFEST[clause.id]) exact(clause.requires, MANIFEST[clause.id], `${clause.id} literals`, ' ‖ ');
   return gaps;
 }
 
@@ -296,6 +406,12 @@ test('Issue #110 existing role and gate fixtures cross-check the source', () => 
   assertNoGaps(fixtureGaps(readText), 'fixtures and manifest clauses drift from the source');
 });
 
+// CONV-113-MANIFEST-CROSSCHECK-002 (convergence, PR #113): every literal of the role and gate clauses is
+// derived, and each clause's requires array must equal the derived array exactly.
+test('Issue #110 the role and gate manifest clauses derive from the source', () => {
+  assertNoGaps(manifestGaps(readText), 'manifest clause literals drift from the source');
+});
+
 // Convergence lead on PR #113 (non-authoritative): the version 1 window's gates, prefixes, and the
 // marker's gate vocabulary were outside the source. They are declared now and checked against the
 // shipping code; the fixture that names them is cross-checked in fixtureGaps.
@@ -323,7 +439,7 @@ test('Issue #110 the version 1 window and the marker gate vocabulary derive from
 
 // ADV-113-EXHAUSTIVE-GAPS-001 (Sol, PR #113): every surface check collects its gaps and asserts once, so a
 // single run names every location. The regression mutates eight surfaces across three collectors at the
-// same time through an in-memory overlay and requires all nine gaps in one result. The README table is
+// same time through an in-memory overlay and requires all ten gaps in one result. The README table is
 // compared as an exact ordered list of role rows inside its section, the same class of check as the
 // gate-order surfaces, so a stale extra row and the two removed rows are one named comparison.
 // ADV-113-GATE-ORDER-EXACTNESS-001 (Sol, PR #113): two of the mutations are a declared Issue-only stage
@@ -344,7 +460,8 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
   const read = withOverlay(overlay);
   for (const [file, text] of overlay) assert.notEqual(text, readText(file), `${file}: the mutation must change the surface`);
   assert.ok(overlay.get('skills/closed-loop-pr/references/review-only.md').includes(`\n${VOCAB.statusLines.rounds}\n`), 'the relocated rounds line survives in the file outside its block');
-  const gaps = [...roleSurfaceGaps(read), ...gateOrderGaps(read), ...statusGaps(read), ...fixtureGaps(read)];
+  overlay.set('test/contract-clauses.json', readText('test/contract-clauses.json').replace('"before each convergence/Sol/Terra invocation"', '"before each Sol/Terra invocation"'));
+  const gaps = [...roleSurfaceGaps(read), ...gateOrderGaps(read), ...statusGaps(read), ...fixtureGaps(read), ...manifestGaps(read)];
   const prRoles = VOCAB.gateOrder.pr.map(roleOf), issueRoles = VOCAB.gateOrder.issue.map(roleOf);
   assert.deepEqual(gaps.sort(), [
     `README Included agents rows: found ${['`tidd-legacy-reviewer` | `gpt-5.6-legacy`', ...ROLES.filter((role) => !['tidd-drift-reviewer', 'tidd-safety-reviewer'].includes(role.name)).map((role) => `${code(role.name)} | ${code(role.model)}`)].join(', ')}; declared ${ROLES.map((role) => `${code(role.name)} | ${code(role.model)}`).join(', ')}`,
@@ -355,6 +472,7 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
     `skills/closed-loop-pr/references/review-only.md tidd-status lines: found ${VOCAB.statusLines.activeGate.pr}; declared ${STATUS_LINES('pr').join(' ‖ ')}`,
     'skills/closed-loop-issue/SKILL.md declares exactly one tidd-status block: found 2',
     'test/package.test.js: undeclared role tidd-legacy-reviewer',
+    `CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`,
   ].sort());
 });
 
@@ -374,6 +492,7 @@ test('Issue #110 single-surface mutations are named exactly', () => {
     ['second tidd-status fence', issue, (text) => `${text}\n${text.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
     ['one-space-indented second tidd-status fence', issue, (text) => `${text}\n${text.match(/```tidd-status\n[\s\S]*?```\n/)[0].replace(/^/gm, ' ')}`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
     ['one-space-indented second text fence in the gate loop', pr, (text) => text.replace('\n→ MERGE_READY\n```\n', '\n→ MERGE_READY\n```\n\n ```text\n → tidd-safety-reviewer gate\n ```\n'), gateOrderGaps, ['review-only order block declares exactly one fenced sequence: found 2']],
+    ['convergence dropped from a manifest literal', 'test/contract-clauses.json', (text) => text.replace('"before each convergence/Sol/Terra invocation"', '"before each Sol/Terra invocation"'), manifestGaps, [`CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`]],
     ['indented duplicate role row', 'README.md', (text) => text.replace('\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |', '\n| `tidd-drift-reviewer` | `gpt-5.6-terra` | duplicate |\n | `tidd-drift-reviewer` | `gpt-5.6-terra` |'), roleSurfaceGaps, [`README Included agents rows: found ${[...rows.slice(0, drift + 1), rows[drift], ...rows.slice(drift + 1)].join(', ')}; declared ${rows.join(', ')}`]],
     ['unbackticked duplicate role row', 'README.md', (text) => text.replace('\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |', '\n| tidd-drift-reviewer | gpt-5.6-terra | duplicate |\n| `tidd-drift-reviewer` | `gpt-5.6-terra` |'), roleSurfaceGaps, ['README Included agents malformed row: | tidd-drift-reviewer | gpt-5.6-terra | duplicate |', `README Included agents rows: found ${[...rows.slice(0, drift), 'tidd-drift-reviewer | gpt-5.6-terra', ...rows.slice(drift)].join(', ')}; declared ${rows.join(', ')}`]],
   ];
