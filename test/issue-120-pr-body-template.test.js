@@ -31,6 +31,8 @@ test('Issue #120 CL-D67 records the choice, the declined bounded body edit, and 
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D67 — Pull-request bodies carry no per-head facts');
   assert.ok(record, 'CL-D67 must exist');
   for (const field of ['*Decision ID:* CL-D67', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D67 must carry ${field}`);
+  // CONV-122-CONTRACT-CITATION-002: both cited comments are pinned by id; the design comment was once miscited.
+  assert.match(record, /issues\/120#issuecomment-5600017960/);
   assert.match(record, /issues\/120#issuecomment-5602812931/);
   assert.match(record, /Option A adds one bounded pull-request body edit to the exact-autofix grant/);
   assert.match(record, /the exact-autofix publication grant is unchanged: one commit and one push per correction batch, no body edit/);
