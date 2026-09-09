@@ -2,8 +2,9 @@
 
 // Issue #120 (CL-D67) — a pull-request body under this workflow carries no per-head facts: a Closes
 // line, a Scope pointer, the AC-TDD classification, and a chronology. Per-head measurements live in
-// commit messages and in the review's published comment, so a head change never invalidates a body
-// claim and exact autofix never stops on a body-only finding. Three PR #113 rounds were body drift.
+// commit messages and in the review's published comment, so no body claim depends on the head; the
+// chronology is appended after each review round. Exact autofix therefore has no body-only finding
+// to stop on. Three PR #113 rounds were body drift.
 //
 // TDD provenance: pre-implementation compile/contract RED (not behavioral RED: every assertion
 // inspects artifact text), recorded with `node --test test/issue-120-pr-body-template.test.js` at 0
