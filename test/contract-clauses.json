@@ -3253,6 +3253,32 @@
         "the version 1 window and the marker gate vocabulary derive from the source",
         "the role and gate manifest clauses derive from the source"
       ]
+    },
+    {
+      "id": "CL-D64-writer",
+      "marker": "CL-D64",
+      "title": "The writer iterates on focused validation before the guard and receives pinned literals verbatim",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### The writer (CL-D3)",
+      "requires": [
+        "the writer runs the focused validation commands itself and proceeds to the guard only when they pass",
+        "the guarded focused validation stays the single terminal check",
+        "carries that literal verbatim from its source rather than describing it (CL-D64)"
+      ]
+    },
+    {
+      "id": "CL-D64-tests",
+      "marker": "CL-D64",
+      "title": "Writer pre-guard fixtures pin the prose and the record",
+      "files": [
+        "test/issue-115-writer-pre-guard.test.js"
+      ],
+      "requires": [
+        "the writer iterates on focused validation before the guard and receives pinned literals verbatim",
+        "CL-D64 records the writer duty without relaxing the terminal rule"
+      ]
     }
   ]
 }
