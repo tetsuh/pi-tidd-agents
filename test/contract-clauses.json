@@ -3279,6 +3279,56 @@
         "the writer iterates on focused validation before the guard and receives pinned literals verbatim",
         "CL-D64 records the writer duty without relaxing the terminal rule"
       ]
+    },
+    {
+      "id": "CL-D66-payload",
+      "marker": "CL-D66",
+      "title": "The adversarial gate names every same-class rigor gap in one result",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
+      "requires": [
+        "When a finding rejects the rigor of a check — a presence, substring, or subsequence test where the criterion calls for an exact comparison — name every check of the same class across the target in that one result, so the correction is made once (CL-D66)."
+      ]
+    },
+    {
+      "id": "CL-D66-writer",
+      "marker": "CL-D66",
+      "title": "The exact-autofix writer writes checks against declared lists exactly the first time",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### The writer (CL-D3)",
+      "requires": [
+        "A check the writer adds or corrects against a declared list or block is written as a complete parse of the surface and an exact ordered comparison with the derived expectation, never as a presence, substring, or subsequence test (CL-D66)."
+      ]
+    },
+    {
+      "id": "CL-D66-record",
+      "marker": "CL-D66",
+      "title": "The CL-D66 record states the placement, the declined alternatives, and the boundary",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D66 — Same-class rigor gaps are named once and written exactly the first time",
+      "requires": [
+        "a deterministic lint over test files, which classifies open-world test code and is declined",
+        "a presence check where presence is the criterion is not a finding",
+        "verdict vocabulary, gate authority, the CL-D30 caps, and the CL-D63 fence-grammar bound are unchanged"
+      ]
+    },
+    {
+      "id": "CL-D66-tests",
+      "marker": "CL-D66",
+      "title": "The CL-D66 fixtures pin both sentences and the record",
+      "files": [
+        "test/issue-119-exactness-class.test.js"
+      ],
+      "requires": [
+        "the adversarial gate names every same-class rigor gap in one result and the writer writes exact checks",
+        "CL-D66 records the placement, the declined alternatives, and the boundary"
+      ]
     }
   ]
 }
