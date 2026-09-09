@@ -20,7 +20,7 @@ test('Issue #120 the PR Skill states the body template and keeps per-head facts 
   const template = sectionOf(readText('skills/closed-loop-pr/SKILL.md'), '### PR body template (CL-D67)');
   assert.ok(template, 'the PR body template subsection must exist');
   assert.match(template, /A pull-request body under this workflow carries four parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; the AC-TDD classification of the RED with its command and counts; and a chronology of review rounds, followed at most by one tooling attribution footer\./);
-  assert.match(template, /Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so a head change never invalidates a body claim \(CL-D67\)\./);
+  assert.match(template, /Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology is appended after each review round \(CL-D67\)\./);
   // The exact-autofix grant is unchanged: the addendum does not mention a body edit.
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.doesNotMatch(addendum, /CL-D67|PATCH the body|pull-request body edit/);

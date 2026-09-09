@@ -121,7 +121,7 @@ The shared AC-DECISION triggers and pending state apply; this PR root additional
 
 ### PR body template (CL-D67)
 
-A pull-request body under this workflow carries four parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; the AC-TDD classification of the RED with its command and counts; and a chronology of review rounds, followed at most by one tooling attribution footer. Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so a head change never invalidates a body claim (CL-D67).
+A pull-request body under this workflow carries four parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; the AC-TDD classification of the RED with its command and counts; and a chronology of review rounds, followed at most by one tooling attribution footer. Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology is appended after each review round (CL-D67).
 
 ## Mode dispatch (CL-D19)
 
