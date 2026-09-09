@@ -485,7 +485,7 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 
 *Decision ID:* CL-D67
 *Kind:* contract
-*Target and revision:* `tetsuh/pi-tidd-agents#120` at its body, the design comment https://github.com/tetsuh/pi-tidd-agents/issues/120#issuecomment-5602017960, and the owner choice https://github.com/tetsuh/pi-tidd-agents/issues/120#issuecomment-5602812931
+*Target and revision:* `tetsuh/pi-tidd-agents#120` at its body, the design comment https://github.com/tetsuh/pi-tidd-agents/issues/120#issuecomment-5600017960, and the owner choice https://github.com/tetsuh/pi-tidd-agents/issues/120#issuecomment-5602812931
 *Question:* Three PR #113 review rounds were body-only findings: the body restated repository facts or per-head measurements and drifted from the head. Under exact autofix the writer cannot correct a body, because the CL-D30 grant is one commit and one push, so such a finding stops the run at `WAITING_FOR_OWNER`. Where do per-head evidence and repository facts live, and does the grant need a bounded body edit?
 *Options and trade-offs:* Option A adds one bounded pull-request body edit to the exact-autofix grant, a PATCH of one delimited evidence block from packaged measurements; it keeps the body self-describing at the cost of a new GitHub mutation in the grant, a new builder and guard, addendum bytes, a new failure class when the PATCH races a human edit, and a new decision each time the block shape changes. Option B keeps per-head facts out of bodies: the PR Skill states the body template, and measurements live in commit messages and in the review's published comment. Option C keeps a human updating the body each head, which leaves exact autofix stopping on body findings.
 *Recommendation:* Option B.
