@@ -4,6 +4,7 @@ const path = require('node:path');
 const { runSync, gitArgs, assertSafeRepositoryConfig } = require('./process');
 const { classifyRuntimeRoots, normalizeCheckoutPath, lstatKind } = require('./paths');
 const { createResult, createError } = require('./protocol');
+const { helperTrust } = require('./launch');
 
 const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];
 const IDENTITY_FIELDS = ['repository', 'prNumber', 'lifecycle', 'baseOid', 'publicHead', 'headRepository', 'headBranch', 'originFetch', 'originPush'];
@@ -103,6 +104,9 @@ function captureOperatorCheckout(input = process.cwd()) {
   try {
     const identity = safeIdentity(options.identity);
     const top = path.resolve(gitText(cwd, ['rev-parse', '--show-toplevel']));
+    // The helper that runs this check must not live inside the checkout it checks (CL-D68).
+    const { helperPath, helperInsideTarget } = helperTrust(top);
+    if (helperInsideTarget) throw Object.assign(new Error('the packaged helper resolved inside the target checkout; run it from the installed package'), { code: 'helper_inside_target', details: { helperPath, target: top } });
     const configDigest = assertSafeRepositoryConfig(top);
     const head = gitText(top, ['rev-parse', 'HEAD']);
     const { branch, upstream, trackingRef } = tracking(top);
@@ -130,10 +134,11 @@ function captureOperatorCheckout(input = process.cwd()) {
       root: top, head, branch, originFetch, originPush, upstream, trackingRef,
       worktreeChanges, trackedChanges: worktreeChanges, indexChanges, untrackedPaths, unexpectedUntrackedPaths,
       ignoredInventory, runtimeInventory, runtimeHeadEntries, runtimeIndexEntries, runtimeRoots, unsafeRuntimeRoots, identity, configDigest,
+      helperPath, helperInsideTarget,
       clean: worktreeChanges.length === 0 && indexChanges.length === 0 && unexpectedUntrackedPaths.length === 0 && unsafeRuntimeRoots.length === 0,
     });
   } catch (error) {
-    return createError('operator_checkout', error.code || 'capture_failed', error.message, error.phase || 'operator_capture');
+    return createError('operator_checkout', error.code || 'capture_failed', error.message, error.phase || 'operator_capture', error.details);
   }
 }
 function immutableOperatorBaseline(data) {

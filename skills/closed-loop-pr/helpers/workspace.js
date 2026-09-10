@@ -321,6 +321,8 @@ async function cleanupWorkspace(input, cwd) {
       && JSON.stringify(receipt.creationIdentity) === JSON.stringify(creation);
     if (!validReceipt || creation.kind !== 'linked') return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
     const repositoryCwd = cwd || receipt.repositoryCwd;
+    const resolvedCwd = path.resolve(repositoryCwd), workspaceRoot = path.resolve(creation.path);
+    if (resolvedCwd === workspaceRoot || resolvedCwd.startsWith(`${workspaceRoot}${path.sep}`)) return createError('workspace_cleanup', 'cleanup_cwd_inside_workspace', 'cleanup cwd must be the repository, not the workspace being removed', 'workspace_cleanup', { cwd: resolvedCwd, workspace: workspaceRoot });
     const actual = inspectWorkspace(creation.path, repositoryCwd, { ...creation, head: undefined, tree: undefined, registered: creation.registered });
     if (!actual.matches || !actual.registered || actual.registered.branch) return createError('workspace_cleanup', 'identity_mismatch', 'workspace administrative identity changed before cleanup', 'workspace_cleanup');
     await run('git', gitArgs(['worktree', 'remove', actual.path]), { cwd: repositoryCwd, phase: 'workspace_cleanup' });

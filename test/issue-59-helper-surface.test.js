@@ -12,13 +12,13 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
-  'builders.js', 'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'operator.js', 'paths.js',
+  'builders.js', 'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'launch.js', 'operator.js', 'paths.js',
   'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
-  'build_fingerprint_snapshot', 'build_gate_expectation', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
+  'build_fingerprint_snapshot', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
   'build_workspace_verify', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
-  'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_validate',
+  'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
   'marker_create', 'marker_reconcile', 'required_evidence_check',
   'operator_capture', 'operator_revalidate', 'snapshot', 'workspace_cleanup', 'workspace_create',
   'workspace_verify', 'writability',
@@ -29,6 +29,10 @@ const APPROVED_FS_SITES = [
   "skills/closed-loop-pr/helpers/cli.js|const fs = require('node:fs');",
   'skills/closed-loop-pr/helpers/cli.js|const input = fs.readFileSync(0);',
   "skills/closed-loop-pr/helpers/paths.js|const fs = require('node:fs');",
+  "skills/closed-loop-pr/helpers/launch.js|const fs = require('node:fs');",
+  "skills/closed-loop-pr/helpers/launch.js|function readUtf8(file) { return fs.readFileSync(file, 'utf8'); }",
+  'skills/closed-loop-pr/helpers/launch.js|const helperPath = fs.realpathSync.native(__dirname);',
+  'skills/closed-loop-pr/helpers/launch.js|const target = fs.realpathSync.native(top);',
   'skills/closed-loop-pr/helpers/paths.js|const stat = fs.lstatSync(file);',
   'skills/closed-loop-pr/helpers/paths.js|if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) throw new Error(`symlink path component rejected: ${current}`);',
   "skills/closed-loop-pr/helpers/process.js|const fs = require('node:fs');",
@@ -55,9 +59,9 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './builders': 1, './composition': 3, './evidence': 1, './fingerprints': 2, './gate-result': 3, './guards': 1, './index': 1, './operator': 3,
-  './paths': 4, './process': 5, './protocol': 12, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 6, 'node:fs': 4, 'node:os': 2, 'node:path': 5,
+  './builders': 1, './composition': 3, './evidence': 1, './fingerprints': 2, './gate-result': 4, './guards': 1, './index': 1, './launch': 2, './operator': 3,
+  './paths': 4, './process': 5, './protocol': 13, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 7, 'node:fs': 5, 'node:os': 3, 'node:path': 6,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
 const PROVENANCE_ANCHORS = [

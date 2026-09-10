@@ -12,6 +12,7 @@ module.exports = {
   ...require('./builders'),
   ...require('./guards'),
   ...require('./reply'),
+  ...require('./launch'),
   ...require('./protocol'),
   protocol: require('./protocol'),
 };

@@ -32,7 +32,7 @@ const PR_MODE_REFERENCES = {
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
-const PR_HELPER_FILES = ['builders.js', 'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
+const PR_HELPER_FILES = ['builders.js', 'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'launch.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
 // The pre-split PR Skill's size. This is not a budget: it encodes the claim that progressive
 // disclosure is smaller than the monolith it replaced, so raising it would falsify what it
 // exists to prove. CL-D43 leaves it alone, which makes it — not the six-file ceiling — the
@@ -279,10 +279,12 @@ test('Issue #24 the authority files remain below the published baseline', () => 
   // files measured 114,563 bytes at c2ad0db and 115,874 bytes at 9b5bc10, leaving 126 bytes.
   // CL-D60 raises it to 140,000 for the versioned gate identities: the seven files measured
   // 128,618 bytes on that change, 618 bytes over 128,000.
+  // CL-D68 raises it to 150,000 for the packaged gate launch and read: the seven files measured
+  // 140,311 bytes on that change, 311 bytes over 140,000.
   // The assertion below is the live measurement; the figures here are revision-qualified and
   // are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 140000, `authority files total ${total} bytes, expected less than 140000`);
+  assert.ok(total < 150000, `authority files total ${total} bytes, expected less than 150000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.
@@ -585,7 +587,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 35, `packed file count changed: ${files.join(', ')}`);
+    assert.equal(files.length, 36, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);

@@ -21,6 +21,7 @@ const SCHEMAS = Object.freeze({
   workspace_verify: { required: ['cwd', 'expected'], optional: ['transition'] },
   workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
+  gate_result_read: { required: ['runId'], optional: ['runsRoot'] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
   guard_before_edit: { required: ['cwd', 'expected', 'authorizedPaths'], optional: [] },
   overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
@@ -31,6 +32,7 @@ const SCHEMAS = Object.freeze({
   build_workspace_cleanup: { required: ['created', 'cwd'], optional: [] },
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
   build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },
+  build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: [] },
   build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },
   build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },
   required_evidence_check: { required: ['cwd', 'requiredEvidence'], optional: [] },
@@ -38,6 +40,18 @@ const SCHEMAS = Object.freeze({
   marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },
 });
 function object(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+// Bounded edit distance over the operation table; ties break by table order.
+function editDistance(a, b) {
+  const row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i += 1) {
+    let previous = row[0]; row[0] = i;
+    for (let j = 1; j <= b.length; j += 1) { const current = row[j]; row[j] = Math.min(row[j] + 1, row[j - 1] + 1, previous + (a[i - 1] === b[j - 1] ? 0 : 1)); previous = current; }
+  }
+  return row[b.length];
+}
+function nearestOperations(name) {
+  return Object.keys(SCHEMAS).map((known, index) => ({ known, index, distance: editDistance(name, known) })).sort((x, y) => x.distance - y.distance || x.index - y.index).slice(0, 3).map((entry) => entry.known);
+}
 // Bounded, JSON-aware description of a received value: missing and null are distinct,
 // scalars keep their concrete value, and containers are summarized — never typeof null.
 function describeReceived(value) {
@@ -80,7 +94,12 @@ function validateRequest(value) {
   }
   for (const key of Object.keys(value)) if (!['version', 'operation', 'data'].includes(key)) invalid(`unknown request envelope field: ${key}`, guardOperation, key);
   const schema = SCHEMAS[value.operation];
-  if (!schema) invalid('unknown operation');
+  if (!schema) {
+    // An invented name ends a run; naming the nearest known operations turns it into one corrected turn (CL-D68).
+    const nearest = nearestOperations(value.operation);
+    const error = new Error(`unknown operation ${value.operation}; nearest: ${nearest.join(', ')}`); error.code = 'invalid_request'; error.phase = 'cli'; error.details = { nearest };
+    throw error;
+  }
   const allowed = new Set([...schema.required, ...schema.optional]);
   for (const key of Object.keys(value.data)) if (!allowed.has(key)) invalid(`unknown request field: ${key}`, value.operation, key);
   for (const key of schema.required) if (!Object.hasOwn(value.data, key)) invalid(`missing request field: ${key}`, value.operation, key);
@@ -118,6 +137,7 @@ async function dispatch(request) {
     case 'workspace_verify': return wrap(operation, helpers.verifyWorkspace(data.cwd, data.expected, data.transition));
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
+    case 'gate_result_read': return wrap(operation, helpers.readGateResult(data));
     case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));
     case 'guard_before_edit': return wrap(operation, helpers.guardBeforeEdit(data));
     case 'overlay_freeze': return wrap(operation, helpers.overlayFreeze(data));
@@ -128,6 +148,7 @@ async function dispatch(request) {
     case 'build_workspace_cleanup': return wrap(operation, helpers.buildWorkspaceCleanup(data));
     case 'build_fingerprint_snapshot': return wrap(operation, helpers.buildFingerprintSnapshot(data));
     case 'build_gate_expectation': return wrap(operation, helpers.buildGateExpectation(data));
+    case 'build_gate_launch': return wrap(operation, helpers.buildGateLaunch(data));
     case 'build_manifest_capture': return wrap(operation, helpers.buildManifestCapture(data));
     case 'build_manifest_compare': return wrap(operation, helpers.buildManifestCompare(data));
     case 'required_evidence_check': return wrap(operation, helpers.requiredEvidenceCheck(data));

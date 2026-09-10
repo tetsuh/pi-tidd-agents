@@ -64,6 +64,9 @@ function buildWorkspaceCleanup(data) {
     const shapeProblem = inputShapeProblem('workspace_verify', { cwd: data.cwd, expected: data.created });
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem.replace('`expected`', '`created`'));
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
+    // A cwd at or inside the workspace being removed is the CL-D49 caller error; refuse it before the request exists (CL-D68).
+    const workspaceRoot = data.created.path.replace(/[\\/]+$/, '');
+    if (data.cwd === workspaceRoot || data.cwd.startsWith(`${workspaceRoot}/`) || data.cwd.startsWith(`${workspaceRoot}\\`)) fail('cleanup_cwd_inside_workspace', 'cleanup cwd must be the repository, not the workspace being removed');
     return built('build_workspace_cleanup', 'workspace_cleanup', { receipt: data.created.receipt, cwd: data.cwd });
   });
 }
