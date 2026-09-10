@@ -53,7 +53,7 @@ function readGateResult(data) {
     let status;
     try { status = JSON.parse(statusText); } catch (error) { fail('status_unparsable', `runner status record is not JSON: ${error.message}`, { statusPath }); }
     if (!plain(status) || status.runId !== data.runId) fail('run_mismatch', 'runner status record names a different run', { statusPath, recordedRunId: plain(status) ? status.runId ?? null : null });
-    // The run-level state is reported, never decides: a validated envelope at the designated path is the verdict
+    // The run state is reported, never decides: a validated envelope at the designated path is the verdict
     // whatever the runner's status says (CL-D58); the selected step's own completion is checked below.
     const steps = Array.isArray(status.steps) ? status.steps.filter((step) => plain(step) && text(step.structuredOutputPath)) : [];
     if (steps.length === 0) fail('designated_output_unrecorded', 'runner status record carries no structuredOutputPath', { statusPath });
