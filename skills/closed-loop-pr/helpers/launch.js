@@ -23,6 +23,11 @@ const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const ROLE_BY_GATE = Object.freeze({ adversarial: 'tidd-adversarial-reviewer', 'decision-drift': 'tidd-drift-reviewer', safety: 'tidd-safety-reviewer', convergence: 'tidd-convergence-reviewer' });
 const EVERY_GATE = Object.freeze({ file: 'skills/closed-loop-shared/references/gate-contract.md', heading: '#### Every-gate invariant payload block (CL-D2)' });
 const SOL_ONLY = Object.freeze({ file: 'skills/closed-loop-shared/references/gate-contract.md', heading: '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)' });
+// The volatile envelope is a closed, package-owned shape (the shared contract's volatile envelope and compact
+// history projection): target, evidence fingerprints, the exact body or diff, Language Profile, acceptance
+// criteria, and the compact gate history. No field carries an instruction; an unknown key never reaches the task.
+const VOLATILE_FIELDS = Object.freeze({ target: 'object', fingerprints: 'object', body: 'string', diff: 'string', languageProfile: 'string', acceptanceCriteria: 'array', history: 'object', decisions: 'array', comments: 'array' });
+const VOLATILE_REQUIRED = Object.freeze(['target', 'fingerprints', 'body']);
 const ROLE_BLOCKS = Object.freeze({
   issue: Object.freeze({ file: 'skills/closed-loop-issue/SKILL.md', heading: '### Issue gate role-authority blocks (CL-D2)', label: 'Issue' }),
   pr: Object.freeze({ file: 'skills/closed-loop-pr/SKILL.md', heading: '### PR gate role-authority blocks (CL-D2)', label: 'PR' }),
@@ -48,7 +53,8 @@ function readGateResult(data) {
     let status;
     try { status = JSON.parse(statusText); } catch (error) { fail('status_unparsable', `runner status record is not JSON: ${error.message}`, { statusPath }); }
     if (!plain(status) || status.runId !== data.runId) fail('run_mismatch', 'runner status record names a different run', { statusPath, recordedRunId: plain(status) ? status.runId ?? null : null });
-    if (status.state !== 'complete') fail('run_incomplete', `run state is ${JSON.stringify(status.state)}`, { statusPath, state: status.state ?? null });
+    // The run-level state is reported, never decides: a validated envelope at the designated path is the verdict
+    // whatever the runner's status says (CL-D58); the selected step's own completion is checked below.
     const steps = Array.isArray(status.steps) ? status.steps.filter((step) => plain(step) && text(step.structuredOutputPath)) : [];
     if (steps.length === 0) fail('designated_output_unrecorded', 'runner status record carries no structuredOutputPath', { statusPath });
     const step = steps[steps.length - 1];
@@ -63,7 +69,7 @@ function readGateResult(data) {
     let envelope;
     try { envelope = JSON.parse(outputText); } catch (error) { fail('designated_output_unparsable', `designated output is not JSON: ${error.message}`, { statusPath, structuredOutputPath, bytes }); }
     if (!plain(envelope)) fail('designated_output_unparsable', 'designated output is not a JSON object', { statusPath, structuredOutputPath, bytes });
-    return createResult(operation, { statusPath, structuredOutputPath, bytes, state: status.state, stepStatus: step.status ?? null, envelope });
+    return createResult(operation, { statusPath, structuredOutputPath, bytes, state: status.state ?? null, stepStatus: step.status ?? null, envelope });
   } catch (error) {
     return createError(operation, error.code || 'read_failed', error.message, operation, error.details);
   }
@@ -101,6 +107,14 @@ function buildGateLaunch(data) {
     if (!plain(data) || !plain(data.expectation) || !plain(data.expectation.expected) || !plain(data.expectation.outputSchema)) fail('invalid_request', 'expectation must be the data of build_gate_expectation');
     if (!text(data.expectationPath)) fail('invalid_request', 'expectationPath must be a nonempty string');
     if (!plain(data.volatile)) fail('invalid_request', 'volatile must be a plain object');
+    for (const key of Object.keys(data.volatile)) if (!Object.hasOwn(VOLATILE_FIELDS, key)) fail('volatile_unknown_field', `volatile carries an unknown field: ${key}`, { field: key, allowed: Object.keys(VOLATILE_FIELDS) });
+    for (const key of VOLATILE_REQUIRED) if (!Object.hasOwn(data.volatile, key)) fail('invalid_request', `volatile lacks required field: ${key}`);
+    for (const [key, kind] of Object.entries(VOLATILE_FIELDS)) {
+      if (!Object.hasOwn(data.volatile, key)) continue;
+      const value = data.volatile[key];
+      const okShape = kind === 'string' ? typeof value === 'string' : kind === 'array' ? Array.isArray(value) : plain(value);
+      if (!okShape) fail('invalid_request', `volatile field ${key} must be ${kind === 'array' ? 'an array' : kind === 'object' ? 'a plain object' : 'a string'}`);
+    }
     const expected = data.expectation.expected;
     expectedState(expected);
     if (JSON.stringify(data.expectation.outputSchema) !== JSON.stringify(SCHEMA)) fail('schema_mismatch', 'outputSchema is not the packaged CL-D36 schema byte for byte');
@@ -140,4 +154,4 @@ function helperTrust(top) {
   return { helperPath, helperInsideTarget };
 }
 
-module.exports = { readGateResult, buildGateLaunch, helperTrust, ROLE_BY_GATE };
+module.exports = { readGateResult, buildGateLaunch, helperTrust, ROLE_BY_GATE, VOLATILE_FIELDS, VOLATILE_REQUIRED };

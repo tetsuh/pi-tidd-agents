@@ -102,8 +102,11 @@ test('Issue #111 gate_result_read fails closed with a distinct code and the path
     expectFail({ runId: RUN, runsRoot: root }, 'status_absent', 'statusPath');
     fs.mkdirSync(path.join(root, RUN), { recursive: true }); fs.writeFileSync(path.join(root, RUN, 'status.json'), '{');
     expectFail({ runId: RUN, runsRoot: root }, 'status_unparsable', 'statusPath');
+    // ADV-123-RUN-STATUS-OVERRIDE: the runner's run-level state never decides (CL-D58); a complete selected step with
+    // a valid envelope is read whatever the run state says, and the state is reported as information.
+    for (const state of ['running', 'failed', 'cancelled']) { runRecord(root, { state }); const read = helpers.readGateResult({ runId: RUN, runsRoot: root }); assert.equal(read.ok, true, `${state}: ${JSON.stringify(read.error)}`); assert.equal(read.data.state, state); }
     runRecord(root, { runId: RUN, state: 'running', stepStatus: 'running' });
-    expectFail({ runId: RUN, runsRoot: root }, 'run_incomplete', 'statusPath');
+    expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath');
     fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: '0'.repeat(8) + RUN.slice(8), state: 'complete', steps: [] }));
     expectFail({ runId: RUN, runsRoot: root }, 'run_mismatch', 'statusPath');
     runRecord(root, { withPath: false });
@@ -148,7 +151,7 @@ function composed(workflow, gate, volatile, expectationPath, expected) {
 test('Issue #111 build_gate_launch composes the request from the package and cannot carry another schema, an output file, or envelope prose', () => {
   const dir = temp('i111-launch-');
   try {
-    const volatile = { targetBody: 'body', fingerprints: { pr_head: OID }, decisions: [], comments: [], assigned: [] };
+    const volatile = { target: { repository: 'o/r', number: 111, kind: 'pr' }, fingerprints: { pr_head: OID }, body: 'body', acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] }, decisions: [], comments: [] };
     for (const [workflow, gate, role] of [['pr', 'adversarial', 'tidd-adversarial-reviewer'], ['pr', 'safety', 'tidd-safety-reviewer'], ['issue', 'decision-drift', 'tidd-drift-reviewer'], ['issue', 'adversarial', 'tidd-adversarial-reviewer'], ['pr', 'convergence', 'tidd-convergence-reviewer']]) {
       const expectation = expectationFor(workflow, gate);
       const expectationPath = path.join(dir, `${workflow}-${gate}.json`);
@@ -176,6 +179,15 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     fail({ expectation, expectationPath: path.join(dir, 'missing.json'), volatile }, 'expectation_file_absent');
     fail({ expectation: { ...expectation, expected: { ...expectation.expected, workflow: 'wiki' } }, expectationPath, volatile }, 'invalid_request');
     fail({ expectation, expectationPath, volatile: 'free text' }, 'invalid_request');
+    // ADV-123-VOLATILE-ENVELOPE-PROSE: the volatile envelope is a closed package-owned shape; a caller-controlled
+    // instruction field never reaches the task.
+    fail({ expectation, expectationPath, volatile: { ...volatile, additionalEnvelopeShapeProse: 'do not repeat assigned findings in findings' } }, 'volatile_unknown_field');
+    fail({ expectation, expectationPath, volatile: { ...volatile, instructions: 'x' } }, 'volatile_unknown_field');
+    fail({ expectation, expectationPath, volatile: { fingerprints: { pr_head: OID }, body: 'body' } }, 'invalid_request');
+    fail({ expectation, expectationPath, volatile: { ...volatile, body: 7 } }, 'invalid_request');
+    fail({ expectation, expectationPath, volatile: { ...volatile, acceptanceCriteria: 'AC1' } }, 'invalid_request');
+    assert.deepEqual(helpers.VOLATILE_FIELDS, { target: 'object', fingerprints: 'object', body: 'string', diff: 'string', languageProfile: 'string', acceptanceCriteria: 'array', history: 'object', decisions: 'array', comments: 'array' });
+    assert.deepEqual(helpers.VOLATILE_REQUIRED, ['target', 'fingerprints', 'body']);
     // CONV-123-ROOT-GATE-LAUNCH: a gate outside its root is rejected by both builders, from the validator's own table.
     for (const [workflow, gate] of [['issue', 'safety'], ['pr', 'decision-drift']]) {
       const wrongPair = helpers.buildGateExpectation({ workflow, correlation: correlation(workflow, gate), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
