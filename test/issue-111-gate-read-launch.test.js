@@ -49,11 +49,13 @@ function expectationFor(workflow, gate) {
 }
 // A runner record as pi-subagents writes it: status.json names the step's structuredOutputPath.
 function runRecord(root, { runId = RUN, state = 'complete', stepStatus = 'complete', envelope = envelopeFor('pr', 'adversarial'), outputText, withPath = true } = {}) {
+  // `stepStatus: undefined` passed explicitly still defaults; callers that want no status field pass `null`.
   const dir = path.join(root, runId); fs.mkdirSync(path.join(dir, 'structured-output', 'x'), { recursive: true });
   const structuredOutputPath = path.join(dir, 'structured-output', 'x', 'output.json');
   if (outputText === null) fs.rmSync(structuredOutputPath, { force: true });
   else fs.writeFileSync(structuredOutputPath, outputText === undefined ? `${JSON.stringify(envelope, null, 2)}\n` : outputText);
-  const step = { agent: 'tidd-adversarial-reviewer', status: stepStatus };
+  const step = { agent: 'tidd-adversarial-reviewer' };
+  if (stepStatus !== null) step.status = stepStatus;
   if (withPath) step.structuredOutputPath = structuredOutputPath;
   fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId, state, steps: [step] }));
   return { dir, structuredOutputPath };
@@ -106,6 +108,10 @@ test('Issue #111 gate_result_read fails closed with a distinct code and the path
     expectFail({ runId: RUN, runsRoot: root }, 'run_mismatch', 'statusPath');
     runRecord(root, { withPath: false });
     expectFail({ runId: RUN, runsRoot: root }, 'designated_output_unrecorded', 'statusPath');
+    // CONV-123-INCOMPLETE-STEP-READ: a completed run whose selected step failed or is still running, with a valid
+    // envelope at its path, is not a result.
+    for (const stepStatus of ['failed', 'running', 'cancelled']) { runRecord(root, { stepStatus }); const result = expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath'); assert.equal(result.error.details.stepStatus, stepStatus); }
+    runRecord(root, { stepStatus: null }); expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath');
     runRecord(root, { outputText: null });
     expectFail({ runId: RUN, runsRoot: root }, 'designated_output_absent', 'structuredOutputPath');
     runRecord(root, { outputText: '' });
@@ -219,6 +225,14 @@ test('Issue #111 workspace_cleanup and its builder refuse a cwd inside the works
     const direct = await helpers.cleanupWorkspace(created.data.receipt, created.data.path);
     assert.equal(direct.ok, false); assert.equal(direct.error.code, 'cleanup_cwd_inside_workspace', JSON.stringify(direct.error));
     assert.ok(fs.existsSync(created.data.path), 'nothing was removed');
+    // CONV-123-SYMLINK-CLEANUP-CWD: a symlink alias of the workspace, or a path below it, is the same cwd.
+    if (process.platform !== 'win32') {
+      const aliasParent = temp('i111-alias-'); const alias = path.join(aliasParent, 'ws'); fs.symlinkSync(created.data.path, alias);
+      try {
+        for (const cwd of [alias, path.join(alias, 'sub')]) { const viaAlias = await helpers.cleanupWorkspace(created.data.receipt, cwd); assert.equal(viaAlias.ok, false); assert.equal(viaAlias.error.code, 'cleanup_cwd_inside_workspace', `${cwd}: ${JSON.stringify(viaAlias.error)}`); }
+        assert.ok(fs.existsSync(created.data.path), 'nothing was removed through the alias');
+      } finally { fs.rmSync(aliasParent, { recursive: true, force: true }); }
+    }
     const proper = helpers.buildWorkspaceCleanup({ created: created.data, cwd: repository.root });
     assert.equal(proper.ok, true, JSON.stringify(proper.error));
     const removed = await helpers.cleanupWorkspace(proper.data.request.data.receipt, proper.data.request.data.cwd);

@@ -310,6 +310,19 @@ function createWorkspace({ cwd, head, tree, runRoot, allowCloneFallback = true }
     return createResult('workspace', { ...actual, root, kind: 'linked', receipt, cleanupAllowed: true });
   } catch (error) { return createError('workspace', error.code || 'workspace_failed', error.message, error.phase || 'workspace_create'); }
 }
+// The canonical form of a path that may not exist yet: its deepest existing ancestor is resolved through
+// symlinks and the remainder is appended lexically.
+function canonicalThroughExisting(target) {
+  const remainder = [];
+  let current = target;
+  for (;;) {
+    try { return remainder.length ? path.join(canon(current), ...remainder.reverse()) : canon(current); } catch (error) {
+      const parent = path.dirname(current);
+      if (parent === current) return target;
+      remainder.push(path.basename(current)); current = parent;
+    }
+  }
+}
 async function cleanupWorkspace(input, cwd) {
   try {
     const receipt = input?.data?.receipt || input?.receipt || input;
@@ -321,7 +334,9 @@ async function cleanupWorkspace(input, cwd) {
       && JSON.stringify(receipt.creationIdentity) === JSON.stringify(creation);
     if (!validReceipt || creation.kind !== 'linked') return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
     const repositoryCwd = cwd || receipt.repositoryCwd;
-    const resolvedCwd = path.resolve(repositoryCwd), workspaceRoot = path.resolve(creation.path);
+    // Identity, not spelling: the cwd is canonicalized through its deepest existing ancestor, so a symlink
+    // alias of the workspace, or a path below one, is the same cwd (CONV-123-SYMLINK-CLEANUP-CWD).
+    const resolvedCwd = canonicalThroughExisting(path.resolve(repositoryCwd)), workspaceRoot = canonicalThroughExisting(path.resolve(creation.path));
     if (resolvedCwd === workspaceRoot || resolvedCwd.startsWith(`${workspaceRoot}${path.sep}`)) return createError('workspace_cleanup', 'cleanup_cwd_inside_workspace', 'cleanup cwd must be the repository, not the workspace being removed', 'workspace_cleanup', { cwd: resolvedCwd, workspace: workspaceRoot });
     const actual = inspectWorkspace(creation.path, repositoryCwd, { ...creation, head: undefined, tree: undefined, registered: creation.registered });
     if (!actual.matches || !actual.registered || actual.registered.branch) return createError('workspace_cleanup', 'identity_mismatch', 'workspace administrative identity changed before cleanup', 'workspace_cleanup');

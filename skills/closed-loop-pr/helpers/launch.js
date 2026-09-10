@@ -53,6 +53,9 @@ function readGateResult(data) {
     if (steps.length === 0) fail('designated_output_unrecorded', 'runner status record carries no structuredOutputPath', { statusPath });
     const step = steps[steps.length - 1];
     const structuredOutputPath = step.structuredOutputPath;
+    // A completed run whose selected step failed, is still running, or carries no status is not a result,
+    // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).
+    if (step.status !== 'complete') fail('step_incomplete', `selected step status is ${JSON.stringify(step.status ?? null)}`, { statusPath, structuredOutputPath, stepStatus: step.status ?? null });
     let outputText;
     try { outputText = readUtf8(structuredOutputPath); } catch (error) { fail('designated_output_absent', `designated output is not readable: ${error.message}`, { statusPath, structuredOutputPath }); }
     const bytes = Buffer.byteLength(outputText);
