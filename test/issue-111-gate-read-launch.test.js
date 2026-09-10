@@ -175,6 +175,13 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     fail({ expectation, expectationPath: path.join(dir, 'missing.json'), volatile }, 'expectation_file_absent');
     fail({ expectation: { ...expectation, expected: { ...expectation.expected, workflow: 'wiki' } }, expectationPath, volatile }, 'invalid_request');
     fail({ expectation, expectationPath, volatile: 'free text' }, 'invalid_request');
+    // CONV-123-ROOT-GATE-LAUNCH: a gate outside its root is rejected by both builders, from the validator's own table.
+    for (const [workflow, gate] of [['issue', 'safety'], ['pr', 'decision-drift']]) {
+      const wrongPair = helpers.buildGateExpectation({ workflow, correlation: correlation(workflow, gate), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
+      assert.equal(wrongPair.ok, false, `${workflow}/${gate} expectation`); assert.equal(wrongPair.error.code, 'gate_outside_root', JSON.stringify(wrongPair.error));
+      const forged = JSON.parse(JSON.stringify(expectation)); forged.expected.workflow = workflow; forged.expected.correlation.gate = gate;
+      fail({ expectation: forged, expectationPath, volatile }, 'gate_outside_root');
+    }
     fs.writeFileSync(expectationPath, `${JSON.stringify(expectation.expected, null, 2)}\n`);
     const viaCli = cli('build_gate_launch', { expectation, expectationPath, volatile });
     assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error));

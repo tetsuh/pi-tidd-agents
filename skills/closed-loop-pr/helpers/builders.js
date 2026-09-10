@@ -8,7 +8,7 @@
 
 const { createResult, createError } = require('./protocol');
 const { inputShapeProblem, authorizedPathsProblem } = require('./composition');
-const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema } = require('./gate-result');
+const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } = require('./gate-result');
 
 // Transition OIDs mirror the CLI's 40-or-64 hex rule; postPushHead mirrors
 // operator_revalidate's exact 40-hex commit rule (SOL-98-OID-WIDTH).
@@ -109,6 +109,8 @@ function buildGateExpectation(data) {
       assignedFindings: data.assignedFindings, requiredEvidence: data.requiredEvidence,
     };
     expectedState(expected);
+    // A gate outside its root cannot validate later; refuse it before an expectation exists (CONV-123-ROOT-GATE-LAUNCH).
+    if (!ROOT_GATES[data.workflow].includes(data.correlation.gate)) fail('gate_outside_root', `gate ${data.correlation.gate} is not a ${data.workflow} gate`);
     checkRequiredEvidence(data.requiredEvidence);
     // The canonical CL-D36 schema rides along so the parent copies a derivation instead of
     // re-authoring one (CL-D47's rule applied to schemas).

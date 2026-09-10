@@ -200,4 +200,4 @@ function validateGateResult(v, e) {
 // checkSchema exposes the same structural walk validateGateResult applies, so builders can
 // validate a correlation with the boundary's own checker instead of a re-derivation.
 function checkSchema(schema, value, pathName = 'value') { check(schema, value, pathName); }
-module.exports = { SCHEMA, SCHEMAS, validateGateResult, expectedState, checkRequiredEvidence, checkSchema };
+module.exports = { SCHEMA, SCHEMAS, ROOT_GATES, validateGateResult, expectedState, checkRequiredEvidence, checkSchema };
