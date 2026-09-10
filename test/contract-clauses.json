@@ -3329,6 +3329,45 @@
         "the adversarial gate names every same-class rigor gap in one result and the writer writes exact checks",
         "CL-D66 records the placement, the declined alternatives, and the boundary"
       ]
+    },
+    {
+      "id": "CL-D67-template",
+      "marker": "CL-D67",
+      "title": "The PR Skill states the body template and keeps per-head facts out of the body",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "section": "### PR body template (CL-D67)",
+      "requires": [
+        "A pull-request body under this workflow carries four parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; the AC-TDD classification of the RED with its command and counts; and a chronology of review rounds, followed at most by one tooling attribution footer.",
+        "Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology is appended after each review round (CL-D67)."
+      ]
+    },
+    {
+      "id": "CL-D67-record",
+      "marker": "CL-D67",
+      "title": "The CL-D67 record states the choice, the declined bounded body edit, and the boundary",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D67 — Pull-request bodies carry no per-head facts",
+      "requires": [
+        "Option A adds one bounded pull-request body edit to the exact-autofix grant",
+        "the exact-autofix publication grant is unchanged: one commit and one push per correction batch, no body edit",
+        "Adding a body edit to the grant requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D67-tests",
+      "marker": "CL-D67",
+      "title": "The CL-D67 fixtures pin the template and the record",
+      "files": [
+        "test/issue-120-pr-body-template.test.js"
+      ],
+      "requires": [
+        "the PR Skill states the body template and keeps per-head facts out of the body",
+        "CL-D67 records the choice, the declined bounded body edit, and the boundary"
+      ]
     }
   ]
 }
