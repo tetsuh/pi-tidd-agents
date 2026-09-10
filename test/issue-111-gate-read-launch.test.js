@@ -144,6 +144,7 @@ function composed(workflow, gate, volatile, expectationPath, expected) {
   if (gate !== 'convergence') parts.push(`${workflow === 'issue' ? 'Issue' : 'PR'} ${gate === 'adversarial' ? 'Sol' : 'Terra'} role-authority block: ${roleSentence(workflow, gate === 'adversarial' ? 'Sol' : 'Terra')}`);
   parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(volatile, null, 2)}\n\`\`\``);
   parts.push(`## Expectation (copy identities verbatim)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
+  parts.push(`## Evidence records (from the expectation; readCompletely is the child's attestation)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map((entry) => ({ ...entry, readCompletely: false })), null, 2)}\n\`\`\``);
   parts.push(`Expectation file: ${expectationPath}\nPackaged validator: node ${CLI} (operation gate_result_validate, CL-D65)`);
   return `${parts.join('\n\n')}\n`;
 }
@@ -258,6 +259,10 @@ test('Issue #111 workspace_cleanup and its builder refuse a cwd inside the works
     const ws = created.data.path;
     assert.equal(helpers.cleanupCwdProblem(repository.root, ws), null);
     assert.equal(helpers.cleanupCwdProblem(`${ws}2`, ws), null, 'a sibling that shares the prefix is outside');
+    // Convergence lead on 3e5caf7 (non-authoritative): the predicate normalizes lexically, without I/O, so `..`, `.`,
+    // repeated separators, and backslashes cannot spell a path below the workspace as something else.
+    for (const cwd of [`${path.dirname(ws)}/../${path.basename(path.dirname(ws))}/${path.basename(ws)}/sub`, `${ws}/./sub`, `${ws}/sub/../other`, `${ws}\\sub`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem, `${cwd} is below the workspace`); const builtAlias = helpers.buildWorkspaceCleanup({ created: created.data, cwd }); assert.equal(builtAlias.error?.code, 'cleanup_cwd_inside_workspace', `${cwd}: ${JSON.stringify(builtAlias.error)}`); }
+    assert.equal(helpers.cleanupCwdProblem(`${ws}/../${path.basename(ws)}2`, ws), null, 'a dotdot spelling of the sibling is still outside');
     for (const cwd of [ws, `${ws}/`, path.join(ws, 'sub'), `${ws}//sub/`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem && problem.subcheck === 'cleanup_cwd' && problem.observed === cwd, `${cwd}: ${JSON.stringify(problem)}`); }
     assert.match(readText('skills/closed-loop-pr/helpers/builders.js'), /cleanupCwdProblem\(data\.cwd, data\.created\.path\)/, 'the builder applies the shared predicate');
     assert.match(readText('skills/closed-loop-pr/helpers/workspace.js'), /cleanupCwdProblem\(resolvedCwd, workspaceRoot\)/, 'the operation applies the shared predicate to canonical identities');

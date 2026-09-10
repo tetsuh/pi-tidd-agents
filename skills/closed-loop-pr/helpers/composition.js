@@ -145,10 +145,23 @@ function inputShapeProblem(operation, data) {
 // The cleanup cwd rule as one pure predicate shared by `build_workspace_cleanup` and `workspace_cleanup`:
 // a cwd at or below the workspace being removed is the CL-D49 caller error. The builder applies it to the
 // request's strings; the operation applies it to canonical filesystem identities (CL-D68).
+// Lexical normalization without filesystem I/O: separators unified, `.` dropped, `..` folded, repeats and a
+// trailing separator removed. Spelling cannot hide a path below the workspace; symlink identity is the
+// consumer's, which canonicalizes before applying this predicate.
+function lexicalPath(value) {
+  const absolute = /^[\\/]/.test(value) || /^[A-Za-z]:[\\/]/.test(value);
+  const drive = value.match(/^[A-Za-z]:/) ? value.slice(0, 2) : '';
+  const segments = [];
+  for (const segment of value.slice(drive.length).split(/[\\/]+/)) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') { if (segments.length && segments[segments.length - 1] !== '..') segments.pop(); else if (!absolute) segments.push('..'); continue; }
+    segments.push(segment);
+  }
+  return `${drive}${absolute ? '/' : ''}${segments.join('/')}`;
+}
 function cleanupCwdProblem(cwd, workspaceRoot) {
-  const strip = (value) => value.replace(/[\\/]+$/, '');
-  const root = strip(workspaceRoot), candidate = strip(cwd);
-  const inside = candidate === root || candidate.startsWith(`${root}/`) || candidate.startsWith(`${root}\\`);
+  const root = lexicalPath(workspaceRoot), candidate = lexicalPath(cwd);
+  const inside = candidate === root || candidate.startsWith(`${root}/`);
   return inside ? { subcheck: 'cleanup_cwd', message: 'cleanup cwd must be the repository, not the workspace being removed', observed: cwd } : null;
 }
 
