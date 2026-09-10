@@ -135,11 +135,12 @@ function roleSentence(workflow, nickname) {
   assert.ok(line, `${workflow} ${nickname} role block line`);
   return line.slice(line.indexOf('`: `') + 4, -1);
 }
-function composed(workflow, gate, volatile, expectationPath) {
+function composed(workflow, gate, volatile, expectationPath, expected) {
   const parts = [block(EVERY_GATE)];
   if (gate === 'adversarial') parts.push(block(SOL_ONLY));
   if (gate !== 'convergence') parts.push(`${workflow === 'issue' ? 'Issue' : 'PR'} ${gate === 'adversarial' ? 'Sol' : 'Terra'} role-authority block: ${roleSentence(workflow, gate === 'adversarial' ? 'Sol' : 'Terra')}`);
   parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(volatile, null, 2)}\n\`\`\``);
+  parts.push(`## Expectation (copy identities verbatim)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
   parts.push(`Expectation file: ${expectationPath}\nPackaged validator: node ${CLI} (operation gate_result_validate, CL-D65)`);
   return `${parts.join('\n\n')}\n`;
 }
@@ -160,7 +161,7 @@ test('Issue #111 build_gate_launch composes the request from the package and can
       assert.deepEqual({ context: request.context, async: request.async, outputMode: request.outputMode, acceptance: request.acceptance }, { context: 'fresh', async: true, outputMode: 'inline', acceptance: false });
       assert.deepEqual(request.outputSchema, gateResult.SCHEMA, 'the builder schema byte for byte');
       assert.notEqual(request.outputSchema, expectation.outputSchema, 'a detached copy, never an alias');
-      assert.equal(request.task, composed(workflow, gate, volatile, expectationPath), `${workflow}/${gate}: the task is exactly the verbatim blocks, the volatile envelope, and the two machine lines`);
+      assert.equal(request.task, composed(workflow, gate, volatile, expectationPath, expectation.expected), `${workflow}/${gate}: the task is exactly the verbatim blocks, the volatile envelope, the expectation as data, and the two machine lines`);
       const expectedBlocks = [EVERY_GATE, ...(gate === 'adversarial' ? [SOL_ONLY] : []), ...(gate === 'convergence' ? [] : [ROLE_BLOCKS[workflow]])].map(([file, heading]) => ({ file, heading, sha256: sha256(block([file, heading])) }));
       assert.deepEqual(blocks.map(({ file, heading, sha256: digest }) => ({ file, heading, sha256: digest })), expectedBlocks, `${workflow}/${gate}: block digests`);
       assert.equal(built.data.packageRoot, repoPath('.'), 'blocks are read from the installed package root');

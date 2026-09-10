@@ -122,6 +122,8 @@ function buildGateLaunch(data) {
       blocks.push(role.block); parts.push(`${role.label}: ${role.sentence}`);
     }
     parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(data.volatile, null, 2)}\n\`\`\``);
+    // The expectation rides along as data: required-evidence identities are copied from here, never retyped (CL-D47, CL-D65).
+    parts.push(`## Expectation (copy identities verbatim)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
     parts.push(`Expectation file: ${data.expectationPath}\nPackaged validator: node ${CLI_PATH} (operation gate_result_validate, CL-D65)`);
     const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false, outputSchema: JSON.parse(JSON.stringify(SCHEMA)) };
     return createResult(operation, { request, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });
