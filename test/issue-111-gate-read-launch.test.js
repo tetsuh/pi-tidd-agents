@@ -240,6 +240,14 @@ test('Issue #111 workspace_cleanup and its builder refuse a cwd inside the works
         assert.ok(fs.existsSync(created.data.path), 'nothing was removed through the alias');
       } finally { fs.rmSync(aliasParent, { recursive: true, force: true }); }
     }
+    // CONV-123-CLEANUP-BUILDER-ALIAS: one pure predicate serves both; the builder applies it to the request's strings,
+    // the operation to canonical filesystem identities (state only the consumer can observe).
+    const ws = created.data.path;
+    assert.equal(helpers.cleanupCwdProblem(repository.root, ws), null);
+    assert.equal(helpers.cleanupCwdProblem(`${ws}2`, ws), null, 'a sibling that shares the prefix is outside');
+    for (const cwd of [ws, `${ws}/`, path.join(ws, 'sub'), `${ws}//sub/`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem && problem.subcheck === 'cleanup_cwd' && problem.observed === cwd, `${cwd}: ${JSON.stringify(problem)}`); }
+    assert.match(readText('skills/closed-loop-pr/helpers/builders.js'), /cleanupCwdProblem\(data\.cwd, data\.created\.path\)/, 'the builder applies the shared predicate');
+    assert.match(readText('skills/closed-loop-pr/helpers/workspace.js'), /cleanupCwdProblem\(resolvedCwd, workspaceRoot\)/, 'the operation applies the shared predicate to canonical identities');
     const proper = helpers.buildWorkspaceCleanup({ created: created.data, cwd: repository.root });
     assert.equal(proper.ok, true, JSON.stringify(proper.error));
     const removed = await helpers.cleanupWorkspace(proper.data.request.data.receipt, proper.data.request.data.cwd);
@@ -278,6 +286,7 @@ test('Issue #111 CL-D68 records the widening and the manifest pins it', () => {
   assert.match(record, /widens CL-D56's builder family by a read-only composer whose only I\/O is reading the installed package's own authority files/);
   assert.match(record, /the parent never chooses the path/);
   assert.match(record, /`validation_run` \(#64 item 1\) is deferred to its own decision/);
+  assert.match(record, /the cleanup builder and the cleanup operation share one pure cwd predicate: the operation applies it to canonical filesystem identities and the builder to the request's strings, because filesystem identity is consumer-side state like every identity check/);
   // The raise, with its property asserted at the raise: the seven files measured 140,311 bytes then.
   const CL_D68_BASELINE_BYTES = 140311;
   assert.match(record, /raises the authority ceiling once more, from 140,000 to 150,000 bytes: the seven authority files measured 140,311 bytes/);

@@ -142,4 +142,14 @@ function inputShapeProblem(operation, data) {
   return null;
 }
 
-module.exports = { INPUT_SHAPES, inputShapeProblem, authorizedPathsProblem };
+// The cleanup cwd rule as one pure predicate shared by `build_workspace_cleanup` and `workspace_cleanup`:
+// a cwd at or below the workspace being removed is the CL-D49 caller error. The builder applies it to the
+// request's strings; the operation applies it to canonical filesystem identities (CL-D68).
+function cleanupCwdProblem(cwd, workspaceRoot) {
+  const strip = (value) => value.replace(/[\\/]+$/, '');
+  const root = strip(workspaceRoot), candidate = strip(cwd);
+  const inside = candidate === root || candidate.startsWith(`${root}/`) || candidate.startsWith(`${root}\\`);
+  return inside ? { subcheck: 'cleanup_cwd', message: 'cleanup cwd must be the repository, not the workspace being removed', observed: cwd } : null;
+}
+
+module.exports = { INPUT_SHAPES, inputShapeProblem, authorizedPathsProblem, cleanupCwdProblem };

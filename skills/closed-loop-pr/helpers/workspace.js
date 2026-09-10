@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const os = require('node:os');
 const { run, runSync, gitArgs, assertSafeRepositoryConfig, isolationPaths } = require('./process');
 const { createResult, createError } = require('./protocol');
+const { cleanupCwdProblem } = require('./composition');
 const { assertSymlinkFreePath, lstatKind, classifyRuntimeRoots, normalizeCheckoutPath } = require('./paths');
 
 function nonce() { return crypto.randomBytes(32).toString('base64url'); }
@@ -337,7 +338,8 @@ async function cleanupWorkspace(input, cwd) {
     // Identity, not spelling: the cwd is canonicalized through its deepest existing ancestor, so a symlink
     // alias of the workspace, or a path below one, is the same cwd (CONV-123-SYMLINK-CLEANUP-CWD).
     const resolvedCwd = canonicalThroughExisting(path.resolve(repositoryCwd)), workspaceRoot = canonicalThroughExisting(path.resolve(creation.path));
-    if (resolvedCwd === workspaceRoot || resolvedCwd.startsWith(`${workspaceRoot}${path.sep}`)) return createError('workspace_cleanup', 'cleanup_cwd_inside_workspace', 'cleanup cwd must be the repository, not the workspace being removed', 'workspace_cleanup', { cwd: resolvedCwd, workspace: workspaceRoot });
+    const cwdProblem = cleanupCwdProblem(resolvedCwd, workspaceRoot);
+    if (cwdProblem !== null) return createError('workspace_cleanup', 'cleanup_cwd_inside_workspace', cwdProblem.message, 'workspace_cleanup', { cwd: resolvedCwd, workspace: workspaceRoot });
     const actual = inspectWorkspace(creation.path, repositoryCwd, { ...creation, head: undefined, tree: undefined, registered: creation.registered });
     if (!actual.matches || !actual.registered || actual.registered.branch) return createError('workspace_cleanup', 'identity_mismatch', 'workspace administrative identity changed before cleanup', 'workspace_cleanup');
     await run('git', gitArgs(['worktree', 'remove', actual.path]), { cwd: repositoryCwd, phase: 'workspace_cleanup' });

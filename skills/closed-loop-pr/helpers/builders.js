@@ -7,7 +7,7 @@
 // network, or Git reach, and no authority beyond assembling a request the caller still runs.
 
 const { createResult, createError } = require('./protocol');
-const { inputShapeProblem, authorizedPathsProblem } = require('./composition');
+const { inputShapeProblem, authorizedPathsProblem, cleanupCwdProblem } = require('./composition');
 const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } = require('./gate-result');
 
 // Transition OIDs mirror the CLI's 40-or-64 hex rule; postPushHead mirrors
@@ -64,9 +64,9 @@ function buildWorkspaceCleanup(data) {
     const shapeProblem = inputShapeProblem('workspace_verify', { cwd: data.cwd, expected: data.created });
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem.replace('`expected`', '`created`'));
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
-    // A cwd at or inside the workspace being removed is the CL-D49 caller error; refuse it before the request exists (CL-D68).
-    const workspaceRoot = data.created.path.replace(/[\\/]+$/, '');
-    if (data.cwd === workspaceRoot || data.cwd.startsWith(`${workspaceRoot}/`) || data.cwd.startsWith(`${workspaceRoot}\\`)) fail('cleanup_cwd_inside_workspace', 'cleanup cwd must be the repository, not the workspace being removed');
+    // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it before the request exists (CL-D68).
+    const cwdProblem = cleanupCwdProblem(data.cwd, data.created.path);
+    if (cwdProblem !== null) fail('cleanup_cwd_inside_workspace', cwdProblem.message);
     return built('build_workspace_cleanup', 'workspace_cleanup', { receipt: data.created.receipt, cwd: data.cwd });
   });
 }
