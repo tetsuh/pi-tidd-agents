@@ -2,9 +2,8 @@
 
 const path = require('node:path');
 const { runSync, gitArgs, assertSafeRepositoryConfig } = require('./process');
-const { classifyRuntimeRoots, normalizeCheckoutPath, lstatKind } = require('./paths');
+const { classifyRuntimeRoots, normalizeCheckoutPath, lstatKind, helperTrust } = require('./paths');
 const { createResult, createError } = require('./protocol');
-const { helperTrust } = require('./launch');
 
 const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];
 const IDENTITY_FIELDS = ['repository', 'prNumber', 'lifecycle', 'baseOid', 'publicHead', 'headRepository', 'headBranch', 'originFetch', 'originPush'];

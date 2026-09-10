@@ -3411,7 +3411,8 @@
         "`validation_run` (#64 item 1) is deferred to its own decision",
         "A composer that writes, reaches the network or Git, or reads outside the installed package, or a second source for the launch request, requires a new owner decision",
         "raises the authority ceiling once more, from 140,000 to 150,000 bytes",
-        "the cleanup builder and the cleanup operation share one pure cwd predicate"
+        "the cleanup builder and the cleanup operation share one pure cwd predicate",
+        "widens CL-D44's declared field set by `build_gate_launch.expectation`"
       ]
     },
     {

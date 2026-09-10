@@ -201,6 +201,14 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error));
     assert.equal('output' in viaCli.data.request, false);
     assert.deepEqual(cliSchemas().build_gate_launch, ['expectation', 'expectationPath', 'volatile']);
+    // ADV-123-CLD44-LAUNCH-EXPECTATION-UNDECLARED: the cross-operation field is declared in the CL-D44 table and
+    // judged by its one predicate at the request boundary, before the composer runs.
+    assert.deepEqual(helpers.INPUT_SHAPES.build_gate_launch, { expectation: 'data:build_gate_expectation' });
+    assert.equal(helpers.inputShapeProblem('build_gate_launch', { expectation, expectationPath, volatile }), null);
+    const wrongShape = cli('build_gate_launch', { expectation: expectation.expected, expectationPath, volatile });
+    assert.equal(wrongShape.ok, false); assert.equal(wrongShape.error.code, 'input_shape_mismatch', JSON.stringify(wrongShape.error)); assert.match(wrongShape.error.message, /`expectation` must be data:build_gate_expectation/);
+    const inLibrary = helpers.buildGateLaunch({ expectation: { expected: expectation.expected }, expectationPath, volatile });
+    assert.equal(inLibrary.error.code, 'input_shape_mismatch'); assert.equal(inLibrary.error.phase, 'build');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -263,6 +271,8 @@ test('Issue #111 workspace_cleanup and its builder refuse a cwd inside the works
     // repeated separators, and backslashes cannot spell a path below the workspace as something else.
     for (const cwd of [`${path.dirname(ws)}/../${path.basename(path.dirname(ws))}/${path.basename(ws)}/sub`, `${ws}/./sub`, `${ws}/sub/../other`, `${ws}\\sub`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem, `${cwd} is below the workspace`); const builtAlias = helpers.buildWorkspaceCleanup({ created: created.data, cwd }); assert.equal(builtAlias.error?.code, 'cleanup_cwd_inside_workspace', `${cwd}: ${JSON.stringify(builtAlias.error)}`); }
     assert.equal(helpers.cleanupCwdProblem(`${ws}/../${path.basename(ws)}2`, ws), null, 'a dotdot spelling of the sibling is still outside');
+    // ADV-123-RELATIVE-CLEANUP-CWD-BYPASS: a relative cwd has no identity a pure builder can judge; it is refused as such.
+    for (const cwd of ['sub', './sub', `${path.basename(ws)}/sub`, '../elsewhere']) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.equal(problem?.subcheck, 'cleanup_cwd_relative', `${cwd}: ${JSON.stringify(problem)}`); const builtRelative = helpers.buildWorkspaceCleanup({ created: created.data, cwd }); assert.equal(builtRelative.error?.code, 'cleanup_cwd_relative', `${cwd}: ${JSON.stringify(builtRelative.error)}`); }
     for (const cwd of [ws, `${ws}/`, path.join(ws, 'sub'), `${ws}//sub/`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem && problem.subcheck === 'cleanup_cwd' && problem.observed === cwd, `${cwd}: ${JSON.stringify(problem)}`); }
     assert.match(readText('skills/closed-loop-pr/helpers/builders.js'), /cleanupCwdProblem\(data\.cwd, data\.created\.path\)/, 'the builder applies the shared predicate');
     assert.match(readText('skills/closed-loop-pr/helpers/workspace.js'), /cleanupCwdProblem\(resolvedCwd, workspaceRoot\)/, 'the operation applies the shared predicate to canonical identities');
@@ -305,6 +315,7 @@ test('Issue #111 CL-D68 records the widening and the manifest pins it', () => {
   assert.match(record, /the parent never chooses the path/);
   assert.match(record, /`validation_run` \(#64 item 1\) is deferred to its own decision/);
   assert.match(record, /the cleanup builder and the cleanup operation share one pure cwd predicate: the operation applies it to canonical filesystem identities and the builder to the request's strings, because filesystem identity is consumer-side state like every identity check/);
+  assert.match(record, /widens CL-D44's declared field set by `build_gate_launch\.expectation`, shape `data:build_gate_expectation`, pinned exactly like the five/);
   // The raise, with its property asserted at the raise: the seven files measured 140,311 bytes then.
   const CL_D68_BASELINE_BYTES = 140311;
   assert.match(record, /raises the authority ceiling once more, from 140,000 to 150,000 bytes: the seven authority files measured 140,311 bytes/);

@@ -6,8 +6,7 @@
 // never chooses a path. `buildGateLaunch` composes the launch request from the built expectation and
 // the installed package's own payload blocks (CL-D2, CL-D29): the schema is the builder's byte for
 // byte, the blocks are copied verbatim with their digests recorded, and the request has no output
-// field and no free-text envelope instruction. `helperTrust` names the helper that actually ran so
-// operator_capture can refuse a helper resolved inside the reviewed checkout.
+// field and no free-text envelope instruction. The helper-trust probe lives in paths.js.
 
 const fs = require('node:fs');
 const os = require('node:os');
@@ -15,6 +14,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
 const { SCHEMA, ROOT_GATES, expectedState } = require('./gate-result');
+const { inputShapeProblem } = require('./composition');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CLI_PATH = path.join(__dirname, 'cli.js');
@@ -104,7 +104,10 @@ function roleBlockLine(source, nickname) {
 function buildGateLaunch(data) {
   const operation = 'build_gate_launch';
   try {
-    if (!plain(data) || !plain(data.expectation) || !plain(data.expectation.expected) || !plain(data.expectation.outputSchema)) fail('invalid_request', 'expectation must be the data of build_gate_expectation');
+    if (!plain(data)) fail('invalid_request', 'request data must be a plain object');
+    // The boundary's own predicate table judges the cross-operation field first (CL-D44, CL-D68).
+    const shapeProblem = inputShapeProblem('build_gate_launch', data);
+    if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem);
     if (!text(data.expectationPath)) fail('invalid_request', 'expectationPath must be a nonempty string');
     if (!plain(data.volatile)) fail('invalid_request', 'volatile must be a plain object');
     for (const key of Object.keys(data.volatile)) if (!Object.hasOwn(VOLATILE_FIELDS, key)) fail('volatile_unknown_field', `volatile carries an unknown field: ${key}`, { field: key, allowed: Object.keys(VOLATILE_FIELDS) });
@@ -149,12 +152,4 @@ function buildGateLaunch(data) {
   }
 }
 
-// The helper that ran, and whether it resolved inside the checkout under review.
-function helperTrust(top) {
-  const helperPath = fs.realpathSync.native(__dirname);
-  const target = fs.realpathSync.native(top);
-  const helperInsideTarget = helperPath === target || helperPath.startsWith(`${target}${path.sep}`);
-  return { helperPath, helperInsideTarget };
-}
-
-module.exports = { readGateResult, buildGateLaunch, helperTrust, ROLE_BY_GATE, VOLATILE_FIELDS, VOLATILE_REQUIRED };
+module.exports = { readGateResult, buildGateLaunch, ROLE_BY_GATE, VOLATILE_FIELDS, VOLATILE_REQUIRED };

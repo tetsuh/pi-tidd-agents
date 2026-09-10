@@ -20,6 +20,8 @@ const INPUT_SHAPES = Object.freeze({
   workspace_cleanup: Object.freeze({ receipt: 'receipt:workspace_create' }),
   fingerprint_snapshot: Object.freeze({ snapshot: 'data:snapshot' }),
   gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),
+  // CL-D68: the composer's cross-operation field, the data of build_gate_expectation.
+  build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation' }),
 });
 
 const { RUNTIME_ROOTS } = require('./operator');
@@ -109,6 +111,10 @@ const PREDICATES = Object.freeze({
       .every((key) => Array.isArray(value[key])),
   'structured:gate_result': (value) => plain(value) && [1, 2].includes(value.schemaVersion)
     && plain(value.correlation) && typeof value.verdict === 'string',
+  'data:build_gate_expectation': (value) => plain(value) && keySet(value, ['expected', 'outputSchema'], [])
+    && plain(value.expected) && plain(value.outputSchema)
+    && keySet(value.expected, ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], [])
+    && plain(value.expected.correlation) && Array.isArray(value.expected.assignedFindings) && Array.isArray(value.expected.requiredEvidence),
 });
 
 // Diagnostic wording only: a best-effort name for what arrived, so the error reads as
@@ -160,6 +166,8 @@ function lexicalPath(value) {
   return `${drive}${absolute ? '/' : ''}${segments.join('/')}`;
 }
 function cleanupCwdProblem(cwd, workspaceRoot) {
+  // A relative cwd has no identity a pure builder can judge; it is refused before the inside/outside question.
+  if (!(/^[\\/]/.test(cwd) || /^[A-Za-z]:[\\/]/.test(cwd))) return { subcheck: 'cleanup_cwd_relative', message: 'cleanup cwd must be an absolute path', observed: cwd };
   const root = lexicalPath(workspaceRoot), candidate = lexicalPath(cwd);
   const inside = candidate === root || candidate.startsWith(`${root}/`);
   return inside ? { subcheck: 'cleanup_cwd', message: 'cleanup cwd must be the repository, not the workspace being removed', observed: cwd } : null;

@@ -197,6 +197,8 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
     [
       // The three guard fields joined the table under CL-D57 — the new-owner-decision route
       // the freeze names — and are pinned exactly the same way.
+      // CL-D68 declared the launch composer's cross-operation field the same way.
+      ['build_gate_launch', 'expectation', 'data:build_gate_expectation'],
       ['fingerprint_snapshot', 'snapshot', 'data:snapshot'],
       ['gate_result_validate', 'result', 'structured:gate_result'],
       ['guard_before_edit', 'expected', 'data:workspace_create'],

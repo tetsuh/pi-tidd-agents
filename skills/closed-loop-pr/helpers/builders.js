@@ -66,7 +66,7 @@ function buildWorkspaceCleanup(data) {
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
     // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it before the request exists (CL-D68).
     const cwdProblem = cleanupCwdProblem(data.cwd, data.created.path);
-    if (cwdProblem !== null) fail('cleanup_cwd_inside_workspace', cwdProblem.message);
+    if (cwdProblem !== null) fail(cwdProblem.subcheck === 'cleanup_cwd_relative' ? 'cleanup_cwd_relative' : 'cleanup_cwd_inside_workspace', cwdProblem.message);
     return built('build_workspace_cleanup', 'workspace_cleanup', { receipt: data.created.receipt, cwd: data.cwd });
   });
 }

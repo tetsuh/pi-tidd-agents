@@ -82,4 +82,11 @@ function assertSymlinkFreePath(target, stopAt) {
   return absolute;
 }
 
-module.exports = { normalizeCheckoutPath, lstatKind, classifyRuntimeRoots, assertSymlinkFreePath };
+// The helper that ran, and whether it resolved inside the checkout under review (CL-D68).
+function helperTrust(top) {
+  const helperPath = fs.realpathSync.native(__dirname);
+  const target = fs.realpathSync.native(top);
+  return { helperPath, helperInsideTarget: helperPath === target || helperPath.startsWith(`${target}${path.sep}`) };
+}
+
+module.exports = { normalizeCheckoutPath, lstatKind, classifyRuntimeRoots, assertSymlinkFreePath, helperTrust };
