@@ -111,6 +111,20 @@ test('Issue #111 gate_result_read fails closed with a distinct code and the path
     expectFail({ runId: RUN, runsRoot: root }, 'run_mismatch', 'statusPath');
     runRecord(root, { withPath: false });
     expectFail({ runId: RUN, runsRoot: root }, 'designated_output_unrecorded', 'statusPath');
+    // CONV-123-STALE-STEP-READ: the last step is the selected step. An earlier complete step's output is never read
+    // in its place: a later step without a path is unrecorded, a later step still running is incomplete, and a later
+    // complete step is read from its own path.
+    const stale = runRecord(root, {}).structuredOutputPath;
+    const laterPath = path.join(root, RUN, 'later.json');
+    const twoSteps = (last) => fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'running', steps: [{ agent: 'tidd-convergence-reviewer', status: 'complete', structuredOutputPath: stale }, last] }));
+    twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'running' });
+    expectFail({ runId: RUN, runsRoot: root }, 'designated_output_unrecorded', 'statusPath');
+    twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'running', structuredOutputPath: laterPath });
+    assert.equal(expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath').error.details.structuredOutputPath, laterPath, 'the later step names its own path');
+    fs.writeFileSync(laterPath, `${JSON.stringify(envelopeFor('pr', 'adversarial'), null, 2)}\n`);
+    twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: laterPath });
+    const later = helpers.readGateResult({ runId: RUN, runsRoot: root });
+    assert.equal(later.ok, true, JSON.stringify(later.error)); assert.equal(later.data.structuredOutputPath, laterPath, 'the later complete step is the one read');
     // CONV-123-INCOMPLETE-STEP-READ: a completed run whose selected step failed or is still running, with a valid
     // envelope at its path, is not a result.
     for (const stepStatus of ['failed', 'running', 'cancelled']) { runRecord(root, { stepStatus }); const result = expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath'); assert.equal(result.error.details.stepStatus, stepStatus); }
@@ -133,15 +147,16 @@ const EVERY_GATE = ['skills/closed-loop-shared/references/gate-contract.md', '##
 const SOL_ONLY = ['skills/closed-loop-shared/references/gate-contract.md', '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)'];
 const ROLE_BLOCKS = { issue: ['skills/closed-loop-issue/SKILL.md', '### Issue gate role-authority blocks (CL-D2)'], pr: ['skills/closed-loop-pr/SKILL.md', '### PR gate role-authority blocks (CL-D2)'] };
 const block = ([file, heading]) => sectionOf(readText(file), heading);
-function roleSentence(workflow, nickname) {
-  const line = block(ROLE_BLOCKS[workflow]).split('\n').find((candidate) => candidate.startsWith(`- \`${workflow === 'issue' ? 'Issue' : 'PR'} ${nickname} role-authority block\`: \``));
+// The selected owning-root role-authority block is one source line, copied verbatim (CONV-123-ROLE-BLOCK-VERBATIM).
+function roleLine(workflow, nickname) {
+  const line = block(ROLE_BLOCKS[workflow]).split('\n').find((candidate) => candidate.startsWith(`- \`${workflow === 'issue' ? 'Issue' : 'PR'} ${nickname} role-authority block\`: \``) && candidate.endsWith('`'));
   assert.ok(line, `${workflow} ${nickname} role block line`);
-  return line.slice(line.indexOf('`: `') + 4, -1);
+  return line;
 }
 function composed(workflow, gate, volatile, expectationPath, expected) {
   const parts = [block(EVERY_GATE)];
   if (gate === 'adversarial') parts.push(block(SOL_ONLY));
-  if (gate !== 'convergence') parts.push(`${workflow === 'issue' ? 'Issue' : 'PR'} ${gate === 'adversarial' ? 'Sol' : 'Terra'} role-authority block: ${roleSentence(workflow, gate === 'adversarial' ? 'Sol' : 'Terra')}`);
+  if (gate !== 'convergence') parts.push(roleLine(workflow, gate === 'adversarial' ? 'Sol' : 'Terra'));
   parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(volatile, null, 2)}\n\`\`\``);
   parts.push(`## Expectation (copy identities verbatim)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
   parts.push(`## Evidence records (from the expectation; readCompletely is the child's attestation)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map((entry) => ({ ...entry, readCompletely: false })), null, 2)}\n\`\`\``);
@@ -166,6 +181,7 @@ test('Issue #111 build_gate_launch composes the request from the package and can
       assert.deepEqual(request.outputSchema, gateResult.SCHEMA, 'the builder schema byte for byte');
       assert.notEqual(request.outputSchema, expectation.outputSchema, 'a detached copy, never an alias');
       assert.equal(request.task, composed(workflow, gate, volatile, expectationPath, expectation.expected), `${workflow}/${gate}: the task is exactly the verbatim blocks, the volatile envelope, the expectation as data, and the two machine lines`);
+      if (gate !== 'convergence') assert.ok(request.task.includes(`\n\n${roleLine(workflow, gate === 'adversarial' ? 'Sol' : 'Terra')}\n\n`), `${workflow}/${gate}: the selected role block line appears verbatim, never reworded`);
       const expectedBlocks = [EVERY_GATE, ...(gate === 'adversarial' ? [SOL_ONLY] : []), ...(gate === 'convergence' ? [] : [ROLE_BLOCKS[workflow]])].map(([file, heading]) => ({ file, heading, sha256: sha256(block([file, heading])) }));
       assert.deepEqual(blocks.map(({ file, heading, sha256: digest }) => ({ file, heading, sha256: digest })), expectedBlocks, `${workflow}/${gate}: block digests`);
       assert.equal(built.data.packageRoot, repoPath('.'), 'blocks are read from the installed package root');

@@ -55,9 +55,11 @@ function readGateResult(data) {
     if (!plain(status) || status.runId !== data.runId) fail('run_mismatch', 'runner status record names a different run', { statusPath, recordedRunId: plain(status) ? status.runId ?? null : null });
     // The run state is reported, never decides: a validated envelope at the designated path is the verdict
     // whatever the runner's status says (CL-D58); the selected step's own completion is checked below.
-    const steps = Array.isArray(status.steps) ? status.steps.filter((step) => plain(step) && text(step.structuredOutputPath)) : [];
-    if (steps.length === 0) fail('designated_output_unrecorded', 'runner status record carries no structuredOutputPath', { statusPath });
-    const step = steps[steps.length - 1];
+    // The last recorded step is the selected step; an earlier step's output is never read in its place
+    // (CONV-123-STALE-STEP-READ).
+    const steps = Array.isArray(status.steps) ? status.steps.filter(plain) : [];
+    const step = steps.length === 0 ? null : steps[steps.length - 1];
+    if (step === null || !text(step.structuredOutputPath)) fail('designated_output_unrecorded', 'the selected step of the runner status record carries no structuredOutputPath', { statusPath });
     const structuredOutputPath = step.structuredOutputPath;
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
     // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).
@@ -98,7 +100,8 @@ function roleBlockLine(source, nickname) {
   const prefix = `- \`${source.label} ${nickname} role-authority block\`: \``;
   const line = block.content.split('\n').find((candidate) => candidate.startsWith(prefix) && candidate.endsWith('`'));
   if (!line) fail('block_absent', `role-authority block line not found: ${source.label} ${nickname}`, { file: source.file, heading: source.heading });
-  return { block, sentence: line.slice(prefix.length, -1), label: `${source.label} ${nickname} role-authority block` };
+  // The selected block is the source line itself, copied verbatim (CL-D2; CONV-123-ROLE-BLOCK-VERBATIM).
+  return { block, line };
 }
 
 function buildGateLaunch(data) {
@@ -136,7 +139,7 @@ function buildGateLaunch(data) {
     if (gate === 'adversarial') { const sol = packageBlock(SOL_ONLY); blocks.push(sol); parts.push(sol.content); }
     if (gate !== 'convergence') {
       const role = roleBlockLine(ROLE_BLOCKS[expected.workflow], gate === 'adversarial' ? 'Sol' : 'Terra');
-      blocks.push(role.block); parts.push(`${role.label}: ${role.sentence}`);
+      blocks.push(role.block); parts.push(role.line);
     }
     parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(data.volatile, null, 2)}\n\`\`\``);
     // The expectation rides along as data: required-evidence identities are copied from here, never retyped (CL-D47, CL-D65).
