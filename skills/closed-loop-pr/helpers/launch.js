@@ -142,11 +142,11 @@ function buildGateLaunch(data) {
       blocks.push(role.block); parts.push(role.line);
     }
     parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(data.volatile, null, 2)}\n\`\`\``);
-    // The expectation rides along as data: required-evidence identities are copied from here, never retyped (CL-D47, CL-D65).
-    parts.push(`## Expectation (copy identities verbatim)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
-    // The evidence records the envelope must carry, as data from the expectation: a child copies them and attests
-    // readCompletely after reading, instead of retyping 64-character identities (three runs lost to one wrong character).
-    parts.push(`## Evidence records (from the expectation; readCompletely is the child's attestation)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map((entry) => ({ ...entry, readCompletely: false })), null, 2)}\n\`\`\``);
+    // The expectation rides along as data for the child's self-validation (CL-D65); its identities stay here (CL-D69).
+    parts.push(`## Expectation (data; the identities stay here and are never copied)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
+    // The evidence records the envelope carries: source and kind from the expectation, no identity, and readCompletely
+    // as the child's attestation after reading (CL-D69: three runs lost to one retyped character).
+    parts.push(`## Evidence records (copy each; set readCompletely true after reading)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: false })), null, 2)}\n\`\`\``);
     parts.push(`Expectation file: ${data.expectationPath}\nPackaged validator: node ${CLI_PATH} (operation gate_result_validate, CL-D65)`);
     const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false, outputSchema: JSON.parse(JSON.stringify(SCHEMA)) };
     return createResult(operation, { request, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });

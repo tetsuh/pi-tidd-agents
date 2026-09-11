@@ -49,7 +49,7 @@ function correlation(gate) {
 function envelope(schemaVersion, gate, over = {}) {
   return {
     schemaVersion, correlation: correlation(gate), verdict: 'MERGE',
-    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA, readCompletely: true }],
+    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'gate identities', searched: 'the validator', outcome: 'no-counterexample', evidence: 'complete' }],
     ...over,

@@ -56,7 +56,7 @@ function expectationInput() {
 function gateOutput() {
   return {
     schemaVersion: 2, correlation: correlation(), verdict: 'MERGE',
-    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64), readCompletely: true }],
+    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'builders', searched: 'the helper boundary', outcome: 'no-counterexample', evidence: 'complete' }],
   };

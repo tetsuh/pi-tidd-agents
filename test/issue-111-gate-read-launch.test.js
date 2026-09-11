@@ -40,7 +40,7 @@ function correlation(workflow, gate) {
   return { repository: 'o/r', number: 111, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
 }
 function envelopeFor(workflow, gate) {
-  return { schemaVersion: 2, correlation: correlation(workflow, gate), verdict: 'MERGE', evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA, readCompletely: true }], findings: [], confirmations: [], decisions: [], adversarialResults: gate === 'adversarial' ? [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] : [] };
+  return { schemaVersion: 2, correlation: correlation(workflow, gate), verdict: 'MERGE', evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }], findings: [], confirmations: [], decisions: [], adversarialResults: gate === 'adversarial' ? [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] : [] };
 }
 function expectationFor(workflow, gate) {
   const built = helpers.buildGateExpectation({ workflow, correlation: correlation(workflow, gate), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
@@ -158,8 +158,8 @@ function composed(workflow, gate, volatile, expectationPath, expected) {
   if (gate === 'adversarial') parts.push(block(SOL_ONLY));
   if (gate !== 'convergence') parts.push(roleLine(workflow, gate === 'adversarial' ? 'Sol' : 'Terra'));
   parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(volatile, null, 2)}\n\`\`\``);
-  parts.push(`## Expectation (copy identities verbatim)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
-  parts.push(`## Evidence records (from the expectation; readCompletely is the child's attestation)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map((entry) => ({ ...entry, readCompletely: false })), null, 2)}\n\`\`\``);
+  parts.push(`## Expectation (data; the identities stay here and are never copied)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
+  parts.push(`## Evidence records (copy each; set readCompletely true after reading)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: false })), null, 2)}\n\`\`\``);
   parts.push(`Expectation file: ${expectationPath}\nPackaged validator: node ${CLI} (operation gate_result_validate, CL-D65)`);
   return `${parts.join('\n\n')}\n`;
 }
@@ -342,4 +342,46 @@ test('Issue #111 CL-D68 records the widening and the manifest pins it', () => {
   const manifest = readJson('test/contract-clauses.json');
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D68').map((clause) => clause.id).sort(), ['CL-D68-map', 'CL-D68-record', 'CL-D68-tests', 'CL-D68-transport']);
   assert.ok(fs.existsSync(repoPath('test/issue-111-gate-read-launch.test.js')));
+});
+
+// CL-D69: the child attests source, kind, and readCompletely; the identity of each required entry lives in the
+// parent's expectation and is never copied by the child (three runs of PR #123 lost to one transcribed character).
+test('Issue #111 the evidence attestation names source, kind, and readCompletely; the identity stays in the expectation (CL-D69)', () => {
+  const items = gateResult.SCHEMA.properties.evidenceRead.items;
+  assert.deepEqual(items.required.slice().sort(), ['kind', 'readCompletely', 'source'], 'the attestation record has no identity');
+  assert.equal(Object.hasOwn(items.properties, 'identity'), false, 'the closed record cannot carry one');
+  const expected = expectationFor('pr', 'adversarial').expected;
+  assert.deepEqual(expected.requiredEvidence.map((entry) => Object.keys(entry).sort()), [['identity', 'kind', 'source']], 'the expectation keeps the identity');
+  const attest = (entries) => ({ ...envelopeFor('pr', 'adversarial'), evidenceRead: entries });
+  const read = { source: 'CONTRACT.md', kind: 'file', readCompletely: true };
+  const accepted = helpers.validateGateResult(attest([read]), expected);
+  assert.equal(accepted.ok, true, JSON.stringify(accepted.error));
+  assert.deepEqual(accepted.data.evidenceRead, [read]);
+  for (const [label, entries, code] of [
+    ['a copied identity', [{ ...read, identity: SHA }], 'unknown_field'],
+    ['a wrong source', [{ ...read, source: 'README.md' }], 'evidence_records_invalid'],
+    ['a wrong kind', [{ ...read, kind: 'github' }], 'evidence_records_invalid'],
+    ['an extra source', [read, { ...read, source: 'README.md' }], 'evidence_records_invalid'],
+    ['a duplicate', [read, read], 'evidence_records_invalid'],
+    ['not read completely', [{ ...read, readCompletely: false }], 'evidence_records_invalid'],
+    ['nothing read', [], 'evidence_records_invalid'],
+  ]) { const result = helpers.validateGateResult(attest(entries), expected); assert.equal(result.ok, false, label); assert.equal(result.error.code, code, `${label}: ${result.error.message}`); }
+  // The composer hands the child the records it copies, without identities, and no heading asks it to copy one.
+  const dir = temp('i111-attest-');
+  try {
+    const expectationPath = path.join(dir, 'pr-adversarial.json'); fs.writeFileSync(expectationPath, `${JSON.stringify(expected, null, 2)}\n`);
+    const built = helpers.buildGateLaunch({ expectation: expectationFor('pr', 'adversarial'), expectationPath, volatile: { target: { repository: 'o/r', number: 111, kind: 'pr' }, fingerprints: { pr_head: OID }, body: 'body' } });
+    assert.equal(built.ok, true, JSON.stringify(built.error));
+    const records = built.data.request.task.split('## Evidence records (copy each; set readCompletely true after reading)\n\n```json\n')[1].split('\n```')[0];
+    assert.deepEqual(JSON.parse(records), [{ source: 'CONTRACT.md', kind: 'file', readCompletely: false }]);
+    assert.equal(built.data.request.task.includes('copy identities'), false);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  // The prose and the record say so.
+  const transport = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '### Structured gate result transport (CL-D36)');
+  assert.ok(transport.includes('An attestation entry names `source`, `kind`, and `readCompletely`; the identity of each required entry lives in the parent\'s expectation, which the child never copies (CL-D69)'), 'the transport section states the attestation shape');
+  assert.ok(block(EVERY_GATE).includes('`evidenceRead` carries the supplied evidence records, each with `readCompletely` set true after reading and no identity (CL-D69)'), 'the Every-gate block tells the child');
+  const record = sectionOf(readText('CONTRACT.md'), '## CL-D69 — The evidence attestation carries no identity');
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/111#issuecomment-5641950141', 'https://github.com/tetsuh/pi-tidd-agents/issues/111#issuecomment-5641956699', 'Option A', 'the identity of each required entry lives in the parent\'s expectation', 'both schema versions', 'Reintroducing an identity in the attestation, or matching it by anything but `source` and `kind`, requires a new owner decision']) assert.ok(record.includes(phrase), `CL-D69 record: ${phrase}`);
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D69').map((clause) => clause.id), ['CL-D69-transport', 'CL-D69-payload', 'CL-D69-record', 'CL-D69-tests']);
 });

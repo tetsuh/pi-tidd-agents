@@ -3430,6 +3430,55 @@
         "workspace_cleanup and its builder refuse a cwd inside the workspace being removed",
         "CL-D68 records the widening and the manifest pins it"
       ]
+    },
+    {
+      "id": "CL-D69-transport",
+      "marker": "CL-D69",
+      "title": "The transport section states the attestation shape",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Structured gate result transport (CL-D36)",
+      "requires": [
+        "An attestation entry names `source`, `kind`, and `readCompletely`; the identity of each required entry lives in the parent's expectation, which the child never copies (CL-D69)"
+      ]
+    },
+    {
+      "id": "CL-D69-payload",
+      "marker": "CL-D69",
+      "title": "The Every-gate block tells the child the attestation shape",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Every-gate invariant payload block (CL-D2)",
+      "requires": [
+        "`evidenceRead` carries the supplied evidence records, each with `readCompletely` set true after reading and no identity (CL-D69)"
+      ]
+    },
+    {
+      "id": "CL-D69-record",
+      "marker": "CL-D69",
+      "title": "The CL-D69 record states the shape, the unchanged assurance, and the boundary",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D69 — The evidence attestation carries no identity",
+      "requires": [
+        "the identity of each required entry lives in the parent's expectation",
+        "both schema versions",
+        "Reintroducing an identity in the attestation, or matching it by anything but `source` and `kind`, requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D69-tests",
+      "marker": "CL-D69",
+      "title": "The CL-D69 fixture pins the schema, the validator, the composer, the prose, and the record",
+      "files": [
+        "test/issue-111-gate-read-launch.test.js"
+      ],
+      "requires": [
+        "the evidence attestation names source, kind, and readCompletely; the identity stays in the expectation (CL-D69)"
+      ]
     }
   ]
 }

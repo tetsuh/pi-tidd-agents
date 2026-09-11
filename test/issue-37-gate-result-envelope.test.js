@@ -61,7 +61,7 @@ const decision = (over = {}) => ({
   decisionId: 'DEC-56-001', kind: 'contract', targetAndRevision: 'PR #56 at head', question: 'q',
   options: 'a or b', recommendation: 'a', rationale: 'r', validity: 'this revision', status: 'pending', ...over,
 });
-const attestation = (over = {}) => ({ source: 'skills/closed-loop-pr/SKILL.md', kind: 'file', identity: 'f'.repeat(64), readCompletely: true, ...over });
+const attestation = (over = {}) => ({ source: 'skills/closed-loop-pr/SKILL.md', kind: 'file', readCompletely: true, ...over });
 const adversarial = (over = {}) => ({ claim: 'all required authority was read', searched: 'the supplied files', outcome: 'no-counterexample', evidence: 'complete attestation set', ...over });
 const envelope = (over = {}) => ({
   schemaVersion: 1,
@@ -80,7 +80,7 @@ const expect = (over = {}) => {
     correlation: expectedCorrelation,
     workflow: 'pr',
     assignedFindings: [],
-    requiredEvidence: [{ source: attestation().source, kind: attestation().kind, identity: attestation().identity }],
+    requiredEvidence: [{ source: attestation().source, kind: attestation().kind, identity: 'f'.repeat(64) }],
     ...over,
   };
 };
@@ -142,7 +142,7 @@ test('Issue #37 evidence attestations are parent-bound and Sol adversarial resul
     ['omitted evidence', envelope({ evidenceRead: [] })],
     ['incomplete evidence', envelope({ evidenceRead: [attestation({ readCompletely: false })] })],
     ['duplicate evidence', envelope({ evidenceRead: [attestation(), attestation()] })],
-    ['unexpected evidence', envelope({ evidenceRead: [attestation({ identity: 'x' })] })],
+    ['unexpected evidence', envelope({ evidenceRead: [attestation({ source: 'x' })] })],
     ['empty Sol adversarial results', envelope({ adversarialResults: [] })],
   ];
   for (const [label, value] of cases) {
@@ -347,7 +347,7 @@ test('Issue #37 record schemas are closed and carry their contract fields', () =
   // evidenceRead is a closed attestation record, not a bare string list.
   assert.equal(evidenceRead.items.type, 'object');
   assert.equal(evidenceRead.items.additionalProperties, false);
-  assert.deepEqual(evidenceRead.items.required.slice().sort(), ['identity', 'kind', 'readCompletely', 'source']);
+  assert.deepEqual(evidenceRead.items.required.slice().sort(), ['kind', 'readCompletely', 'source']);
   assert.equal(adversarialResults.items.additionalProperties, false);
   assert.ok(adversarialResults.items.required.includes('evidence'));
   assert.ok(Object.hasOwn(adversarialResults.items.properties, 'findingId'));

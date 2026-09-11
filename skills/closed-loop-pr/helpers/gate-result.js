@@ -41,7 +41,8 @@ const confirm = (gate) => closed({ ...fields('findingId evidence'), gate, headOi
   confirmation: choice(CONFIRMS) }, words('findingId gate headOid confirmation evidence'));
 const DEC = closed({ ...fields('decisionId kind targetAndRevision question options recommendation ownerChoice rationale validity'),
   status: choice(words('pending recorded')) }, words('decisionId kind targetAndRevision question options recommendation rationale validity status'));
-const EVID = closed({ ...fields('source identity'), kind: choice(KINDS), readCompletely: { type: 'boolean' } }, words('source kind identity readCompletely'));
+// The attestation names source, kind, and readCompletely; the identity lives in the expectation (CL-D69).
+const EVID = closed({ ...fields('source'), kind: choice(KINDS), readCompletely: { type: 'boolean' } }, words('source kind readCompletely'));
 const ADV = closed({ ...fields('claim searched evidence findingId'), outcome: choice(OUTCOMES) }, words('claim searched outcome evidence'));
 const schemaFor = (version) => {
   const gate = choice(GATES[version]);
@@ -87,8 +88,10 @@ function expectedState(e) {
 function checkCorrelation(a, e) {
   for (const k of CORR_REQ) if (a[k] !== e[k]) fail('correlation_mismatch', `${k} mismatch`);
 }
+// Required and attested entries match by source and kind (CL-D69).
+const evidenceKey = (x) => JSON.stringify([x.source, x.kind]);
 function checkRequiredEvidence(req) {
-  const key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
+  const key = evidenceKey;
   if (!Array.isArray(req) || !req.length) fail('invalid_request', 'evidence missing');
   for (const x of req) if (!plain(x) || Object.keys(x).sort().join() !== 'identity,kind,source'
     || !words('source identity').every((k) => typeof x[k] === 'string' && x[k]) || !KINDS.includes(x.kind)) fail('invalid_request', 'bad requiredEvidence');
@@ -97,8 +100,8 @@ function checkRequiredEvidence(req) {
   return e;
 }
 function checkEvidence(v, req, adversarialGate) {
-  const bad = (m) => fail('evidence_records_invalid', m), key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
-  const e = checkRequiredEvidence(req), a = v.evidenceRead.map(key);
+  const bad = (m) => fail('evidence_records_invalid', m);
+  const e = checkRequiredEvidence(req), a = v.evidenceRead.map(evidenceKey);
   if (new Set(a).size !== a.length) bad('duplicate evidence');
   if (v.evidenceRead.some((x) => !x.readCompletely)) bad('incomplete evidence');
   if (e.some((x) => !a.includes(x))) bad('required evidence omitted');

@@ -57,7 +57,7 @@ function gateOutput() {
       headOid: OID, lifecycle: 'open', draft: false, gate: 'sol', invocation: 1,
       contractInput: 'd'.repeat(64), snapshotFingerprint: 'e'.repeat(64),
     },
-    verdict: 'MERGE', evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64), readCompletely: true }],
+    verdict: 'MERGE', evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'shape checks', searched: 'the helper boundary', outcome: 'no-counterexample', evidence: 'complete' }],
   };

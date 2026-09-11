@@ -37,12 +37,12 @@ const correlation = (over = {}) => ({
   repository: 'o/r', number: 7, baseOid: OID('a'), headRepository: 'o/r', headBranch: 'b', headOid: OID('b'),
   lifecycle: 'open', draft: false, gate: 'sol', invocation: 1, contractInput: SHA('c'), snapshotFingerprint: SHA('d'), ...over,
 });
-const attestation = () => ({ source: 'skills/closed-loop-pr/SKILL.md', kind: 'file', identity: SHA('f'), readCompletely: true });
+const attestation = () => ({ source: 'skills/closed-loop-pr/SKILL.md', kind: 'file', readCompletely: true });
 const envelope = (over = {}) => ({
   schemaVersion: 1, correlation: correlation(), verdict: 'MERGE', evidenceRead: [attestation()], findings: [], confirmations: [], decisions: [],
   adversarialResults: [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }], ...over,
 });
-const expectation = () => ({ correlation: correlation(), workflow: 'pr', assignedFindings: [], requiredEvidence: [{ source: attestation().source, kind: 'file', identity: attestation().identity }] });
+const expectation = () => ({ correlation: correlation(), workflow: 'pr', assignedFindings: [], requiredEvidence: [{ source: attestation().source, kind: 'file', identity: SHA('f') }] });
 const pull = (over = {}) => ({ number: 7, state: 'open', draft: false, base: { sha: OID('a'), ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: OID('b'), ref: 'b', repo: { full_name: 'o/r' } }, ...over });
 
 // Recovery outcome for a key, read from the shipped CL-D39 mapping (never restated here).
