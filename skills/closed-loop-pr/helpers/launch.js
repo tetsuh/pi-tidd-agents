@@ -47,6 +47,9 @@ const TARGET_FIELDS = Object.freeze({
   baseOid: (v) => typeof v === 'string' && OID_TEXT.test(v), headOid: (v) => typeof v === 'string' && OID_TEXT.test(v),
 });
 const HISTORY_FIELDS = Object.freeze(['unresolved', 'reopened', 'settled']);
+// The evidence identities the correlation already fixes; a repeated one must agree with it.
+const FINGERPRINT_CORRELATED = Object.freeze({ pr_head: 'headOid', pr_base: 'baseOid', snapshot: 'snapshotFingerprint' });
+const RECORD_LISTS = Object.freeze(['decisions', 'comments']);
 // The evidence identities each root's gates review (CL-D9), and the two modes CL-D6 parses.
 const FINGERPRINT_MINIMUM = Object.freeze({ pr: ['pr_head', 'pr_base', 'pr_diff'], issue: ['issue_spec'] });
 const MODES = Object.freeze(['autofix', 'review-only']);
@@ -57,7 +60,7 @@ const TARGET_CORRELATED = Object.freeze(['repository', 'number', 'baseOid', 'hea
 // no content, no criteria no scope (ADV-123-VOLATILE-REQUIRED-FIELDS). `decisions` and `comments` may be
 // empty, because a target can legitimately carry neither.
 // Every declared object, key by key, before any of it is serialized.
-function nestedProblem(v) {
+function nestedProblem(v, correlation) {
   for (const [key, value] of Object.entries(v.target)) {
     if (!Object.hasOwn(TARGET_FIELDS, key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: target.${key}` };
     if (!TARGET_FIELDS[key](value)) return { code: 'invalid_request', message: `volatile field target.${key} is not the declared shape` };
@@ -65,6 +68,11 @@ function nestedProblem(v) {
   for (const [key, value] of Object.entries(v.fingerprints)) {
     if (!FINGERPRINT_DOMAINS.includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: fingerprints.${key}` };
     if (typeof value !== 'string' || !HEX_TEXT.test(value)) return { code: 'invalid_request', message: `volatile field fingerprints.${key} is not an evidence identity` };
+    const correlated = FINGERPRINT_CORRELATED[key];
+    if (correlated && value !== correlation[correlated]) return { code: 'invalid_request', message: `volatile field fingerprints.${key} disagrees with the expectation on ${correlated}` };
+  }
+  for (const field of RECORD_LISTS) {
+    if (Object.hasOwn(v, field) && v[field].some((record) => !plain(record))) return { code: 'invalid_request', message: `volatile field ${field} must be a list of records` };
   }
   for (const [key, value] of Object.entries(v.history)) {
     if (!HISTORY_FIELDS.includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}` };
@@ -132,6 +140,11 @@ function readGateResult(data) {
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
     // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).
     if (step.status !== 'complete') fail('step_incomplete', `selected step status is ${JSON.stringify(step.status ?? null)}`, { statusPath, structuredOutputPath, stepStatus: step.status ?? null });
+    // The designated output belongs to the run it is read for: a status naming a file elsewhere is not
+    // this run's result, whatever sits there.
+    const runDirectory = path.dirname(statusPath);
+    const inside = path.relative(path.resolve(runDirectory), path.resolve(structuredOutputPath));
+    if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) fail('designated_output_outside_run', 'the designated output is outside the run directory', { statusPath, structuredOutputPath });
     let outputText;
     try { outputText = readUtf8(structuredOutputPath); } catch (error) { fail('designated_output_absent', `designated output is not readable: ${error.message}`, { statusPath, structuredOutputPath }); }
     const bytes = Buffer.byteLength(outputText);
@@ -201,7 +214,7 @@ function buildGateLaunch(data) {
     }
     const emptiness = volatileEmptiness(expected, data.volatile);
     if (emptiness !== null) fail('invalid_request', emptiness);
-    const nested = nestedProblem(data.volatile);
+    const nested = nestedProblem(data.volatile, expected.correlation);
     if (nested !== null) fail(nested.code, nested.message);
     let fileText;
     try { fileText = readUtf8(data.expectationPath); } catch (error) { fail('expectation_file_absent', `expectation file is not readable: ${error.message}`, { expectationPath: data.expectationPath }); }
