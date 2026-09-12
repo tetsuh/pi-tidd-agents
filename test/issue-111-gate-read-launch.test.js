@@ -125,6 +125,12 @@ test('Issue #111 gate_result_read fails closed with a distinct code and the path
     twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: laterPath });
     const later = helpers.readGateResult({ runId: RUN, runsRoot: root });
     assert.equal(later.ok, true, JSON.stringify(later.error)); assert.equal(later.data.structuredOutputPath, laterPath, 'the later complete step is the one read');
+    // CONV-123-LAST-STEP-SHAPE: the selected step is the last recorded one whatever it is. A malformed
+    // trailing record is not skipped over to an earlier step's output; it is an unrecorded designated output.
+    for (const malformed of [null, 'running', 7, [], true]) {
+      twoSteps(malformed);
+      expectFail({ runId: RUN, runsRoot: root }, 'designated_output_unrecorded', 'statusPath');
+    }
     // CONV-123-INCOMPLETE-STEP-READ: a completed run whose selected step failed or is still running, with a valid
     // envelope at its path, is not a result.
     for (const stepStatus of ['failed', 'running', 'cancelled']) { runRecord(root, { stepStatus }); const result = expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath'); assert.equal(result.error.details.stepStatus, stepStatus); }

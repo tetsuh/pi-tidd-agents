@@ -55,11 +55,12 @@ function readGateResult(data) {
     if (!plain(status) || status.runId !== data.runId) fail('run_mismatch', 'runner status record names a different run', { statusPath, recordedRunId: plain(status) ? status.runId ?? null : null });
     // The run state is reported, never decides: a validated envelope at the designated path is the verdict
     // whatever the runner's status says (CL-D58); the selected step's own completion is checked below.
-    // The last recorded step is the selected step; an earlier step's output is never read in its place
-    // (CONV-123-STALE-STEP-READ).
-    const steps = Array.isArray(status.steps) ? status.steps.filter(plain) : [];
+    // The last recorded step is the selected step, whatever it is: an earlier step's output is never read
+    // in its place, and a malformed trailing record is not skipped over to reach one
+    // (CONV-123-STALE-STEP-READ, CONV-123-LAST-STEP-SHAPE).
+    const steps = Array.isArray(status.steps) ? status.steps : [];
     const step = steps.length === 0 ? null : steps[steps.length - 1];
-    if (step === null || !text(step.structuredOutputPath)) fail('designated_output_unrecorded', 'the selected step of the runner status record carries no structuredOutputPath', { statusPath });
+    if (!plain(step) || !text(step.structuredOutputPath)) fail('designated_output_unrecorded', 'the selected step of the runner status record carries no structuredOutputPath', { statusPath });
     const structuredOutputPath = step.structuredOutputPath;
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
     // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).
