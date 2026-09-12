@@ -34,12 +34,17 @@ const VOLATILE_EVERY_GATE = Object.freeze(['target', 'fingerprints', 'body', 'la
 function volatileRequired(workflow, gate) {
   return [...VOLATILE_EVERY_GATE, ...(workflow === 'pr' ? ['diff'] : []), ...(gate === 'adversarial' ? ['decisions', 'comments'] : [])];
 }
-// The evidence identities each root's gates review (CL-D9).
+// The evidence identities each root's gates review (CL-D9), and the two modes CL-D6 parses.
 const FINGERPRINT_MINIMUM = Object.freeze({ pr: ['pr_head', 'pr_base', 'pr_diff'], issue: ['issue_spec'] });
+const MODES = Object.freeze(['autofix', 'review-only']);
+// The identities a target may repeat. The expectation is the authority for each; the target's copy is
+// checked against it rather than trusted, and a copy it does not carry is not required (CL-D47's rule).
+const TARGET_CORRELATED = Object.freeze(['repository', 'number', 'baseOid', 'headOid', 'headBranch']);
 // A required field that carries nothing is not the envelope: an empty target names no target, an empty body
 // no content, no criteria no scope (ADV-123-VOLATILE-REQUIRED-FIELDS). `decisions` and `comments` may be
 // empty, because a target can legitimately carry neither.
-function volatileEmptiness(workflow, v) {
+function volatileEmptiness(expected, v) {
+  const workflow = expected.workflow, correlation = expected.correlation;
   const filled = (value) => typeof value === 'string' && value.trim().length > 0;
   const bad = (field, why) => `volatile field ${field} ${why}`;
   if (!filled(v.body)) return bad('body', 'must carry the exact body under review');
@@ -47,6 +52,12 @@ function volatileEmptiness(workflow, v) {
   if (!filled(v.languageProfile)) return bad('languageProfile', 'must name the Language Profile');
   if (!v.acceptanceCriteria.length || !v.acceptanceCriteria.every(filled)) return bad('acceptanceCriteria', 'must carry at least one criterion');
   if (!filled(v.target.repository) || !Number.isInteger(v.target.number) || v.target.number < 1) return bad('target', 'must name the repository and the target number');
+  // CL-D2's mode or gate correlation: the gate is the expectation's, and the mode is one CL-D6 parses.
+  if (!MODES.includes(v.target.mode)) return bad('target', `must name the mode, one of ${MODES.join(', ')}`);
+  if (v.target.gate !== correlation.gate) return bad('target', `must name the gate the expectation names: ${correlation.gate}`);
+  for (const key of TARGET_CORRELATED) {
+    if (Object.hasOwn(v.target, key) && v.target[key] !== correlation[key]) return bad('target', `disagrees with the expectation on ${key}`);
+  }
   for (const key of FINGERPRINT_MINIMUM[workflow]) if (!filled(v.fingerprints[key])) return bad('fingerprints', `must carry ${key}`);
   for (const [key, value] of Object.entries(v.fingerprints)) if (!filled(value)) return bad('fingerprints', `carries an empty ${key}`);
   for (const key of ['unresolved', 'settled']) if (!Array.isArray(v.history[key])) return bad('history', `must carry the ${key} projection`);
@@ -156,7 +167,7 @@ function buildGateLaunch(data) {
     for (const key of volatileRequired(expected.workflow, expected.correlation.gate)) {
       if (!Object.hasOwn(data.volatile, key)) fail('invalid_request', `volatile lacks required field: ${key}`);
     }
-    const emptiness = volatileEmptiness(expected.workflow, data.volatile);
+    const emptiness = volatileEmptiness(expected, data.volatile);
     if (emptiness !== null) fail('invalid_request', emptiness);
     let fileText;
     try { fileText = readUtf8(data.expectationPath); } catch (error) { fail('expectation_file_absent', `expectation file is not readable: ${error.message}`, { expectationPath: data.expectationPath }); }

@@ -406,7 +406,7 @@ const VOLATILE_REQUIRED_BY = {
 };
 function completeVolatile(workflow, gate) {
   const envelope = {
-    target: { repository: 'o/r', number: 111, kind: workflow, mode: 'review-only', gate },
+    target: { repository: 'o/r', number: 111, mode: 'review-only', gate, baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' },
     fingerprints: workflow === 'pr' ? { pr_head: OID, pr_base: 'b'.repeat(40), pr_diff: SHA } : { issue_spec: SHA }, body: 'body',
     languageProfile: 'conversation: ja; GitHub issue / pull request: en',
     acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] },
@@ -524,6 +524,47 @@ test('Issue #111 the composer refuses a required volatile field that carries not
       // first round whose history projection carries no findings.
       if (gate === 'adversarial') assert.equal(build({ decisions: [], comments: [] }).ok, true, `${workflow}/${gate}: empty decisions and comments compose`);
       assert.equal(build({ history: { unresolved: [], settled: [] } }).ok, true, `${workflow}/${gate}: an empty first-round projection composes`);
+    }
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ADV-123-VOLATILE-REQUIRED-FIELDS, third round: the target must name the review mode and the gate, and
+// every identity it repeats is the expectation's, never the caller's word for it (CL-D47's rule).
+test('Issue #111 the target names the mode and the gate, correlated with the expectation (ADV-123-VOLATILE-REQUIRED-FIELDS)', () => {
+  const dir = temp('i111-target-');
+  try {
+    for (const [workflow, gate] of [['pr', 'adversarial'], ['pr', 'safety'], ['pr', 'convergence'], ['issue', 'adversarial'], ['issue', 'decision-drift']]) {
+      const expectation = expectationFor(workflow, gate);
+      const expectationPath = path.join(dir, `${workflow}-${gate}.json`);
+      fs.writeFileSync(expectationPath, `${JSON.stringify(expectation.expected, null, 2)}\n`);
+      const complete = completeVolatile(workflow, gate);
+      const withTarget = (target) => helpers.buildGateLaunch({ expectation, expectationPath, volatile: { ...complete, target } });
+      assert.equal(withTarget(complete.target).ok, true, `${workflow}/${gate}: the complete target composes`);
+      const { repository, number } = complete.target;
+      const otherGate = gate === 'adversarial' ? (workflow === 'pr' ? 'safety' : 'decision-drift') : 'adversarial';
+      for (const [label, target, named] of [
+        ['no mode', { repository, number, gate }, 'mode'],
+        ['an empty mode', { repository, number, mode: '', gate }, 'mode'],
+        ['an unknown mode', { repository, number, mode: 'dry-run', gate }, 'mode'],
+        ['no gate', { repository, number, mode: 'review-only' }, 'gate'],
+        ['an empty gate', { repository, number, mode: 'review-only', gate: '' }, 'gate'],
+        ['another gate', { repository, number, mode: 'review-only', gate: otherGate }, 'gate'],
+        ['another repository', { ...complete.target, repository: 'other/repo' }, 'repository'],
+        ['another number', { ...complete.target, number: 999 }, 'number'],
+        ['another head', { ...complete.target, headOid: 'f'.repeat(40) }, 'headOid'],
+        ['another base', { ...complete.target, baseOid: 'f'.repeat(40) }, 'baseOid'],
+        ['another head branch', { ...complete.target, headBranch: 'other' }, 'headBranch'],
+      ]) {
+        const refused = withTarget(target);
+        assert.equal(refused.ok, false, `${workflow}/${gate}: ${label} must be refused`);
+        assert.equal(refused.error.code, 'invalid_request', `${workflow}/${gate}/${label}: ${JSON.stringify(refused.error)}`);
+        assert.match(refused.error.message, /target/, `${workflow}/${gate}/${label}`);
+        assert.match(refused.error.message, new RegExp(named), `${workflow}/${gate}/${label}: the message names ${named}`);
+      }
+      // The exact-autofix mode composes the same gates; only the two declared modes do.
+      assert.equal(withTarget({ ...complete.target, mode: 'autofix' }).ok, true, `${workflow}/${gate}: autofix is a declared mode`);
+      // An identity the target does not repeat is the expectation's alone, and stays optional.
+      assert.equal(withTarget({ repository, number, mode: 'review-only', gate }).ok, true, `${workflow}/${gate}: a target repeating nothing further composes`);
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
