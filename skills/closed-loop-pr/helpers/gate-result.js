@@ -133,7 +133,7 @@ function checkFindings(findings, corr, assigned, prefix, root) {
   if (new Set(ids).size !== ids.length) bad('duplicate findingId');
   for (const x of findings) {
     if (x.gate !== corr.gate || x.headOid !== corr.headOid) bad(`${x.findingId}: gate/head mismatch`);
-    if (Object.hasOwn(x, 'outOfScope') && x.outOfScope !== true) bad(`${x.findingId}: false outOfScope`);
+    // `outOfScope: false` says what an omitted field says; only `true` is the residual label (CL-D34).
     const residual = x.outOfScope === true;
     if (residual === Boolean(x.anchoring)) bad(`${x.findingId}: classification`);
     if (x.anchoring === 'criterion-anchored' && !x.anchor) bad(`${x.findingId}: anchor`);

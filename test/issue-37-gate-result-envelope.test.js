@@ -417,6 +417,16 @@ test('Issue #37 the verdict matrix rejects inconsistent states', () => {
   assert.equal(gateResult.validateGateResult(envelope({ findings: [followUp] }), expect()).ok, true, 'a deferred follow-up is non-blocking');
   const confirmedReword = finding({ severity: 'Major', anchoring: 'reword' });
   assert.equal(gateResult.validateGateResult(envelope({ findings: [confirmedReword], confirmations: [confirmation()] }), assigned).ok, true, 'a confirmed fixed reword is non-blocking');
+  // An explicit `outOfScope: false` says what an omitted field says: this finding is not the residual. Two
+  // review runs of PR #123 were lost when the validator rejected the value rather than reading it.
+  const anchored = freshFinding({ severity: 'Major', anchoring: 'criterion-anchored', anchor: 'CL-D2' });
+  const { outOfScope: _omitted, ...withoutField } = { ...anchored, outOfScope: false };
+  const withField = gateResult.validateGateResult(envelope({ findings: [{ ...anchored, outOfScope: false }] }), expect());
+  const omitted = gateResult.validateGateResult(envelope({ findings: [withoutField] }), expect());
+  assert.equal(withField.ok, omitted.ok, 'the explicit false validates exactly as the omitted field does');
+  assert.deepEqual(withField.ok ? withField.data.verdict : withField.error.code, omitted.ok ? omitted.data.verdict : omitted.error.code);
+  // The residual label itself is unchanged: `true` still excludes an anchoring class.
+  assert.equal(gateResult.validateGateResult(envelope({ findings: [{ ...anchored, outOfScope: true }] }), expect()).error.code, 'finding_records_invalid');
   const residual = freshFinding({ severity: 'Minor', anchoring: undefined, outOfScope: true, proposedDisposition: 'deferred' });
   assert.equal(gateResult.validateGateResult(envelope({ findings: [residual] }), expect()).ok, true, 'an out-of-scope residual is representable and non-blocking');
   const residualEvidence = envelope({ findings: [residual], adversarialResults: [adversarial({ outcome: 'counterexample', findingId: residual.findingId })] });

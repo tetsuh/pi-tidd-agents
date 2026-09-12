@@ -51,6 +51,8 @@ const HISTORY_FIELDS = Object.freeze(['unresolved', 'reopened', 'settled']);
 // plus the projection fields CL-D2 names for a settled or reopened entry. Every record names its finding.
 const HISTORY_RECORD_FIELDS = Object.freeze([...Object.keys(SCHEMA.properties.findings.items.properties),
   'sourceGate', 'raisedAgainst', 'disposition', 'dispositionRationale', 'confirmation', 'status', 'reviewedHead', 'summary']);
+// The one declared object inside a record is closed by the same schema (CONV-123-HISTORY-RECORD-CLOSURE).
+const WORKFLOW_RECORD_FIELDS = Object.freeze(Object.keys(SCHEMA.properties.findings.items.properties.workflowRecord.properties));
 // The evidence identities the correlation already fixes; a repeated one must agree with it.
 const FINGERPRINT_CORRELATED = Object.freeze({ pr_head: 'headOid', pr_base: 'baseOid', snapshot: 'snapshotFingerprint' });
 const RECORD_LISTS = Object.freeze(['decisions', 'comments']);
@@ -86,6 +88,19 @@ function nestedProblem(v, correlation) {
         if (!HISTORY_RECORD_FIELDS.includes(field)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}[].${field}` };
       }
       if (typeof record.findingId !== 'string' || record.findingId.length === 0) return { code: 'invalid_request', message: `volatile field history.${key} carries a record naming no finding` };
+      // Every value in a record is a scalar, and the one declared object holds scalars: nothing deeper can
+      // be composed, so no structure carries prose past the declared names.
+      for (const [field, value] of Object.entries(record)) {
+        if (field === 'workflowRecord') {
+          if (!plain(value)) return { code: 'invalid_request', message: `volatile field history.${key}[].workflowRecord must be a record` };
+          for (const [inner, held] of Object.entries(value)) {
+            if (!WORKFLOW_RECORD_FIELDS.includes(inner)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}[].workflowRecord.${inner}` };
+            if (!scalar(held)) return { code: 'invalid_request', message: `volatile field history.${key}[].workflowRecord.${inner} is not a value` };
+          }
+          continue;
+        }
+        if (!scalar(value)) return { code: 'invalid_request', message: `volatile field history.${key}[].${field} is not a value` };
+      }
     }
   }
   return null;
@@ -116,6 +131,7 @@ const ROLE_BLOCKS = Object.freeze({
 });
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
+function scalar(value) { return typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'; }
 function text(value) { return typeof value === 'string' && value.length > 0; }
 function fail(code, message, details) { throw Object.assign(new Error(message), { code, details }); }
 function sha256(content) { return crypto.createHash('sha256').update(content).digest('hex'); }
