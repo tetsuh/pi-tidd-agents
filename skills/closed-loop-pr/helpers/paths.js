@@ -82,9 +82,10 @@ function assertSymlinkFreePath(target, stopAt) {
   return absolute;
 }
 
-// The helper that ran, and whether it resolved inside the checkout under review (CL-D68).
+// The helper that ran, and whether it resolved inside the checkout under review (CL-D68). The recorded
+// identity is the CLI entry file itself, not the directory holding it (ADV-123-HELPER-PATH-NOT-CLI).
 function helperTrust(top) {
-  const helperPath = fs.realpathSync.native(__dirname);
+  const helperPath = fs.realpathSync.native(path.join(__dirname, 'cli.js'));
   const target = fs.realpathSync.native(top);
   return { helperPath, helperInsideTarget: helperPath === target || helperPath.startsWith(`${target}${path.sep}`) };
 }

@@ -15,6 +15,7 @@ const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
 const { SCHEMA, ROOT_GATES, expectedState } = require('./gate-result');
 const { inputShapeProblem } = require('./composition');
+const { FINGERPRINT_DOMAINS } = require('./evidence');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CLI_PATH = path.join(__dirname, 'cli.js');
@@ -34,6 +35,18 @@ const VOLATILE_EVERY_GATE = Object.freeze(['target', 'fingerprints', 'body', 'la
 function volatileRequired(workflow, gate) {
   return [...VOLATILE_EVERY_GATE, ...(workflow === 'pr' ? ['diff'] : []), ...(gate === 'adversarial' ? ['decisions', 'comments'] : [])];
 }
+// Each declared object of the envelope is closed too: an unknown key anywhere in it is caller prose that
+// would ride into the task (ADV-123-NESTED-VOLATILE-ENVELOPE-PROSE). A record inside the history arrays is
+// the parent ledger's projection, whose fields CL-D2 owns; the composer owns the envelope around it.
+const OID_TEXT = /^[0-9a-f]{40}$/, HEX_TEXT = /^[0-9a-f]{40,64}$/;
+const TARGET_FIELDS = Object.freeze({
+  repository: (v) => typeof v === 'string' && v.length > 0, headRepository: (v) => typeof v === 'string' && v.length > 0,
+  number: (v) => Number.isInteger(v) && v > 0, issue: (v) => Number.isInteger(v) && v > 0,
+  mode: (v) => typeof v === 'string', gate: (v) => typeof v === 'string',
+  headBranch: (v) => typeof v === 'string' && v.length > 0,
+  baseOid: (v) => typeof v === 'string' && OID_TEXT.test(v), headOid: (v) => typeof v === 'string' && OID_TEXT.test(v),
+});
+const HISTORY_FIELDS = Object.freeze(['unresolved', 'reopened', 'settled']);
 // The evidence identities each root's gates review (CL-D9), and the two modes CL-D6 parses.
 const FINGERPRINT_MINIMUM = Object.freeze({ pr: ['pr_head', 'pr_base', 'pr_diff'], issue: ['issue_spec'] });
 const MODES = Object.freeze(['autofix', 'review-only']);
@@ -43,6 +56,22 @@ const TARGET_CORRELATED = Object.freeze(['repository', 'number', 'baseOid', 'hea
 // A required field that carries nothing is not the envelope: an empty target names no target, an empty body
 // no content, no criteria no scope (ADV-123-VOLATILE-REQUIRED-FIELDS). `decisions` and `comments` may be
 // empty, because a target can legitimately carry neither.
+// Every declared object, key by key, before any of it is serialized.
+function nestedProblem(v) {
+  for (const [key, value] of Object.entries(v.target)) {
+    if (!Object.hasOwn(TARGET_FIELDS, key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: target.${key}` };
+    if (!TARGET_FIELDS[key](value)) return { code: 'invalid_request', message: `volatile field target.${key} is not the declared shape` };
+  }
+  for (const [key, value] of Object.entries(v.fingerprints)) {
+    if (!FINGERPRINT_DOMAINS.includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: fingerprints.${key}` };
+    if (typeof value !== 'string' || !HEX_TEXT.test(value)) return { code: 'invalid_request', message: `volatile field fingerprints.${key} is not an evidence identity` };
+  }
+  for (const [key, value] of Object.entries(v.history)) {
+    if (!HISTORY_FIELDS.includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}` };
+    if (!Array.isArray(value) || value.some((record) => !plain(record))) return { code: 'invalid_request', message: `volatile field history.${key} must be a list of records` };
+  }
+  return null;
+}
 function volatileEmptiness(expected, v) {
   const workflow = expected.workflow, correlation = expected.correlation;
   const filled = (value) => typeof value === 'string' && value.trim().length > 0;
@@ -172,6 +201,8 @@ function buildGateLaunch(data) {
     }
     const emptiness = volatileEmptiness(expected, data.volatile);
     if (emptiness !== null) fail('invalid_request', emptiness);
+    const nested = nestedProblem(data.volatile);
+    if (nested !== null) fail(nested.code, nested.message);
     let fileText;
     try { fileText = readUtf8(data.expectationPath); } catch (error) { fail('expectation_file_absent', `expectation file is not readable: ${error.message}`, { expectationPath: data.expectationPath }); }
     let fileExpected;
@@ -202,4 +233,4 @@ function buildGateLaunch(data) {
   }
 }
 
-module.exports = { readGateResult, buildGateLaunch, ROLE_BY_GATE, VOLATILE_FIELDS, volatileRequired };
+module.exports = { readGateResult, buildGateLaunch, ROLE_BY_GATE, VOLATILE_FIELDS, volatileRequired, FINGERPRINT_DOMAINS };

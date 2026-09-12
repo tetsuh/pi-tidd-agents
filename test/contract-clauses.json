@@ -3407,10 +3407,10 @@
       ],
       "section": "## CL-D68 — The gate launch request and the designated-output read are packaged",
       "requires": [
-        "widens CL-D56's builder family by a read-only composer whose only I/O is reading the installed package's own authority files",
+        "widens CL-D56's builder family by a read-only composer whose only I/O is two reads: the installed package's own authority files, host-trusted, and the supplied host-trusted expectation file",
         "the parent never chooses the path",
         "`validation_run` (#64 item 1) is deferred to its own decision",
-        "A composer that writes, reaches the network or Git, or reads outside the installed package, or a second source for the launch request, requires a new owner decision",
+        "A composer that writes, reaches the network or Git, or reads anything but those two classes — the installed package's authority files and the supplied expectation file — or a second source for the launch request, requires a new owner decision",
         "raises the authority ceiling once more, from 140,000 to 150,000 bytes",
         "the cleanup builder and the cleanup operation share one pure cwd predicate",
         "widens CL-D44's declared field set by `build_gate_launch.expectation`"
