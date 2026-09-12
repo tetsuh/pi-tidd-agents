@@ -7,7 +7,7 @@
 // network, or Git reach, and no authority beyond assembling a request the caller still runs.
 
 const { createResult, createError } = require('./protocol');
-const { inputShapeProblem, authorizedPathsProblem, cleanupCwdProblem } = require('./composition');
+const { inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem } = require('./composition');
 const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } = require('./gate-result');
 
 // Transition OIDs mirror the CLI's 40-or-64 hex rule; postPushHead mirrors
@@ -24,6 +24,8 @@ function wrap(operation, construct) {
 // The boundary's own predicate table is the sole gatekeeper of what a builder may emit; a
 // construction it would reject never leaves the builder.
 function built(operation, consumer, data, rename) {
+  // The producer payload becomes its envelope before the check, so a builder emits one canonical form (CL-D70).
+  data = normalizeDeclaredInputs(consumer, data);
   let problem = inputShapeProblem(consumer, data);
   if (problem !== null) {
     if (rename) problem = problem.replace(`\`${rename.from}\``, `\`${rename.to}\``);

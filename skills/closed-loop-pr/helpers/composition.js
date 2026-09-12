@@ -24,7 +24,7 @@ const INPUT_SHAPES = Object.freeze({
   build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation' }),
 });
 
-const { RUNTIME_ROOTS } = require('./operator');
+const { RUNTIME_ROOTS, OPERATOR_CAPTURE_PAYLOAD_KEYS } = require('./operator');
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
@@ -93,6 +93,10 @@ const PREDICATES = Object.freeze({
       && ['path', 'status', 'srcMode', 'dstMode', 'srcOid', 'dstOid'].every((field) => text(entry[field]))),
   'envelope:operator_capture': (value) => plain(value) && value.version === 1 && value.ok === true
     && value.operation === 'operator_capture' && plain(value.data) && !Object.hasOwn(value, 'error'),
+  // CL-D70: the payload by its own exact key set; a partial or hand-built object is not producer output.
+  'data:operator_capture': (value) => plain(value)
+    && Object.keys(value).sort().join() === OPERATOR_CAPTURE_PAYLOAD_KEYS.slice().sort().join()
+    && text(value.root) && text(value.head) && plain(value.identity) && typeof value.clean === 'boolean',
   'data:workspace_create': (value) => {
     if (!plain(value) || !text(value.path) || !text(value.head) || !text(value.tree)
       || !text(value.root) || typeof value.cleanupAllowed !== 'boolean') return false;
@@ -139,10 +143,14 @@ function describe(value) {
 function inputShapeProblem(operation, data) {
   const declared = INPUT_SHAPES[operation];
   if (!declared || !plain(data)) return null;
+  // One acceptance rule for every caller: the producer payload is its envelope here too (CL-D70).
+  data = normalizeDeclaredInputs(operation, data);
   for (const [field, spec] of Object.entries(declared)) {
     if (!Object.hasOwn(data, field) && (OPTIONAL_INPUTS[operation] || []).includes(field)) continue;
     if (!PREDICATES[spec](data[field])) {
-      return `\`${field}\` must be ${spec}, received ${describe(data[field])}`;
+      // A rejection names what would have been accepted, both forms of it (CL-D70).
+      const accepted = spec.startsWith('envelope:') ? `${spec} or the complete payload of \`${spec.slice('envelope:'.length)}\`` : spec;
+      return `\`${field}\` must be ${accepted}, received ${describe(data[field])}`;
     }
   }
   return null;
@@ -173,4 +181,19 @@ function cleanupCwdProblem(cwd, workspaceRoot) {
   return inside ? { subcheck: 'cleanup_cwd', message: 'cleanup cwd must be the repository, not the workspace being removed', observed: cwd } : null;
 }
 
-module.exports = { INPUT_SHAPES, inputShapeProblem, authorizedPathsProblem, cleanupCwdProblem };
+// CL-D70: a producer payload is wrapped as its envelope before any check, so one form crosses.
+function normalizeDeclaredInputs(operation, data) {
+  const declared = INPUT_SHAPES[operation];
+  if (!declared || !plain(data)) return data;
+  let normalized = data;
+  for (const [field, spec] of Object.entries(declared)) {
+    if (!spec.startsWith('envelope:')) continue;
+    const producer = spec.slice('envelope:'.length);
+    const payload = PREDICATES[`data:${producer}`];
+    if (!payload || !payload(normalized[field])) continue;
+    normalized = { ...normalized, [field]: { version: 1, ok: true, operation: producer, data: normalized[field] } };
+  }
+  return normalized;
+}
+
+module.exports = { INPUT_SHAPES, inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem };

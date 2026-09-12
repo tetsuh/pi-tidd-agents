@@ -44,14 +44,14 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Snapshot fingerprint for that evidence | `fingerprint_snapshot` | `snapshot` (data of `snapshot`) |
 | `AUTOFIX_WORKSPACE@H`/`@P` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and before any edit, including immediately before delegating Luna | `workspace_verify` | `cwd`, `expected` (data of `workspace_create`) |
 | Sole-parent transition evidence toward `WORKSPACE_POST_COMMIT(C, P)`, `WORKSPACE_POST_PUSH(C, O)` | `workspace_verify` | `cwd`, `expected` (data of `workspace_create`), `transition` |
-| `OPERATOR_CHECKOUT_UNCHANGED@O` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and every terminal recheck | `operator_revalidate` | `captured` (envelope of `operator_capture`), `cwd` |
+| `OPERATOR_CHECKOUT_UNCHANGED@O` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and every terminal recheck | `operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |
 | Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt` (receipt inside `workspace_create` data), `cwd` |
 | Every convergence, Sol, or Terra result, before it is read as a verdict (CL-D36, CL-D62) | `gate_result_validate` | `result` (structured gate output), `expected` |
 | Every gate result, before `gate_result_validate` (CL-D58, CL-D68) | `gate_result_read` | `runId` |
 | Reply body construction (CL-D45) | `marker_create` | `binding`, `visibleBody` |
 | Post-attempt reconciliation (CL-D45) | `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |
 | Before each gate invocation, on the assembled evidence (CL-D42) | `evidence_verify` | `envelope`, `expected` |
-| Construct the revalidation request from the capture it revalidates (CL-D56) | `build_operator_revalidate` | `captured` (envelope of `operator_capture`), `cwd` |
+| Construct the revalidation request from the capture it revalidates (CL-D56) | `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |
 | Construct the verify request from the workspace it verifies (CL-D56) | `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |
 | Construct the cleanup request from the workspace's own receipt (CL-D56) | `build_workspace_cleanup` | `created` (data of `workspace_create`), `cwd` |
 | Construct the snapshot-fingerprint request (CL-D56) | `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |

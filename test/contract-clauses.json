@@ -2499,7 +2499,7 @@
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "`captured` (envelope of `operator_capture`)",
+        "`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)",
         "`expected` (data of `workspace_create`)",
         "`receipt` (receipt inside `workspace_create` data)",
         "`snapshot` (data of `snapshot`)",
@@ -3478,6 +3478,44 @@
       ],
       "requires": [
         "the evidence attestation names source, kind, and readCompletely; the identity stays in the expectation (CL-D69)"
+      ]
+    },
+    {
+      "id": "CL-D70-map",
+      "marker": "CL-D70",
+      "title": "The invocation map states what the captured field accepts",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
+      "requires": [
+        "`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)"
+      ]
+    },
+    {
+      "id": "CL-D70-record",
+      "marker": "CL-D70",
+      "title": "The CL-D70 record states the acceptance, the key set, and the boundary",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D70 — The declared envelope field accepts the producer payload",
+      "requires": [
+        "normalized to the envelope before any check",
+        "the producer key set exactly",
+        "Accepting a payload that is not the producer key set exactly, or normalizing any other declared shape, requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D70-tests",
+      "marker": "CL-D70",
+      "title": "The CL-D70 fixture pins both accepted forms, the rejections, and the record",
+      "files": [
+        "test/issue-74-composition-shapes.test.js"
+      ],
+      "requires": [
+        "the captured field accepts the operator_capture envelope or its complete payload (CL-D70)",
+        "the map and the record state what the captured field accepts (CL-D70)"
       ]
     }
   ]

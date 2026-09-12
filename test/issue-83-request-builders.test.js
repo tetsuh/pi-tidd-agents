@@ -93,7 +93,7 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map, 'the invocation map must exist');
   for (const declaration of [
-    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`), `cwd` |',
+    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |',
     '| `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |',
     '| `build_workspace_cleanup` | `created` (data of `workspace_create`), `cwd` |',
     '| `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |',

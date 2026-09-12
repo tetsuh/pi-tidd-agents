@@ -130,6 +130,7 @@ function captureOperatorCheckout(input = process.cwd()) {
     if (runtimeHeadEntries.length || runtimeIndexEntries.length) throw Object.assign(new Error('runtime root is present in HEAD or index'), { code: 'runtime_root_tracked' });
     if (unsafeRuntimeRoots.length) throw Object.assign(new Error(`unsafe runtime root: ${unsafeRuntimeRoots.join(', ')}`), { code: 'unsafe_runtime_root' });
     return createResult('operator_checkout', {
+      // These keys are OPERATOR_CAPTURE_PAYLOAD_KEYS, the set the boundary recognizes (CL-D70).
       root: top, head, branch, originFetch, originPush, upstream, trackingRef,
       worktreeChanges, trackedChanges: worktreeChanges, indexChanges, untrackedPaths, unexpectedUntrackedPaths,
       ignoredInventory, runtimeInventory, runtimeHeadEntries, runtimeIndexEntries, runtimeRoots, unsafeRuntimeRoots, identity, configDigest,
@@ -176,4 +177,10 @@ function revalidateOperatorCheckout(captured, input = process.cwd()) {
     : createError('operator_checkout', 'operator_changed', 'operator checkout differs from captured baseline', 'operator_revalidate');
 }
 
-module.exports = { captureOperatorCheckout, revalidateOperatorCheckout, immutableOperatorBaseline, RUNTIME_ROOTS, nulRecords, byteSort, runtimeTrackedEntries };
+// The exact key set a successful `operator_capture` payload carries (CL-D70).
+const OPERATOR_CAPTURE_PAYLOAD_KEYS = Object.freeze(['branch', 'clean', 'configDigest', 'head', 'helperInsideTarget', 'helperPath',
+  'identity', 'ignoredInventory', 'indexChanges', 'originFetch', 'originPush', 'root', 'runtimeHeadEntries', 'runtimeIndexEntries',
+  'runtimeInventory', 'runtimeRoots', 'trackedChanges', 'trackingRef', 'unexpectedUntrackedPaths', 'unsafeRuntimeRoots',
+  'untrackedPaths', 'upstream', 'worktreeChanges']);
+
+module.exports = { captureOperatorCheckout, revalidateOperatorCheckout, immutableOperatorBaseline, RUNTIME_ROOTS, OPERATOR_CAPTURE_PAYLOAD_KEYS, nulRecords, byteSort, runtimeTrackedEntries };

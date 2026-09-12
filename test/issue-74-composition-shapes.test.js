@@ -144,7 +144,8 @@ test('Issue #74 authority declares the shape of every cross-operation field', ()
 
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   for (const declaration of [
-    '`captured` \\(envelope of `operator_capture`\\)',
+    // CL-D70 widened this declaration; the row still names the envelope first.
+    '`captured` \\(envelope of `operator_capture`, or its complete payload, CL-D70\\)',
     '`expected` \\(data of `workspace_create`\\)',
     '`receipt` \\(receipt inside `workspace_create` data\\)',
     '`snapshot` \\(data of `snapshot`\\)',
@@ -398,4 +399,67 @@ test('Issue #74 the documented composition passes exactly as written', async () 
   assert.equal(digest.data.record.domain, 'snapshot');
   const gate = cli('gate_result_validate', { result: gateOutput(), expected: gateExpected() });
   assert.equal(gate.ok, true, JSON.stringify(gate));
+});
+
+// CL-D70: the one declared envelope field also accepts the producer's complete payload, normalized to
+// the envelope before any check. A run of PR #123 stopped before every gate because the parent passed
+// the payload where eight of the nine declared fields take exactly that.
+test('Issue #111 the captured field accepts the operator_capture envelope or its complete payload (CL-D70)', () => {
+  const repository = compositionRepository();
+  try {
+    const identity = {
+      repository: 'owner/repo', prNumber: 70, lifecycle: 'OPEN', baseOid: 'a'.repeat(40),
+      publicHead: repository.head, headRepository: 'owner/repo', headBranch: 'main',
+      originFetch: repository.bare, originPush: repository.bare,
+    };
+    const captured = cli('operator_capture', { cwd: repository.root, identity });
+    assert.equal(captured.ok, true, JSON.stringify(captured));
+    const payload = captured.data;
+    // The predicate's key set is the producer's own, exported beside it rather than retyped here.
+    assert.deepEqual(Object.keys(payload).slice().sort(), helpers.OPERATOR_CAPTURE_PAYLOAD_KEYS.slice().sort(), 'the declared payload key set is the producer key set');
+    // Both forms compose, and the builder emits exactly one of them.
+    assert.equal(helpers.inputShapeProblem('operator_revalidate', { captured: payload, cwd: repository.root }), null, 'the complete payload composes');
+    assert.equal(helpers.inputShapeProblem('operator_revalidate', { captured: envelopeOf('operator_capture', payload), cwd: repository.root }), null, 'the envelope composes');
+    const built = helpers.buildOperatorRevalidate({ captured: payload, cwd: repository.root });
+    assert.equal(built.ok, true, JSON.stringify(built.error));
+    assert.deepEqual(built.data.request.data.captured, envelopeOf('operator_capture', payload), 'the builder emits the canonical envelope');
+    const viaPayload = cli('operator_revalidate', { cwd: repository.root, captured: payload });
+    const viaEnvelope = cli('operator_revalidate', { cwd: repository.root, captured: envelopeOf('operator_capture', payload) });
+    assert.equal(viaPayload.ok, true, JSON.stringify(viaPayload));
+    assert.deepEqual(viaPayload.data, viaEnvelope.data, 'the two forms are the same request');
+    // What stays rejected: an incomplete payload is not producer output (the tetsuh/sitos#165 reproducer),
+    // a foreign payload is not this producer's, and a failed capture carries no payload at all.
+    for (const [label, value] of [
+      ['a missing field', (() => { const partial = { ...payload }; delete partial.configDigest; return partial; })()],
+      ['an extra field', { ...payload, extra: 1 }],
+      ['the partial fixture', captureData()],
+      ['another producer', createData()],
+    ]) {
+      const rejected = cli('operator_revalidate', { cwd: repository.root, captured: value });
+      assert.equal(rejected.error.code, 'input_shape_mismatch', `${label}: ${JSON.stringify(rejected)}`);
+      assert.match(rejected.error.message, /`captured` must be envelope:operator_capture/, label);
+      assert.match(rejected.error.message, /complete payload/, `${label}: the message names what is accepted`);
+    }
+    const failed = cli('operator_revalidate', { cwd: repository.root, captured: { version: 1, ok: false, operation: 'operator_capture', error: { code: 'capture_failed', message: 'failed', phase: 'operator_capture' } } });
+    assert.equal(failed.error.code, 'input_shape_mismatch', JSON.stringify(failed));
+  } finally { removeCompositionRepository(repository); }
+});
+
+test('Issue #111 the map and the record state what the captured field accepts (CL-D70)', () => {
+  const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
+  for (const row of ['`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)']) {
+    assert.ok(map.includes(row), `the map must declare ${row}`);
+  }
+  assert.equal(map.split('or its complete payload, CL-D70').length - 1, 2, 'both rows taking the capture say so');
+  const record = sectionOf(CONTRACT, '## CL-D70 — The declared envelope field accepts the producer payload');
+  for (const phrase of [
+    'https://github.com/tetsuh/pi-tidd-agents/issues/111#issuecomment-5642144463',
+    'https://github.com/tetsuh/pi-tidd-agents/issues/111#issuecomment-5642229512',
+    'Option A',
+    'normalized to the envelope before any check',
+    'the producer key set exactly',
+    'Accepting a payload that is not the producer key set exactly, or normalizing any other declared shape, requires a new owner decision',
+  ]) assert.ok(record.includes(phrase), `CL-D70 record: ${phrase}`);
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D70').map((clause) => clause.id), ['CL-D70-map', 'CL-D70-record', 'CL-D70-tests']);
 });

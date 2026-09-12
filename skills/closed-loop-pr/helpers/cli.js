@@ -163,6 +163,8 @@ async function main() {
     const input = fs.readFileSync(0);
     const request = validateRequest(JSON.parse(input.toString('utf8')));
     operation = request.operation;
+    // A declared envelope field also accepts the producer's complete payload, normalized here (CL-D70).
+    request.data = helpers.normalizeDeclaredInputs(operation, request.data);
     const shapeProblem = helpers.inputShapeProblem(operation, request.data);
     if (shapeProblem) {
       const error = new Error(shapeProblem); error.code = 'input_shape_mismatch'; error.phase = operation;
