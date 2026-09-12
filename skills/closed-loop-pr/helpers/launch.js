@@ -81,6 +81,9 @@ function readGateResult(data) {
   const operation = 'gate_result_read';
   try {
     if (!plain(data) || !text(data.runId) || !RUN_ID.test(data.runId)) fail('invalid_request', 'runId must be the runner run id (a UUID)');
+    // The packaged request names a run, never a place to read it from: the CLI schema carries no
+    // `runsRoot`, so a caller cannot point the read at a forged root (SAFETY-123-RUNSROOT-OVERRIDE).
+    // The override below is reachable only by a direct in-process call, which is the fixture's.
     if (Object.hasOwn(data, 'runsRoot') && !text(data.runsRoot)) fail('invalid_request', 'runsRoot must be a nonempty string when given');
     const statusPath = path.join(data.runsRoot || defaultRunsRoot(), data.runId, 'status.json');
     let statusText;

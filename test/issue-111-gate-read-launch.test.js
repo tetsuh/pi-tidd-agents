@@ -78,11 +78,8 @@ test('Issue #111 gate_result_read returns the designated envelope from the runne
     const expected = expectationFor('pr', 'adversarial').expected;
     const validated = helpers.validateGateResult(read.data.envelope, expected);
     assert.equal(validated.ok, true, JSON.stringify(validated.error));
-    const viaCli = cli('gate_result_read', { runId: RUN, runsRoot: root });
-    assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error));
-    assert.deepEqual(viaCli.data.envelope, envelope);
     assert.deepEqual(cliSchemas().gate_result_read, ['runId'], 'the request names a run, never a path');
-    assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /gate_result_read: \{ required: \['runId'\], optional: \['runsRoot'\] \}/, 'runsRoot is the fixture override, the only optional field');
+    assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /gate_result_read: \{ required: \['runId'\], optional: \[\] \}/, 'the packaged request carries a run id and nothing else');
     assert.equal(fs.statSync(parentChosen).size, 0, 'the parent-chosen file stays empty and unread');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -567,4 +564,38 @@ test('Issue #111 the target names the mode and the gate, correlated with the exp
       assert.equal(withTarget({ repository, number, mode: 'review-only', gate }).ok, true, `${workflow}/${gate}: a target repeating nothing further composes`);
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// SAFETY-123-RUNSROOT-OVERRIDE: the packaged request names a run, never a place to read it from. The
+// runs root is derived from the host, and the in-process override is the fixture's alone.
+test('Issue #111 the packaged gate_result_read refuses a caller-supplied runs root (SAFETY-123-RUNSROOT-OVERRIDE)', () => {
+  const forged = temp('i111-forged-');
+  const hostRoot = path.join(os.tmpdir(), `pi-subagents-uid-${typeof process.getuid === 'function' ? process.getuid() : 'unknown'}`, 'async-subagent-runs');
+  const runId = crypto.randomUUID();
+  try {
+    // A forged root carrying a complete, valid envelope under the same run id.
+    const envelope = envelopeFor('pr', 'adversarial');
+    runRecord(forged, { runId, envelope });
+    const refused = cli('gate_result_read', { runId, runsRoot: forged });
+    assert.equal(refused.ok, false, JSON.stringify(refused));
+    assert.equal(refused.error.code, 'invalid_request');
+    assert.equal(refused.error.phase, 'cli', 'an unknown request field is refused where every unknown field is');
+    assert.match(refused.error.message, /unknown request field: runsRoot/, 'the rejection names the field');
+    assert.equal(refused.error.details?.statusPath, undefined, 'no path was read');
+    assert.equal(/forged/.test(JSON.stringify(refused)), false, 'the forged root never reached the filesystem');
+    // The host-derived read of the same run id still succeeds, from the runner's own root.
+    const { structuredOutputPath } = runRecord(hostRoot, { runId, envelope });
+    const read = cli('gate_result_read', { runId });
+    assert.equal(read.ok, true, JSON.stringify(read.error));
+    assert.deepEqual(read.data.envelope, envelope);
+    assert.equal(read.data.structuredOutputPath, structuredOutputPath);
+    assert.equal(read.data.statusPath, path.join(hostRoot, runId, 'status.json'));
+    // The override survives only for a direct in-process fixture call.
+    const injected = helpers.readGateResult({ runId, runsRoot: forged });
+    assert.equal(injected.ok, true, JSON.stringify(injected.error));
+    assert.equal(injected.data.statusPath, path.join(forged, runId, 'status.json'));
+  } finally {
+    fs.rmSync(forged, { recursive: true, force: true });
+    fs.rmSync(path.join(hostRoot, runId), { recursive: true, force: true });
+  }
 });

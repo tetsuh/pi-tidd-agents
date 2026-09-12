@@ -21,7 +21,7 @@ const SCHEMAS = Object.freeze({
   workspace_verify: { required: ['cwd', 'expected'], optional: ['transition'] },
   workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
-  gate_result_read: { required: ['runId'], optional: ['runsRoot'] },
+  gate_result_read: { required: ['runId'], optional: [] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
   guard_before_edit: { required: ['cwd', 'expected', 'authorizedPaths'], optional: [] },
   overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
