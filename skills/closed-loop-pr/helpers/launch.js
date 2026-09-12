@@ -27,7 +27,13 @@ const SOL_ONLY = Object.freeze({ file: 'skills/closed-loop-shared/references/gat
 // history projection): target, evidence fingerprints, the exact body or diff, Language Profile, acceptance
 // criteria, and the compact gate history. No field carries an instruction; an unknown key never reaches the task.
 const VOLATILE_FIELDS = Object.freeze({ target: 'object', fingerprints: 'object', body: 'string', diff: 'string', languageProfile: 'string', acceptanceCriteria: 'array', history: 'object', decisions: 'array', comments: 'array' });
-const VOLATILE_REQUIRED = Object.freeze(['target', 'fingerprints', 'body']);
+// The complete CL-D2 envelope for the gate being composed: the diff is the PR root's exact change, and
+// Sol's authoritative decisions and comments are its own duty (CL-D29). The gate correlation is derived
+// from the expectation below, never supplied (ADV-123-VOLATILE-REQUIRED-FIELDS).
+const VOLATILE_EVERY_GATE = Object.freeze(['target', 'fingerprints', 'body', 'languageProfile', 'acceptanceCriteria', 'history']);
+function volatileRequired(workflow, gate) {
+  return [...VOLATILE_EVERY_GATE, ...(workflow === 'pr' ? ['diff'] : []), ...(gate === 'adversarial' ? ['decisions', 'comments'] : [])];
+}
 const ROLE_BLOCKS = Object.freeze({
   issue: Object.freeze({ file: 'skills/closed-loop-issue/SKILL.md', heading: '### Issue gate role-authority blocks (CL-D2)', label: 'Issue' }),
   pr: Object.freeze({ file: 'skills/closed-loop-pr/SKILL.md', heading: '### PR gate role-authority blocks (CL-D2)', label: 'PR' }),
@@ -113,9 +119,11 @@ function buildGateLaunch(data) {
     const shapeProblem = inputShapeProblem('build_gate_launch', data);
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem);
     if (!text(data.expectationPath)) fail('invalid_request', 'expectationPath must be a nonempty string');
+    // The path is interpolated into the task, so a delimiter in it would append prose to the payload
+    // (ADV-123-EXPECTATION-PATH-INJECTION).
+    if (/[\r\n`]/.test(data.expectationPath)) fail('invalid_request', 'expectationPath must not contain a line break or a backtick');
     if (!plain(data.volatile)) fail('invalid_request', 'volatile must be a plain object');
     for (const key of Object.keys(data.volatile)) if (!Object.hasOwn(VOLATILE_FIELDS, key)) fail('volatile_unknown_field', `volatile carries an unknown field: ${key}`, { field: key, allowed: Object.keys(VOLATILE_FIELDS) });
-    for (const key of VOLATILE_REQUIRED) if (!Object.hasOwn(data.volatile, key)) fail('invalid_request', `volatile lacks required field: ${key}`);
     for (const [key, kind] of Object.entries(VOLATILE_FIELDS)) {
       if (!Object.hasOwn(data.volatile, key)) continue;
       const value = data.volatile[key];
@@ -124,6 +132,9 @@ function buildGateLaunch(data) {
     }
     const expected = data.expectation.expected;
     expectedState(expected);
+    for (const key of volatileRequired(expected.workflow, expected.correlation.gate)) {
+      if (!Object.hasOwn(data.volatile, key)) fail('invalid_request', `volatile lacks required field: ${key}`);
+    }
     if (JSON.stringify(data.expectation.outputSchema) !== JSON.stringify(SCHEMA)) fail('schema_mismatch', 'outputSchema is not the packaged CL-D36 schema byte for byte');
     // A gate outside its root cannot validate later; refuse it before any file is read (CONV-123-ROOT-GATE-LAUNCH).
     if (!ROOT_GATES[expected.workflow].includes(expected.correlation.gate)) fail('gate_outside_root', `gate ${expected.correlation.gate} is not a ${expected.workflow} gate`);
@@ -142,7 +153,8 @@ function buildGateLaunch(data) {
       const role = roleBlockLine(ROLE_BLOCKS[expected.workflow], gate === 'adversarial' ? 'Sol' : 'Terra');
       blocks.push(role.block); parts.push(role.line);
     }
-    parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(data.volatile, null, 2)}\n\`\`\``);
+    // The envelope carries the gate correlation as the expectation states it, derived here (CL-D47's rule).
+    parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify({ ...data.volatile, correlation: expected.correlation }, null, 2)}\n\`\`\``);
     // The expectation rides along as data for the child's self-validation (CL-D65); its identities stay here (CL-D69).
     parts.push(`## Expectation (data; the identities stay here and are never copied)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
     // The evidence records the envelope carries: source and kind from the expectation, no identity, and readCompletely
@@ -156,4 +168,4 @@ function buildGateLaunch(data) {
   }
 }
 
-module.exports = { readGateResult, buildGateLaunch, ROLE_BY_GATE, VOLATILE_FIELDS, VOLATILE_REQUIRED };
+module.exports = { readGateResult, buildGateLaunch, ROLE_BY_GATE, VOLATILE_FIELDS, volatileRequired };

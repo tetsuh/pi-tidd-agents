@@ -1,6 +1,6 @@
 'use strict';
 
-const { createResult, createError } = require('./protocol');
+const { createResult, createError, keysExactly } = require('./protocol');
 const words = (s) => s.split(' ');
 const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'], ROOTS = ['issue', 'pr'];
 // Gate identities per envelope version (CL-D60): version 2 names workflow functions, each valid
@@ -79,7 +79,7 @@ function check(s, v, p = 'envelope') {
 function expectedState(e) {
   if (!plain(e) || !plain(e.correlation) || !ROOTS.includes(e.workflow)) fail('invalid_request', 'bad expected root');
   const a = e.assignedFindings;
-  if (!Array.isArray(a) || a.some((x) => !plain(x) || Object.keys(x).sort().join() !== 'blockerKey,findingId'
+  if (!Array.isArray(a) || a.some((x) => !keysExactly(x, words('blockerKey findingId'))
     || !words('findingId blockerKey').every((k) => typeof x[k] === 'string' && x[k]))) fail('invalid_request', 'bad assignments');
   const ids = a.map((x) => x.findingId);
   if (new Set(ids).size !== ids.length) fail('invalid_request', 'duplicate assignment');
@@ -93,7 +93,7 @@ const evidenceKey = (x) => JSON.stringify([x.source, x.kind]);
 function checkRequiredEvidence(req) {
   const key = evidenceKey;
   if (!Array.isArray(req) || !req.length) fail('invalid_request', 'evidence missing');
-  for (const x of req) if (!plain(x) || Object.keys(x).sort().join() !== 'identity,kind,source'
+  for (const x of req) if (!keysExactly(x, words('identity kind source'))
     || !words('source identity').every((k) => typeof x[k] === 'string' && x[k]) || !KINDS.includes(x.kind)) fail('invalid_request', 'bad requiredEvidence');
   const e = req.map(key);
   if (new Set(e).size !== e.length) fail('invalid_request', 'duplicate expected evidence');

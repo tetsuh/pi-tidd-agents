@@ -60,7 +60,7 @@ const APPROVED_FS_SITES = [
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
   './builders': 1, './composition': 5, './evidence': 1, './fingerprints': 2, './gate-result': 4, './guards': 1, './index': 1, './launch': 1, './operator': 3,
-  './paths': 4, './process': 5, './protocol': 13, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
+  './paths': 4, './process': 5, './protocol': 14, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
   'node:child_process': 1, 'node:crypto': 7, 'node:fs': 5, 'node:os': 3, 'node:path': 6,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
@@ -84,7 +84,7 @@ const ROOT_GUARDS = [
   [`${HELPER_DIR}/workspace.js`, "if (isInside(requested, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
   [`${HELPER_DIR}/workspace.js`, "if (isInside(root, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
 ];
-const AGGREGATE_SMOKE_ALARM = 200000; // CL-D57 planned-growth reset from 160,000 (CL-D53) for the guard family
+const AGGREGATE_SMOKE_ALARM = 220000; // CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -195,6 +195,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'no durable workflow state or scheduling',
     '140,000-byte aggregate smoke alarm',
     'CL-D53 later reset the aggregate smoke alarm to 160,000 bytes',
+    'CL-D71 reset it a third time to 220,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);

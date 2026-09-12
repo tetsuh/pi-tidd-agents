@@ -2772,8 +2772,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 200000;",
-        "CL-D57 planned-growth reset from 160,000 (CL-D53) for the guard family"
+        "const AGGREGATE_SMOKE_ALARM = 220000;",
+        "CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979"
       ]
     },
     {
@@ -3516,6 +3516,32 @@
       "requires": [
         "the captured field accepts the operator_capture envelope or its complete payload (CL-D70)",
         "the map and the record state what the captured field accepts (CL-D70)"
+      ]
+    },
+    {
+      "id": "CL-D71-record",
+      "marker": "CL-D71",
+      "title": "The CL-D71 record states the reset, the measurement, and the anti-pattern",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D71 — The aggregate helper smoke alarm is reset a third time",
+      "requires": [
+        "resets from 200,000 to 220,000 bytes",
+        "19,021 bytes of headroom asserted at this reset",
+        "trimming code merely to silence the alarm remains the recorded anti-pattern, not compliance"
+      ]
+    },
+    {
+      "id": "CL-D71-tests",
+      "marker": "CL-D71",
+      "title": "The reset value is the one every suite asserts",
+      "files": [
+        "test/issue-59-helper-surface.test.js"
+      ],
+      "requires": [
+        "const AGGREGATE_SMOKE_ALARM = 220000;",
+        "CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979"
       ]
     }
   ]

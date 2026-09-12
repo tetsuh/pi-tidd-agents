@@ -1,6 +1,6 @@
 'use strict';
 
-const { createResult, createError } = require('./protocol');
+const { createResult, createError, keysExactly } = require('./protocol');
 
 // Issue #36 (CL-D42). One versioned evidence envelope and a read-only preflight verifier.
 // Every fingerprint travels as a labelled record so a record copied into the wrong field is
@@ -30,7 +30,7 @@ const IDENTITY_KEYS = ['base', 'baseBranch', 'draft', 'head', 'headBranch', 'hea
 const COMPLETENESS_KEYS = ['brackets', 'checks', 'nestedThreadComments', 'organizationRulesets', 'rest', 'reviewThreads', 'rulesetDetails'];
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
-function keysAre(value, expected) { return plain(value) && Object.keys(value).sort().join() === expected.join(); }
+const keysAre = keysExactly;
 function fail(code, message) { const error = new Error(message); error.code = code; throw error; }
 function text(value) { return typeof value === 'string' && value.length > 0; }
 

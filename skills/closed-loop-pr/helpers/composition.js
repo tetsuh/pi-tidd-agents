@@ -25,6 +25,7 @@ const INPUT_SHAPES = Object.freeze({
 });
 
 const { RUNTIME_ROOTS, OPERATOR_CAPTURE_PAYLOAD_KEYS } = require('./operator');
+const { keysExactly } = require('./protocol');
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
@@ -94,8 +95,7 @@ const PREDICATES = Object.freeze({
   'envelope:operator_capture': (value) => plain(value) && value.version === 1 && value.ok === true
     && value.operation === 'operator_capture' && plain(value.data) && !Object.hasOwn(value, 'error'),
   // CL-D70: the payload by its own exact key set; a partial or hand-built object is not producer output.
-  'data:operator_capture': (value) => plain(value)
-    && Object.keys(value).sort().join() === OPERATOR_CAPTURE_PAYLOAD_KEYS.slice().sort().join()
+  'data:operator_capture': (value) => keysExactly(value, OPERATOR_CAPTURE_PAYLOAD_KEYS)
     && text(value.root) && text(value.head) && plain(value.identity) && typeof value.clean === 'boolean',
   'data:workspace_create': (value) => {
     if (!plain(value) || !text(value.path) || !text(value.head) || !text(value.tree)
@@ -107,8 +107,7 @@ const PREDICATES = Object.freeze({
   },
   'receipt:workspace_create': (value) => plain(value) && value.version === 1
     && text(value.root) && text(value.storedPath) && Object.hasOwn(value, 'id'),
-  'data:snapshot': (value) => plain(value)
-    && Object.keys(value).sort().join() === SNAPSHOT_DATA_KEYS.join()
+  'data:snapshot': (value) => keysExactly(value, SNAPSHOT_DATA_KEYS)
     && plain(value.before) && plain(value.after) && plain(value.pull)
     && plain(value.completeness) && plain(value.policies)
     && ['annotations', 'checkSuites', 'checks', 'comments', 'inline', 'reviews', 'statuses', 'threads']

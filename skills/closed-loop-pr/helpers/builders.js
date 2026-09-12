@@ -6,7 +6,7 @@
 // reject is unrepresentable. Builders are pure and read-only: no filesystem, process,
 // network, or Git reach, and no authority beyond assembling a request the caller still runs.
 
-const { createResult, createError } = require('./protocol');
+const { createResult, createError, keysExactly } = require('./protocol');
 const { inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem } = require('./composition');
 const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } = require('./gate-result');
 
@@ -49,8 +49,7 @@ function buildWorkspaceVerify(data) {
     if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
     if (Object.hasOwn(data, 'transition')) {
       const transition = data.transition;
-      const shaped = transition !== null && typeof transition === 'object' && !Array.isArray(transition)
-        && Object.keys(transition).sort().join() === 'from,to'
+      const shaped = keysExactly(transition, ['from', 'to'])
         && Object.values(transition).every((oid) => typeof oid === 'string' && TRANSITION_OID_PATTERN.test(oid));
       if (!shaped) fail('invalid_request', 'workspace transition requires only from and to OIDs');
     }
