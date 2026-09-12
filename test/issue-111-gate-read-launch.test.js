@@ -407,7 +407,7 @@ const VOLATILE_REQUIRED_BY = {
 function completeVolatile(workflow, gate) {
   const envelope = {
     target: { repository: 'o/r', number: 111, kind: workflow, mode: 'review-only', gate },
-    fingerprints: { pr_head: OID }, body: 'body',
+    fingerprints: workflow === 'pr' ? { pr_head: OID, pr_base: 'b'.repeat(40), pr_diff: SHA } : { issue_spec: SHA }, body: 'body',
     languageProfile: 'conversation: ja; GitHub issue / pull request: en',
     acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] },
   };
@@ -486,5 +486,44 @@ test('Issue #111 the composer refuses an expectation path carrying a task delimi
     const built = helpers.buildGateLaunch({ expectation, expectationPath: clean, volatile: completeVolatile('pr', 'adversarial') });
     assert.equal(built.ok, true, JSON.stringify(built.error));
     assert.equal(built.data.request.task.split('\n').filter((line) => line.startsWith('Expectation file: ')).length, 1, 'exactly one expectation line');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// ADV-123-VOLATILE-REQUIRED-FIELDS, second round: a present field carrying nothing is not the CL-D2
+// envelope. Sol's probe composed an adversarial launch from empty values of every required field.
+test('Issue #111 the composer refuses a required volatile field that carries nothing (ADV-123-VOLATILE-REQUIRED-FIELDS)', () => {
+  const dir = temp('i111-empty-');
+  try {
+    for (const [workflow, gate] of [['pr', 'adversarial'], ['pr', 'safety'], ['pr', 'convergence'], ['issue', 'adversarial'], ['issue', 'decision-drift']]) {
+      const expectation = expectationFor(workflow, gate);
+      const expectationPath = path.join(dir, `${workflow}-${gate}.json`);
+      fs.writeFileSync(expectationPath, `${JSON.stringify(expectation.expected, null, 2)}\n`);
+      const build = (over) => helpers.buildGateLaunch({ expectation, expectationPath, volatile: { ...completeVolatile(workflow, gate), ...over } });
+      assert.equal(build({}).ok, true, `${workflow}/${gate}: the complete envelope composes`);
+      // Sol's own probe: every required value present and empty.
+      const emptied = build({ target: {}, fingerprints: {}, body: '', diff: '', languageProfile: '', acceptanceCriteria: [], history: {} });
+      assert.equal(emptied.ok, false, `${workflow}/${gate}: the emptied envelope must be refused`);
+      assert.equal(emptied.error.code, 'invalid_request');
+      const cases = [
+        ['body', { body: '' }], ['body', { body: '   \n' }],
+        ['languageProfile', { languageProfile: '' }],
+        ['acceptanceCriteria', { acceptanceCriteria: [] }], ['acceptanceCriteria', { acceptanceCriteria: [''] }],
+        ['target', { target: {} }], ['target', { target: { number: 111 } }], ['target', { target: { repository: 'o/r' } }], ['target', { target: { repository: '', number: 111 } }],
+        ['fingerprints', { fingerprints: {} }],
+        ['fingerprints', { fingerprints: { ...completeVolatile(workflow, gate).fingerprints, [workflow === 'pr' ? 'pr_base' : 'issue_spec']: '' } }],
+        ['history', { history: {} }], ['history', { history: { unresolved: [] } }], ['history', { history: { unresolved: [], settled: {} } }],
+        ...(workflow === 'pr' ? [['diff', { diff: '' }]] : []),
+      ];
+      for (const [field, over] of cases) {
+        const refused = helpers.buildGateLaunch({ expectation, expectationPath, volatile: { ...completeVolatile(workflow, gate), ...over } });
+        assert.equal(refused.ok, false, `${workflow}/${gate}: ${field} ${JSON.stringify(over)} must be refused`);
+        assert.equal(refused.error.code, 'invalid_request', `${workflow}/${gate}/${field}: ${JSON.stringify(refused.error)}`);
+        assert.match(refused.error.message, new RegExp(field), `${workflow}/${gate}/${field}: the message names the field`);
+      }
+      // What may legitimately be empty: a gate with no authoritative decisions or comments yet, and a
+      // first round whose history projection carries no findings.
+      if (gate === 'adversarial') assert.equal(build({ decisions: [], comments: [] }).ok, true, `${workflow}/${gate}: empty decisions and comments compose`);
+      assert.equal(build({ history: { unresolved: [], settled: [] } }).ok, true, `${workflow}/${gate}: an empty first-round projection composes`);
+    }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

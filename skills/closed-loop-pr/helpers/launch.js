@@ -34,6 +34,24 @@ const VOLATILE_EVERY_GATE = Object.freeze(['target', 'fingerprints', 'body', 'la
 function volatileRequired(workflow, gate) {
   return [...VOLATILE_EVERY_GATE, ...(workflow === 'pr' ? ['diff'] : []), ...(gate === 'adversarial' ? ['decisions', 'comments'] : [])];
 }
+// The evidence identities each root's gates review (CL-D9).
+const FINGERPRINT_MINIMUM = Object.freeze({ pr: ['pr_head', 'pr_base', 'pr_diff'], issue: ['issue_spec'] });
+// A required field that carries nothing is not the envelope: an empty target names no target, an empty body
+// no content, no criteria no scope (ADV-123-VOLATILE-REQUIRED-FIELDS). `decisions` and `comments` may be
+// empty, because a target can legitimately carry neither.
+function volatileEmptiness(workflow, v) {
+  const filled = (value) => typeof value === 'string' && value.trim().length > 0;
+  const bad = (field, why) => `volatile field ${field} ${why}`;
+  if (!filled(v.body)) return bad('body', 'must carry the exact body under review');
+  if (workflow === 'pr' && !filled(v.diff)) return bad('diff', 'must carry the exact diff under review');
+  if (!filled(v.languageProfile)) return bad('languageProfile', 'must name the Language Profile');
+  if (!v.acceptanceCriteria.length || !v.acceptanceCriteria.every(filled)) return bad('acceptanceCriteria', 'must carry at least one criterion');
+  if (!filled(v.target.repository) || !Number.isInteger(v.target.number) || v.target.number < 1) return bad('target', 'must name the repository and the target number');
+  for (const key of FINGERPRINT_MINIMUM[workflow]) if (!filled(v.fingerprints[key])) return bad('fingerprints', `must carry ${key}`);
+  for (const [key, value] of Object.entries(v.fingerprints)) if (!filled(value)) return bad('fingerprints', `carries an empty ${key}`);
+  for (const key of ['unresolved', 'settled']) if (!Array.isArray(v.history[key])) return bad('history', `must carry the ${key} projection`);
+  return null;
+}
 const ROLE_BLOCKS = Object.freeze({
   issue: Object.freeze({ file: 'skills/closed-loop-issue/SKILL.md', heading: '### Issue gate role-authority blocks (CL-D2)', label: 'Issue' }),
   pr: Object.freeze({ file: 'skills/closed-loop-pr/SKILL.md', heading: '### PR gate role-authority blocks (CL-D2)', label: 'PR' }),
@@ -132,12 +150,14 @@ function buildGateLaunch(data) {
     }
     const expected = data.expectation.expected;
     expectedState(expected);
-    for (const key of volatileRequired(expected.workflow, expected.correlation.gate)) {
-      if (!Object.hasOwn(data.volatile, key)) fail('invalid_request', `volatile lacks required field: ${key}`);
-    }
     if (JSON.stringify(data.expectation.outputSchema) !== JSON.stringify(SCHEMA)) fail('schema_mismatch', 'outputSchema is not the packaged CL-D36 schema byte for byte');
     // A gate outside its root cannot validate later; refuse it before any file is read (CONV-123-ROOT-GATE-LAUNCH).
     if (!ROOT_GATES[expected.workflow].includes(expected.correlation.gate)) fail('gate_outside_root', `gate ${expected.correlation.gate} is not a ${expected.workflow} gate`);
+    for (const key of volatileRequired(expected.workflow, expected.correlation.gate)) {
+      if (!Object.hasOwn(data.volatile, key)) fail('invalid_request', `volatile lacks required field: ${key}`);
+    }
+    const emptiness = volatileEmptiness(expected.workflow, data.volatile);
+    if (emptiness !== null) fail('invalid_request', emptiness);
     let fileText;
     try { fileText = readUtf8(data.expectationPath); } catch (error) { fail('expectation_file_absent', `expectation file is not readable: ${error.message}`, { expectationPath: data.expectationPath }); }
     let fileExpected;
