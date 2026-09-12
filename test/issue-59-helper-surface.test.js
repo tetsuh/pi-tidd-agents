@@ -33,6 +33,8 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/paths.js|const target = fs.realpathSync.native(top);',
   "skills/closed-loop-pr/helpers/launch.js|const fs = require('node:fs');",
   "skills/closed-loop-pr/helpers/launch.js|function readUtf8(file) { return fs.readFileSync(file, 'utf8'); }",
+  // CONV-123-DESIGNATED-OUTPUT-SYMLINK: containment is a filesystem identity, so the reader canonicalizes.
+  "skills/closed-loop-pr/helpers/launch.js|try { canonicalOutput = fs.realpathSync.native(structuredOutputPath); canonicalRun = fs.realpathSync.native(path.dirname(statusPath)); }",
   'skills/closed-loop-pr/helpers/paths.js|const stat = fs.lstatSync(file);',
   'skills/closed-loop-pr/helpers/paths.js|if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) throw new Error(`symlink path component rejected: ${current}`);',
   "skills/closed-loop-pr/helpers/process.js|const fs = require('node:fs');",

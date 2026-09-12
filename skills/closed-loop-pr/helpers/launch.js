@@ -41,12 +41,16 @@ function volatileRequired(workflow, gate) {
 const OID_TEXT = /^[0-9a-f]{40}$/, HEX_TEXT = /^[0-9a-f]{40,64}$/;
 const TARGET_FIELDS = Object.freeze({
   repository: (v) => typeof v === 'string' && v.length > 0, headRepository: (v) => typeof v === 'string' && v.length > 0,
-  number: (v) => Number.isInteger(v) && v > 0, issue: (v) => Number.isInteger(v) && v > 0,
+  number: (v) => Number.isInteger(v) && v > 0,
   mode: (v) => typeof v === 'string', gate: (v) => typeof v === 'string',
   headBranch: (v) => typeof v === 'string' && v.length > 0,
   baseOid: (v) => typeof v === 'string' && OID_TEXT.test(v), headOid: (v) => typeof v === 'string' && OID_TEXT.test(v),
 });
 const HISTORY_FIELDS = Object.freeze(['unresolved', 'reopened', 'settled']);
+// A history record is a finding record or a settled summary: the finding fields the packaged schema declares,
+// plus the projection fields CL-D2 names for a settled or reopened entry. Every record names its finding.
+const HISTORY_RECORD_FIELDS = Object.freeze([...Object.keys(SCHEMA.properties.findings.items.properties),
+  'sourceGate', 'raisedAgainst', 'disposition', 'dispositionRationale', 'confirmation', 'status', 'reviewedHead', 'summary']);
 // The evidence identities the correlation already fixes; a repeated one must agree with it.
 const FINGERPRINT_CORRELATED = Object.freeze({ pr_head: 'headOid', pr_base: 'baseOid', snapshot: 'snapshotFingerprint' });
 const RECORD_LISTS = Object.freeze(['decisions', 'comments']);
@@ -55,7 +59,7 @@ const FINGERPRINT_MINIMUM = Object.freeze({ pr: ['pr_head', 'pr_base', 'pr_diff'
 const MODES = Object.freeze(['autofix', 'review-only']);
 // The identities a target may repeat. The expectation is the authority for each; the target's copy is
 // checked against it rather than trusted, and a copy it does not carry is not required (CL-D47's rule).
-const TARGET_CORRELATED = Object.freeze(['repository', 'number', 'baseOid', 'headOid', 'headBranch']);
+const TARGET_CORRELATED = Object.freeze(['repository', 'number', 'baseOid', 'headOid', 'headBranch', 'headRepository']);
 // A required field that carries nothing is not the envelope: an empty target names no target, an empty body
 // no content, no criteria no scope (ADV-123-VOLATILE-REQUIRED-FIELDS). `decisions` and `comments` may be
 // empty, because a target can legitimately carry neither.
@@ -77,6 +81,12 @@ function nestedProblem(v, correlation) {
   for (const [key, value] of Object.entries(v.history)) {
     if (!HISTORY_FIELDS.includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}` };
     if (!Array.isArray(value) || value.some((record) => !plain(record))) return { code: 'invalid_request', message: `volatile field history.${key} must be a list of records` };
+    for (const record of value) {
+      for (const field of Object.keys(record)) {
+        if (!HISTORY_RECORD_FIELDS.includes(field)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}[].${field}` };
+      }
+      if (typeof record.findingId !== 'string' || record.findingId.length === 0) return { code: 'invalid_request', message: `volatile field history.${key} carries a record naming no finding` };
+    }
   }
   return null;
 }
@@ -140,13 +150,16 @@ function readGateResult(data) {
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
     // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).
     if (step.status !== 'complete') fail('step_incomplete', `selected step status is ${JSON.stringify(step.status ?? null)}`, { statusPath, structuredOutputPath, stepStatus: step.status ?? null });
-    // The designated output belongs to the run it is read for: a status naming a file elsewhere is not
-    // this run's result, whatever sits there.
-    const runDirectory = path.dirname(statusPath);
-    const inside = path.relative(path.resolve(runDirectory), path.resolve(structuredOutputPath));
-    if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) fail('designated_output_outside_run', 'the designated output is outside the run directory', { statusPath, structuredOutputPath });
+    // The designated output belongs to the run it is read for, by filesystem identity rather than by
+    // spelling: a link inside the run directory pointing outside it is outside it
+    // (CONV-123-DESIGNATED-OUTPUT-SYMLINK).
+    let canonicalOutput, canonicalRun;
+    try { canonicalOutput = fs.realpathSync.native(structuredOutputPath); canonicalRun = fs.realpathSync.native(path.dirname(statusPath)); }
+    catch (error) { fail('designated_output_absent', `designated output is not readable: ${error.message}`, { statusPath, structuredOutputPath }); }
+    const inside = path.relative(canonicalRun, canonicalOutput);
+    if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) fail('designated_output_outside_run', 'the designated output is outside the run directory', { statusPath, structuredOutputPath, canonicalOutput });
     let outputText;
-    try { outputText = readUtf8(structuredOutputPath); } catch (error) { fail('designated_output_absent', `designated output is not readable: ${error.message}`, { statusPath, structuredOutputPath }); }
+    try { outputText = readUtf8(canonicalOutput); } catch (error) { fail('designated_output_absent', `designated output is not readable: ${error.message}`, { statusPath, structuredOutputPath }); }
     const bytes = Buffer.byteLength(outputText);
     if (outputText.trim().length === 0) fail('designated_output_empty', `designated output holds ${bytes} bytes and no content`, { statusPath, structuredOutputPath, bytes });
     let envelope;
