@@ -76,8 +76,12 @@ function check(s, v, p = 'envelope') {
   if (s.pattern && !new RegExp(s.pattern).test(v)) fail('schema_invalid', `${p}: pattern`);
   if (s.minLength && !v.length) fail('schema_invalid', `${p}: empty`);
 }
-function expectedState(e) {
+// The expectation is read by the composer and the validator alike, and serialized by the composer: its
+// correlation is the packaged closed schema of the version in play (CONV-123-EXPECTATION-CORRELATION-CLOSURE).
+function expectedState(e, version = 2) {
   if (!plain(e) || !plain(e.correlation) || !ROOTS.includes(e.workflow)) fail('invalid_request', 'bad expected root');
+  check(SCHEMAS[version].properties.correlation, e.correlation, 'expected.correlation');
+  checkRequiredEvidence(e.requiredEvidence);
   const a = e.assignedFindings;
   if (!Array.isArray(a) || a.some((x) => !keysExactly(x, words('blockerKey findingId'))
     || !words('findingId blockerKey').every((k) => typeof x[k] === 'string' && x[k]))) fail('invalid_request', 'bad assignments');
@@ -185,7 +189,7 @@ function validateGateResult(v, e) {
     // so a version 1 gate inside a version 2 envelope (or the reverse) is an unknown enum, never
     // a mapped value; an unlisted version falls to the shipping schema's const and fails there.
     const version = plain(v) && Object.hasOwn(SCHEMAS, v.schemaVersion) ? v.schemaVersion : 2;
-    check(SCHEMAS[version], v); const assigned = expectedState(e);
+    check(SCHEMAS[version], v); const assigned = expectedState(e, version);
     checkCorrelation(v.correlation, e.correlation);
     if (version === 2 && !ROOT_GATES[e.workflow].includes(v.correlation.gate)) fail('correlation_mismatch', `gate ${v.correlation.gate} is not a ${e.workflow} gate`);
     // The namespace is derived, never supplied: a hand-copied duplicate of a derivable value
