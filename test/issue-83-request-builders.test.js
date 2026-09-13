@@ -56,7 +56,7 @@ function expectationInput() {
 function gateOutput() {
   return {
     schemaVersion: 2, correlation: correlation(), verdict: 'MERGE',
-    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64), readCompletely: true }],
+    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'builders', searched: 'the helper boundary', outcome: 'no-counterexample', evidence: 'complete' }],
   };
@@ -93,14 +93,15 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map, 'the invocation map must exist');
   for (const declaration of [
-    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`), `cwd` |',
+    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |',
     '| `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |',
     '| `build_workspace_cleanup` | `created` (data of `workspace_create`), `cwd` |',
     '| `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |',
     '| `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |',
   ]) assert.ok(map.includes(declaration), `map must declare ${declaration}`);
   assert.match(map, /validates the construction with the boundary's own predicates before returning it, so a builder output the boundary would reject is unrepresentable/);
-  assert.match(map, /Builders are read-only, reach no network, filesystem, or Git, and grant no authority/);
+  // ADV-123-CLD68-IO-CONTRADICTION: the paragraph names the one exception the CL-D68 record grants.
+  assert.match(map, /Builders are read-only, reach no network or Git, and grant no authority; none reaches the filesystem except `build_gate_launch`, whose only reads are the installed package's own authority files and the supplied expectation file \(CL-D68\)/);
   assert.match(map, /rejects invalid inputs with the boundary's vocabulary at phase `build`/);
   assert.match(map, /returns the canonical CL-D36 structured-output schema, so the parent copies a derivation instead of re-authoring one/);
   assert.match(map, /Prefer a builder over hand-assembly wherever one exists/);
@@ -116,7 +117,7 @@ test('Issue #83 the CLI exposes exactly the seven builder operations with frozen
   const cliSource = readText('skills/closed-loop-pr/helpers/cli.js');
   assert.match(cliSource, /build_operator_revalidate: \{ required: \['captured', 'cwd'\], optional: \['postPushHead'\] \}/);
   assert.match(cliSource, /build_workspace_verify: \{ required: \['created', 'cwd'\], optional: \['transition'\] \}/);
-  assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 7, 'the builder family is exactly the five CL-D56 compositions plus the two CL-D61 manifest builders');
+  assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 8, 'the builder family is exactly the five CL-D56 compositions, the two CL-D61 manifest builders, and the CL-D68 launch composer');
 });
 
 test('Issue #83 builders are pure: no filesystem, process, network, or Git reach', () => {

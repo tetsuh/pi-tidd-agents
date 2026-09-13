@@ -61,7 +61,7 @@ const decision = (over = {}) => ({
   decisionId: 'DEC-56-001', kind: 'contract', targetAndRevision: 'PR #56 at head', question: 'q',
   options: 'a or b', recommendation: 'a', rationale: 'r', validity: 'this revision', status: 'pending', ...over,
 });
-const attestation = (over = {}) => ({ source: 'skills/closed-loop-pr/SKILL.md', kind: 'file', identity: 'f'.repeat(64), readCompletely: true, ...over });
+const attestation = (over = {}) => ({ source: 'skills/closed-loop-pr/SKILL.md', kind: 'file', readCompletely: true, ...over });
 const adversarial = (over = {}) => ({ claim: 'all required authority was read', searched: 'the supplied files', outcome: 'no-counterexample', evidence: 'complete attestation set', ...over });
 const envelope = (over = {}) => ({
   schemaVersion: 1,
@@ -80,7 +80,7 @@ const expect = (over = {}) => {
     correlation: expectedCorrelation,
     workflow: 'pr',
     assignedFindings: [],
-    requiredEvidence: [{ source: attestation().source, kind: attestation().kind, identity: attestation().identity }],
+    requiredEvidence: [{ source: attestation().source, kind: attestation().kind, identity: 'f'.repeat(64) }],
     ...over,
   };
 };
@@ -142,7 +142,7 @@ test('Issue #37 evidence attestations are parent-bound and Sol adversarial resul
     ['omitted evidence', envelope({ evidenceRead: [] })],
     ['incomplete evidence', envelope({ evidenceRead: [attestation({ readCompletely: false })] })],
     ['duplicate evidence', envelope({ evidenceRead: [attestation(), attestation()] })],
-    ['unexpected evidence', envelope({ evidenceRead: [attestation({ identity: 'x' })] })],
+    ['unexpected evidence', envelope({ evidenceRead: [attestation({ source: 'x' })] })],
     ['empty Sol adversarial results', envelope({ adversarialResults: [] })],
   ];
   for (const [label, value] of cases) {
@@ -347,7 +347,7 @@ test('Issue #37 record schemas are closed and carry their contract fields', () =
   // evidenceRead is a closed attestation record, not a bare string list.
   assert.equal(evidenceRead.items.type, 'object');
   assert.equal(evidenceRead.items.additionalProperties, false);
-  assert.deepEqual(evidenceRead.items.required.slice().sort(), ['identity', 'kind', 'readCompletely', 'source']);
+  assert.deepEqual(evidenceRead.items.required.slice().sort(), ['kind', 'readCompletely', 'source']);
   assert.equal(adversarialResults.items.additionalProperties, false);
   assert.ok(adversarialResults.items.required.includes('evidence'));
   assert.ok(Object.hasOwn(adversarialResults.items.properties, 'findingId'));
@@ -417,6 +417,16 @@ test('Issue #37 the verdict matrix rejects inconsistent states', () => {
   assert.equal(gateResult.validateGateResult(envelope({ findings: [followUp] }), expect()).ok, true, 'a deferred follow-up is non-blocking');
   const confirmedReword = finding({ severity: 'Major', anchoring: 'reword' });
   assert.equal(gateResult.validateGateResult(envelope({ findings: [confirmedReword], confirmations: [confirmation()] }), assigned).ok, true, 'a confirmed fixed reword is non-blocking');
+  // An explicit `outOfScope: false` says what an omitted field says: this finding is not the residual. Two
+  // review runs of PR #123 were lost when the validator rejected the value rather than reading it.
+  const anchored = freshFinding({ severity: 'Major', anchoring: 'criterion-anchored', anchor: 'CL-D2' });
+  const { outOfScope: _omitted, ...withoutField } = { ...anchored, outOfScope: false };
+  const withField = gateResult.validateGateResult(envelope({ findings: [{ ...anchored, outOfScope: false }] }), expect());
+  const omitted = gateResult.validateGateResult(envelope({ findings: [withoutField] }), expect());
+  assert.equal(withField.ok, omitted.ok, 'the explicit false validates exactly as the omitted field does');
+  assert.deepEqual(withField.ok ? withField.data.verdict : withField.error.code, omitted.ok ? omitted.data.verdict : omitted.error.code);
+  // The residual label itself is unchanged: `true` still excludes an anchoring class.
+  assert.equal(gateResult.validateGateResult(envelope({ findings: [{ ...anchored, outOfScope: true }] }), expect()).error.code, 'finding_records_invalid');
   const residual = freshFinding({ severity: 'Minor', anchoring: undefined, outOfScope: true, proposedDisposition: 'deferred' });
   assert.equal(gateResult.validateGateResult(envelope({ findings: [residual] }), expect()).ok, true, 'an out-of-scope residual is representable and non-blocking');
   const residualEvidence = envelope({ findings: [residual], adversarialResults: [adversarial({ outcome: 'counterexample', findingId: residual.findingId })] });

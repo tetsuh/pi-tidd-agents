@@ -49,7 +49,7 @@ function correlation(gate) {
 function envelope(schemaVersion, gate, over = {}) {
   return {
     schemaVersion, correlation: correlation(gate), verdict: 'MERGE',
-    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA, readCompletely: true }],
+    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'gate identities', searched: 'the validator', outcome: 'no-counterexample', evidence: 'complete' }],
     ...over,
@@ -188,7 +188,9 @@ test('Issue #100 the shared contract, the addendum, the README, and CL-D60 recor
 test('Issue #100 CL-D60 raises the authority ceiling once, with the headroom property asserted at the raise', () => {
   for (const file of ['test/package.test.js', 'test/issue-73-authority-budget.test.js', 'test/issue-87-authority-floor.test.js', 'test/issue-87-addendum-split.test.js']) {
     const text = readText(file);
-    assert.match(text, /assert\.ok\(total < 140000,/, `${file} asserts the raised ceiling`);
+    // CL-D68 raised the ceiling once more; each file asserts the current ceiling, and the superseded values must not survive.
+    assert.match(text, /assert\.ok\(total < 150000,/, `${file} asserts the raised ceiling`);
+    assert.equal(text.includes('total < 140000'), false, `${file}: the CL-D60 ceiling must not survive the CL-D68 raise`);
     assert.equal(text.includes('total < 128000'), false, `${file}: the superseded ceiling must not survive`);
   }
   // CL-D43's own raise-time property stays as the historical fact it is.
@@ -196,5 +198,5 @@ test('Issue #100 CL-D60 raises the authority ceiling once, with the headroom pro
   assert.ok(CL_D60_BASELINE_BYTES > 128000, 'the raise was taken because the graph could not fit under 128,000');
   assert.ok(140000 - CL_D60_BASELINE_BYTES > 8000, `the raise left only ${140000 - CL_D60_BASELINE_BYTES} bytes`);
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 140000, `authority files total ${total}`);
+  assert.ok(total < 150000, `authority files total ${total}`);
 });

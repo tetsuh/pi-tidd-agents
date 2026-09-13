@@ -6,9 +6,9 @@
 // reject is unrepresentable. Builders are pure and read-only: no filesystem, process,
 // network, or Git reach, and no authority beyond assembling a request the caller still runs.
 
-const { createResult, createError } = require('./protocol');
-const { inputShapeProblem, authorizedPathsProblem } = require('./composition');
-const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema } = require('./gate-result');
+const { createResult, createError, keysExactly } = require('./protocol');
+const { inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem } = require('./composition');
+const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } = require('./gate-result');
 
 // Transition OIDs mirror the CLI's 40-or-64 hex rule; postPushHead mirrors
 // operator_revalidate's exact 40-hex commit rule (SOL-98-OID-WIDTH).
@@ -24,6 +24,8 @@ function wrap(operation, construct) {
 // The boundary's own predicate table is the sole gatekeeper of what a builder may emit; a
 // construction it would reject never leaves the builder.
 function built(operation, consumer, data, rename) {
+  // The producer payload becomes its envelope before the check, so a builder emits one canonical form (CL-D70).
+  data = normalizeDeclaredInputs(consumer, data);
   let problem = inputShapeProblem(consumer, data);
   if (problem !== null) {
     if (rename) problem = problem.replace(`\`${rename.from}\``, `\`${rename.to}\``);
@@ -47,8 +49,7 @@ function buildWorkspaceVerify(data) {
     if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
     if (Object.hasOwn(data, 'transition')) {
       const transition = data.transition;
-      const shaped = transition !== null && typeof transition === 'object' && !Array.isArray(transition)
-        && Object.keys(transition).sort().join() === 'from,to'
+      const shaped = keysExactly(transition, ['from', 'to'])
         && Object.values(transition).every((oid) => typeof oid === 'string' && TRANSITION_OID_PATTERN.test(oid));
       if (!shaped) fail('invalid_request', 'workspace transition requires only from and to OIDs');
     }
@@ -64,6 +65,9 @@ function buildWorkspaceCleanup(data) {
     const shapeProblem = inputShapeProblem('workspace_verify', { cwd: data.cwd, expected: data.created });
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem.replace('`expected`', '`created`'));
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
+    // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it before the request exists (CL-D68).
+    const cwdProblem = cleanupCwdProblem(data.cwd, data.created.path);
+    if (cwdProblem !== null) fail(cwdProblem.subcheck === 'cleanup_cwd_relative' ? 'cleanup_cwd_relative' : 'cleanup_cwd_inside_workspace', cwdProblem.message);
     return built('build_workspace_cleanup', 'workspace_cleanup', { receipt: data.created.receipt, cwd: data.cwd });
   });
 }
@@ -106,6 +110,8 @@ function buildGateExpectation(data) {
       assignedFindings: data.assignedFindings, requiredEvidence: data.requiredEvidence,
     };
     expectedState(expected);
+    // A gate outside its root cannot validate later; refuse it before an expectation exists (CONV-123-ROOT-GATE-LAUNCH).
+    if (!ROOT_GATES[data.workflow].includes(data.correlation.gate)) fail('gate_outside_root', `gate ${data.correlation.gate} is not a ${data.workflow} gate`);
     checkRequiredEvidence(data.requiredEvidence);
     // The canonical CL-D36 schema rides along so the parent copies a derivation instead of
     // re-authoring one (CL-D47's rule applied to schemas).

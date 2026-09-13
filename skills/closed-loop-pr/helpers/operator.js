@@ -2,7 +2,7 @@
 
 const path = require('node:path');
 const { runSync, gitArgs, assertSafeRepositoryConfig } = require('./process');
-const { classifyRuntimeRoots, normalizeCheckoutPath, lstatKind } = require('./paths');
+const { classifyRuntimeRoots, normalizeCheckoutPath, lstatKind, helperTrust } = require('./paths');
 const { createResult, createError } = require('./protocol');
 
 const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];
@@ -103,6 +103,9 @@ function captureOperatorCheckout(input = process.cwd()) {
   try {
     const identity = safeIdentity(options.identity);
     const top = path.resolve(gitText(cwd, ['rev-parse', '--show-toplevel']));
+    // The helper that runs this check must not live inside the checkout it checks (CL-D68).
+    const { helperPath, helperInsideTarget } = helperTrust(top);
+    if (helperInsideTarget) throw Object.assign(new Error('the packaged helper resolved inside the target checkout; run it from the installed package'), { code: 'helper_inside_target', details: { helperPath, target: top } });
     const configDigest = assertSafeRepositoryConfig(top);
     const head = gitText(top, ['rev-parse', 'HEAD']);
     const { branch, upstream, trackingRef } = tracking(top);
@@ -127,13 +130,15 @@ function captureOperatorCheckout(input = process.cwd()) {
     if (runtimeHeadEntries.length || runtimeIndexEntries.length) throw Object.assign(new Error('runtime root is present in HEAD or index'), { code: 'runtime_root_tracked' });
     if (unsafeRuntimeRoots.length) throw Object.assign(new Error(`unsafe runtime root: ${unsafeRuntimeRoots.join(', ')}`), { code: 'unsafe_runtime_root' });
     return createResult('operator_checkout', {
+      // These keys are OPERATOR_CAPTURE_PAYLOAD_KEYS, the set the boundary recognizes (CL-D70).
       root: top, head, branch, originFetch, originPush, upstream, trackingRef,
       worktreeChanges, trackedChanges: worktreeChanges, indexChanges, untrackedPaths, unexpectedUntrackedPaths,
       ignoredInventory, runtimeInventory, runtimeHeadEntries, runtimeIndexEntries, runtimeRoots, unsafeRuntimeRoots, identity, configDigest,
+      helperPath, helperInsideTarget,
       clean: worktreeChanges.length === 0 && indexChanges.length === 0 && unexpectedUntrackedPaths.length === 0 && unsafeRuntimeRoots.length === 0,
     });
   } catch (error) {
-    return createError('operator_checkout', error.code || 'capture_failed', error.message, error.phase || 'operator_capture');
+    return createError('operator_checkout', error.code || 'capture_failed', error.message, error.phase || 'operator_capture', error.details);
   }
 }
 function immutableOperatorBaseline(data) {
@@ -172,4 +177,10 @@ function revalidateOperatorCheckout(captured, input = process.cwd()) {
     : createError('operator_checkout', 'operator_changed', 'operator checkout differs from captured baseline', 'operator_revalidate');
 }
 
-module.exports = { captureOperatorCheckout, revalidateOperatorCheckout, immutableOperatorBaseline, RUNTIME_ROOTS, nulRecords, byteSort, runtimeTrackedEntries };
+// The exact key set a successful `operator_capture` payload carries (CL-D70).
+const OPERATOR_CAPTURE_PAYLOAD_KEYS = Object.freeze(['branch', 'clean', 'configDigest', 'head', 'helperInsideTarget', 'helperPath',
+  'identity', 'ignoredInventory', 'indexChanges', 'originFetch', 'originPush', 'root', 'runtimeHeadEntries', 'runtimeIndexEntries',
+  'runtimeInventory', 'runtimeRoots', 'trackedChanges', 'trackingRef', 'unexpectedUntrackedPaths', 'unsafeRuntimeRoots',
+  'untrackedPaths', 'upstream', 'worktreeChanges']);
+
+module.exports = { captureOperatorCheckout, revalidateOperatorCheckout, immutableOperatorBaseline, RUNTIME_ROOTS, OPERATOR_CAPTURE_PAYLOAD_KEYS, nulRecords, byteSort, runtimeTrackedEntries };
