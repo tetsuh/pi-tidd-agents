@@ -217,6 +217,8 @@ function safeError(error, command, options, stdout = '', stderr = '') {
   safe.spawnError = typeof error.code === 'string' && !error.killed ? error.code : null;
   safe.stdout = redact(stdout);
   safe.stderr = redact(stderr);
+  // The complete streams as captured, for a caller that reports evidence rather than a message (CL-D72).
+  safe.streams = { stdout: Buffer.isBuffer(stdout) ? stdout : Buffer.from(String(stdout || '')), stderr: Buffer.isBuffer(stderr) ? stderr : Buffer.from(String(stderr || '')) };
   return safe;
 }
 

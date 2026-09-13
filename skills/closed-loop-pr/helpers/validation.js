@@ -41,8 +41,11 @@ async function validationRun(data) {
       result = await run(program, args, { cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, acceptAnyExit: true, phase: 'spawn' });
     } catch (error) {
       const reason = error.code === 'command_timeout' ? 'timeout' : error.signal ? `signal:${error.signal}` : error.spawnError || 'spawn';
+      // The same stream evidence as every other outcome: what each stream held when the command stopped
+      // (CONV-124-HARNESS-EVIDENCE).
+      const streams = error.streams ?? { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };
       return createError(operation, 'harness_failed', `the validation command could not run or did not finish: ${reason}`, 'spawn',
-        { command: data.command, cwd: data.cwd, reason, exitCode: null, signal: error.signal ?? null, durationMs: Date.now() - started, stdout: { tail: error.stdout ?? '' }, stderr: { tail: error.stderr ?? '' } });
+        { command: data.command, cwd: data.cwd, reason, exitCode: null, signal: error.signal ?? null, durationMs: Date.now() - started, stdout: stream(streams.stdout), stderr: stream(streams.stderr) });
     }
     const evidence = { command: data.command, cwd: data.cwd, exitCode: result.exitCode, signal: null, durationMs: Date.now() - started, stdout: stream(result.stdout), stderr: stream(result.stderr) };
     if (result.exitCode !== 0) return createError(operation, 'validation_failed', `the validation command ran and exited ${result.exitCode}`, 'validation', evidence);

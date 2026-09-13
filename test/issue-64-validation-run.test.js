@@ -61,22 +61,32 @@ test('Issue #64 validation_run reports passed, validation_failed, and harness_fa
     assert.equal(failed.error.details.stderr.tail, 'bad\n');
     assert.equal(failed.error.details.stderr.sha256, sha256('bad\n'), 'the failure carries the same evidence as a pass');
 
+    // CONV-124-HARNESS-EVIDENCE: a harness failure carries the same stream evidence as every other outcome —
+    // bytes, digest, and tail of whatever each stream held when the command stopped.
+    const streams = (details) => { for (const name of ['stdout', 'stderr']) assert.deepEqual(Object.keys(details[name]).sort(), ['bytes', 'sha256', 'tail'], `${name} carries the stream evidence shape`); };
     const missing = await helpers.validationRun({ cwd: repo.root, command: [path.join(repo.root, 'no-such-validator')] });
     assert.equal(missing.ok, false);
     assert.equal(missing.error.code, 'harness_failed', JSON.stringify(missing.error));
     assert.equal(missing.error.phase, 'spawn');
     assert.equal(missing.error.details.reason, 'ENOENT');
     assert.equal(missing.error.details.exitCode, null);
+    streams(missing.error.details);
+    assert.deepEqual(missing.error.details.stdout, { bytes: 0, sha256: sha256(''), tail: '' }, 'a program that never ran wrote nothing');
 
-    const slow = await helpers.validationRun({ cwd: repo.root, command: script('setTimeout(() => {}, 5000)'), timeoutMs: 200 });
+    const slow = await helpers.validationRun({ cwd: repo.root, command: script('process.stdout.write("partial\\n"); process.stderr.write("still\\n"); setTimeout(() => {}, 5000)'), timeoutMs: 1500 });
     assert.equal(slow.error.code, 'harness_failed', JSON.stringify(slow.error));
     assert.equal(slow.error.phase, 'spawn');
     assert.equal(slow.error.details.reason, 'timeout');
+    streams(slow.error.details);
+    assert.deepEqual(slow.error.details.stdout, { bytes: 8, sha256: sha256('partial\n'), tail: 'partial\n' }, 'what the command wrote before the timeout is kept');
+    assert.deepEqual(slow.error.details.stderr, { bytes: 6, sha256: sha256('still\n'), tail: 'still\n' });
 
     if (process.platform !== 'win32') {
-      const killed = await helpers.validationRun({ cwd: repo.root, command: script('process.kill(process.pid, "SIGTERM"); setTimeout(() => {}, 2000)') });
+      const killed = await helpers.validationRun({ cwd: repo.root, command: script('process.stdout.write("before\\n", () => process.kill(process.pid, "SIGTERM")); setTimeout(() => {}, 2000)') });
       assert.equal(killed.error.code, 'harness_failed', JSON.stringify(killed.error));
       assert.equal(killed.error.details.reason, 'signal:SIGTERM');
+      streams(killed.error.details);
+      assert.deepEqual(killed.error.details.stdout, { bytes: 7, sha256: sha256('before\n'), tail: 'before\n' }, 'what the command wrote before the signal is kept');
     }
     // The two failure classes differ in code and in phase, as the acceptance criterion requires.
     assert.notEqual(failed.error.code, missing.error.code);
