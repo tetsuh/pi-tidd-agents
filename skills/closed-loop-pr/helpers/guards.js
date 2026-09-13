@@ -275,6 +275,8 @@ function requiredEvidenceCheck(data) {
 // through the allowed diff, ls-tree, and cat-file; it reads Git, so it is not one of the pure builders.
 const AUTHORITY_AT_HEAD = ['CONTRACT.md', 'README.md'];
 const IDENTITY_KINDS = ['git', 'github', 'snapshot'];
+// An identity the request repeats must agree with the argument it repeats (CL-D47's rule).
+const CORRELATED_SOURCES = { 'git:pr_head': 'headOid', 'git:pr_base': 'baseOid' };
 function requiredEvidenceSet(data) {
   return wrap('required_evidence_set', () => {
     const phase = 'required_evidence_set';
@@ -284,6 +286,8 @@ function requiredEvidenceSet(data) {
     for (const entry of data.identities) {
       const shaped = keysExactly(entry, ['identity', 'kind', 'source']) && text(entry.source) && text(entry.identity) && IDENTITY_KINDS.includes(entry.kind);
       if (!shaped) fail('invalid_request', 'identities_shape', 'each identity record carries exactly source, kind (git, github, or snapshot), and identity; file records are derived here', JSON.stringify(entry));
+      const argument = CORRELATED_SOURCES[entry.source];
+      if (argument && entry.identity !== data[argument]) fail('invalid_request', 'identity_correlation', `${entry.source} must equal ${argument}`, entry.identity);
     }
     if (gitText(data.cwd, ['rev-parse', '--show-prefix'], phase).trim() !== '') fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of its Git checkout', data.cwd);
     for (const key of ['baseOid', 'headOid']) {

@@ -150,6 +150,13 @@ function validateBoundary(model) {
     if (/\breceipt\s*\.\s*(?:storedPath|root)\s*=|\b(?:Object\.assign|Reflect\.set)\s*\(\s*receipt\b|\bdelete\s+receipt\s*\./.test(source)) errors.push(`workspace receipt provenance mutation is forbidden: ${file}`);
   }
   for (const { file, command } of gitCommands(model.sources)) if (!ALLOWED_GIT_COMMANDS.has(command)) errors.push(`Git command is outside the reviewed verification/lifecycle allowlist: ${file}:${command}`);
+  // CL-D72: exactly one spawn of anything but git and gh, in validation.js, and no shell anywhere.
+  const validationSites = [];
+  for (const [file, source] of Object.entries(model.sources)) {
+    for (const match of source.matchAll(/kind: 'validation'/g)) if (match) validationSites.push(file);
+    if (/\bshell:\s*true\b/.test(source)) errors.push(`shell spawn is forbidden: ${file}`);
+  }
+  if (validationSites.length !== 1 || validationSites[0] !== `${HELPER_DIR}/validation.js`) errors.push(`non-git spawn sites differ from the one reviewed site: ${validationSites.join(', ') || 'none'}`);
   for (const [file, anchor, expectedCount = 1] of PROVENANCE_ANCHORS) {
     const count = model.sources[file].split(anchor).length - 1;
     if (count !== expectedCount) errors.push(`write-root provenance anchor is absent or duplicated: ${file}:${anchor}`);
@@ -211,6 +218,10 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'bin', (copy) => { copy.manifest.bin = { tidd: 'skills/closed-loop-pr/helpers/cli.js' }; }, 'package bin');
   rejectsMutation(model, 'exports', (copy) => { copy.manifest.exports = './skills/closed-loop-pr/helpers/cli.js'; }, 'package exports');
   rejectsMutation(model, 'extension', (copy) => { copy.manifest.pi.extensions = ['./extension.js']; }, 'pi.extensions');
+  // CL-D72: a second non-git spawn site, a moved one, or a shell anywhere is rejected.
+  rejectsMutation(model, 'second validation spawn site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun('npm', ['test'], { kind: 'validation' });\n"; }, 'non-git spawn sites');
+  rejectsMutation(model, 'validation spawn site moved', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("kind: 'validation'", "kind: 'gh'"); }, 'non-git spawn sites');
+  rejectsMutation(model, 'shell spawn', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace('shell: false', 'shell: true'); }, 'shell spawn is forbidden');
   for (const operation of ['commit', 'push', 'merge', 'reply', 'approve', 'thread_resolve', 'schedule', 'state_write']) {
     rejectsMutation(model, `${operation} operation`, (copy) => {
       copy.sources[`${HELPER_DIR}/cli.js`] = copy.sources[`${HELPER_DIR}/cli.js`].replace('  operator_capture:', `  ${operation}: { required: [], optional: [] },\n  operator_capture:`);

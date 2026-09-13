@@ -202,7 +202,10 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
       ['a base that is not a commit here', { cwd: repo.root, baseOid: 'f'.repeat(40), headOid: repo.head, identities: [] }, 'commit_presence'],
       ['a head that is not an OID', { cwd: repo.root, baseOid: repo.base, headOid: 'main', identities: [] }, 'request_shape'],
       ['a cwd below the toplevel', { cwd: path.join(repo.root, 'dir'), baseOid: repo.base, headOid: repo.head, identities: [] }, 'cwd_toplevel'],
-      ['two identities of one source', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_head', kind: 'git', identity: repo.head }, { source: 'git:pr_head', kind: 'git', identity: repo.base }] }, 'required_evidence_shape'],
+      ['two identities of one source', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_head', kind: 'git', identity: repo.head }, { source: 'git:pr_head', kind: 'git', identity: repo.head + '' }] }, 'required_evidence_shape'],
+      // An identity the request repeats agrees with the argument it repeats, or the request is refused.
+      ['a head identity disagreeing with headOid', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_head', kind: 'git', identity: repo.base }] }, 'identity_correlation'],
+      ['a base identity disagreeing with baseOid', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_base', kind: 'git', identity: repo.head }] }, 'identity_correlation'],
     ]) {
       const refused = helpers.requiredEvidenceSet(data);
       assert.equal(refused.ok, false, `${label} must be refused`);
