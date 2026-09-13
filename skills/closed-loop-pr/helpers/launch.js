@@ -15,7 +15,7 @@ const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
 const { SCHEMA, ROOT_GATES, expectedState } = require('./gate-result');
 const { inputShapeProblem } = require('./composition');
-const { FINGERPRINT_DOMAINS } = require('./evidence');
+const { FINGERPRINT_DOMAINS, FINGERPRINT_ENCODINGS, OID_PATTERN } = require('./evidence');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CLI_PATH = path.join(__dirname, 'cli.js');
@@ -38,7 +38,9 @@ function volatileRequired(workflow, gate) {
 // Each declared object of the envelope is closed too: an unknown key anywhere in it is caller prose that
 // would ride into the task (ADV-123-NESTED-VOLATILE-ENVELOPE-PROSE). A record inside the history arrays is
 // the parent ledger's projection, whose fields CL-D2 owns; the composer owns the envelope around it.
-const OID_TEXT = /^[0-9a-f]{40}$/, HEX_TEXT = /^[0-9a-f]{40,64}$/;
+// An OID is 40 or 64 hex wherever the package reads one; each evidence identity has its domain's encoding
+// (CONV-123-FINGERPRINT-DOMAIN-SHAPE).
+const OID_TEXT = OID_PATTERN;
 const TARGET_FIELDS = Object.freeze({
   repository: (v) => typeof v === 'string' && v.length > 0, headRepository: (v) => typeof v === 'string' && v.length > 0,
   number: (v) => Number.isInteger(v) && v > 0,
@@ -98,7 +100,8 @@ function citedRecords(v) {
   return { lists };
 }
 // The evidence identities each root's gates review (CL-D9), and the two modes CL-D6 parses.
-const FINGERPRINT_MINIMUM = Object.freeze({ pr: FINGERPRINT_DOMAINS, issue: ['issue_spec', 'snapshot'] });
+// A root's gates review exactly these domains: each is required, and no other is accepted.
+const FINGERPRINT_SET = Object.freeze({ pr: FINGERPRINT_DOMAINS, issue: Object.freeze(['issue_spec', 'snapshot']) });
 const MODES = Object.freeze(['autofix', 'review-only']);
 // The identities a target may repeat. The expectation is the authority for each; the target's copy is
 // checked against it rather than trusted, and a copy it does not carry is not required (CL-D47's rule).
@@ -107,14 +110,14 @@ const TARGET_CORRELATED = Object.freeze(['repository', 'number', 'baseOid', 'hea
 // no content, no criteria no scope (ADV-123-VOLATILE-REQUIRED-FIELDS). `decisions` and `comments` may be
 // empty, because a target can legitimately carry neither.
 // Every declared object, key by key, before any of it is serialized.
-function nestedProblem(v, correlation) {
+function nestedProblem(v, correlation, workflow) {
   for (const [key, value] of Object.entries(v.target)) {
     if (!Object.hasOwn(TARGET_FIELDS, key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: target.${key}` };
     if (!TARGET_FIELDS[key](value)) return { code: 'invalid_request', message: `volatile field target.${key} is not the declared shape` };
   }
   for (const [key, value] of Object.entries(v.fingerprints)) {
-    if (!FINGERPRINT_DOMAINS.includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: fingerprints.${key}` };
-    if (typeof value !== 'string' || !HEX_TEXT.test(value)) return { code: 'invalid_request', message: `volatile field fingerprints.${key} is not an evidence identity` };
+    if (!FINGERPRINT_SET[workflow].includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: fingerprints.${key}` };
+    if (typeof value !== 'string' || !FINGERPRINT_ENCODINGS[key].test(value)) return { code: 'invalid_request', message: `volatile field fingerprints.${key} is not a ${key} identity` };
     const correlated = FINGERPRINT_CORRELATED[key];
     if (correlated && value !== correlation[correlated]) return { code: 'invalid_request', message: `volatile field fingerprints.${key} disagrees with the expectation on ${correlated}` };
   }
@@ -161,7 +164,7 @@ function volatileEmptiness(expected, v) {
   for (const key of TARGET_CORRELATED) {
     if (Object.hasOwn(v.target, key) && v.target[key] !== correlation[key]) return bad('target', `disagrees with the expectation on ${key}`);
   }
-  for (const key of FINGERPRINT_MINIMUM[workflow]) if (!filled(v.fingerprints[key])) return bad('fingerprints', `must carry ${key}`);
+  for (const key of FINGERPRINT_SET[workflow]) if (!filled(v.fingerprints[key])) return bad('fingerprints', `must carry ${key}`);
   for (const [key, value] of Object.entries(v.fingerprints)) if (!filled(value)) return bad('fingerprints', `carries an empty ${key}`);
   // The compact projection is complete or it is not the projection: a child without the reopened list cannot
   // see which settled findings came back (CL-D2, CONV-123-HISTORY-REOPENED-OMISSION).
@@ -286,7 +289,7 @@ function buildGateLaunch(data) {
     }
     const emptiness = volatileEmptiness(expected, data.volatile);
     if (emptiness !== null) fail('invalid_request', emptiness);
-    const nested = nestedProblem(data.volatile, expected.correlation);
+    const nested = nestedProblem(data.volatile, expected.correlation, expected.workflow);
     if (nested !== null) fail(nested.code, nested.message);
     const cited = citedRecords(data.volatile);
     if (cited.problem) fail(cited.problem.code, cited.problem.message);
@@ -320,4 +323,4 @@ function buildGateLaunch(data) {
   }
 }
 
-module.exports = { readGateResult, buildGateLaunch, ROLE_BY_GATE, VOLATILE_FIELDS, volatileRequired, FINGERPRINT_DOMAINS };
+module.exports = { readGateResult, buildGateLaunch, ROLE_BY_GATE, VOLATILE_FIELDS, volatileRequired, FINGERPRINT_DOMAINS, FINGERPRINT_ENCODINGS };

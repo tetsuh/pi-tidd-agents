@@ -139,7 +139,8 @@ function verifyEvidence(data) {
   }
 }
 
-// The seven labelled evidence domains, named once here for every consumer (CL-D9).
+// The seven labelled evidence domains and each one's encoding, named once here for every consumer (CL-D9).
 const FINGERPRINT_DOMAINS = Object.freeze(Object.keys(DOMAINS));
+const FINGERPRINT_ENCODINGS = Object.freeze(Object.fromEntries(FINGERPRINT_DOMAINS.map((domain) => [domain, SHAPES[DOMAINS[domain]]])));
 
-module.exports = { FINGERPRINT_DOMAINS, verifyEvidence, createEvidenceFingerprintRecord, EVIDENCE_SCHEMA_VERSION: VERSION, EVIDENCE_DOMAINS: DOMAINS };
+module.exports = { FINGERPRINT_DOMAINS, FINGERPRINT_ENCODINGS, OID_PATTERN: OID, verifyEvidence, createEvidenceFingerprintRecord, EVIDENCE_SCHEMA_VERSION: VERSION, EVIDENCE_DOMAINS: DOMAINS };

@@ -652,10 +652,16 @@ test('Issue #111 the volatile envelope is closed at every declared object (ADV-1
       ]) assert.equal(build(over).ok, false, `${workflow}/${gate}: ${JSON.stringify(over)} must be refused`);
       // The ledger owns what a history record carries; the composer owns the envelope around it.
       assert.equal(build({ history: { ...complete.history, settled: [{ findingId: 'ADV-1', sourceGate: 'adversarial', raisedAgainst: OID, disposition: 'fixed', confirmation: 'Sol' }] } }).ok, true, `${workflow}/${gate}: a settled summary composes`);
-      // Every fingerprint domain the package declares is accepted.
+      // A root's gates review exactly their domains: every one of them composes, and (CONV-123-FINGERPRINT-DOMAIN-SHAPE)
+      // a domain outside the root's set is refused by name.
       const correlation = expectation.expected.correlation;
-      const declared = Object.fromEntries(helpers.FINGERPRINT_DOMAINS.map((domain) => [domain, SHA]));
-      assert.equal(build({ fingerprints: { ...declared, pr_head: correlation.headOid, pr_base: correlation.baseOid, pr_tree: 'c'.repeat(40), snapshot: correlation.snapshotFingerprint } }).ok, true, `${workflow}/${gate}: the declared domains compose`);
+      const roots = { pr: helpers.FINGERPRINT_DOMAINS, issue: ['issue_spec', 'snapshot'] };
+      const declared = Object.fromEntries(roots[workflow].map((domain) => [domain, domain === 'pr_head' ? correlation.headOid : domain === 'pr_base' ? correlation.baseOid : domain === 'pr_tree' ? 'c'.repeat(40) : domain === 'snapshot' ? correlation.snapshotFingerprint : SHA]));
+      assert.equal(build({ fingerprints: declared }).ok, true, `${workflow}/${gate}: the root's declared domains compose`);
+      const foreign = workflow === 'pr' ? 'not_a_domain' : 'pr_head';
+      const outside = build({ fingerprints: { ...declared, [foreign]: 'a'.repeat(40) } });
+      assert.equal(outside.ok, false, `${workflow}/${gate}: a domain outside the root's set is refused`);
+      assert.equal(outside.error.code, 'volatile_unknown_field', JSON.stringify(outside.error));
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -899,5 +905,54 @@ test('Issue #111 an expectation whose correlation carries an undeclared key is r
     const legacyExpected = { ...expectation.expected, correlation: legacy };
     assert.equal(helpers.validateGateResult(legacyEnvelope, legacyExpected).ok, true, 'a version 1 expectation validates a version 1 envelope');
     assert.equal(helpers.validateGateResult(legacyEnvelope, { ...legacyExpected, correlation: { ...legacy, instructions: 'x' } }).error.code, 'unknown_field', 'and is closed the same way');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// CONV-123-FINGERPRINT-DOMAIN-SHAPE: an evidence identity has the encoding its domain declares, a root's gates
+// review exactly their domains, and an OID is 40 or 64 hex wherever the package reads one.
+test('Issue #111 fingerprints carry their domain encodings and exactly the root’s domains (CONV-123-FINGERPRINT-DOMAIN-SHAPE)', () => {
+  const dir = temp('i111-domain-');
+  try {
+    assert.deepEqual(Object.keys(helpers.FINGERPRINT_ENCODINGS).sort(), helpers.FINGERPRINT_DOMAINS.slice().sort(), 'every domain declares its encoding');
+    const digest = '1'.repeat(64), oid40 = 'a'.repeat(40), oid64 = 'a'.repeat(64);
+    for (const [domain, accepted, refused] of [['pr_head', [oid40, oid64], ['a'.repeat(41), 'a'.repeat(63), digest.slice(1)]], ['pr_tree', [oid40, oid64], ['a'.repeat(41)]], ['pr_diff', [digest], [oid40, 'a'.repeat(63)]], ['pr_commits', [digest], [oid40]], ['issue_spec', [digest], [oid40]], ['snapshot', [digest], [oid40]]]) {
+      for (const value of accepted) assert.equal(helpers.FINGERPRINT_ENCODINGS[domain].test(value), true, `${domain} accepts ${value.length} hex`);
+      for (const value of refused) assert.equal(helpers.FINGERPRINT_ENCODINGS[domain].test(value), false, `${domain} refuses ${value.length} hex`);
+    }
+    const expectation = expectationFor('pr', 'adversarial');
+    const expectationPath = path.join(dir, 'pr-adversarial.json');
+    fs.writeFileSync(expectationPath, `${JSON.stringify(expectation.expected, null, 2)}\n`);
+    const complete = completeVolatile('pr', 'adversarial');
+    const build = (over) => helpers.buildGateLaunch({ expectation, expectationPath, volatile: { ...complete, ...over } });
+    for (const [label, fingerprints] of [
+      ['a 41-hex tree', { ...complete.fingerprints, pr_tree: 'c'.repeat(41) }],
+      ['a 40-hex diff', { ...complete.fingerprints, pr_diff: '1'.repeat(40) }],
+      ['a 40-hex commits digest', { ...complete.fingerprints, pr_commits: '1'.repeat(40) }],
+      ['a 63-hex snapshot', { ...complete.fingerprints, snapshot: 'd'.repeat(63) }],
+    ]) {
+      const refused = build({ fingerprints });
+      assert.equal(refused.ok, false, `${label} must be refused`);
+      assert.equal(refused.error.code, 'invalid_request', `${label}: ${JSON.stringify(refused.error)}`);
+      assert.match(refused.error.message, /fingerprints\./, label);
+    }
+    // A SHA-256 repository: 64-hex OIDs in the correlation, the target, and the git_oid domains compose together.
+    const wide = { ...correlation('pr', 'adversarial'), baseOid: 'b'.repeat(64), headOid: oid64 };
+    const wideExpectation = helpers.buildGateExpectation({ workflow: 'pr', correlation: wide, assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
+    assert.equal(wideExpectation.ok, true, JSON.stringify(wideExpectation.error));
+    const widePath = path.join(dir, 'pr-adversarial-64.json');
+    fs.writeFileSync(widePath, `${JSON.stringify(wideExpectation.data.expected, null, 2)}\n`);
+    const wideLaunch = helpers.buildGateLaunch({ expectation: wideExpectation.data, expectationPath: widePath, volatile: { ...complete, target: { ...complete.target, baseOid: 'b'.repeat(64), headOid: oid64 }, fingerprints: { ...complete.fingerprints, pr_base: 'b'.repeat(64), pr_head: oid64, pr_tree: 'c'.repeat(64) } } });
+    assert.equal(wideLaunch.ok, true, `64-hex OIDs compose throughout: ${JSON.stringify(wideLaunch.error)}`);
+    // The Issue root's gates review exactly their domains: a PR domain beside them is not theirs.
+    const issueExpectation = expectationFor('issue', 'decision-drift');
+    const issuePath = path.join(dir, 'issue-drift.json');
+    fs.writeFileSync(issuePath, `${JSON.stringify(issueExpectation.expected, null, 2)}\n`);
+    const issueComplete = completeVolatile('issue', 'decision-drift');
+    assert.deepEqual(Object.keys(issueComplete.fingerprints).sort(), ['issue_spec', 'snapshot']);
+    assert.equal(helpers.buildGateLaunch({ expectation: issueExpectation, expectationPath: issuePath, volatile: issueComplete }).ok, true);
+    const mixed = helpers.buildGateLaunch({ expectation: issueExpectation, expectationPath: issuePath, volatile: { ...issueComplete, fingerprints: { ...issueComplete.fingerprints, pr_head: oid40 } } });
+    assert.equal(mixed.ok, false, 'a PR domain on an Issue gate is refused');
+    assert.equal(mixed.error.code, 'volatile_unknown_field', JSON.stringify(mixed.error));
+    assert.match(mixed.error.message, /fingerprints\.pr_head/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
