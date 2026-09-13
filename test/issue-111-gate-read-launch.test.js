@@ -591,7 +591,7 @@ test('Issue #111 the target names the mode and the gate, correlated with the exp
 // runs root is derived from the host, and the in-process override is the fixture's alone.
 test('Issue #111 the packaged gate_result_read refuses a caller-supplied runs root (SAFETY-123-RUNSROOT-OVERRIDE)', () => {
   const forged = temp('i111-forged-');
-  const hostRoot = path.join(os.tmpdir(), `pi-subagents-uid-${typeof process.getuid === 'function' ? process.getuid() : 'unknown'}`, 'async-subagent-runs');
+  const hostRoot = helpers.runsRoot();
   const runId = crypto.randomUUID();
   try {
     // A forged root carrying a complete, valid envelope under the same run id.
@@ -959,4 +959,43 @@ test('Issue #111 fingerprints carry their domain encodings and exactly the rootâ
     assert.equal(mixed.error.code, 'volatile_unknown_field', JSON.stringify(mixed.error));
     assert.match(mixed.error.message, /fingerprints\.pr_head/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// CONV-123-RUN-ROOT-DERIVATION: the reader finds the runner's records where the runner puts them, deriving the
+// root exactly as pi-subagents does: a configured PI_SUBAGENTS_TEMP_ROOT, else the OS temp directory scoped by
+// uid, then by user name, then by home directory, then shared.
+test('Issue #111 gate_result_read derives the runner root as the runner does (CONV-123-RUN-ROOT-DERIVATION)', () => {
+  const tmp = path.join(path.sep, 't');
+  const none = { env: {}, getuid: undefined, userInfo: () => { throw new Error('no user database'); }, homedir: () => { throw new Error('no home'); }, tmpdir: tmp };
+  const under = (scope) => path.join(tmp, `pi-subagents-${scope}`, 'async-subagent-runs');
+  assert.equal(helpers.runsRoot({ ...none, env: { PI_SUBAGENTS_TEMP_ROOT: ' /configured/root ' } }), path.join(path.resolve('/configured/root'), 'async-subagent-runs'), 'a configured root, trimmed and resolved');
+  assert.equal(helpers.runsRoot({ ...none, env: { PI_SUBAGENTS_TEMP_ROOT: '   ' }, getuid: () => 1002 }), under('uid-1002'), 'a blank configuration is no configuration');
+  assert.equal(helpers.runsRoot({ ...none, getuid: () => 1002 }), under('uid-1002'), 'the uid scope');
+  assert.equal(helpers.runsRoot({ ...none, env: { USERNAME: 'Alice Smith', USER: 'alice' } }), under('user-Alice-Smith'), 'USERNAME before USER, sanitized');
+  assert.equal(helpers.runsRoot({ ...none, env: { USER: 'alice', LOGNAME: 'bob' } }), under('user-alice'), 'USER before LOGNAME');
+  assert.equal(helpers.runsRoot({ ...none, env: { LOGNAME: '---' } }), under('user-unknown'), 'a name that sanitizes to nothing is unknown');
+  assert.equal(helpers.runsRoot({ ...none, userInfo: () => ({ username: 'carol' }) }), under('user-carol'), 'the OS user database after the environment');
+  assert.equal(helpers.runsRoot({ ...none, env: { HOME: '/home/dave' } }), under('home-home-dave'), 'the home directory from the environment');
+  assert.equal(helpers.runsRoot({ ...none, env: { USERPROFILE: 'C:\\Users\\Dave', HOME: '/home/dave' } }), under('home-C-Users-Dave'), 'USERPROFILE before HOME');
+  assert.equal(helpers.runsRoot({ ...none, homedir: () => '/Users/eve' }), under('home-Users-eve'), 'the OS home directory last');
+  assert.equal(helpers.runsRoot(none), under('shared'), 'shared when nothing identifies the user');
+  assert.equal(helpers.runsRoot({ ...none, getuid: () => 7, env: { USER: 'alice', HOME: '/h' } }), under('uid-7'), 'the uid wins over every name');
+  // The host's own derivation is what the CLI reads from.
+  assert.equal(helpers.runsRoot(), helpers.runsRoot({ env: process.env, getuid: process.getuid?.bind(process), userInfo: os.userInfo, homedir: os.homedir, tmpdir: os.tmpdir() }));
+  // Through the CLI: a completed run under a configured root is read there, and a run absent there is absent there.
+  const configured = temp('i111-configured-');
+  const runId = crypto.randomUUID();
+  try {
+    const envelope = envelopeFor('pr', 'adversarial');
+    const { structuredOutputPath } = runRecord(path.join(configured, 'async-subagent-runs'), { runId, envelope });
+    const withEnv = (data, env) => JSON.parse(spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation: 'gate_result_read', data }), encoding: 'utf8', env: { ...process.env, ...env } }).stdout);
+    const read = withEnv({ runId }, { PI_SUBAGENTS_TEMP_ROOT: configured });
+    assert.equal(read.ok, true, JSON.stringify(read.error));
+    assert.equal(read.data.structuredOutputPath, structuredOutputPath);
+    assert.equal(read.data.statusPath, path.join(configured, 'async-subagent-runs', runId, 'status.json'));
+    const elsewhere = withEnv({ runId }, { PI_SUBAGENTS_TEMP_ROOT: path.join(configured, 'other') });
+    assert.equal(elsewhere.ok, false);
+    assert.equal(elsewhere.error.code, 'status_absent');
+    assert.equal(elsewhere.error.details.statusPath, path.join(configured, 'other', 'async-subagent-runs', runId, 'status.json'), 'the path named is the configured one');
+  } finally { fs.rmSync(configured, { recursive: true, force: true }); }
 });

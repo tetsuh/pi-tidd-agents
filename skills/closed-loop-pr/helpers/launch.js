@@ -183,8 +183,23 @@ function fail(code, message, details) { throw Object.assign(new Error(message), 
 function sha256(content) { return crypto.createHash('sha256').update(content).digest('hex'); }
 function readUtf8(file) { return fs.readFileSync(file, 'utf8'); }
 
-// The runner's async-runs root for this user; fixtures override it.
-function defaultRunsRoot() { return path.join(os.tmpdir(), `pi-subagents-uid-${typeof process.getuid === 'function' ? process.getuid() : 'unknown'}`, 'async-subagent-runs'); }
+// The runner's async-runs root, derived as pi-subagents 0.67.0 derives it (shared/types.ts): a configured
+// PI_SUBAGENTS_TEMP_ROOT, else the OS temp directory scoped by uid, then user name, then home directory, then
+// shared (CONV-123-RUN-ROOT-DERIVATION). Fixtures inject the host; the CLI reads the real one.
+function scopeSegment(value) { const clean = value.trim().replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, ''); return clean || 'unknown'; }
+function tempScopeId(host) {
+  if (typeof host.getuid === 'function') return `uid-${host.getuid()}`;
+  for (const key of ['USERNAME', 'USER', 'LOGNAME']) if (host.env[key]) return `user-${scopeSegment(host.env[key])}`;
+  try { const name = host.userInfo?.().username; if (name) return `user-${scopeSegment(name)}`; } catch { /* no user database */ }
+  const home = host.env.USERPROFILE ?? host.env.HOME;
+  if (home) return `home-${scopeSegment(home)}`;
+  try { const fallback = host.homedir?.(); if (fallback) return `home-${scopeSegment(fallback)}`; } catch { /* no home */ }
+  return 'shared';
+}
+function runsRoot(host = { env: process.env, getuid: process.getuid?.bind(process), userInfo: os.userInfo, homedir: os.homedir, tmpdir: os.tmpdir() }) {
+  const configured = host.env.PI_SUBAGENTS_TEMP_ROOT?.trim();
+  return path.join(configured ? path.resolve(configured) : path.join(host.tmpdir, `pi-subagents-${tempScopeId(host)}`), 'async-subagent-runs');
+}
 
 function readGateResult(data) {
   const operation = 'gate_result_read';
@@ -194,7 +209,7 @@ function readGateResult(data) {
     // `runsRoot`, so a caller cannot point the read at a forged root (SAFETY-123-RUNSROOT-OVERRIDE).
     // The override below is reachable only by a direct in-process call, which is the fixture's.
     if (Object.hasOwn(data, 'runsRoot') && !text(data.runsRoot)) fail('invalid_request', 'runsRoot must be a nonempty string when given');
-    const statusPath = path.join(data.runsRoot || defaultRunsRoot(), data.runId, 'status.json');
+    const statusPath = path.join(data.runsRoot || runsRoot(), data.runId, 'status.json');
     let statusText;
     try { statusText = readUtf8(statusPath); } catch (error) { fail('status_absent', `runner status record is not readable: ${error.message}`, { statusPath }); }
     let status;
@@ -323,4 +338,4 @@ function buildGateLaunch(data) {
   }
 }
 
-module.exports = { readGateResult, buildGateLaunch, ROLE_BY_GATE, VOLATILE_FIELDS, volatileRequired, FINGERPRINT_DOMAINS, FINGERPRINT_ENCODINGS };
+module.exports = { readGateResult, buildGateLaunch, runsRoot, ROLE_BY_GATE, VOLATILE_FIELDS, volatileRequired, FINGERPRINT_DOMAINS, FINGERPRINT_ENCODINGS };
