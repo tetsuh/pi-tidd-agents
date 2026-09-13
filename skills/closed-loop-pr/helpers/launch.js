@@ -57,7 +57,7 @@ const WORKFLOW_RECORD_FIELDS = Object.freeze(Object.keys(SCHEMA.properties.findi
 const FINGERPRINT_CORRELATED = Object.freeze({ pr_head: 'headOid', pr_base: 'baseOid', snapshot: 'snapshotFingerprint' });
 const RECORD_LISTS = Object.freeze(['decisions', 'comments']);
 // The evidence identities each root's gates review (CL-D9), and the two modes CL-D6 parses.
-const FINGERPRINT_MINIMUM = Object.freeze({ pr: ['pr_head', 'pr_base', 'pr_diff'], issue: ['issue_spec'] });
+const FINGERPRINT_MINIMUM = Object.freeze({ pr: FINGERPRINT_DOMAINS, issue: ['issue_spec', 'snapshot'] });
 const MODES = Object.freeze(['autofix', 'review-only']);
 // The identities a target may repeat. The expectation is the authority for each; the target's copy is
 // checked against it rather than trusted, and a copy it does not carry is not required (CL-D47's rule).
@@ -78,7 +78,7 @@ function nestedProblem(v, correlation) {
     if (correlated && value !== correlation[correlated]) return { code: 'invalid_request', message: `volatile field fingerprints.${key} disagrees with the expectation on ${correlated}` };
   }
   for (const field of RECORD_LISTS) {
-    if (Object.hasOwn(v, field) && v[field].some((record) => !plain(record))) return { code: 'invalid_request', message: `volatile field ${field} must be a list of records` };
+    if (Object.hasOwn(v, field) && v[field].some((record) => !plain(record) || Object.keys(record).length === 0)) return { code: 'invalid_request', message: `volatile field ${field} must be a list of records` };
   }
   for (const [key, value] of Object.entries(v.history)) {
     if (!HISTORY_FIELDS.includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}` };
@@ -114,6 +114,9 @@ function volatileEmptiness(expected, v) {
   if (!filled(v.languageProfile)) return bad('languageProfile', 'must name the Language Profile');
   if (!v.acceptanceCriteria.length || !v.acceptanceCriteria.every(filled)) return bad('acceptanceCriteria', 'must carry at least one criterion');
   if (!filled(v.target.repository) || !Number.isInteger(v.target.number) || v.target.number < 1) return bad('target', 'must name the repository and the target number');
+  // The target is complete or it is not the target: the head it reviews, the base it is measured against,
+  // and the branch it sits on, each checked against the expectation below.
+  for (const key of ['baseOid', 'headOid', 'headBranch']) if (!filled(v.target[key])) return bad('target', `must name ${key}`);
   // CL-D2's mode or gate correlation: the gate is the expectation's, and the mode is one CL-D6 parses.
   if (!MODES.includes(v.target.mode)) return bad('target', `must name the mode, one of ${MODES.join(', ')}`);
   if (v.target.gate !== correlation.gate) return bad('target', `must name the gate the expectation names: ${correlation.gate}`);
@@ -122,7 +125,9 @@ function volatileEmptiness(expected, v) {
   }
   for (const key of FINGERPRINT_MINIMUM[workflow]) if (!filled(v.fingerprints[key])) return bad('fingerprints', `must carry ${key}`);
   for (const [key, value] of Object.entries(v.fingerprints)) if (!filled(value)) return bad('fingerprints', `carries an empty ${key}`);
-  for (const key of ['unresolved', 'settled']) if (!Array.isArray(v.history[key])) return bad('history', `must carry the ${key} projection`);
+  // The compact projection is complete or it is not the projection: a child without the reopened list cannot
+  // see which settled findings came back (CL-D2, CONV-123-HISTORY-REOPENED-OMISSION).
+  for (const key of HISTORY_FIELDS) if (!Array.isArray(v.history[key])) return bad('history', `must carry the ${key} projection`);
   return null;
 }
 const ROLE_BLOCKS = Object.freeze({
