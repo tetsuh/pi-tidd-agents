@@ -2772,8 +2772,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 220000;",
-        "CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979"
+        "const AGGREGATE_SMOKE_ALARM = 240000;",
+        "CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run"
       ]
     },
     {
@@ -3540,8 +3540,50 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 220000;",
-        "CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979"
+        "const AGGREGATE_SMOKE_ALARM = 240000;",
+        "CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run"
+      ]
+    },
+    {
+      "id": "CL-D72-map",
+      "marker": "CL-D72",
+      "title": "The invocation map offers the packaged validation run and names the recovery key",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |",
+        "| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |"
+      ]
+    },
+    {
+      "id": "CL-D72-record",
+      "marker": "CL-D72",
+      "title": "The CL-D72 record states the three choices, the spawn-site rule, and the reset",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D72 — The focused validation is packaged and the alarm is reset for it",
+      "requires": [
+        "Option A on all three",
+        "fails closed as `validation_failed` at phase `validation`",
+        "or as `harness_failed` at phase `spawn`",
+        "exactly one non-git spawn site, in `validation.js`",
+        "resets from 220,000 to 240,000 bytes",
+        "A second non-git spawn site, a shell string, a cwd below a toplevel, a program allowlist, or a further alarm raise requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D72-tests",
+      "marker": "CL-D72",
+      "title": "The CL-D72 fixtures pin the outcomes, the boundary, the prose, and the record",
+      "files": [
+        "test/issue-64-validation-run.test.js"
+      ],
+      "requires": [
+        "validation_run reports passed, validation_failed, and harness_failed as distinct outcomes",
+        "validation_run takes an argv, never a shell, and runs only at a Git toplevel",
+        "the map, the README, the recovery key, and the record name the packaged validation run"
       ]
     }
   ]

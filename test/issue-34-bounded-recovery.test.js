@@ -63,12 +63,12 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   const byKey = new Map(rows.map((row) => [row[1], row]));
   assert.deepEqual([...byKey.keys()].sort(), [
     '`envelope_read@normalize`', '`fingerprint_<op>@normalize`', '`gate_transport@gate_launch`',
-    '`manifest_compare@AFTER_STAGING`', '`report_verify@normalize`', '`validation_harness@focused_validation`',
+    '`manifest_compare@AFTER_STAGING`', '`report_verify@normalize`', '`validation_run@focused_validation`',
   ], 'every failure needs its own canonical key');
   // Both post-writer failures stay terminal with no replacement: the manifest assertion, and
   // the harness error, which in the shipped phase model only occurs inside Luna's focused
   // validation or a gate child.
-  const terminalKeys = ['`manifest_compare@AFTER_STAGING`', '`validation_harness@focused_validation`'];
+  const terminalKeys = ['`manifest_compare@AFTER_STAGING`', '`validation_run@focused_validation`'];
   for (const key of terminalKeys) {
     const row = byKey.get(key);
     assert.equal(row[2], 'none', `${key} has no prevalidated replacement`);
@@ -296,7 +296,7 @@ const FAILURE_KEYS = {
   report: 'report_verify@normalize',
   fingerprintBase: 'fingerprint_pr_base@normalize',
   fingerprintTree: 'fingerprint_pr_tree@normalize',
-  harness: 'validation_harness@focused_validation',
+  harness: 'validation_run@focused_validation',
   manifest: 'manifest_compare@AFTER_STAGING',
   gateTransport: 'gate_transport@gate_launch',
 };

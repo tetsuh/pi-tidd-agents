@@ -213,6 +213,8 @@ function safeError(error, command, options, stdout = '', stderr = '') {
   safe.phase = options.phase || 'process';
   safe.exitCode = Number.isInteger(error.status) ? error.status : null;
   safe.signal = error.signal || null;
+  // A spawn failure carries the system's own code (ENOENT, EACCES); an exit carries a number, a signal none.
+  safe.spawnError = typeof error.code === 'string' && !error.killed ? error.code : null;
   safe.stdout = redact(stdout);
   safe.stderr = redact(stderr);
   return safe;
@@ -229,7 +231,9 @@ function run(command, args, options = {}) {
   const kind = options.kind || (path.basename(command).toLowerCase().startsWith('gh') ? 'gh' : 'git');
   return new Promise((resolve, reject) => {
     const child = execFile(command, args, { ...commandOptions(options, kind), encoding: 'buffer' }, (error, stdout, stderr) => {
-      if (error && !(options.acceptExitCodes || []).includes(error.code)) {
+      // `acceptAnyExit` resolves every exit code the command chose for itself; a spawn error, a signal, or the
+      // timeout still rejects, which is how validation_run tells the two classes apart (CL-D72).
+      if (error && !(options.acceptExitCodes || []).includes(error.code) && !(options.acceptAnyExit && Number.isInteger(error.code))) {
         reject(safeError(error, command, options, stdout, stderr));
         return;
       }

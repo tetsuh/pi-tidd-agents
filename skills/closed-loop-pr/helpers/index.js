@@ -14,6 +14,7 @@ module.exports = {
   ...require('./reply'),
   ...require('./envelope'),
   ...require('./launch'),
+  ...require('./validation'),
   ...require('./protocol'),
   protocol: require('./protocol'),
 };

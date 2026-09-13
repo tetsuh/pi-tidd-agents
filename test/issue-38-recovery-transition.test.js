@@ -94,7 +94,7 @@ test('Issue #38 vector 5: any mutation attempt rejects recovery even when the pr
 });
 
 test('Issue #38 vector 6: the remaining terminal families stay terminal', () => {
-  for (const key of ['snapshot@gate_launch', 'writability@preflight', 'gate_result_validate@gate_result', 'operator_capture@preflight', 'workspace_verify@preflight', 'workspace_create@preflight', 'validation_harness@focused_validation', 'manifest_compare@AFTER_STAGING', 'luna@BEFORE_COMMIT']) {
+  for (const key of ['snapshot@gate_launch', 'writability@preflight', 'gate_result_validate@gate_result', 'operator_capture@preflight', 'workspace_verify@preflight', 'workspace_create@preflight', 'validation_run@focused_validation', 'manifest_compare@AFTER_STAGING', 'luna@BEFORE_COMMIT']) {
     const r = decide(key, baseState(), new Map());
     assert.equal(r.outcome, 'terminal', `${key} must be terminal`);
   }
@@ -107,7 +107,7 @@ test('Issue #38 vector 7: a recovery names what is preserved and what is invalid
     assert.match(r.evidence, /preserved/, `${key} must name preserved evidence`);
     assert.match(r.evidence, /invalidated/, `${key} must name invalidated evidence`);
   }
-  for (const key of ['validation_harness@focused_validation', 'manifest_compare@AFTER_STAGING']) {
+  for (const key of ['validation_run@focused_validation', 'manifest_compare@AFTER_STAGING']) {
     const r = decide(key, baseState(), new Map());
     assert.equal(r.outcome, 'terminal'); assert.match(r.evidence, /all evidence stands/);
   }

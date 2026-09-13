@@ -36,6 +36,7 @@ const SCHEMAS = Object.freeze({
   build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },
   build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },
   required_evidence_check: { required: ['cwd', 'requiredEvidence'], optional: [] },
+  validation_run: { required: ['cwd', 'command'], optional: ['timeoutMs'] },
   marker_create: { required: ['binding', 'visibleBody'], optional: [] },
   marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },
 });
@@ -152,6 +153,7 @@ async function dispatch(request) {
     case 'build_manifest_capture': return wrap(operation, helpers.buildManifestCapture(data));
     case 'build_manifest_compare': return wrap(operation, helpers.buildManifestCompare(data));
     case 'required_evidence_check': return wrap(operation, helpers.requiredEvidenceCheck(data));
+    case 'validation_run': return wrap(operation, await helpers.validationRun(data));
     case 'marker_create': return wrap(operation, helpers.createReplyMarker(data));
     case 'marker_reconcile': return wrap(operation, helpers.reconcileReply(data));
     default: invalid('unknown operation');

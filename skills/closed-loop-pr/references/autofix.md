@@ -60,6 +60,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Construct the `AFTER_STAGING` capture request from the frozen overlay (CL-D61) | `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |
 | Construct the `BEFORE_COMMIT` compare request from the capture it compares against (CL-D61) | `build_manifest_compare` | `captured` (data of `manifest_compare`), `cwd` |
 | Before building the gate expectation, on the assembled required-evidence set (CL-D61) | `required_evidence_check` | `cwd`, `requiredEvidence` |
+| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |
 | Immediately before Luna's first edit, on the authorized correction set (CL-D57) | `guard_before_edit` | `cwd`, `expected` (data of `workspace_create`), `authorizedPaths` |
 | Immediately after editing, freezing the authorized overlay (CL-D57) | `overlay_freeze` | `cwd`, `authorizedPaths` |
 | At each later overlay boundary, re-observing the frozen overlay (CL-D57) | `overlay_compare` | `cwd`, `overlay` (data of `overlay_freeze`) |
@@ -88,7 +89,7 @@ Each failure has one canonical `operation@phase` key. The operation part is the 
 | wrong key read from an evidence envelope | `envelope_read@normalize` | reread through the operation's declared field | recoverable | envelope preserved; derived value invalidated |
 | malformed local inspection command | `report_verify@normalize` | the operation named in the report envelope's own `operation` field, read directly as `envelope_read`; never run-time shell | recoverable | inputs preserved; report invalidated |
 | digest computed from the wrong domain | `fingerprint_<op>@normalize` | the operation declaring that domain | recoverable | source bytes preserved; digest invalidated |
-| validation harness could not run | `validation_harness@focused_validation` | none | terminal | post-writer; all evidence stands |
+| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |
 | over-specific staged-manifest assertion | `manifest_compare@AFTER_STAGING` | none | terminal | post-writer; all evidence stands |
 | gate transport failure with zero designated output bytes | `gate_transport@gate_launch` | one relaunch of the same prevalidated invocation | recoverable | no output existed; nothing is preserved or invalidated |
 

@@ -13,13 +13,13 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
   'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'launch.js', 'operator.js', 'paths.js',
-  'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'workspace.js', 'writability.js',
+  'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
   'build_fingerprint_snapshot', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
   'build_workspace_verify', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
-  'marker_create', 'marker_reconcile', 'required_evidence_check',
+  'marker_create', 'marker_reconcile', 'required_evidence_check', 'validation_run',
   'operator_capture', 'operator_revalidate', 'snapshot', 'workspace_cleanup', 'workspace_create',
   'workspace_verify', 'writability',
 ].sort();
@@ -62,8 +62,8 @@ const APPROVED_FS_SITES = [
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
   './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './launch': 1, './operator': 3,
-  './paths': 4, './process': 5, './protocol': 14, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 7, 'node:fs': 5, 'node:os': 3, 'node:path': 6,
+  './paths': 4, './process': 6, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 5, 'node:os': 3, 'node:path': 7,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
 const PROVENANCE_ANCHORS = [
@@ -86,7 +86,7 @@ const ROOT_GUARDS = [
   [`${HELPER_DIR}/workspace.js`, "if (isInside(requested, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
   [`${HELPER_DIR}/workspace.js`, "if (isInside(root, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
 ];
-const AGGREGATE_SMOKE_ALARM = 220000; // CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979
+const AGGREGATE_SMOKE_ALARM = 240000; // CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -198,6 +198,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     '140,000-byte aggregate smoke alarm',
     'CL-D53 later reset the aggregate smoke alarm to 160,000 bytes',
     'CL-D71 reset it a third time to 220,000 bytes',
+    'CL-D72 reset it a fourth time to 240,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);
