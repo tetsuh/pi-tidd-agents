@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('node:crypto');
-const { createResult, createError } = require('./protocol');
+const { createResult, createError, keysExactly } = require('./protocol');
 
 // Issue #40 (CL-D45). Deterministic source-reply markers and read-only reconciliation.
 //
@@ -47,7 +47,7 @@ function canonicalDigestible(body) { const visible = canonicalVisible(body); ret
 
 function checkBinding(binding) {
   if (!plain(binding)) fail('invalid_reply_binding', 'binding must be an object');
-  if (Object.keys(binding).sort().join() !== BINDING_KEYS.join()) fail('invalid_reply_binding', 'binding must carry exactly its declared fields');
+  if (!keysExactly(binding, BINDING_KEYS)) fail('invalid_reply_binding', 'binding must carry exactly its declared fields');
   if (!text(binding.repository) || !REPOSITORY.test(binding.repository)) fail('invalid_reply_binding', 'repository must be owner/name');
   if (!Number.isInteger(binding.number) || binding.number <= 0) fail('invalid_reply_binding', 'number must be a positive integer');
   if (!KINDS.includes(binding.sourceKind)) fail('invalid_reply_binding', `sourceKind must be one of ${KINDS.join(', ')}`);
@@ -59,7 +59,7 @@ function checkBinding(binding) {
   if (!Array.isArray(binding.findings) || binding.findings.length === 0) fail('invalid_reply_binding', 'findings must be a non-empty array');
   const seen = new Set();
   for (const finding of binding.findings) {
-    if (!plain(finding) || Object.keys(finding).sort().join() !== 'disposition,findingId') fail('invalid_reply_binding', 'each finding must carry exactly findingId and disposition');
+    if (!keysExactly(finding, ['disposition', 'findingId'])) fail('invalid_reply_binding', 'each finding must carry exactly findingId and disposition');
     if (!text(finding.findingId) || !FINDING_ID.test(finding.findingId)) fail('invalid_reply_binding', 'findingId must match the gate finding grammar');
     if (!DISPOSITIONS.includes(finding.disposition)) fail('invalid_reply_binding', `disposition must be one of ${DISPOSITIONS.join(', ')}`);
     if (seen.has(finding.findingId)) fail('invalid_reply_binding', 'finding IDs must be unique');

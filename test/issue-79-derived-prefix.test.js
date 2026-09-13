@@ -30,7 +30,7 @@ function correlation() {
 function result(overrides = {}) {
   return {
     schemaVersion: 1, correlation: correlation(), verdict: 'MERGE',
-    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA, readCompletely: true }],
+    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'derived prefix', searched: 'the validator', outcome: 'no-counterexample', evidence: 'complete' }],
     ...overrides,

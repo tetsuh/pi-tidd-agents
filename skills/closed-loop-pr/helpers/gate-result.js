@@ -1,6 +1,6 @@
 'use strict';
 
-const { createResult, createError } = require('./protocol');
+const { createResult, createError, keysExactly } = require('./protocol');
 const words = (s) => s.split(' ');
 const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'], ROOTS = ['issue', 'pr'];
 // Gate identities per envelope version (CL-D60): version 2 names workflow functions, each valid
@@ -41,7 +41,8 @@ const confirm = (gate) => closed({ ...fields('findingId evidence'), gate, headOi
   confirmation: choice(CONFIRMS) }, words('findingId gate headOid confirmation evidence'));
 const DEC = closed({ ...fields('decisionId kind targetAndRevision question options recommendation ownerChoice rationale validity'),
   status: choice(words('pending recorded')) }, words('decisionId kind targetAndRevision question options recommendation rationale validity status'));
-const EVID = closed({ ...fields('source identity'), kind: choice(KINDS), readCompletely: { type: 'boolean' } }, words('source kind identity readCompletely'));
+// The attestation names source, kind, and readCompletely; the identity lives in the expectation (CL-D69).
+const EVID = closed({ ...fields('source'), kind: choice(KINDS), readCompletely: { type: 'boolean' } }, words('source kind readCompletely'));
 const ADV = closed({ ...fields('claim searched evidence findingId'), outcome: choice(OUTCOMES) }, words('claim searched outcome evidence'));
 const schemaFor = (version) => {
   const gate = choice(GATES[version]);
@@ -75,10 +76,14 @@ function check(s, v, p = 'envelope') {
   if (s.pattern && !new RegExp(s.pattern).test(v)) fail('schema_invalid', `${p}: pattern`);
   if (s.minLength && !v.length) fail('schema_invalid', `${p}: empty`);
 }
-function expectedState(e) {
+// The expectation is read by the composer and the validator alike, and serialized by the composer: its
+// correlation is the packaged closed schema of the version in play (CONV-123-EXPECTATION-CORRELATION-CLOSURE).
+function expectedState(e, version = 2) {
   if (!plain(e) || !plain(e.correlation) || !ROOTS.includes(e.workflow)) fail('invalid_request', 'bad expected root');
+  check(SCHEMAS[version].properties.correlation, e.correlation, 'expected.correlation');
+  checkRequiredEvidence(e.requiredEvidence);
   const a = e.assignedFindings;
-  if (!Array.isArray(a) || a.some((x) => !plain(x) || Object.keys(x).sort().join() !== 'blockerKey,findingId'
+  if (!Array.isArray(a) || a.some((x) => !keysExactly(x, words('blockerKey findingId'))
     || !words('findingId blockerKey').every((k) => typeof x[k] === 'string' && x[k]))) fail('invalid_request', 'bad assignments');
   const ids = a.map((x) => x.findingId);
   if (new Set(ids).size !== ids.length) fail('invalid_request', 'duplicate assignment');
@@ -87,18 +92,20 @@ function expectedState(e) {
 function checkCorrelation(a, e) {
   for (const k of CORR_REQ) if (a[k] !== e[k]) fail('correlation_mismatch', `${k} mismatch`);
 }
+// Required and attested entries match by source and kind (CL-D69).
+const evidenceKey = (x) => JSON.stringify([x.source, x.kind]);
 function checkRequiredEvidence(req) {
-  const key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
+  const key = evidenceKey;
   if (!Array.isArray(req) || !req.length) fail('invalid_request', 'evidence missing');
-  for (const x of req) if (!plain(x) || Object.keys(x).sort().join() !== 'identity,kind,source'
+  for (const x of req) if (!keysExactly(x, words('identity kind source'))
     || !words('source identity').every((k) => typeof x[k] === 'string' && x[k]) || !KINDS.includes(x.kind)) fail('invalid_request', 'bad requiredEvidence');
   const e = req.map(key);
   if (new Set(e).size !== e.length) fail('invalid_request', 'duplicate expected evidence');
   return e;
 }
 function checkEvidence(v, req, adversarialGate) {
-  const bad = (m) => fail('evidence_records_invalid', m), key = (x) => JSON.stringify([x.source, x.kind, x.identity]);
-  const e = checkRequiredEvidence(req), a = v.evidenceRead.map(key);
+  const bad = (m) => fail('evidence_records_invalid', m);
+  const e = checkRequiredEvidence(req), a = v.evidenceRead.map(evidenceKey);
   if (new Set(a).size !== a.length) bad('duplicate evidence');
   if (v.evidenceRead.some((x) => !x.readCompletely)) bad('incomplete evidence');
   if (e.some((x) => !a.includes(x))) bad('required evidence omitted');
@@ -130,7 +137,7 @@ function checkFindings(findings, corr, assigned, prefix, root) {
   if (new Set(ids).size !== ids.length) bad('duplicate findingId');
   for (const x of findings) {
     if (x.gate !== corr.gate || x.headOid !== corr.headOid) bad(`${x.findingId}: gate/head mismatch`);
-    if (Object.hasOwn(x, 'outOfScope') && x.outOfScope !== true) bad(`${x.findingId}: false outOfScope`);
+    // `outOfScope: false` says what an omitted field says; only `true` is the residual label (CL-D34).
     const residual = x.outOfScope === true;
     if (residual === Boolean(x.anchoring)) bad(`${x.findingId}: classification`);
     if (x.anchoring === 'criterion-anchored' && !x.anchor) bad(`${x.findingId}: anchor`);
@@ -182,7 +189,7 @@ function validateGateResult(v, e) {
     // so a version 1 gate inside a version 2 envelope (or the reverse) is an unknown enum, never
     // a mapped value; an unlisted version falls to the shipping schema's const and fails there.
     const version = plain(v) && Object.hasOwn(SCHEMAS, v.schemaVersion) ? v.schemaVersion : 2;
-    check(SCHEMAS[version], v); const assigned = expectedState(e);
+    check(SCHEMAS[version], v); const assigned = expectedState(e, version);
     checkCorrelation(v.correlation, e.correlation);
     if (version === 2 && !ROOT_GATES[e.workflow].includes(v.correlation.gate)) fail('correlation_mismatch', `gate ${v.correlation.gate} is not a ${e.workflow} gate`);
     // The namespace is derived, never supplied: a hand-copied duplicate of a derivable value
@@ -200,4 +207,4 @@ function validateGateResult(v, e) {
 // checkSchema exposes the same structural walk validateGateResult applies, so builders can
 // validate a correlation with the boundary's own checker instead of a re-derivation.
 function checkSchema(schema, value, pathName = 'value') { check(schema, value, pathName); }
-module.exports = { SCHEMA, SCHEMAS, validateGateResult, expectedState, checkRequiredEvidence, checkSchema };
+module.exports = { SCHEMA, SCHEMAS, ROOT_GATES, validateGateResult, expectedState, checkRequiredEvidence, checkSchema };

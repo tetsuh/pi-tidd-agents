@@ -20,9 +20,12 @@ const INPUT_SHAPES = Object.freeze({
   workspace_cleanup: Object.freeze({ receipt: 'receipt:workspace_create' }),
   fingerprint_snapshot: Object.freeze({ snapshot: 'data:snapshot' }),
   gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),
+  // CL-D68: the composer's cross-operation field, the data of build_gate_expectation.
+  build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation' }),
 });
 
-const { RUNTIME_ROOTS } = require('./operator');
+const { RUNTIME_ROOTS, OPERATOR_CAPTURE_PAYLOAD_KEYS } = require('./operator');
+const { keysExactly } = require('./protocol');
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
@@ -91,6 +94,9 @@ const PREDICATES = Object.freeze({
       && ['path', 'status', 'srcMode', 'dstMode', 'srcOid', 'dstOid'].every((field) => text(entry[field]))),
   'envelope:operator_capture': (value) => plain(value) && value.version === 1 && value.ok === true
     && value.operation === 'operator_capture' && plain(value.data) && !Object.hasOwn(value, 'error'),
+  // CL-D70: the payload by its own exact key set; a partial or hand-built object is not producer output.
+  'data:operator_capture': (value) => keysExactly(value, OPERATOR_CAPTURE_PAYLOAD_KEYS)
+    && text(value.root) && text(value.head) && plain(value.identity) && typeof value.clean === 'boolean',
   'data:workspace_create': (value) => {
     if (!plain(value) || !text(value.path) || !text(value.head) || !text(value.tree)
       || !text(value.root) || typeof value.cleanupAllowed !== 'boolean') return false;
@@ -101,14 +107,17 @@ const PREDICATES = Object.freeze({
   },
   'receipt:workspace_create': (value) => plain(value) && value.version === 1
     && text(value.root) && text(value.storedPath) && Object.hasOwn(value, 'id'),
-  'data:snapshot': (value) => plain(value)
-    && Object.keys(value).sort().join() === SNAPSHOT_DATA_KEYS.join()
+  'data:snapshot': (value) => keysExactly(value, SNAPSHOT_DATA_KEYS)
     && plain(value.before) && plain(value.after) && plain(value.pull)
     && plain(value.completeness) && plain(value.policies)
     && ['annotations', 'checkSuites', 'checks', 'comments', 'inline', 'reviews', 'statuses', 'threads']
       .every((key) => Array.isArray(value[key])),
   'structured:gate_result': (value) => plain(value) && [1, 2].includes(value.schemaVersion)
     && plain(value.correlation) && typeof value.verdict === 'string',
+  'data:build_gate_expectation': (value) => plain(value) && keySet(value, ['expected', 'outputSchema'], [])
+    && plain(value.expected) && plain(value.outputSchema)
+    && keySet(value.expected, ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], [])
+    && plain(value.expected.correlation) && Array.isArray(value.expected.assignedFindings) && Array.isArray(value.expected.requiredEvidence),
 });
 
 // Diagnostic wording only: a best-effort name for what arrived, so the error reads as
@@ -133,13 +142,57 @@ function describe(value) {
 function inputShapeProblem(operation, data) {
   const declared = INPUT_SHAPES[operation];
   if (!declared || !plain(data)) return null;
+  // One acceptance rule for every caller: the producer payload is its envelope here too (CL-D70).
+  data = normalizeDeclaredInputs(operation, data);
   for (const [field, spec] of Object.entries(declared)) {
     if (!Object.hasOwn(data, field) && (OPTIONAL_INPUTS[operation] || []).includes(field)) continue;
     if (!PREDICATES[spec](data[field])) {
-      return `\`${field}\` must be ${spec}, received ${describe(data[field])}`;
+      // A rejection names what would have been accepted, both forms of it (CL-D70).
+      const accepted = spec.startsWith('envelope:') ? `${spec} or the complete payload of \`${spec.slice('envelope:'.length)}\`` : spec;
+      return `\`${field}\` must be ${accepted}, received ${describe(data[field])}`;
     }
   }
   return null;
 }
 
-module.exports = { INPUT_SHAPES, inputShapeProblem, authorizedPathsProblem };
+// The cleanup cwd rule as one pure predicate shared by `build_workspace_cleanup` and `workspace_cleanup`:
+// a cwd at or below the workspace being removed is the CL-D49 caller error. The builder applies it to the
+// request's strings; the operation applies it to canonical filesystem identities (CL-D68).
+// Lexical normalization without filesystem I/O: separators unified, `.` dropped, `..` folded, repeats and a
+// trailing separator removed. Spelling cannot hide a path below the workspace; symlink identity is the
+// consumer's, which canonicalizes before applying this predicate.
+function lexicalPath(value) {
+  const absolute = /^[\\/]/.test(value) || /^[A-Za-z]:[\\/]/.test(value);
+  const drive = value.match(/^[A-Za-z]:/) ? value.slice(0, 2) : '';
+  const segments = [];
+  for (const segment of value.slice(drive.length).split(/[\\/]+/)) {
+    if (segment === '' || segment === '.') continue;
+    if (segment === '..') { if (segments.length && segments[segments.length - 1] !== '..') segments.pop(); else if (!absolute) segments.push('..'); continue; }
+    segments.push(segment);
+  }
+  return `${drive}${absolute ? '/' : ''}${segments.join('/')}`;
+}
+function cleanupCwdProblem(cwd, workspaceRoot) {
+  // A relative cwd has no identity a pure builder can judge; it is refused before the inside/outside question.
+  if (!(/^[\\/]/.test(cwd) || /^[A-Za-z]:[\\/]/.test(cwd))) return { subcheck: 'cleanup_cwd_relative', message: 'cleanup cwd must be an absolute path', observed: cwd };
+  const root = lexicalPath(workspaceRoot), candidate = lexicalPath(cwd);
+  const inside = candidate === root || candidate.startsWith(`${root}/`);
+  return inside ? { subcheck: 'cleanup_cwd', message: 'cleanup cwd must be the repository, not the workspace being removed', observed: cwd } : null;
+}
+
+// CL-D70: a producer payload is wrapped as its envelope before any check, so one form crosses.
+function normalizeDeclaredInputs(operation, data) {
+  const declared = INPUT_SHAPES[operation];
+  if (!declared || !plain(data)) return data;
+  let normalized = data;
+  for (const [field, spec] of Object.entries(declared)) {
+    if (!spec.startsWith('envelope:')) continue;
+    const producer = spec.slice('envelope:'.length);
+    const payload = PREDICATES[`data:${producer}`];
+    if (!payload || !payload(normalized[field])) continue;
+    normalized = { ...normalized, [field]: { version: 1, ok: true, operation: producer, data: normalized[field] } };
+  }
+  return normalized;
+}
+
+module.exports = { INPUT_SHAPES, inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem };

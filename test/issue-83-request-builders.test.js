@@ -56,7 +56,7 @@ function expectationInput() {
 function gateOutput() {
   return {
     schemaVersion: 2, correlation: correlation(), verdict: 'MERGE',
-    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', identity: 'f'.repeat(64), readCompletely: true }],
+    evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'builders', searched: 'the helper boundary', outcome: 'no-counterexample', evidence: 'complete' }],
   };
@@ -93,7 +93,7 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map, 'the invocation map must exist');
   for (const declaration of [
-    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`), `cwd` |',
+    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |',
     '| `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |',
     '| `build_workspace_cleanup` | `created` (data of `workspace_create`), `cwd` |',
     '| `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |',
@@ -116,7 +116,7 @@ test('Issue #83 the CLI exposes exactly the seven builder operations with frozen
   const cliSource = readText('skills/closed-loop-pr/helpers/cli.js');
   assert.match(cliSource, /build_operator_revalidate: \{ required: \['captured', 'cwd'\], optional: \['postPushHead'\] \}/);
   assert.match(cliSource, /build_workspace_verify: \{ required: \['created', 'cwd'\], optional: \['transition'\] \}/);
-  assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 7, 'the builder family is exactly the five CL-D56 compositions plus the two CL-D61 manifest builders');
+  assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 8, 'the builder family is exactly the five CL-D56 compositions, the two CL-D61 manifest builders, and the CL-D68 launch composer');
 });
 
 test('Issue #83 builders are pure: no filesystem, process, network, or Git reach', () => {
