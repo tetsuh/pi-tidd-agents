@@ -3587,6 +3587,41 @@
         "the map, the README, the recovery key, and the record name the packaged validation run",
         "required_evidence_set derives the set from the change and the authority files"
       ]
+    },
+    {
+      "id": "CL-D72-route-review-only",
+      "marker": "CL-D72",
+      "title": "Review-only names the packaged validation run and the derived evidence set",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "Review-only's validation step runs each of the target's validation commands through packaged `validation_run`",
+        "The gate's required-evidence set is derived through packaged `required_evidence_set`, never assembled by hand (CL-D72)"
+      ]
+    },
+    {
+      "id": "CL-D72-route-shared",
+      "marker": "CL-D72",
+      "title": "The shared transport section names the derived evidence set",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Structured gate result transport (CL-D36)",
+      "requires": [
+        "The set itself is derived through packaged `required_evidence_set` from the paths the change touches, the authority files at the head, and the identities the parent holds (CL-D72)"
+      ]
+    },
+    {
+      "id": "CL-D72-route-autofix",
+      "marker": "CL-D72",
+      "title": "Exact autofix names the packaged validation run at the guarded step",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "The guarded focused validation runs through packaged `validation_run` (CL-D72)."
+      ]
     }
   ]
 }

@@ -86,6 +86,13 @@ const ROOT_GUARDS = [
   [`${HELPER_DIR}/workspace.js`, "if (isInside(requested, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
   [`${HELPER_DIR}/workspace.js`, "if (isInside(root, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
 ];
+const APPROVED_SPAWN_SITES = [
+  `${HELPER_DIR}/process.js|const child = execFile(command, args, { ...commandOptions(options, kind), encoding: 'buffer' }, (error, stdout, stderr) => {`,
+  `${HELPER_DIR}/process.js|return execFileSync(command, args, {`,
+  `${HELPER_DIR}/snapshot.js|function defaultTransport(command, args, options) { return run(command, args, options); }`,
+  `${HELPER_DIR}/validation.js|result = await run(program, args, { cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, acceptAnyExit: true, phase: 'spawn' });`,
+  `${HELPER_DIR}/writability.js|async function defaultTransport(command, args, options) { return run(command, args, options); }`,
+].sort();
 const AGGREGATE_SMOKE_ALARM = 240000; // CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run
 const PER_FILE_SMOKE_ALARM = 30000;
 
@@ -99,6 +106,18 @@ function sourceFsSites(sources) {
   const sites = [];
   for (const [file, source] of Object.entries(sources)) {
     for (const line of source.split(/\r?\n/)) if (/\bfs\b/.test(line)) sites.push(`${file}|${normalizedLine(line)}`);
+  }
+  return sites.sort();
+}
+function spawnSites(sources) {
+  const sites = [];
+  for (const [file, source] of Object.entries(sources)) {
+    for (const line of source.split(/\r?\n/)) {
+      if (/^\s*\/\//.test(line) || /^\s*(?:async )?function (?:run|runSync)\(/.test(line)) continue;
+      if (/\bexecFile(?:Sync)?\s*\(/.test(line)) { sites.push(`${file}|${normalizedLine(line)}`); continue; }
+      const call = line.match(/\b(?:run|runSync)\s*\(\s*([^,)]+)/);
+      if (call && call[1].trim() !== "'git'") sites.push(`${file}|${normalizedLine(line)}`);
+    }
   }
   return sites.sort();
 }
@@ -118,8 +137,10 @@ function requireInventory(sources) {
 function gitCommands(sources) {
   const commands = [];
   const pattern = /\b(?:git|gitRaw|gitText|gitBytes|gitBuffer|collect|gitArgs)\s*\([^[]*?\[([^\]]*)\]/gs;
+  // A direct `run('git', [...])` or `runSync('git', [...])` with a literal argv is scanned too (CL-D72).
+  const direct = /\b(?:run|runSync)\s*\(\s*'git'\s*,\s*\[([^\]]*)\]/gs;
   for (const [file, source] of Object.entries(sources)) {
-    for (const match of source.matchAll(pattern)) {
+    for (const match of [...source.matchAll(pattern), ...source.matchAll(direct)]) {
       const args = [...match[1].matchAll(/['"]([^'"]*)['"]/g)].map((entry) => entry[1]);
       let index = 0;
       while (index < args.length) {
@@ -150,13 +171,12 @@ function validateBoundary(model) {
     if (/\breceipt\s*\.\s*(?:storedPath|root)\s*=|\b(?:Object\.assign|Reflect\.set)\s*\(\s*receipt\b|\bdelete\s+receipt\s*\./.test(source)) errors.push(`workspace receipt provenance mutation is forbidden: ${file}`);
   }
   for (const { file, command } of gitCommands(model.sources)) if (!ALLOWED_GIT_COMMANDS.has(command)) errors.push(`Git command is outside the reviewed verification/lifecycle allowlist: ${file}:${command}`);
-  // CL-D72: exactly one spawn of anything but git and gh, in validation.js, and no shell anywhere.
-  const validationSites = [];
-  for (const [file, source] of Object.entries(model.sources)) {
-    for (const match of source.matchAll(/kind: 'validation'/g)) if (match) validationSites.push(file);
-    if (/\bshell:\s*true\b/.test(source)) errors.push(`shell spawn is forbidden: ${file}`);
-  }
-  if (validationSites.length !== 1 || validationSites[0] !== `${HELPER_DIR}/validation.js`) errors.push(`non-git spawn sites differ from the one reviewed site: ${validationSites.join(', ') || 'none'}`);
+  // CL-D72: the complete executable-spawn call surface, parsed and compared exactly — every run/runSync call
+  // whose program is not the literal 'git', and both child_process sites — so a call added, moved, relabeled,
+  // or reworded anywhere differs from the allowlist; and no site spawns through a shell.
+  const spawns = spawnSites(model.sources);
+  if (JSON.stringify(spawns) !== JSON.stringify(APPROVED_SPAWN_SITES)) errors.push(`executable-spawn callsites differ from the reviewed allowlist: ${spawns.join(' ; ')}`);
+  for (const [file, source] of Object.entries(model.sources)) if (/\bshell:\s*true\b/.test(source)) errors.push(`shell spawn is forbidden: ${file}`);
   for (const [file, anchor, expectedCount = 1] of PROVENANCE_ANCHORS) {
     const count = model.sources[file].split(anchor).length - 1;
     if (count !== expectedCount) errors.push(`write-root provenance anchor is absent or duplicated: ${file}:${anchor}`);
@@ -219,8 +239,12 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'exports', (copy) => { copy.manifest.exports = './skills/closed-loop-pr/helpers/cli.js'; }, 'package exports');
   rejectsMutation(model, 'extension', (copy) => { copy.manifest.pi.extensions = ['./extension.js']; }, 'pi.extensions');
   // CL-D72: a second non-git spawn site, a moved one, or a shell anywhere is rejected.
-  rejectsMutation(model, 'second validation spawn site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun('npm', ['test'], { kind: 'validation' });\n"; }, 'non-git spawn sites');
-  rejectsMutation(model, 'validation spawn site moved', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("kind: 'validation'", "kind: 'gh'"); }, 'non-git spawn sites');
+  rejectsMutation(model, 'a second spawn site labelled as git', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun('npm', ['test'], { kind: 'git' });\n"; }, 'executable-spawn callsites');
+  rejectsMutation(model, 'a second spawn site with no label', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrunSync(program, ['test']);\n"; }, 'executable-spawn callsites');
+  rejectsMutation(model, 'the validation site relabelled', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("kind: 'validation'", "kind: 'gh'"); }, 'executable-spawn callsites');
+  rejectsMutation(model, 'the validation label dropped', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("kind: 'validation', ", ''); }, 'executable-spawn callsites');
+  rejectsMutation(model, 'a direct child_process site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nexecFileSync('npm', ['test']);\n"; }, 'executable-spawn callsites');
+  rejectsMutation(model, 'a git push through run', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun('git', ['push', 'origin', 'HEAD']);\n"; }, 'Git command is outside');
   rejectsMutation(model, 'shell spawn', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace('shell: false', 'shell: true'); }, 'shell spawn is forbidden');
   for (const operation of ['commit', 'push', 'merge', 'reply', 'approve', 'thread_resolve', 'schedule', 'state_write']) {
     rejectsMutation(model, `${operation} operation`, (copy) => {

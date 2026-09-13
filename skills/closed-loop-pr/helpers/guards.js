@@ -289,7 +289,9 @@ function requiredEvidenceSet(data) {
       const argument = CORRELATED_SOURCES[entry.source];
       if (argument && entry.identity !== data[argument]) fail('invalid_request', 'identity_correlation', `${entry.source} must equal ${argument}`, entry.identity);
     }
-    if (gitText(data.cwd, ['rev-parse', '--show-prefix'], phase).trim() !== '') fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of its Git checkout', data.cwd);
+    // A work tree at its toplevel; a bare repository also answers an empty prefix (ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT).
+    const answer = gitText(data.cwd, ['rev-parse', '--is-inside-work-tree', '--show-prefix'], phase).split('\n');
+    if (answer[0] !== 'true' || (answer[1] ?? '') !== '') fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of a Git work tree', data.cwd);
     for (const key of ['baseOid', 'headOid']) {
       if (gitText(data.cwd, ['cat-file', '-t', data[key]], phase, [128]).trim() !== 'commit') fail('invalid_request', 'commit_presence', `${key} is not a commit in this checkout`, data[key]);
     }

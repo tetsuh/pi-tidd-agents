@@ -29,11 +29,13 @@ async function validationRun(data) {
     if (typeof data.cwd !== 'string' || data.cwd.length === 0 || !path.isAbsolute(data.cwd)) fail('invalid_request', 'cwd must be an absolute path', 'request');
     if (!Array.isArray(data.command) || data.command.length === 0 || data.command.some((argument) => typeof argument !== 'string' || argument.length === 0)) fail('invalid_request', 'command must be an argv array of non-empty strings', 'request');
     if (Object.hasOwn(data, 'timeoutMs') && !(Number.isInteger(data.timeoutMs) && data.timeoutMs > 0 && data.timeoutMs <= MAX_TIMEOUT_MS)) fail('invalid_request', `timeoutMs must be an integer from 1 to ${MAX_TIMEOUT_MS}`, 'request');
-    // The cwd is the toplevel of a checkout — the operator checkout or the run's workspace — and nothing below it.
-    let prefix;
-    try { prefix = (await run('git', gitArgs(['rev-parse', '--show-prefix']), { cwd: data.cwd, phase: 'cwd' })).stdout.toString('utf8').trim(); }
+    // The cwd is the toplevel of a work tree — the operator checkout or the run's workspace — and nothing
+    // below it; a bare repository also answers an empty prefix, so the work tree is asked for as well
+    // (ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT).
+    let answer;
+    try { answer = (await run('git', gitArgs(['rev-parse', '--is-inside-work-tree', '--show-prefix']), { cwd: data.cwd, phase: 'cwd' })).stdout.toString('utf8').split('\n'); }
     catch (error) { fail('invalid_request', `cwd is not inside a Git checkout: ${error.message}`, 'cwd', { cwd: data.cwd }); }
-    if (prefix !== '') fail('invalid_request', 'cwd must be the toplevel of its Git checkout', 'cwd', { cwd: data.cwd, prefix });
+    if (answer[0] !== 'true' || (answer[1] ?? '') !== '') fail('invalid_request', 'cwd must be the toplevel of a Git work tree', 'cwd', { cwd: data.cwd, insideWorkTree: answer[0], prefix: answer[1] ?? '' });
     const [program, ...args] = data.command;
     const started = Date.now();
     let result;

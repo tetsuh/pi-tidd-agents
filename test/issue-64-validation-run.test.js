@@ -97,6 +97,9 @@ test('Issue #64 validation_run reports passed, validation_failed, and harness_fa
 test('Issue #64 validation_run takes an argv, never a shell, and runs only at a Git toplevel', async () => {
   const repo = repository();
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-outside-'));
+  // ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT: an empty prefix is also what a bare repository answers.
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-bare-'));
+  git(bare, ['init', '-q', '--bare']);
   try {
     // No shell: a metacharacter argument reaches the program as text.
     const literal = await helpers.validationRun({ cwd: repo.root, command: [...script('process.stdout.write(process.argv[1])'), '$(echo expanded); `echo expanded`'] });
@@ -119,7 +122,7 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
       assert.equal(refused.error.code, 'invalid_request', `${label}: ${JSON.stringify(refused.error)}`);
       assert.equal(refused.error.phase, 'request', label);
     }
-    for (const [label, cwd] of [['a subdirectory of the checkout', path.join(repo.root, 'sub')], ['a directory outside any checkout', outside], ['a missing directory', path.join(repo.root, 'absent')]]) {
+    for (const [label, cwd] of [['a subdirectory of the checkout', path.join(repo.root, 'sub')], ['a directory outside any checkout', outside], ['a missing directory', path.join(repo.root, 'absent')], ['a bare repository', bare]]) {
       const refused = await helpers.validationRun({ cwd, command: script('') });
       assert.equal(refused.ok, false, `${label} must be refused`);
       assert.equal(refused.error.code, 'invalid_request', `${label}: ${JSON.stringify(refused.error)}`);
@@ -133,7 +136,7 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
     const viaCliPassed = cli('validation_run', { cwd: repo.root, command: script('') });
     assert.equal(viaCliPassed.ok, true, JSON.stringify(viaCliPassed.error)); assert.equal(viaCliPassed.status, 0);
     assert.equal(cli('validation_run', { cwd: repo.root, command: script(''), shell: true }).error.message, 'unknown request field: shell');
-  } finally { fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(outside, { recursive: true, force: true }); }
+  } finally { fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(outside, { recursive: true, force: true }); fs.rmSync(bare, { recursive: true, force: true }); }
 });
 
 test('Issue #64 the map, the README, the recovery key, and the record name the packaged validation run', () => {
@@ -143,20 +146,29 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(autofix.includes('| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |'), 'the recovery row names the packaged operation');
   assert.equal(autofix.includes('validation_harness@focused_validation'), false, 'the old key is gone');
   assert.match(readText('README.md'), /`validation_run` spawns the target's validation command as an argv at a Git toplevel/);
+  // ADV-124-REVIEW-ONLY-OPERATIONS-UNREACHABLE: each route's own authority names the operations it uses.
+  assert.ok(readText('skills/closed-loop-pr/references/review-only.md').includes("Review-only's validation step runs each of the target's validation commands through packaged `validation_run`"), 'review-only names validation_run');
+  assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('The set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
+  assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
   for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests']);
-  // The structural rule the record states: one non-git spawn site, in validation.js, and no shell anywhere.
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
+  // The structural rule the record states, read from the complete spawn call surface rather than a marker
+  // (ADV-124-SPAWN-SITE-CHECK-MARKER-ONLY): every run/runSync call whose program is not the literal 'git' is
+  // one of the two gh transports or the single validation site, and no site spawns through a shell.
   const helpersDir = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers');
   const sites = [];
-  for (const file of fs.readdirSync(helpersDir).filter((name) => name.endsWith('.js'))) {
+  for (const file of fs.readdirSync(helpersDir).filter((name) => name.endsWith('.js')).sort()) {
     const source = fs.readFileSync(path.join(helpersDir, file), 'utf8');
-    for (const match of source.matchAll(/kind: 'validation'/g)) sites.push(`${file}:${match.index}`);
+    for (const line of source.split(/\r?\n/)) {
+      if (/^\s*\/\//.test(line) || /^\s*(?:async )?function (?:run|runSync)\(/.test(line)) continue;
+      const call = line.match(/\b(?:run|runSync)\s*\(\s*([^,)]+)/);
+      if (call && call[1].trim() !== "'git'") sites.push(`${file}|${call[1].trim()}|${/kind: '([a-z]+)'/.exec(line)?.[1] ?? 'inferred'}`);
+    }
     assert.equal(/shell:\s*true/.test(source), false, `${file} never spawns through a shell`);
   }
-  assert.equal(sites.length, 1, `exactly one validation spawn site: ${sites.join(', ')}`);
-  assert.match(sites[0], /^validation\.js:/);
+  assert.deepEqual(sites, ['snapshot.js|command|inferred', 'validation.js|program|validation', 'writability.js|command|inferred'], 'the two gh transports and the one validation site, labelled as such');
 });
 
 // CL-D72, third choice: the gate's required-evidence set is derived, not assembled by hand — the paths the change

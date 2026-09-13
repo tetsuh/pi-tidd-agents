@@ -546,7 +546,7 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Validity and invalidation conditions:* Applies to the aggregate alarm value alone. No structural assertion, per-file alarm, or operation allowlist is relaxed, and no validation rule is removed or compressed to fit. A further firing requires a new review and decision; trimming code merely to silence the alarm remains the recorded anti-pattern, not compliance.
 
 ## CL-D72 — The focused validation is packaged and the alarm is reset for it
-**Clauses:** CL-D72-map, CL-D72-record, CL-D72-tests
+**Clauses:** CL-D72-map, CL-D72-route-review-only, CL-D72-route-shared, CL-D72-route-autofix, CL-D72-record, CL-D72-tests
 
 *Decision ID:* CL-D72
 *Kind:* contract

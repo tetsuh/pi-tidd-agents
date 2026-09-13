@@ -59,6 +59,8 @@ implementation and validation
 → MERGE_READY
 ```
 
+Review-only's validation step runs each of the target's validation commands through packaged `validation_run` from the installed package, as an argv at the checkout's toplevel; `validation_failed` is the validation verdict, and `harness_failed` is a tool failure that never becomes one (CL-D72). The gate's required-evidence set is derived through packaged `required_evidence_set`, never assembled by hand (CL-D72).
+
 Each review-only gate payload composes the shared Every-gate invariant payload block verbatim, exactly one selected PR root role-authority block verbatim, and the volatile envelope/history projection; Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim. `tidd-adversarial-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `tidd-safety-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.** `tidd-convergence-reviewer` runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage; a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol.
 
 ### Review-only round deltas (CL-D11, CL-D12)
