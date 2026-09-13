@@ -2840,7 +2840,7 @@
       ],
       "requires": [
         "validates the construction with the boundary's own predicates before returning it, so a builder output the boundary would reject is unrepresentable",
-        "Builders are read-only, reach no network, filesystem, or Git, and grant no authority",
+        "Builders are read-only, reach no network or Git, and grant no authority; none reaches the filesystem except `build_gate_launch`, whose only reads are the installed package's own authority files and the supplied expectation file (CL-D68)",
         "Prefer a builder over hand-assembly wherever one exists"
       ]
     },

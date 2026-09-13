@@ -175,7 +175,11 @@ function lexicalPath(value) {
 function cleanupCwdProblem(cwd, workspaceRoot) {
   // A relative cwd has no identity a pure builder can judge; it is refused before the inside/outside question.
   if (!(/^[\\/]/.test(cwd) || /^[A-Za-z]:[\\/]/.test(cwd))) return { subcheck: 'cleanup_cwd_relative', message: 'cleanup cwd must be an absolute path', observed: cwd };
-  const root = lexicalPath(workspaceRoot), candidate = lexicalPath(cwd);
+  // A Windows or UNC spelling names one path in any letter case; a POSIX spelling does not
+  // (ADV-123-WINDOWS-CLEANUP-CWD-CASE).
+  const windows = (value) => /^[A-Za-z]:[\\/]/.test(value) || /^(?:\\\\|\/\/)/.test(value);
+  const key = (value) => (windows(cwd) || windows(workspaceRoot) ? lexicalPath(value).toLowerCase() : lexicalPath(value));
+  const root = key(workspaceRoot), candidate = key(cwd);
   const inside = candidate === root || candidate.startsWith(`${root}/`);
   return inside ? { subcheck: 'cleanup_cwd', message: 'cleanup cwd must be the repository, not the workspace being removed', observed: cwd } : null;
 }

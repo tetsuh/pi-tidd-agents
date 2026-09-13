@@ -290,6 +290,10 @@ test('Issue #111 workspace_cleanup and its builder refuse a cwd inside the works
     const ws = created.data.path;
     assert.equal(helpers.cleanupCwdProblem(repository.root, ws), null);
     assert.equal(helpers.cleanupCwdProblem(`${ws}2`, ws), null, 'a sibling that shares the prefix is outside');
+    // ADV-123-WINDOWS-CLEANUP-CWD-CASE: a Windows or UNC spelling names one path in any letter case; a POSIX one does not.
+    for (const [cwd, root] of [['c:\\repo\\workspace\\sub', 'C:\\Repo\\Workspace'], ['C:\\Repo\\Workspace', 'c:\\repo\\workspace'], ['c:/repo/WORKSPACE/sub/', 'C:\\Repo\\Workspace'], ['\\\\server\\share\\ws\\sub', '//SERVER/Share/ws']]) { const problem = helpers.cleanupCwdProblem(cwd, root); assert.equal(problem?.subcheck, 'cleanup_cwd', `${cwd} is inside ${root} in any case`); }
+    assert.equal(helpers.cleanupCwdProblem('C:\\Repo\\Workspace2', 'c:\\repo\\workspace'), null, 'a same-prefix sibling stays outside in any case');
+    assert.equal(helpers.cleanupCwdProblem('/repo/Workspace/sub', '/repo/workspace'), null, 'a POSIX spelling keeps its case');
     // Convergence lead on 3e5caf7 (non-authoritative): the predicate normalizes lexically, without I/O, so `..`, `.`,
     // repeated separators, and backslashes cannot spell a path below the workspace as something else.
     for (const cwd of [`${path.dirname(ws)}/../${path.basename(path.dirname(ws))}/${path.basename(ws)}/sub`, `${ws}/./sub`, `${ws}/sub/../other`, `${ws}\\sub`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem, `${cwd} is below the workspace`); const builtAlias = helpers.buildWorkspaceCleanup({ created: created.data, cwd }); assert.equal(builtAlias.error?.code, 'cleanup_cwd_inside_workspace', `${cwd}: ${JSON.stringify(builtAlias.error)}`); }
