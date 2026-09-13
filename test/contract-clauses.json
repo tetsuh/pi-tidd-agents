@@ -3553,6 +3553,7 @@
       ],
       "requires": [
         "| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |",
+        "| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |",
         "| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |"
       ]
     },
@@ -3583,7 +3584,8 @@
       "requires": [
         "validation_run reports passed, validation_failed, and harness_failed as distinct outcomes",
         "validation_run takes an argv, never a shell, and runs only at a Git toplevel",
-        "the map, the README, the recovery key, and the record name the packaged validation run"
+        "the map, the README, the recovery key, and the record name the packaged validation run",
+        "required_evidence_set derives the set from the change and the authority files"
       ]
     }
   ]

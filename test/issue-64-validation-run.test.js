@@ -148,3 +148,71 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.equal(sites.length, 1, `exactly one validation spawn site: ${sites.join(', ')}`);
   assert.match(sites[0], /^validation\.js:/);
 });
+
+// CL-D72, third choice: the gate's required-evidence set is derived, not assembled by hand — the paths the change
+// touches that exist at the head, the two authority files, each identified by the SHA-256 of its blob at the head,
+// plus the identity records the parent holds, unchanged.
+function evidenceRepository({ authority = true } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-evidence-'));
+  git(root, ['init', '-q', '-b', 'main']);
+  git(root, ['config', 'user.name', 'Issue 64 Test']);
+  git(root, ['config', 'user.email', 'issue64@example.invalid']);
+  const write = (file, content) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), content); };
+  if (authority) { write('CONTRACT.md', 'contract one\n'); write('README.md', 'readme\n'); }
+  write('a.txt', 'a one\n'); write('deleted.txt', 'gone\n'); write('dir/b.txt', 'b\n');
+  git(root, ['add', '.']); git(root, ['commit', '-q', '-m', 'test: base']);
+  const base = git(root, ['rev-parse', 'HEAD']);
+  write('a.txt', 'a two\n'); if (authority) write('CONTRACT.md', 'contract two\n');
+  write('new file.txt', 'new\n'); write('bin.dat', Buffer.from([0, 255, 1, 2, 10, 13]));
+  fs.rmSync(path.join(root, 'deleted.txt'));
+  git(root, ['add', '-A']); git(root, ['commit', '-q', '-m', 'test: head']);
+  return { root, base, head: git(root, ['rev-parse', 'HEAD']) };
+}
+const blobSha = (root, file) => crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex');
+
+test('Issue #64 required_evidence_set derives the set from the change and the authority files', () => {
+  const repo = evidenceRepository();
+  const bare = evidenceRepository({ authority: false });
+  try {
+    const identities = [
+      { source: 'git:pr_base', kind: 'git', identity: repo.base }, { source: 'git:pr_head', kind: 'git', identity: repo.head },
+      { source: 'github:pr:64:body', kind: 'github', identity: 'f'.repeat(64) }, { source: 'git:snapshot', kind: 'snapshot', identity: 'e'.repeat(64) },
+    ];
+    const derived = helpers.requiredEvidenceSet({ cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });
+    assert.equal(derived.ok, true, JSON.stringify(derived.error));
+    const file = (source) => ({ source, kind: 'file', identity: blobSha(repo.root, source) });
+    assert.deepEqual(derived.data.requiredEvidence, [file('CONTRACT.md'), file('README.md'), file('a.txt'), file('bin.dat'), file('new file.txt'), ...identities],
+      'changed paths existing at the head, in byte order, then the authority files that did not change, then the identities as given; the deleted path and the untouched path are absent');
+    assert.deepEqual(derived.data.authority, { included: ['CONTRACT.md', 'README.md'], absent: [] });
+    assert.deepEqual([derived.data.changed, derived.data.files], [5, 5], 'five paths changed, one of them deleted; README is the fifth file');
+    assert.deepEqual(helpers.requiredEvidenceSet({ cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities }), derived, 'the derivation is deterministic');
+    // The derived set passes the packaged checks downstream exactly as a hand-assembled one would.
+    assert.equal(helpers.requiredEvidenceCheck({ cwd: repo.root, requiredEvidence: derived.data.requiredEvidence }).ok, true);
+    const expectation = helpers.buildGateExpectation({ workflow: 'pr', correlation: { repository: 'o/r', number: 64, baseOid: repo.base, headRepository: 'o/r', headBranch: 'b', headOid: repo.head, lifecycle: 'open', draft: false, gate: 'adversarial', invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'e'.repeat(64) }, assignedFindings: [], requiredEvidence: derived.data.requiredEvidence });
+    assert.equal(expectation.ok, true, JSON.stringify(expectation.error));
+    // A target without the authority files: reported as absent, not refused.
+    const bareSet = helpers.requiredEvidenceSet({ cwd: bare.root, baseOid: bare.base, headOid: bare.head, identities: [] });
+    assert.equal(bareSet.ok, true, JSON.stringify(bareSet.error));
+    assert.deepEqual(bareSet.data.authority, { included: [], absent: ['CONTRACT.md', 'README.md'] });
+    assert.deepEqual(bareSet.data.requiredEvidence.map((entry) => entry.source), ['a.txt', 'bin.dat', 'new file.txt']);
+    for (const [label, data, subcheck] of [
+      ['a file-kind identity', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'a.txt', kind: 'file', identity: 'f'.repeat(64) }] }, 'identities_shape'],
+      ['an unknown kind', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'x', kind: 'web', identity: 'f'.repeat(64) }] }, 'identities_shape'],
+      ['an identity record with an extra key', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'x', kind: 'git', identity: repo.head, note: 'n' }] }, 'identities_shape'],
+      ['a base that is not a commit here', { cwd: repo.root, baseOid: 'f'.repeat(40), headOid: repo.head, identities: [] }, 'commit_presence'],
+      ['a head that is not an OID', { cwd: repo.root, baseOid: repo.base, headOid: 'main', identities: [] }, 'request_shape'],
+      ['a cwd below the toplevel', { cwd: path.join(repo.root, 'dir'), baseOid: repo.base, headOid: repo.head, identities: [] }, 'cwd_toplevel'],
+      ['two identities of one source', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_head', kind: 'git', identity: repo.head }, { source: 'git:pr_head', kind: 'git', identity: repo.base }] }, 'required_evidence_shape'],
+    ]) {
+      const refused = helpers.requiredEvidenceSet(data);
+      assert.equal(refused.ok, false, `${label} must be refused`);
+      assert.equal(refused.error.code, 'invalid_request', `${label}: ${JSON.stringify(refused.error)}`);
+      assert.equal(refused.error.details.subcheck, subcheck, `${label}: ${JSON.stringify(refused.error)}`);
+    }
+    assert.deepEqual(cliSchemas().required_evidence_set, ['cwd', 'baseOid', 'headOid', 'identities']);
+    const viaCli = cli('required_evidence_set', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });
+    assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error)); assert.deepEqual(viaCli.data.requiredEvidence, derived.data.requiredEvidence);
+    const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
+    assert.ok(map.includes("| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |"), 'the map offers required_evidence_set with its fields');
+  } finally { fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(bare.root, { recursive: true, force: true }); }
+});

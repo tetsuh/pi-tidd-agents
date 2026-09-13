@@ -9,9 +9,9 @@
 
 const crypto = require('node:crypto');
 const path = require('node:path');
-const { createResult, createError } = require('./protocol');
+const { createResult, createError, keysExactly } = require('./protocol');
 const { runSync, gitArgs } = require('./process');
-const { RUNTIME_ROOTS } = require('./operator');
+const { RUNTIME_ROOTS, byteSort } = require('./operator');
 const { classifyRuntimeRoots, lstatKind } = require('./paths');
 const { checkRequiredEvidence } = require('./gate-result');
 const { authorizedPathsProblem } = require('./composition');
@@ -269,4 +269,36 @@ function requiredEvidenceCheck(data) {
   });
 }
 
-module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, parsePorcelainRecords, requiredEvidenceCheck };
+// CL-D72: the gate's required-evidence set, derived rather than assembled by hand — the paths the change
+// touches that exist at the head, plus the authority files present there, each identified by the SHA-256 of
+// its blob at the head, plus the identity records the parent holds, unchanged. A read-only observation
+// through the allowed diff, ls-tree, and cat-file; it reads Git, so it is not one of the pure builders.
+const AUTHORITY_AT_HEAD = ['CONTRACT.md', 'README.md'];
+const IDENTITY_KINDS = ['git', 'github', 'snapshot'];
+function requiredEvidenceSet(data) {
+  return wrap('required_evidence_set', () => {
+    const phase = 'required_evidence_set';
+    if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
+    for (const key of ['baseOid', 'headOid']) if (!text(data[key]) || !OID.test(data[key])) fail('invalid_request', 'request_shape', `${key} must be a commit OID`, String(data[key]));
+    if (!Array.isArray(data.identities)) fail('invalid_request', 'request_shape', 'identities must be an array', typeof data.identities);
+    for (const entry of data.identities) {
+      const shaped = keysExactly(entry, ['identity', 'kind', 'source']) && text(entry.source) && text(entry.identity) && IDENTITY_KINDS.includes(entry.kind);
+      if (!shaped) fail('invalid_request', 'identities_shape', 'each identity record carries exactly source, kind (git, github, or snapshot), and identity; file records are derived here', JSON.stringify(entry));
+    }
+    if (gitText(data.cwd, ['rev-parse', '--show-prefix'], phase).trim() !== '') fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of its Git checkout', data.cwd);
+    for (const key of ['baseOid', 'headOid']) {
+      if (gitText(data.cwd, ['cat-file', '-t', data[key]], phase, [128]).trim() !== 'commit') fail('invalid_request', 'commit_presence', `${key} is not a commit in this checkout`, data[key]);
+    }
+    const changed = gitText(data.cwd, ['diff', '--name-only', '--no-renames', '-z', data.baseOid, data.headOid, '--'], phase).split('\0').filter(Boolean);
+    const atHead = new Set(gitText(data.cwd, ['ls-tree', '-r', '--name-only', '--full-tree', '-z', data.headOid], phase).split('\0').filter(Boolean));
+    const sources = new Set(changed.filter((source) => atHead.has(source)));
+    const authority = { included: [], absent: [] };
+    for (const file of AUTHORITY_AT_HEAD) { if (atHead.has(file)) { sources.add(file); authority.included.push(file); } else authority.absent.push(file); }
+    const files = byteSort([...sources]).map((source) => ({ source, kind: 'file', identity: crypto.createHash('sha256').update(gitBytes(data.cwd, ['cat-file', 'blob', `${data.headOid}:${source}`], phase)).digest('hex') }));
+    const requiredEvidence = [...files, ...data.identities.map(({ source, kind, identity }) => ({ source, kind, identity }))];
+    try { checkRequiredEvidence(requiredEvidence); } catch (error) { fail('invalid_request', 'required_evidence_shape', error.message, error.message); }
+    return createResult('required_evidence_set', { requiredEvidence, baseOid: data.baseOid, headOid: data.headOid, changed: changed.length, files: files.length, authority });
+  });
+}
+
+module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, parsePorcelainRecords, requiredEvidenceCheck, requiredEvidenceSet };

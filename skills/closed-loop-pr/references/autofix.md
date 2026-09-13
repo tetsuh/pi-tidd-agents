@@ -59,6 +59,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |
 | Construct the `AFTER_STAGING` capture request from the frozen overlay (CL-D61) | `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |
 | Construct the `BEFORE_COMMIT` compare request from the capture it compares against (CL-D61) | `build_manifest_compare` | `captured` (data of `manifest_compare`), `cwd` |
+| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |
 | Before building the gate expectation, on the assembled required-evidence set (CL-D61) | `required_evidence_check` | `cwd`, `requiredEvidence` |
 | The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |
 | Immediately before Luna's first edit, on the authorized correction set (CL-D57) | `guard_before_edit` | `cwd`, `expected` (data of `workspace_create`), `authorizedPaths` |
