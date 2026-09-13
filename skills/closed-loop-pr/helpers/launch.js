@@ -56,6 +56,47 @@ const WORKFLOW_RECORD_FIELDS = Object.freeze(Object.keys(SCHEMA.properties.findi
 // The evidence identities the correlation already fixes; a repeated one must agree with it.
 const FINGERPRINT_CORRELATED = Object.freeze({ pr_head: 'headOid', pr_base: 'baseOid', snapshot: 'snapshotFingerprint' });
 const RECORD_LISTS = Object.freeze(['decisions', 'comments']);
+// A decision or comment is a record the gate cites: its identity, its author, when it was written, and its
+// body, which is the target's own text. The package owns this shape. GitHub's own issue-comment record is
+// read by the fields it declares and reduced to it, so nothing GitHub adds, and nothing a caller adds to it,
+// is serialized; rejecting GitHub's undeclared fields would make the composer the owner of GitHub's schema,
+// which has changed twice in the observed records (CONV-123-NESTED-RECORD-PROSE).
+const CITED_RECORD_FIELDS = Object.freeze({
+  // GitHub's identity is an integer; a parent that has already projected it carries it as digits.
+  id: (v) => (Number.isInteger(v) && v > 0) || (typeof v === 'string' && /^[1-9][0-9]*$/.test(v)), url: (v) => typeof v === 'string' && v.length > 0,
+  author: (v) => typeof v === 'string' && v.length > 0, authorType: (v) => typeof v === 'string' && v.length > 0,
+  authorAssociation: (v) => typeof v === 'string' && v.length > 0, createdAt: (v) => typeof v === 'string' && v.length > 0,
+  updatedAt: (v) => typeof v === 'string' && v.length > 0, body: (v) => typeof v === 'string',
+});
+const CITED_RECORD_REQUIRED = Object.freeze(['id', 'url', 'author', 'updatedAt', 'body']);
+function citedRecord(field, record) {
+  if (!plain(record) || Object.keys(record).length === 0) return { problem: { code: 'invalid_request', message: `volatile field ${field} must be a list of records` } };
+  let projected = record;
+  if (plain(record.user)) {
+    const github = { id: record.id, url: record.html_url, author: record.user.login, authorType: record.user.type, authorAssociation: record.author_association, createdAt: record.created_at, updatedAt: record.updated_at, body: record.body };
+    projected = Object.fromEntries(Object.entries(github).filter(([, value]) => value !== undefined && value !== null));
+  }
+  for (const [key, value] of Object.entries(projected)) {
+    if (!Object.hasOwn(CITED_RECORD_FIELDS, key)) return { problem: { code: 'volatile_unknown_field', message: `volatile carries an unknown field: ${field}[].${key}` } };
+    if (!CITED_RECORD_FIELDS[key](value)) return { problem: { code: 'invalid_request', message: `volatile field ${field}[].${key} is not the declared shape` } };
+  }
+  for (const key of CITED_RECORD_REQUIRED) if (!Object.hasOwn(projected, key)) return { problem: { code: 'invalid_request', message: `volatile field ${field}[] must carry ${key}` } };
+  return { record: projected };
+}
+// The cited lists, reduced; or the first problem among them.
+function citedRecords(v) {
+  const lists = {};
+  for (const field of RECORD_LISTS) {
+    if (!Object.hasOwn(v, field)) continue;
+    lists[field] = [];
+    for (const record of v[field]) {
+      const cited = citedRecord(field, record);
+      if (cited.problem) return { problem: cited.problem };
+      lists[field].push(cited.record);
+    }
+  }
+  return { lists };
+}
 // The evidence identities each root's gates review (CL-D9), and the two modes CL-D6 parses.
 const FINGERPRINT_MINIMUM = Object.freeze({ pr: FINGERPRINT_DOMAINS, issue: ['issue_spec', 'snapshot'] });
 const MODES = Object.freeze(['autofix', 'review-only']);
@@ -76,9 +117,6 @@ function nestedProblem(v, correlation) {
     if (typeof value !== 'string' || !HEX_TEXT.test(value)) return { code: 'invalid_request', message: `volatile field fingerprints.${key} is not an evidence identity` };
     const correlated = FINGERPRINT_CORRELATED[key];
     if (correlated && value !== correlation[correlated]) return { code: 'invalid_request', message: `volatile field fingerprints.${key} disagrees with the expectation on ${correlated}` };
-  }
-  for (const field of RECORD_LISTS) {
-    if (Object.hasOwn(v, field) && v[field].some((record) => !plain(record) || Object.keys(record).length === 0)) return { code: 'invalid_request', message: `volatile field ${field} must be a list of records` };
   }
   for (const [key, value] of Object.entries(v.history)) {
     if (!HISTORY_FIELDS.includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}` };
@@ -250,6 +288,8 @@ function buildGateLaunch(data) {
     if (emptiness !== null) fail('invalid_request', emptiness);
     const nested = nestedProblem(data.volatile, expected.correlation);
     if (nested !== null) fail(nested.code, nested.message);
+    const cited = citedRecords(data.volatile);
+    if (cited.problem) fail(cited.problem.code, cited.problem.message);
     let fileText;
     try { fileText = readUtf8(data.expectationPath); } catch (error) { fail('expectation_file_absent', `expectation file is not readable: ${error.message}`, { expectationPath: data.expectationPath }); }
     let fileExpected;
@@ -266,7 +306,7 @@ function buildGateLaunch(data) {
       blocks.push(role.block); parts.push(role.line);
     }
     // The envelope carries the gate correlation as the expectation states it, derived here (CL-D47's rule).
-    parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify({ ...data.volatile, correlation: expected.correlation }, null, 2)}\n\`\`\``);
+    parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify({ ...data.volatile, ...cited.lists, correlation: expected.correlation }, null, 2)}\n\`\`\``);
     // The expectation rides along as data for the child's self-validation (CL-D65); its identities stay here (CL-D69).
     parts.push(`## Expectation (data; the identities stay here and are never copied)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
     // The evidence records the envelope carries: source and kind from the expectation, no identity, and readCompletely
