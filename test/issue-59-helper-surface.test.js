@@ -260,10 +260,18 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'spawn destructured from child_process', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace("const { execFile, execFileSync } = require('node:child_process');", "const { execFile, execFileSync, spawn } = require('node:child_process');"); }, 'node:child_process is used outside');
   rejectsMutation(model, 'a property call on child_process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrequire('node:child_process').spawnSync('npm', ['test']);\n"; }, 'node:child_process is used outside');
   rejectsMutation(model, 'a transport call with another program', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace("transport('gh', args,", "transport('npm', args,"); }, "transport call passes a program other than 'gh'");
-  rejectsMutation(model, 'eval', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\neval(\"run('npm', [])\");\n"; }, 'eval or the Function constructor is forbidden');
+  rejectsMutation(model, 'eval', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\neval(\"run('npm', [])\");\n"; }, 'dynamic code execution is forbidden');
   rejectsMutation(model, 'a rename inside a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("const { run, gitArgs } = require('./process');", "const { run: launch, gitArgs } = require('./process');"); }, 'a destructured import of the spawn modules renames a name');
   rejectsMutation(model, 'a dynamic load of child_process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nmodule.constructor._load('node:child_process').spawnSync('npm', ['test']);\n"; }, 'node:child_process is used outside');
   rejectsMutation(model, 'a process binding', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.binding('spawn_sync');\n"; }, 'process bindings are forbidden');
+  // ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS: references of any form, not only call syntax.
+  rejectsMutation(model, 'global.Function', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nglobal.Function('return 1')();\n"; }, 'dynamic code execution is forbidden');
+  rejectsMutation(model, 'an indirect eval', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\n(0, eval)('1');\n"; }, 'dynamic code execution is forbidden');
+  rejectsMutation(model, 'the constructor of a function', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\n(() => {}).constructor('return 1')();\n"; }, 'dynamic code execution is forbidden');
+  rejectsMutation(model, 'a bracketed process binding', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess['binding']('spawn_sync');\n"; }, 'process bindings are forbidden');
+  rejectsMutation(model, 'an alias of process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst host = process;\nhost.binding('spawn_sync');\n"; }, 'process bindings are forbidden');
+  rejectsMutation(model, 'process.execve', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.execve('/bin/sh', ['sh']);\n"; }, 'process bindings are forbidden');
+  rejectsMutation(model, 'the vm module', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst vm = require('node:vm');\n"; }, 'module import callsites differ');
   rejectsMutation(model, 'shell spawn', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace('shell: false', 'shell: true'); }, 'shell spawn is forbidden');
   for (const operation of ['commit', 'push', 'merge', 'reply', 'approve', 'thread_resolve', 'schedule', 'state_write']) {
     rejectsMutation(model, `${operation} operation`, (copy) => {

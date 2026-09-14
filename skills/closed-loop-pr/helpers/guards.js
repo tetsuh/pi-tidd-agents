@@ -295,20 +295,28 @@ function requiredEvidenceSet(data) {
     for (const key of ['baseOid', 'headOid']) {
       if (gitText(data.cwd, ['cat-file', '-t', data[key]], phase, [128]).trim() !== 'commit') fail('invalid_request', 'commit_presence', `${key} is not a commit in this checkout`, data[key]);
     }
-    const changed = gitText(data.cwd, ['diff', '--name-only', '--no-renames', '-z', data.baseOid, data.headOid, '--'], phase).split('\0').filter(Boolean);
+    // Git names a path as bytes and evidence names it as text: a changed path that is not valid UTF-8 cannot be named
+    // losslessly and fails closed by its bytes, and both listings are matched by bytes, so two names that decode alike
+    // never stand in for each other (ADV-124-NONUTF8-EVIDENCE-PATH-OMISSION).
+    const records = (buffer) => { const out = []; let start = 0; for (let k = 0; k <= buffer.length; k += 1) if (k === buffer.length || buffer[k] === 0) { if (k > start) out.push(buffer.subarray(start, k)); start = k + 1; } return out; };
+    const changedBytes = records(gitBytes(data.cwd, ['diff', '--name-only', '--no-renames', '-z', data.baseOid, data.headOid, '--'], phase));
+    for (const name of changedBytes) if (!Buffer.from(name.toString('utf8'), 'utf8').equals(name)) fail('invalid_request', 'path_encoding', 'a changed path is not valid UTF-8, so evidence cannot name it losslessly', name.toString('hex'));
+    const changed = changedBytes.map((name) => name.toString('utf8'));
+    const key = (source) => Buffer.from(source, 'utf8').toString('latin1');
     // The tree at the head, by entry: only a regular blob (100644 or 100755) can be attested as a file; a
     // symlink or a submodule pointer is excluded and named with its mode (owner option A, CL-D72).
     const atHead = new Map();
-    for (const record of gitText(data.cwd, ['ls-tree', '-r', '--full-tree', '-z', data.headOid], phase).split('\0').filter(Boolean)) {
+    for (const record of records(gitBytes(data.cwd, ['ls-tree', '-r', '--full-tree', '-z', data.headOid], phase))) {
       // The first tab separates the mode, type, and object from the name; a later tab is part of the name
       // (CONV-124-TAB-PATH-EVIDENCE-OMISSION).
-      const tab = record.indexOf('\t'); atHead.set(record.slice(tab + 1), record.slice(0, tab).split(' ')[0]);
+      const tab = record.indexOf(9); atHead.set(record.subarray(tab + 1).toString('latin1'), record.subarray(0, tab).toString('latin1').split(' ')[0]);
     }
+    const modeOf = (source) => atHead.get(key(source));
     const regular = (mode) => mode === '100644' || mode === '100755';
-    const sources = new Set(changed.filter((source) => atHead.has(source) && regular(atHead.get(source))));
-    const excluded = changed.filter((source) => atHead.has(source) && !regular(atHead.get(source))).map((source) => ({ source, mode: atHead.get(source) }));
+    const sources = new Set(changed.filter((source) => modeOf(source) !== undefined && regular(modeOf(source))));
+    const excluded = changed.filter((source) => modeOf(source) !== undefined && !regular(modeOf(source))).map((source) => ({ source, mode: modeOf(source) }));
     const authority = { included: [], absent: [] };
-    for (const file of AUTHORITY_AT_HEAD) { if (atHead.has(file) && regular(atHead.get(file))) { sources.add(file); authority.included.push(file); } else authority.absent.push(file); }
+    for (const file of AUTHORITY_AT_HEAD) { if (regular(modeOf(file))) { sources.add(file); authority.included.push(file); } else authority.absent.push(file); }
     const files = byteSort([...sources]).map((source) => ({ source, kind: 'file', identity: crypto.createHash('sha256').update(gitBytes(data.cwd, ['cat-file', 'blob', `${data.headOid}:${source}`], phase)).digest('hex') }));
     const requiredEvidence = [...files, ...data.identities.map(({ source, kind, identity }) => ({ source, kind, identity }))];
     try { checkRequiredEvidence(requiredEvidence); } catch (error) { fail('invalid_request', 'required_evidence_shape', error.message, error.message); }

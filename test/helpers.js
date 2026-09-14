@@ -184,8 +184,10 @@ function codeOnly(source) {
 // destructured import from ./process or node:child_process that lists plain names without renaming them; the text
 // `child_process` appears only in process.js's one import, for execFile and execFileSync; a module that defines a
 // forwarding `defaultTransport` calls its injected `transport` only with the literal program 'gh'; and eval, the
-// Function constructor, and process bindings are refused. The guard is a structural check of reviewed source bounded
-// to these forms, not a JavaScript evaluator.
+// Function constructor, and process bindings are refused as references of any form: `eval`, `Function`, `constructor`,
+// `global`, and `globalThis` appear nowhere in code, and `process` appears only as a member access other than
+// `binding`, `_linkedBinding`, `dlopen`, and `execve`, or as `bind(process)` (ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS).
+// The guard is a structural check of reviewed source bounded to these forms, not a JavaScript evaluator.
 const SPAWN_PRIMITIVES = ['run', 'runSync', 'execFile', 'execFileSync'];
 function spawnReferenceProblems(file, source) {
   const problems = [];
@@ -213,8 +215,14 @@ function spawnReferenceProblems(file, source) {
     && /^const\s*\{\s*execFile,\s*execFileSync\s*\}/.test(source.slice(childImports[0][0], childImports[0][1]));
   if (childMentions.length > 0 && !exact) problems.push(`node:child_process is used outside process.js's execFile and execFileSync import: ${file}`);
   if (/\bfunction\s+defaultTransport\s*\(/.test(code)) for (const call of namedCalls(source, ['transport'])) if (call.args[0] !== "'gh'") problems.push(`transport call passes a program other than 'gh': ${file}`);
-  if (/(?<![\w$.])(?:eval|Function)\s*\(/.test(code)) problems.push(`eval or the Function constructor is forbidden: ${file}`);
-  if (/(?<![\w$.])process\s*\.\s*(?:binding|_linkedBinding|dlopen)(?![\w$])/.test(code)) problems.push(`process bindings are forbidden: ${file}`);
+  if (/(?<![\w$])(?:eval|Function|constructor|global|globalThis)(?![\w$])/.test(code)) problems.push(`dynamic code execution is forbidden: ${file}`);
+  const processBinding = [...code.matchAll(/(?<![\w$.])process(?![\w$])/g)].some((match) => {
+    const after = code.slice(match.index + 7, match.index + 48), before = code.slice(Math.max(0, match.index - 8), match.index);
+    const member = after.match(/^\s*\??\.\s*([A-Za-z_$][\w$]*)/);
+    if (member) return ['binding', '_linkedBinding', 'dlopen', 'execve'].includes(member[1]);
+    return !(/bind\(\s*$/.test(before) && /^\s*\)/.test(after));
+  });
+  if (processBinding) problems.push(`process bindings are forbidden: ${file}`);
   return problems;
 }
 

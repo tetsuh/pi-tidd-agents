@@ -151,7 +151,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('The set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -184,6 +184,18 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
     ['a rename inside a destructured import', 'launch.js', "const { run: r } = require('./process');\nr('npm', ['test']);\n"],
     ['a dynamic load of child_process', 'launch.js', "module.constructor._load('node:child_process').spawnSync('npm', ['test']);\n"],
     ['a process binding', 'launch.js', "process.binding('spawn_sync').spawn({ file: 'npm' });\n"],
+    // ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS: eval, the Function constructor, and process bindings are refused as
+    // references of any form, not only as call syntax.
+    ['global.Function', 'launch.js', "global.Function('return 1')();\n"],
+    ['Function.call', 'launch.js', "Function.call(null, 'return 1')();\n"],
+    ['eval.call', 'launch.js', "eval.call(null, '1');\n"],
+    ['an indirect eval', 'launch.js', "(0, eval)('1');\n"],
+    ['globalThis bracket eval', 'launch.js', "globalThis['eval']('1');\n"],
+    ['the constructor of a function', 'launch.js', "(() => {}).constructor('return 1')();\n"],
+    ['a bracketed process binding', 'launch.js', "process['binding']('spawn_sync');\n"],
+    ['an alias of process', 'launch.js', "const p = process;\np.binding('spawn_sync');\n"],
+    ['a binding destructured from process', 'launch.js', "const { binding } = process;\nbinding('spawn_sync');\n"],
+    ['process.execve', 'launch.js', "process.execve('/bin/sh', ['sh']);\n"],
   ]) assert.ok(spawnReferenceProblems(file, source).length > 0, `${label} is refused`);
   assert.deepEqual(spawnReferenceProblems('launch.js', "// run it later\nconst note = 'run the thing';\nconst pattern = /run(/;\nconst text = `run ${'x'}`;\n"), [], 'a comment, a string, a regular expression, and template text are not code');
 });
@@ -260,6 +272,25 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
       assert.equal(refused.ok, false, `${label} must be refused`);
       assert.equal(refused.error.code, 'invalid_request', `${label}: ${JSON.stringify(refused.error)}`);
       assert.equal(refused.error.details.subcheck, subcheck, `${label}: ${JSON.stringify(refused.error)}`);
+    }
+    if (process.platform === 'linux') {
+      // ADV-124-NONUTF8-EVIDENCE-PATH-OMISSION: evidence names a path as text, so a changed path whose bytes are not
+      // valid UTF-8 cannot be named losslessly; it fails closed by name, and two such names that decode alike never
+      // stand in for each other.
+      const odd = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-nonutf8-'));
+      try {
+        git(odd, ['init', '-q', '-b', 'main']); git(odd, ['config', 'user.name', 'Issue 64 Test']); git(odd, ['config', 'user.email', 'issue64@example.invalid']);
+        fs.writeFileSync(path.join(odd, 'a.txt'), 'a\n'); git(odd, ['add', '.']); git(odd, ['commit', '-q', '-m', 'test: base']);
+        const oddBase = git(odd, ['rev-parse', 'HEAD']);
+        const named = (byte) => Buffer.concat([Buffer.from(`${odd}/`), Buffer.from([0x66, byte, 0x2e, 0x74, 0x78, 0x74])]);
+        fs.writeFileSync(named(0xfe), 'regular\n'); fs.symlinkSync('a.txt', named(0xff));
+        git(odd, ['add', '-A']); git(odd, ['commit', '-q', '-m', 'test: head']);
+        const refused = helpers.requiredEvidenceSet({ cwd: odd, baseOid: oddBase, headOid: git(odd, ['rev-parse', 'HEAD']), identities: [] });
+        assert.equal(refused.ok, false, 'a changed path that is not valid UTF-8 is refused');
+        assert.equal(refused.error.code, 'invalid_request', JSON.stringify(refused.error));
+        assert.equal(refused.error.details.subcheck, 'path_encoding', JSON.stringify(refused.error));
+        assert.match(refused.error.details.observed, /^66fe2e747874$/, 'the first such path is named by its bytes');
+      } finally { fs.rmSync(odd, { recursive: true, force: true }); }
     }
     assert.deepEqual(cliSchemas().required_evidence_set, ['cwd', 'baseOid', 'headOid', 'identities']);
     const viaCli = cli('required_evidence_set', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });

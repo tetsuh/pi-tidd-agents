@@ -3575,6 +3575,8 @@
         "That guard is a structural check of reviewed source bounded to direct references, not a JavaScript evaluator",
         "owner option A, https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510",
         "a form outside this bound is not a finding against the guard",
+        "are refused as references of any form",
+        "A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`",
         "resets from 220,000 to 240,000 bytes",
         "the owner chose the step name (https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859",
         "a changed symlink or submodule pointer is excluded and named with its mode in the result",
