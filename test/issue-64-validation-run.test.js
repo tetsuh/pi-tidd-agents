@@ -16,7 +16,7 @@ const crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, sectionOf, cliSchemas } = require('./helpers');
+const { readText, sectionOf, cliSchemas, spawnCalls } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const NODE = process.execPath;
@@ -157,18 +157,18 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
   // (ADV-124-SPAWN-SITE-CHECK-MARKER-ONLY): every run/runSync call whose program is not the literal 'git' is
   // one of the two gh transports or the single validation site, and no site spawns through a shell.
+  // Read at the source level, so a call split across lines is the same call (CONV-124-SPAWN-SCAN-MULTILINE-GAP).
   const helpersDir = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers');
   const sites = [];
   for (const file of fs.readdirSync(helpersDir).filter((name) => name.endsWith('.js')).sort()) {
     const source = fs.readFileSync(path.join(helpersDir, file), 'utf8');
-    for (const line of source.split(/\r?\n/)) {
-      if (/^\s*\/\//.test(line) || /^\s*(?:async )?function (?:run|runSync)\(/.test(line)) continue;
-      const call = line.match(/\b(?:run|runSync)\s*\(\s*([^,)]+)/);
-      if (call && call[1].trim() !== "'git'") sites.push(`${file}|${call[1].trim()}|${/kind: '([a-z]+)'/.exec(line)?.[1] ?? 'inferred'}`);
+    for (const call of spawnCalls(source)) {
+      if (call.callee.startsWith('run') && call.args[0] !== "'git'") sites.push(`${file}|${call.args[0]}|${/kind: '([a-z]+)'/.exec(call.args[2] || '')?.[1] ?? 'inferred'}`);
     }
     assert.equal(/shell:\s*true/.test(source), false, `${file} never spawns through a shell`);
   }
   assert.deepEqual(sites, ['snapshot.js|command|inferred', 'validation.js|program|validation', 'writability.js|command|inferred'], 'the two gh transports and the one validation site, labelled as such');
+  assert.deepEqual(spawnCalls("run(\n  'npm',\n  ['test'],\n  { kind: 'git' }\n);\nfunction run(a) {}\n// run('x', [])\n"), [{ callee: 'run', args: ["'npm'", "['test']", "{ kind: 'git' }"] }], 'the scanner reads a multiline call and ignores a definition and a comment');
 });
 
 // CL-D72, third choice: the gate's required-evidence set is derived, not assembled by hand — the paths the change

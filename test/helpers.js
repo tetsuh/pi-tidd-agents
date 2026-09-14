@@ -104,4 +104,32 @@ function cliSchemas() {
   return schemas;
 }
 
-module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas };
+// Every executable-spawn call in a helper source, read at the source level rather than line by line: each
+// `run(`, `runSync(`, `execFile(`, or `execFileSync(` call, its parentheses balanced across lines and
+// string literals, split into its top-level arguments with whitespace collapsed (CL-D72,
+// CONV-124-SPAWN-SCAN-MULTILINE-GAP). A definition (`function run(`) and a call inside a line comment are
+// not calls.
+function spawnCalls(source) {
+  const calls = [];
+  const opener = /\b(run|runSync|execFile|execFileSync)\s*\(/g;
+  for (const match of source.matchAll(opener)) {
+    const before = source.slice(source.lastIndexOf('\n', match.index) + 1, match.index);
+    if (/\bfunction\s+$/.test(before) || /\/\//.test(before) || /[.\w$]$/.test(before)) continue;
+    let depth = 1, index = match.index + match[0].length, quote = null, argStart = index;
+    const args = [];
+    while (index < source.length && depth > 0) {
+      const char = source[index];
+      if (quote) { if (char === '\\') index += 1; else if (char === quote) quote = null; }
+      else if (char === "'" || char === '"' || char === '`') quote = char;
+      else if ('([{'.includes(char)) depth += 1;
+      else if (')]}'.includes(char)) { depth -= 1; if (depth === 0) { args.push(source.slice(argStart, index)); break; } }
+      else if (char === ',' && depth === 1) { args.push(source.slice(argStart, index)); argStart = index + 1; }
+      index += 1;
+    }
+    if (depth !== 0) throw new Error(`unbalanced spawn call at offset ${match.index}`);
+    calls.push({ callee: match[1], args: args.map((argument) => argument.trim().replace(/\s+/g, ' ')).filter((argument) => argument.length > 0) });
+  }
+  return calls;
+}
+
+module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls };

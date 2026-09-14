@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readJson, readText } = require('./helpers');
+const { repoRoot, repoPath, readJson, readText, spawnCalls } = require('./helpers');
 const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace');
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
@@ -86,12 +86,15 @@ const ROOT_GUARDS = [
   [`${HELPER_DIR}/workspace.js`, "if (isInside(requested, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
   [`${HELPER_DIR}/workspace.js`, "if (isInside(root, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
 ];
+// Each executable-spawn call that is not a literal `git`, read at the source level (a call is its callee and
+// its first three arguments as written, whitespace collapsed), so a call added, moved, relabelled, reworded,
+// or split across lines differs from the allowlist (CONV-124-SPAWN-SCAN-MULTILINE-GAP).
 const APPROVED_SPAWN_SITES = [
-  `${HELPER_DIR}/process.js|const child = execFile(command, args, { ...commandOptions(options, kind), encoding: 'buffer' }, (error, stdout, stderr) => {`,
-  `${HELPER_DIR}/process.js|return execFileSync(command, args, {`,
-  `${HELPER_DIR}/snapshot.js|function defaultTransport(command, args, options) { return run(command, args, options); }`,
-  `${HELPER_DIR}/validation.js|result = await run(program, args, { cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, acceptAnyExit: true, phase: 'spawn' });`,
-  `${HELPER_DIR}/writability.js|async function defaultTransport(command, args, options) { return run(command, args, options); }`,
+  `${HELPER_DIR}/process.js|execFile|command|args|{ ...commandOptions(options, kind), encoding: 'buffer' }`,
+  `${HELPER_DIR}/process.js|execFileSync|command|args|{ ...commandOptions(options, kind), encoding: options.encoding ?? 'utf8', input: options.stdin, stdio: ['pipe', 'pipe', 'pipe'], }`,
+  `${HELPER_DIR}/snapshot.js|run|command|args|options`,
+  `${HELPER_DIR}/validation.js|run|program|args|{ cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, acceptAnyExit: true, phase: 'spawn' }`,
+  `${HELPER_DIR}/writability.js|run|command|args|options`,
 ].sort();
 const AGGREGATE_SMOKE_ALARM = 240000; // CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run
 const PER_FILE_SMOKE_ALARM = 30000;
@@ -112,11 +115,8 @@ function sourceFsSites(sources) {
 function spawnSites(sources) {
   const sites = [];
   for (const [file, source] of Object.entries(sources)) {
-    for (const line of source.split(/\r?\n/)) {
-      if (/^\s*\/\//.test(line) || /^\s*(?:async )?function (?:run|runSync)\(/.test(line)) continue;
-      if (/\bexecFile(?:Sync)?\s*\(/.test(line)) { sites.push(`${file}|${normalizedLine(line)}`); continue; }
-      const call = line.match(/\b(?:run|runSync)\s*\(\s*([^,)]+)/);
-      if (call && call[1].trim() !== "'git'") sites.push(`${file}|${normalizedLine(line)}`);
+    for (const call of spawnCalls(source)) {
+      if (call.callee.startsWith('execFile') || call.args[0] !== "'git'") sites.push(`${file}|${call.callee}|${call.args.slice(0, 3).join('|')}`);
     }
   }
   return sites.sort();
@@ -137,10 +137,10 @@ function requireInventory(sources) {
 function gitCommands(sources) {
   const commands = [];
   const pattern = /\b(?:git|gitRaw|gitText|gitBytes|gitBuffer|collect|gitArgs)\s*\([^[]*?\[([^\]]*)\]/gs;
-  // A direct `run('git', [...])` or `runSync('git', [...])` with a literal argv is scanned too (CL-D72).
-  const direct = /\b(?:run|runSync)\s*\(\s*'git'\s*,\s*\[([^\]]*)\]/gs;
   for (const [file, source] of Object.entries(sources)) {
-    for (const match of [...source.matchAll(pattern), ...source.matchAll(direct)]) {
+    // A direct `run('git', [...])` with a literal argv is read by the source-level scanner (CL-D72).
+    const direct = spawnCalls(source).filter((call) => call.args[0] === "'git'" && /^\[/.test(call.args[1] || '')).map((call) => [null, call.args[1].slice(1, -1)]);
+    for (const match of [...source.matchAll(pattern), ...direct]) {
       const args = [...match[1].matchAll(/['"]([^'"]*)['"]/g)].map((entry) => entry[1]);
       let index = 0;
       while (index < args.length) {
@@ -245,6 +245,10 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'the validation label dropped', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("kind: 'validation', ", ''); }, 'executable-spawn callsites');
   rejectsMutation(model, 'a direct child_process site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nexecFileSync('npm', ['test']);\n"; }, 'executable-spawn callsites');
   rejectsMutation(model, 'a git push through run', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun('git', ['push', 'origin', 'HEAD']);\n"; }, 'Git command is outside');
+  // CONV-124-SPAWN-SCAN-MULTILINE-GAP: a call split across lines is the same call.
+  rejectsMutation(model, 'a multiline spawn site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun(\n  'npm',\n  ['test'],\n  { kind: 'git' }\n);\n"; }, 'executable-spawn callsites');
+  rejectsMutation(model, 'a multiline git push', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrunSync(\n  'git',\n  ['push', 'origin', 'HEAD']\n);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'the validation site rewritten across lines with another label', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("run(program, args, { cwd: data.cwd, kind: 'validation',", "run(\n  program,\n  args,\n  { cwd: data.cwd, kind: 'gh',"); }, 'executable-spawn callsites');
   rejectsMutation(model, 'shell spawn', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace('shell: false', 'shell: true'); }, 'shell spawn is forbidden');
   for (const operation of ['commit', 'push', 'merge', 'reply', 'approve', 'thread_resolve', 'schedule', 'state_write']) {
     rejectsMutation(model, `${operation} operation`, (copy) => {
