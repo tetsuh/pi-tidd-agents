@@ -189,7 +189,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
     }
     assert.equal(/shell:\s*true/.test(source), false, `${file} never spawns through a shell`);
   }
-  assert.deepEqual(sites, ['snapshot.js|command|inferred', 'validation.js|program|validation', 'writability.js|command|inferred'], 'the two gh transports and the one validation site, labelled as such');
+  assert.deepEqual(sites, ["snapshot.js|'gh'|inferred", 'validation.js|program|validation', "writability.js|'gh'|inferred"], 'the two gh transports spawning only gh, and the one validation site, labelled as such');
   assert.deepEqual(spawnCalls("run(\n  'npm',\n  ['test'],\n  { kind: 'git' }\n);\nfunction run(a) {}\n// run('x', [])\n"), [{ callee: 'run', args: ["'npm'", "['test']", "{ kind: 'git' }"] }], 'the scanner reads a multiline call and ignores a definition and a comment');
   // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS: the bound the record states. Every helper references a spawn primitive only by
   // direct call, and each shape that reached a program around the call surface is refused.
@@ -230,6 +230,13 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
     ['process.mainModule', 'launch.js', "process.mainModule.require('x');\n"],
     ['an escaped child_process require', 'launch.js', "require('node:child\\u005fprocess');\n"],
     ['a transport call beside a function-expression wrapper', 'snapshot.js', "const courier = function (command, args) { return run(command, args); };\ntransport('npm', []);\n"],
+    // The second pre-push review of 5dfaee3.
+    ['the GitHub forwarder called by its own name', 'snapshot.js', "defaultTransport('npm', ['x'], {});\n"],
+    ['a spawn primitive named in a reflection call', 'process.js', "Reflect.get(module.exports, 'run')('npm', ['test']);\n"],
+    ['a spawn primitive named in a property descriptor', 'process.js', "Object.getOwnPropertyDescriptor(module.exports, 'run').value('npm', []);\n"],
+    ['the Function constructor named in a reflection call', 'launch.js', "Reflect.get(Object.getPrototypeOf((x) => x), 'constructor')('return 1')();\n"],
+    ['require through call', 'launch.js', "require.call(null, 'node:vm');\n"],
+    ['require through Reflect.apply', 'launch.js', "Reflect.apply(require, null, ['node:vm']);\n"],
   ]) assert.ok(spawnReferenceProblems(file, source).length > 0, `${label} is refused`);
   assert.deepEqual(spawnReferenceProblems('launch.js', "// run it later\nconst note = 'run the thing';\nconst pattern = /run\\(/;\nconst text = `run ${'x'}`;\n"), [], 'a comment, a string, a regular expression, and template text are not code');
   // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS reopened: every context in which a slash was guessed is read by the grammar.

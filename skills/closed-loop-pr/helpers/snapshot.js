@@ -100,7 +100,8 @@ function canonicalPull(value, number) {
 }
 function sameIdentity(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 
-function defaultTransport(command, args, options) { return run(command, args, options); }
+// The GitHub transport runs only gh, whatever program a caller names (CL-D72).
+function defaultTransport(command, args, options) { if (command !== 'gh') return Promise.reject(Object.assign(new Error('the GitHub transport runs only gh'), { code: 'transport_program' })); return run('gh', args, options); }
 async function ghJson(transport, args, cwd, label) {
   const result = await transport('gh', args, { cwd, phase: 'github_snapshot', kind: 'gh' });
   return parseJson(result.stdout, label);

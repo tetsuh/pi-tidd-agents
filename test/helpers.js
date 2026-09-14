@@ -117,6 +117,7 @@ const PRIMS = new Set(['run', 'runSync', 'execFile', 'execFileSync']);
 const DYNAMIC = new Set(['eval', 'Function', 'constructor', 'global', 'globalThis']);
 const BINDINGS = new Set(['binding', '_linkedBinding', 'dlopen', 'execve']);
 const LOADERS = new Set(['getBuiltinModule', 'mainModule']);
+const GIT_ARG_CALLEES = new Set(['git', 'gitRaw', 'gitText', 'gitBytes', 'gitBuffer', 'collect', 'gitArgs']);
 // A name written as a string or a template without substitutions is the same name.
 const literalName = (node) => node && node.type === 'Literal' && typeof node.value === 'string' ? node.value
   : node && node.type === 'TemplateLiteral' && node.expressions.length === 0 ? node.quasis[0].value.cooked : null;
@@ -140,14 +141,20 @@ for (const [id, source] of Object.entries(input)) {
   const text = (node) => source.slice(node.start, node.end).trim().replace(/\s+/g, ' ');
   const requireOf = (node) => node && node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'require'
     && node.arguments.length === 1 && node.arguments[0].type === 'Literal' ? node.arguments[0].value : null;
-  const facts = { calls: [], transportCalls: [], references: [], dynamic: [], processUses: [], loaders: [], childLiterals: 0, childImportNames: null };
+  const facts = { calls: [], transportCalls: [], references: [], dynamic: [], processUses: [], loaders: [], childLiterals: 0, childImportNames: null, namedLiterals: [], requireUses: [], gitArgLists: [] };
+  const NAMED = new Set([...PRIMS, ...DYNAMIC, ...LOADERS]);
   visit(ast, [], (node, ancestors) => {
     const parent = ancestors[ancestors.length - 1], grand = ancestors[ancestors.length - 2], great = ancestors[ancestors.length - 3];
     if (node.type === 'CallExpression' && node.callee.type === 'Identifier') {
       if (PRIMS.has(node.callee.name)) facts.calls.push({ callee: node.callee.name, args: node.arguments.map(text) });
-      if (node.callee.name === 'transport') facts.transportCalls.push(node.arguments.map(text));
+      if (node.callee.name === 'transport' || node.callee.name === 'defaultTransport') facts.transportCalls.push(node.arguments.map(text));
+      if (GIT_ARG_CALLEES.has(node.callee.name) || (PRIMS.has(node.callee.name) && literalName(node.arguments[0]) === 'git')) {
+        const list = node.arguments.find((argument) => argument.type === 'ArrayExpression');
+        if (list) facts.gitArgLists.push(list.elements.map((element) => literalName(element)));
+      }
     }
     if (node.type === 'ImportExpression') facts.dynamic.push('import()');
+    if ((node.type === 'Literal' || node.type === 'TemplateLiteral') && NAMED.has(literalName(node))) facts.namedLiterals.push(literalName(node));
     if ((node.type === 'Literal' && typeof node.value === 'string' && node.value.includes('child_process')) || (node.type === 'TemplateElement' && String(node.value.cooked).includes('child_process'))) facts.childLiterals += 1;
     if (node.type === 'VariableDeclarator' && node.id.type === 'ObjectPattern' && requireOf(node.init) === 'node:child_process') facts.childImportNames = node.id.properties.map((property) => property.type === 'Property' && !property.computed && property.shorthand && property.key.type === 'Identifier' ? property.key.name : '?');
     if (node.type === 'RestElement' && parent && parent.type === 'ObjectPattern' && grand && grand.type === 'VariableDeclarator' && grand.id === parent && ['./process', 'node:child_process'].includes(requireOf(grand.init))) facts.references.push({ name: '...', context: 'rest' });
@@ -173,6 +180,7 @@ for (const [id, source] of Object.entries(input)) {
     }
     if (DYNAMIC.has(node.name)) facts.dynamic.push(node.name);
     if (LOADERS.has(node.name)) facts.loaders.push(node.name);
+    if (node.name === 'require' && !(parent && parent.type === 'CallExpression' && parent.callee === node)) facts.requireUses.push(parent ? parent.type : 'none');
     if (node.name === 'process') {
       if (parent && parent.type === 'MemberExpression' && parent.object === node) facts.processUses.push(!parent.computed && !BINDINGS.has(parent.property.name) ? 'member' : 'binding');
       else if (parent && parent.type === 'CallExpression' && parent.arguments.includes(node) && parent.callee.type === 'MemberExpression' && !parent.callee.computed && parent.callee.property.name === 'bind') facts.processUses.push('bind');
@@ -208,13 +216,17 @@ function parseFacts(sources) {
 // or `execFileSync` by name, with its arguments as written and whitespace collapsed (CL-D72,
 // CONV-124-SPAWN-SCAN-MULTILINE-GAP). A definition and a comment are not calls; a source that does not parse has none.
 function spawnCalls(source) { const facts = parseFacts([source])[0]; return facts.parseError ? [] : facts.calls; }
+// Every literal argument list passed to a Git helper or to a direct `run('git', ...)`, from the syntax tree: each element
+// is its literal value whatever its quoting, or null when it is not a literal.
+function gitArgLists(source) { const facts = parseFacts([source])[0]; return facts.parseError ? [] : facts.gitArgLists; }
 
 // The bound CL-D72 records for the static spawn guard (owner option A), read from the syntax tree: `run`, `runSync`,
 // `execFile`, and `execFileSync` appear only as a direct call, as a definition or the export list in process.js, or in a
 // destructured import from ./process or node:child_process that lists plain names; a literal name counts as a reference
-// wherever it is written, so a computed member or key naming one is refused, as is a rest element gathering an import;
+// wherever it is written, so a computed member or key, or a string argument, naming one is refused, as is a rest element
+// gathering an import, and `require` appears only as a direct call;
 // the text `child_process`, and any string literal whose value names it, appears only in process.js's one import, for
-// execFile and execFileSync; every call of `transport` passes the literal 'gh'; eval, the Function constructor, and
+// execFile and execFileSync; every call of `transport` or `defaultTransport` passes the literal 'gh'; eval, the Function constructor, and
 // process bindings are refused as references of any form (`eval`, `Function`, `constructor`, `global`, `globalThis`, and
 // `import()` nowhere; `process` only as a member access other than its bindings, or as `bind(process)`; no member named
 // `binding`, `_linkedBinding`, `dlopen`, or `execve` is called); and a module loader other than `require`,
@@ -240,10 +252,12 @@ function spawnReferenceProblems(file, source) {
   for (const args of facts.transportCalls) if (args[0] !== "'gh'") problems.push(`transport call passes a program other than 'gh': ${file}`);
   if (facts.dynamic.length > 0) problems.push(`dynamic code execution is forbidden: ${file}`);
   if (facts.loaders.length > 0) problems.push(`a module loader outside require is forbidden: ${file}`);
+  if (facts.namedLiterals.length > 0) problems.push(`a spawn, dynamic-execution, or loader name written as a string is forbidden: ${file}`);
+  if (facts.requireUses.length > 0) problems.push(`require is referenced outside a direct call: ${file}`);
   if (facts.processUses.some((use) => use !== 'member' && use !== 'bind')) problems.push(`process bindings are forbidden: ${file}`);
   return problems;
 }
 // Parse every source of a model in one child process before the per-file checks read the cache.
 function primeSpawnFacts(sources) { parseFacts(sources); }
 
-module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES };
+module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES };

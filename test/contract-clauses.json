@@ -3577,7 +3577,7 @@
         "owner option A, https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510",
         "a form outside this bound is not a finding against the guard",
         "a literal name counts as a reference wherever it is written",
-        "every call of `transport` passes the literal `'gh'`",
+        "every call of `transport` or `defaultTransport` passes the literal `'gh'`, and each gh transport spawns only the literal `'gh'`",
         "a module loader other than `require`, `getBuiltinModule` or `mainModule`, appears nowhere",
         "a literal Git argument list carries no `-c` configuration pair of its own",
         "The timeout is enforced by SIGKILL and decides the outcome",
