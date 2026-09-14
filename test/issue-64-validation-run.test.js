@@ -151,7 +151,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('The set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -186,6 +186,8 @@ function evidenceRepository({ authority = true } = {}) {
   const base = git(root, ['rev-parse', 'HEAD']);
   write('a.txt', 'a two\n'); if (authority) write('CONTRACT.md', 'contract two\n');
   write('new file.txt', 'new\n'); write('bin.dat', Buffer.from([0, 255, 1, 2, 10, 13]));
+  // CONV-124-REQUIRED-EVIDENCE-SYMLINK-MISMATCH: a changed entry that is not a regular file.
+  if (process.platform !== 'win32') fs.symlinkSync('a.txt', path.join(root, 'link'));
   fs.rmSync(path.join(root, 'deleted.txt'));
   git(root, ['add', '-A']); git(root, ['commit', '-q', '-m', 'test: head']);
   return { root, base, head: git(root, ['rev-parse', 'HEAD']) };
@@ -206,7 +208,11 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     assert.deepEqual(derived.data.requiredEvidence, [file('CONTRACT.md'), file('README.md'), file('a.txt'), file('bin.dat'), file('new file.txt'), ...identities],
       'changed paths existing at the head, in byte order, then the authority files that did not change, then the identities as given; the deleted path and the untouched path are absent');
     assert.deepEqual(derived.data.authority, { included: ['CONTRACT.md', 'README.md'], absent: [] });
-    assert.deepEqual([derived.data.changed, derived.data.files], [5, 5], 'five paths changed, one of them deleted; README is the fifth file');
+    // Owner option A (CL-D72): the derived set carries only what the checker can verify — regular blobs — and
+    // names every changed entry it left out, with its mode.
+    const link = process.platform === 'win32' ? [] : [{ source: 'link', mode: '120000' }];
+    assert.deepEqual(derived.data.excluded, link, 'a changed symlink is excluded and named with its mode');
+    assert.deepEqual([derived.data.changed, derived.data.files], [5 + link.length, 5], 'the changed count includes the excluded entry; the file count does not');
     assert.deepEqual(helpers.requiredEvidenceSet({ cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities }), derived, 'the derivation is deterministic');
     // The derived set passes the packaged checks downstream exactly as a hand-assembled one would.
     assert.equal(helpers.requiredEvidenceCheck({ cwd: repo.root, requiredEvidence: derived.data.requiredEvidence }).ok, true);

@@ -296,14 +296,21 @@ function requiredEvidenceSet(data) {
       if (gitText(data.cwd, ['cat-file', '-t', data[key]], phase, [128]).trim() !== 'commit') fail('invalid_request', 'commit_presence', `${key} is not a commit in this checkout`, data[key]);
     }
     const changed = gitText(data.cwd, ['diff', '--name-only', '--no-renames', '-z', data.baseOid, data.headOid, '--'], phase).split('\0').filter(Boolean);
-    const atHead = new Set(gitText(data.cwd, ['ls-tree', '-r', '--name-only', '--full-tree', '-z', data.headOid], phase).split('\0').filter(Boolean));
-    const sources = new Set(changed.filter((source) => atHead.has(source)));
+    // The tree at the head, by entry: only a regular blob (100644 or 100755) can be attested as a file; a
+    // symlink or a submodule pointer is excluded and named with its mode (owner option A, CL-D72).
+    const atHead = new Map();
+    for (const record of gitText(data.cwd, ['ls-tree', '-r', '--full-tree', '-z', data.headOid], phase).split('\0').filter(Boolean)) {
+      const [meta, name] = record.split('\t'); atHead.set(name, meta.split(' ')[0]);
+    }
+    const regular = (mode) => mode === '100644' || mode === '100755';
+    const sources = new Set(changed.filter((source) => atHead.has(source) && regular(atHead.get(source))));
+    const excluded = changed.filter((source) => atHead.has(source) && !regular(atHead.get(source))).map((source) => ({ source, mode: atHead.get(source) }));
     const authority = { included: [], absent: [] };
-    for (const file of AUTHORITY_AT_HEAD) { if (atHead.has(file)) { sources.add(file); authority.included.push(file); } else authority.absent.push(file); }
+    for (const file of AUTHORITY_AT_HEAD) { if (atHead.has(file) && regular(atHead.get(file))) { sources.add(file); authority.included.push(file); } else authority.absent.push(file); }
     const files = byteSort([...sources]).map((source) => ({ source, kind: 'file', identity: crypto.createHash('sha256').update(gitBytes(data.cwd, ['cat-file', 'blob', `${data.headOid}:${source}`], phase)).digest('hex') }));
     const requiredEvidence = [...files, ...data.identities.map(({ source, kind, identity }) => ({ source, kind, identity }))];
     try { checkRequiredEvidence(requiredEvidence); } catch (error) { fail('invalid_request', 'required_evidence_shape', error.message, error.message); }
-    return createResult('required_evidence_set', { requiredEvidence, baseOid: data.baseOid, headOid: data.headOid, changed: changed.length, files: files.length, authority });
+    return createResult('required_evidence_set', { requiredEvidence, baseOid: data.baseOid, headOid: data.headOid, changed: changed.length, files: files.length, authority, excluded });
   });
 }
 
