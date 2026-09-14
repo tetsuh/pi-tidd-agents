@@ -188,6 +188,9 @@ function evidenceRepository({ authority = true } = {}) {
   write('new file.txt', 'new\n'); write('bin.dat', Buffer.from([0, 255, 1, 2, 10, 13]));
   // CONV-124-REQUIRED-EVIDENCE-SYMLINK-MISMATCH: a changed entry that is not a regular file.
   if (process.platform !== 'win32') fs.symlinkSync('a.txt', path.join(root, 'link'));
+  // CONV-124-TAB-PATH-EVIDENCE-OMISSION: a legal name carrying a tab, which the NUL-delimited tree record
+  // separates from its mode by a tab as well.
+  if (process.platform !== 'win32') write('tab\there.txt', 'tabbed\n');
   fs.rmSync(path.join(root, 'deleted.txt'));
   git(root, ['add', '-A']); git(root, ['commit', '-q', '-m', 'test: head']);
   return { root, base, head: git(root, ['rev-parse', 'HEAD']) };
@@ -205,14 +208,15 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     const derived = helpers.requiredEvidenceSet({ cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });
     assert.equal(derived.ok, true, JSON.stringify(derived.error));
     const file = (source) => ({ source, kind: 'file', identity: blobSha(repo.root, source) });
-    assert.deepEqual(derived.data.requiredEvidence, [file('CONTRACT.md'), file('README.md'), file('a.txt'), file('bin.dat'), file('new file.txt'), ...identities],
-      'changed paths existing at the head, in byte order, then the authority files that did not change, then the identities as given; the deleted path and the untouched path are absent');
+    const tabbed = process.platform === 'win32' ? [] : [file('tab\there.txt')];
+    assert.deepEqual(derived.data.requiredEvidence, [file('CONTRACT.md'), file('README.md'), file('a.txt'), file('bin.dat'), file('new file.txt'), ...tabbed, ...identities],
+      'changed paths existing at the head, in byte order, then the authority files that did not change, then the identities as given; the deleted path and the untouched path are absent; a tab in a name is part of the name');
     assert.deepEqual(derived.data.authority, { included: ['CONTRACT.md', 'README.md'], absent: [] });
     // Owner option A (CL-D72): the derived set carries only what the checker can verify — regular blobs — and
     // names every changed entry it left out, with its mode.
     const link = process.platform === 'win32' ? [] : [{ source: 'link', mode: '120000' }];
     assert.deepEqual(derived.data.excluded, link, 'a changed symlink is excluded and named with its mode');
-    assert.deepEqual([derived.data.changed, derived.data.files], [5 + link.length, 5], 'the changed count includes the excluded entry; the file count does not');
+    assert.deepEqual([derived.data.changed, derived.data.files], [5 + link.length + tabbed.length, 5 + tabbed.length], 'the changed count includes the excluded entry; the file count does not');
     assert.deepEqual(helpers.requiredEvidenceSet({ cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities }), derived, 'the derivation is deterministic');
     // The derived set passes the packaged checks downstream exactly as a hand-assembled one would.
     assert.equal(helpers.requiredEvidenceCheck({ cwd: repo.root, requiredEvidence: derived.data.requiredEvidence }).ok, true);
@@ -222,7 +226,7 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     const bareSet = helpers.requiredEvidenceSet({ cwd: bare.root, baseOid: bare.base, headOid: bare.head, identities: [] });
     assert.equal(bareSet.ok, true, JSON.stringify(bareSet.error));
     assert.deepEqual(bareSet.data.authority, { included: [], absent: ['CONTRACT.md', 'README.md'] });
-    assert.deepEqual(bareSet.data.requiredEvidence.map((entry) => entry.source), ['a.txt', 'bin.dat', 'new file.txt']);
+    assert.deepEqual(bareSet.data.requiredEvidence.map((entry) => entry.source), ['a.txt', 'bin.dat', 'new file.txt', ...tabbed.map((entry) => entry.source)]);
     for (const [label, data, subcheck] of [
       ['a file-kind identity', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'a.txt', kind: 'file', identity: 'f'.repeat(64) }] }, 'identities_shape'],
       ['an unknown kind', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'x', kind: 'web', identity: 'f'.repeat(64) }] }, 'identities_shape'],

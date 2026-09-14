@@ -300,7 +300,9 @@ function requiredEvidenceSet(data) {
     // symlink or a submodule pointer is excluded and named with its mode (owner option A, CL-D72).
     const atHead = new Map();
     for (const record of gitText(data.cwd, ['ls-tree', '-r', '--full-tree', '-z', data.headOid], phase).split('\0').filter(Boolean)) {
-      const [meta, name] = record.split('\t'); atHead.set(name, meta.split(' ')[0]);
+      // The first tab separates the mode, type, and object from the name; a later tab is part of the name
+      // (CONV-124-TAB-PATH-EVIDENCE-OMISSION).
+      const tab = record.indexOf('\t'); atHead.set(record.slice(tab + 1), record.slice(0, tab).split(' ')[0]);
     }
     const regular = (mode) => mode === '100644' || mode === '100755';
     const sources = new Set(changed.filter((source) => atHead.has(source) && regular(atHead.get(source))));
