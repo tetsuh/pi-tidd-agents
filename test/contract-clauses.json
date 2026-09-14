@@ -3571,6 +3571,7 @@
         "or as `harness_failed` at phase `spawn`",
         "exactly one non-git spawn site, in `validation.js`",
         "resets from 220,000 to 240,000 bytes",
+        "the owner chose the step name (https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859",
         "A second non-git spawn site, a shell string, a cwd below a toplevel, a program allowlist, or a further alarm raise requires a new owner decision"
       ]
     },
