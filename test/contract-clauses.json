@@ -3395,6 +3395,7 @@
       "section": "### Structured gate result transport (CL-D36)",
       "requires": [
         "the parent reads it from that path after completion through packaged `gate_result_read`, which resolves the path from the run id (CL-D68)",
+        "A `run_in_progress` result from that read is neither a result nor a failure",
         "the launch request is composed by packaged `build_gate_launch` (CL-D68)"
       ]
     },
@@ -3413,7 +3414,8 @@
         "A composer that writes, reaches the network or Git, or reads anything but those two classes — the installed package's authority files and the supplied expectation file — or a second source for the launch request, requires a new owner decision",
         "raises the authority ceiling once more, from 140,000 to 150,000 bytes",
         "the cleanup builder and the cleanup operation share one pure cwd predicate",
-        "widens CL-D44's declared field set by `build_gate_launch.expectation`"
+        "widens CL-D44's declared field set by `build_gate_launch.expectation`",
+        "a step the runner still records as in progress is `run_in_progress`, neither a result nor a failure"
       ]
     },
     {

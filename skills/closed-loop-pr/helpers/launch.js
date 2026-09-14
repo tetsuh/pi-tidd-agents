@@ -20,6 +20,8 @@ const { VOLATILE_FIELDS, volatileRequired, volatileEmptiness, nestedProblem, cit
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CLI_PATH = path.join(__dirname, 'cli.js');
 const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+// The runner's in-progress step states (pi-subagents 0.67.0): before a step has ended there is nothing to read.
+const IN_PROGRESS = Object.freeze(['pending', 'queued', 'running']);
 // One table, pinned against the vocabulary source by test/issue-111-gate-read-launch.test.js.
 const ROLE_BY_GATE = Object.freeze({ adversarial: 'tidd-adversarial-reviewer', 'decision-drift': 'tidd-drift-reviewer', safety: 'tidd-safety-reviewer', convergence: 'tidd-convergence-reviewer' });
 const EVERY_GATE = Object.freeze({ file: 'skills/closed-loop-shared/references/gate-contract.md', heading: '#### Every-gate invariant payload block (CL-D2)' });
@@ -74,6 +76,10 @@ function readGateResult(data) {
     // (CONV-123-STALE-STEP-READ, CONV-123-LAST-STEP-SHAPE).
     const steps = Array.isArray(status.steps) ? status.steps : [];
     const step = steps.length === 0 ? null : steps[steps.length - 1];
+    // A step the runner still records as in progress is not a result and not a failure: a workflow-layer
+    // completion notice is a courier (CL-D58), and the parent waits for the runner's own completion before
+    // reading again (CL-D68 amendment, PR #124).
+    if (plain(step) && IN_PROGRESS.includes(step.status)) fail('run_in_progress', `the runner still records the selected step as ${step.status}; wait for its completion and read again`, { statusPath, stepStatus: step.status });
     if (!plain(step) || !text(step.structuredOutputPath)) fail('designated_output_unrecorded', 'the selected step of the runner status record carries no structuredOutputPath', { statusPath });
     const structuredOutputPath = step.structuredOutputPath;
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
