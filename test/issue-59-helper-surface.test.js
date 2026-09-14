@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readJson, readText, spawnCalls, spawnReferenceProblems } = require('./helpers');
+const { repoRoot, repoPath, readJson, readText, spawnCalls, spawnReferenceProblems, primeSpawnFacts } = require('./helpers');
 const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace');
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
@@ -113,6 +113,7 @@ function sourceFsSites(sources) {
   return sites.sort();
 }
 function spawnSites(sources) {
+  primeSpawnFacts(Object.values(sources));
   const sites = [];
   for (const [file, source] of Object.entries(sources)) {
     for (const call of spawnCalls(source)) {
@@ -263,6 +264,10 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'eval', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\neval(\"run('npm', [])\");\n"; }, 'dynamic code execution is forbidden');
   rejectsMutation(model, 'a rename inside a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("const { run, gitArgs } = require('./process');", "const { run: launch, gitArgs } = require('./process');"); }, 'a destructured import of the spawn modules renames a name');
   rejectsMutation(model, 'a dynamic load of child_process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nmodule.constructor._load('node:child_process').spawnSync('npm', ['test']);\n"; }, 'node:child_process is used outside');
+  // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS reopened: a slash after a postfix operator is division, read by the grammar.
+  rejectsMutation(model, 'an alias hidden behind a postfix increment', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nlet count = 1, divisor = 2, invoke;\ncount++ / (invoke = run) / divisor;\ninvoke('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'an alias hidden behind a postfix decrement', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nlet count = 1, divisor = 2, invoke;\ncount-- / (invoke = run) / divisor;\ninvoke('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'a source that does not parse', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst = ;\n"; }, 'helper source does not parse');
   rejectsMutation(model, 'a process binding', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.binding('spawn_sync');\n"; }, 'process bindings are forbidden');
   // ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS: references of any form, not only call syntax.
   rejectsMutation(model, 'global.Function', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nglobal.Function('return 1')();\n"; }, 'dynamic code execution is forbidden');

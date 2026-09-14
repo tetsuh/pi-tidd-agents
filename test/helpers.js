@@ -104,126 +104,130 @@ function cliSchemas() {
   return schemas;
 }
 
-// Every executable-spawn call in a helper source, read at the source level rather than line by line: each
-// `run(`, `runSync(`, `execFile(`, or `execFileSync(` call, its parentheses balanced across lines and
-// string literals, split into its top-level arguments with whitespace collapsed (CL-D72,
-// CONV-124-SPAWN-SCAN-MULTILINE-GAP). A definition (`function run(`) and a call inside a line comment are
-// not calls.
-function spawnCalls(source) { return namedCalls(source, ['run', 'runSync', 'execFile', 'execFileSync']); }
-function namedCalls(source, names) {
-  const calls = [];
-  const opener = new RegExp(`\\b(${names.join('|')})\\s*\\(`, 'g');
-  for (const match of source.matchAll(opener)) {
-    const before = source.slice(source.lastIndexOf('\n', match.index) + 1, match.index);
-    if (/\bfunction\s+$/.test(before) || /\/\//.test(before) || /[.\w$]$/.test(before)) continue;
-    let depth = 1, index = match.index + match[0].length, quote = null, argStart = index;
-    const args = [];
-    while (index < source.length && depth > 0) {
-      const char = source[index];
-      if (quote) { if (char === '\\') index += 1; else if (char === quote) quote = null; }
-      else if (char === "'" || char === '"' || char === '`') quote = char;
-      else if ('([{'.includes(char)) depth += 1;
-      else if (')]}'.includes(char)) { depth -= 1; if (depth === 0) { args.push(source.slice(argStart, index)); break; } }
-      else if (char === ',' && depth === 1) { args.push(source.slice(argStart, index)); argStart = index + 1; }
-      index += 1;
-    }
-    if (depth !== 0) throw new Error(`unbalanced spawn call at offset ${match.index}`);
-    calls.push({ callee: match[1], args: args.map((argument) => argument.trim().replace(/\s+/g, ' ')).filter((argument) => argument.length > 0) });
+// Helper source read through the parser Node itself bundles, so strings, templates, regular expressions, comments,
+// and division are told apart by the grammar rather than guessed from characters (CL-D72). The character tokenizer
+// this replaces misread a slash after a postfix operator, `await`, or `yield` as a regular expression and blanked
+// the code behind it (ADV-124-SPAWN-SCANNER-ALIAS-BYPASS, reopened). The parser runs in a child process started with
+// --expose-internals, the one way to reach Node's bundled acorn without a dependency; a source that does not parse
+// is reported, never skipped. Facts are cached by source text, so a mutated model reparses only the file it changed.
+const PARSE_FACTS_SCRIPT = String.raw`
+const acorn = require('internal/deps/acorn/acorn/dist/acorn');
+const input = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
+const PRIMS = new Set(['run', 'runSync', 'execFile', 'execFileSync']);
+const DYNAMIC = new Set(['eval', 'Function', 'constructor', 'global', 'globalThis']);
+const BINDINGS = new Set(['binding', '_linkedBinding', 'dlopen', 'execve']);
+function visit(node, ancestors, fn) {
+  if (!node || typeof node.type !== 'string') return;
+  fn(node, ancestors);
+  ancestors.push(node);
+  for (const key of Object.keys(node)) {
+    if (key === 'start' || key === 'end') continue;
+    const value = node[key];
+    if (Array.isArray(value)) { for (const item of value) if (item && typeof item.type === 'string') visit(item, ancestors, fn); }
+    else if (value && typeof value.type === 'string') visit(value, ancestors, fn);
   }
-  return calls;
+  ancestors.pop();
+}
+const out = {};
+for (const [id, source] of Object.entries(input)) {
+  let ast;
+  try { ast = acorn.parse(source, { ecmaVersion: 'latest', sourceType: 'script', allowHashBang: true, allowReturnOutsideFunction: true }); }
+  catch (error) { out[id] = { parseError: error.message }; continue; }
+  const text = (node) => source.slice(node.start, node.end).trim().replace(/\s+/g, ' ');
+  const requireOf = (node) => node && node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'require'
+    && node.arguments.length === 1 && node.arguments[0].type === 'Literal' ? node.arguments[0].value : null;
+  const facts = { calls: [], transportCalls: [], definesDefaultTransport: false, references: [], dynamic: [], processUses: [] };
+  visit(ast, [], (node, ancestors) => {
+    const parent = ancestors[ancestors.length - 1], grand = ancestors[ancestors.length - 2], great = ancestors[ancestors.length - 3];
+    if (node.type === 'CallExpression' && node.callee.type === 'Identifier') {
+      if (PRIMS.has(node.callee.name)) facts.calls.push({ callee: node.callee.name, args: node.arguments.map(text) });
+      if (node.callee.name === 'transport') facts.transportCalls.push(node.arguments.map(text));
+    }
+    if (node.type === 'FunctionDeclaration' && node.id && node.id.name === 'defaultTransport') facts.definesDefaultTransport = true;
+    if (node.type === 'ImportExpression') facts.dynamic.push('import()');
+    if (node.type === 'MemberExpression' && node.computed && node.property.type === 'Literal' && DYNAMIC.has(String(node.property.value))) facts.dynamic.push(String(node.property.value));
+    if (node.type !== 'Identifier') return;
+    // A property name after a dot, and a key in an object, are names rather than references.
+    if (parent && parent.type === 'MemberExpression' && parent.property === node && !parent.computed) {
+      if (DYNAMIC.has(node.name)) facts.dynamic.push(node.name);
+      if (PRIMS.has(node.name)) facts.references.push({ name: node.name, context: 'property' });
+      return;
+    }
+    if (parent && (parent.type === 'Property' || parent.type === 'MethodDefinition' || parent.type === 'PropertyDefinition') && parent.key === node && !parent.computed) {
+      if (PRIMS.has(node.name) && parent.type === 'Property' && grand && grand.type === 'ObjectPattern' && !parent.shorthand) facts.references.push({ name: node.name, context: 'rename' });
+      return;
+    }
+    if (DYNAMIC.has(node.name)) facts.dynamic.push(node.name);
+    if (node.name === 'process') {
+      if (parent && parent.type === 'MemberExpression' && parent.object === node) facts.processUses.push(!parent.computed && !BINDINGS.has(parent.property.name) ? 'member' : 'binding');
+      else if (parent && parent.type === 'CallExpression' && parent.arguments.includes(node) && parent.callee.type === 'MemberExpression' && !parent.callee.computed && parent.callee.property.name === 'bind') facts.processUses.push('bind');
+      else facts.processUses.push('other');
+      return;
+    }
+    if (!PRIMS.has(node.name)) return;
+    let context = 'other';
+    if (parent && parent.type === 'CallExpression' && parent.callee === node) context = 'call';
+    else if (parent && parent.type === 'FunctionDeclaration' && parent.id === node) context = 'definition';
+    else if (parent && parent.type === 'Property' && parent.value === node && parent.shorthand && grand && grand.type === 'ObjectPattern' && great && great.type === 'VariableDeclarator' && great.id === grand && ['./process', 'node:child_process'].includes(requireOf(great.init))) context = 'import';
+    else if (parent && parent.type === 'Property' && parent.value === node && parent.shorthand && grand && grand.type === 'ObjectExpression' && great && great.type === 'AssignmentExpression' && great.right === grand
+      && great.left.type === 'MemberExpression' && !great.left.computed && great.left.object.type === 'Identifier' && great.left.object.name === 'module' && great.left.property.name === 'exports') context = 'export';
+    facts.references.push({ name: node.name, context });
+  });
+  out[id] = facts;
+}
+process.stdout.write(JSON.stringify(out));
+`;
+const parsedFacts = new Map();
+function parseFacts(sources) {
+  const missing = [...new Set(sources.filter((source) => !parsedFacts.has(source)))];
+  if (missing.length > 0) {
+    const child = require('node:child_process').spawnSync(process.execPath, ['--expose-internals', '-e', PARSE_FACTS_SCRIPT], { input: JSON.stringify(Object.fromEntries(missing.map((source, index) => [index, source]))), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+    if (child.status !== 0) throw new Error(`Node's bundled parser could not run: ${child.stderr || child.error}`);
+    const output = JSON.parse(child.stdout);
+    missing.forEach((source, index) => parsedFacts.set(source, output[index]));
+  }
+  return sources.map((source) => parsedFacts.get(source));
 }
 
-// Helper source with every comment and string literal blanked to spaces, newlines kept, so positions line up with
-// the original and nothing inside a string, a template's text, a regular expression, or a comment reads as code.
-// A regular-expression literal is recognised by the character or keyword before its slash.
-function codeOnly(source) {
-  const out = source.split('');
-  const blank = (from, to) => { for (let k = from; k < to; k += 1) if (out[k] !== '\n') out[k] = ' '; };
-  const regexAllowed = (i) => {
-    let k = i - 1; while (k >= 0 && /\s/.test(source[k])) k -= 1;
-    if (k < 0 || '(,=:[!&|?{};+-*%<>~^'.includes(source[k])) return true;
-    const word = source.slice(Math.max(0, k - 10), k + 1).match(/[A-Za-z_$][\w$]*$/);
-    return Boolean(word && ['return', 'typeof', 'case', 'in', 'of', 'delete', 'void', 'throw', 'new', 'else', 'do'].includes(word[0]));
-  };
-  function scanCode(i, stopAtBrace) {
-    let depth = 0;
-    while (i < source.length) {
-      const c = source[i], n = source[i + 1];
-      if (c === '/' && n === '/') { const end = source.indexOf('\n', i); const stop = end === -1 ? source.length : end; blank(i, stop); i = stop; continue; }
-      if (c === '/' && n === '*') { const end = source.indexOf('*/', i + 2); const stop = end === -1 ? source.length : end + 2; blank(i, stop); i = stop; continue; }
-      if (c === "'" || c === '"') { let k = i + 1; while (k < source.length && source[k] !== c && source[k] !== '\n') k += source[k] === '\\' ? 2 : 1; blank(i + 1, k); i = k + 1; continue; }
-      if (c === '`') { i = scanTemplate(i + 1); continue; }
-      if (c === '/' && regexAllowed(i)) {
-        let k = i + 1, inClass = false;
-        while (k < source.length && source[k] !== '\n') { if (source[k] === '\\') { k += 2; continue; } if (source[k] === '[') inClass = true; else if (source[k] === ']') inClass = false; else if (source[k] === '/' && !inClass) break; k += 1; }
-        blank(i + 1, k); i = k + 1; continue;
-      }
-      if (c === '{') depth += 1;
-      if (c === '}') { if (stopAtBrace && depth === 0) return i; depth -= 1; }
-      i += 1;
-    }
-    return i;
-  }
-  function scanTemplate(i) {
-    let start = i;
-    while (i < source.length) {
-      if (source[i] === '\\') { i += 2; continue; }
-      if (source[i] === '`') { blank(start, i); return i + 1; }
-      if (source[i] === '$' && source[i + 1] === '{') { blank(start, i); i = scanCode(i + 2, true) + 1; start = i; continue; }
-      i += 1;
-    }
-    blank(start, source.length); return source.length;
-  }
-  scanCode(0, false);
-  return out.join('');
-}
+// Every executable-spawn call in a helper source, from the syntax tree: each call of `run`, `runSync`, `execFile`,
+// or `execFileSync` by name, with its arguments as written and whitespace collapsed (CL-D72,
+// CONV-124-SPAWN-SCAN-MULTILINE-GAP). A definition and a comment are not calls; a source that does not parse has none.
+function spawnCalls(source) { const facts = parseFacts([source])[0]; return facts.parseError ? [] : facts.calls; }
 
-// The bound CL-D72 records for the static spawn guard (ADV-124-SPAWN-SCANNER-ALIAS-BYPASS): a spawn primitive reaches a
-// program only through a direct call. With strings and comments removed, `run`, `runSync`, `execFile`, and
-// `execFileSync` may appear only as a direct call, as a definition or the export list in process.js, or inside a
-// destructured import from ./process or node:child_process that lists plain names without renaming them; the text
-// `child_process` appears only in process.js's one import, for execFile and execFileSync; a module that defines a
-// forwarding `defaultTransport` calls its injected `transport` only with the literal program 'gh'; and eval, the
-// Function constructor, and process bindings are refused as references of any form: `eval`, `Function`, `constructor`,
-// `global`, and `globalThis` appear nowhere in code, and `process` appears only as a member access other than
-// `binding`, `_linkedBinding`, `dlopen`, and `execve`, or as `bind(process)` (ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS).
-// The guard is a structural check of reviewed source bounded to these forms, not a JavaScript evaluator.
+// The bound CL-D72 records for the static spawn guard (owner option A): a spawn primitive reaches a program only through
+// a direct call. Read from the syntax tree, `run`, `runSync`, `execFile`, and `execFileSync` may appear only as a direct
+// call, as a definition or the export list in process.js, or in a destructured import from ./process or
+// node:child_process that lists plain names without renaming them; the text `child_process` appears only in
+// process.js's one import, for execFile and execFileSync; a module that defines a forwarding `defaultTransport` calls
+// its injected `transport` only with the literal program 'gh'; and eval, the Function constructor, and process
+// bindings are refused as references of any form: `eval`, `Function`, `constructor`, `global`, `globalThis`, and a
+// dynamic `import()` appear nowhere in code, and `process` appears only as a member access other than `binding`,
+// `_linkedBinding`, `dlopen`, and `execve`, or as `bind(process)` (ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS). The guard is
+// a structural check of reviewed source bounded to these forms, not a JavaScript evaluator.
 const SPAWN_PRIMITIVES = ['run', 'runSync', 'execFile', 'execFileSync'];
 function spawnReferenceProblems(file, source) {
+  const facts = parseFacts([source])[0];
+  if (facts.parseError) return [`helper source does not parse: ${file}: ${facts.parseError}`];
   const problems = [];
-  const code = codeOnly(source);
   const base = file.split('/').pop();
-  const spans = [];
-  for (const match of source.matchAll(/const\s*\{[^}]*\}\s*=\s*require\(\s*'(\.\/process|node:child_process)'\s*\);/g)) spans.push([match.index, match.index + match[0].length, match[1]]);
-  if (base === 'process.js') { const match = source.match(/module\.exports\s*=\s*\{[^}]*\};/); if (match) spans.push([match.index, match.index + match[0].length, 'exports']); }
-  const inSpan = (index) => spans.some(([from, to]) => index >= from && index < to);
-  for (const [from, to] of spans.filter(([, , target]) => target !== 'exports')) {
-    if (!/^const\s*\{\s*[A-Za-z_$][\w$]*(?:\s*,\s*[A-Za-z_$][\w$]*)*\s*,?\s*\}/.test(source.slice(from, to))) problems.push(`a destructured import of the spawn modules renames a name: ${file}`);
-  }
-  for (const match of code.matchAll(/(?<![\w$])(run|runSync|execFile|execFileSync)(?![\w$])/g)) {
-    if (inSpan(match.index)) continue;
-    const before = code.slice(Math.max(0, match.index - 40), match.index), after = code.slice(match.index + match[1].length, match.index + match[1].length + 20);
-    const property = /\.\s*$/.test(before), called = /^\s*\(/.test(after), defined = /\bfunction\s+$/.test(before);
-    if (!property && called && (!defined || base === 'process.js')) continue;
-    problems.push(`spawn primitive referenced outside a direct call: ${file}:${match[1]}`);
+  for (const { name, context } of facts.references) {
+    if (context === 'call' || context === 'import') continue;
+    if ((context === 'definition' || context === 'export') && base === 'process.js') continue;
+    problems.push(context === 'rename' ? `a destructured import of the spawn modules renames a name: ${file}` : `spawn primitive referenced outside a direct call: ${file}:${name}`);
   }
   // The raw text, strings and comments included, so a dynamic load spelled as a string is counted too.
   const childMentions = [...source.matchAll(/child_process/g)];
-  const childImports = spans.filter(([, , target]) => target === 'node:child_process');
-  const exact = base === 'process.js' && childMentions.length === 1 && childImports.length === 1
-    && childMentions[0].index >= childImports[0][0] && childMentions[0].index < childImports[0][1]
-    && /^const\s*\{\s*execFile,\s*execFileSync\s*\}/.test(source.slice(childImports[0][0], childImports[0][1]));
+  const childImport = source.match(/const\s*\{[^}]*\}\s*=\s*require\(\s*'node:child_process'\s*\);/);
+  const exact = base === 'process.js' && childMentions.length === 1 && childImport !== null
+    && childMentions[0].index >= childImport.index && childMentions[0].index < childImport.index + childImport[0].length
+    && /^const\s*\{\s*execFile,\s*execFileSync\s*\}/.test(childImport[0]);
   if (childMentions.length > 0 && !exact) problems.push(`node:child_process is used outside process.js's execFile and execFileSync import: ${file}`);
-  if (/\bfunction\s+defaultTransport\s*\(/.test(code)) for (const call of namedCalls(source, ['transport'])) if (call.args[0] !== "'gh'") problems.push(`transport call passes a program other than 'gh': ${file}`);
-  if (/(?<![\w$])(?:eval|Function|constructor|global|globalThis)(?![\w$])/.test(code)) problems.push(`dynamic code execution is forbidden: ${file}`);
-  const processBinding = [...code.matchAll(/(?<![\w$.])process(?![\w$])/g)].some((match) => {
-    const after = code.slice(match.index + 7, match.index + 48), before = code.slice(Math.max(0, match.index - 8), match.index);
-    const member = after.match(/^\s*\??\.\s*([A-Za-z_$][\w$]*)/);
-    if (member) return ['binding', '_linkedBinding', 'dlopen', 'execve'].includes(member[1]);
-    return !(/bind\(\s*$/.test(before) && /^\s*\)/.test(after));
-  });
-  if (processBinding) problems.push(`process bindings are forbidden: ${file}`);
+  if (facts.definesDefaultTransport) for (const args of facts.transportCalls) if (args[0] !== "'gh'") problems.push(`transport call passes a program other than 'gh': ${file}`);
+  if (facts.dynamic.length > 0) problems.push(`dynamic code execution is forbidden: ${file}`);
+  if (facts.processUses.some((use) => use !== 'member' && use !== 'bind')) problems.push(`process bindings are forbidden: ${file}`);
   return problems;
 }
+// Parse every source of a model in one child process before the per-file checks read the cache.
+function primeSpawnFacts(sources) { parseFacts(sources); }
 
-module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, spawnReferenceProblems, SPAWN_PRIMITIVES };
+module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES };

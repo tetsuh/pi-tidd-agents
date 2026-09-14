@@ -151,7 +151,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('The set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -197,7 +197,19 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
     ['a binding destructured from process', 'launch.js', "const { binding } = process;\nbinding('spawn_sync');\n"],
     ['process.execve', 'launch.js', "process.execve('/bin/sh', ['sh']);\n"],
   ]) assert.ok(spawnReferenceProblems(file, source).length > 0, `${label} is refused`);
-  assert.deepEqual(spawnReferenceProblems('launch.js', "// run it later\nconst note = 'run the thing';\nconst pattern = /run(/;\nconst text = `run ${'x'}`;\n"), [], 'a comment, a string, a regular expression, and template text are not code');
+  assert.deepEqual(spawnReferenceProblems('launch.js', "// run it later\nconst note = 'run the thing';\nconst pattern = /run\\(/;\nconst text = `run ${'x'}`;\n"), [], 'a comment, a string, a regular expression, and template text are not code');
+  // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS reopened: every context in which a slash was guessed is read by the grammar.
+  for (const [label, source] of [
+    ['a postfix increment before a division', "let x = 1, y = 2, invoke;\nx++ / (invoke = run) / y;\ninvoke('npm', ['test']);\n"],
+    ['a postfix decrement before a division', "let x = 1, y = 2, invoke;\nx-- / (invoke = run) / y;\ninvoke('npm', ['test']);\n"],
+    ['a regular expression after await', "async function f() { await /'/; const invoke = run; /'/; invoke('npm'); }\n"],
+    ['a regular expression after yield', "function* f() { yield /'/; const invoke = run; /'/; invoke('npm'); }\n"],
+    ['a regular expression after an if header', "if (a) /'/.test(b);\nconst invoke = run;\n/'/.test(c);\ninvoke('npm');\n"],
+    ['a regular expression after a block', "{ }\n/'/.test(b);\nconst invoke = run;\n/'/.test(c);\ninvoke('npm');\n"],
+    ['a regular expression after a comment', "x = /* c */ /'/;\nconst invoke = run;\n/'/;\ninvoke('npm');\n"],
+    ['a template nested in a template expression', "const s = `${`${run}`}`;\n"],
+  ]) assert.ok(spawnReferenceProblems('launch.js', source).some((problem) => problem.startsWith('spawn primitive referenced outside a direct call')), `${label} is refused`);
+  assert.match(spawnReferenceProblems('launch.js', 'const = ;\n')[0], /^helper source does not parse: launch\.js: /, 'a source that does not parse is reported, never skipped');
 });
 
 // CL-D72, third choice: the gate's required-evidence set is derived, not assembled by hand — the paths the change
