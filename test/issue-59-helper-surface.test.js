@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readJson, readText, spawnCalls } = require('./helpers');
+const { repoRoot, repoPath, readJson, readText, spawnCalls, spawnReferenceProblems } = require('./helpers');
 const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace');
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
@@ -177,6 +177,8 @@ function validateBoundary(model) {
   const spawns = spawnSites(model.sources);
   if (JSON.stringify(spawns) !== JSON.stringify(APPROVED_SPAWN_SITES)) errors.push(`executable-spawn callsites differ from the reviewed allowlist: ${spawns.join(' ; ')}`);
   for (const [file, source] of Object.entries(model.sources)) if (/\bshell:\s*true\b/.test(source)) errors.push(`shell spawn is forbidden: ${file}`);
+  // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS: the bound CL-D72 records — a primitive reaches a program only through a direct call.
+  for (const [file, source] of Object.entries(model.sources)) errors.push(...spawnReferenceProblems(file, source));
   for (const [file, anchor, expectedCount = 1] of PROVENANCE_ANCHORS) {
     const count = model.sources[file].split(anchor).length - 1;
     if (count !== expectedCount) errors.push(`write-root provenance anchor is absent or duplicated: ${file}:${anchor}`);
@@ -249,6 +251,19 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'a multiline spawn site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun(\n  'npm',\n  ['test'],\n  { kind: 'git' }\n);\n"; }, 'executable-spawn callsites');
   rejectsMutation(model, 'a multiline git push', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrunSync(\n  'git',\n  ['push', 'origin', 'HEAD']\n);\n"; }, 'Git command is outside');
   rejectsMutation(model, 'the validation site rewritten across lines with another label', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("run(program, args, { cwd: data.cwd, kind: 'validation',", "run(\n  program,\n  args,\n  { cwd: data.cwd, kind: 'gh',"); }, 'executable-spawn callsites');
+  // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS: a spawn primitive reaches a program only through a direct call; every other
+  // reference, a second child_process import, a non-gh transport call, and eval or Function are refused.
+  rejectsMutation(model, 'an alias of run', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst invoke = run;\ninvoke('npm', ['test'], { kind: 'validation' });\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'an alias of execFileSync', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] += "\nconst direct = execFileSync;\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'run passed as a value', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\n[run].forEach((f) => f('npm', ['test']));\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'run.call', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun.call(null, 'npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'spawn destructured from child_process', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace("const { execFile, execFileSync } = require('node:child_process');", "const { execFile, execFileSync, spawn } = require('node:child_process');"); }, 'node:child_process is used outside');
+  rejectsMutation(model, 'a property call on child_process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrequire('node:child_process').spawnSync('npm', ['test']);\n"; }, 'node:child_process is used outside');
+  rejectsMutation(model, 'a transport call with another program', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace("transport('gh', args,", "transport('npm', args,"); }, "transport call passes a program other than 'gh'");
+  rejectsMutation(model, 'eval', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\neval(\"run('npm', [])\");\n"; }, 'eval or the Function constructor is forbidden');
+  rejectsMutation(model, 'a rename inside a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("const { run, gitArgs } = require('./process');", "const { run: launch, gitArgs } = require('./process');"); }, 'a destructured import of the spawn modules renames a name');
+  rejectsMutation(model, 'a dynamic load of child_process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nmodule.constructor._load('node:child_process').spawnSync('npm', ['test']);\n"; }, 'node:child_process is used outside');
+  rejectsMutation(model, 'a process binding', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.binding('spawn_sync');\n"; }, 'process bindings are forbidden');
   rejectsMutation(model, 'shell spawn', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace('shell: false', 'shell: true'); }, 'shell spawn is forbidden');
   for (const operation of ['commit', 'push', 'merge', 'reply', 'approve', 'thread_resolve', 'schedule', 'state_write']) {
     rejectsMutation(model, `${operation} operation`, (copy) => {

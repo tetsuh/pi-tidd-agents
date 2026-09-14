@@ -16,7 +16,7 @@ const crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, sectionOf, cliSchemas, spawnCalls } = require('./helpers');
+const { readText, sectionOf, cliSchemas, spawnCalls, spawnReferenceProblems } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const NODE = process.execPath;
@@ -151,7 +151,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('The set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -169,6 +169,23 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   }
   assert.deepEqual(sites, ['snapshot.js|command|inferred', 'validation.js|program|validation', 'writability.js|command|inferred'], 'the two gh transports and the one validation site, labelled as such');
   assert.deepEqual(spawnCalls("run(\n  'npm',\n  ['test'],\n  { kind: 'git' }\n);\nfunction run(a) {}\n// run('x', [])\n"), [{ callee: 'run', args: ["'npm'", "['test']", "{ kind: 'git' }"] }], 'the scanner reads a multiline call and ignores a definition and a comment');
+  // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS: the bound the record states. Every helper references a spawn primitive only by
+  // direct call, and each shape that reached a program around the call surface is refused.
+  for (const file of fs.readdirSync(helpersDir).filter((name) => name.endsWith('.js'))) assert.deepEqual(spawnReferenceProblems(file, fs.readFileSync(path.join(helpersDir, file), 'utf8')), [], `${file} references spawn primitives only by direct call`);
+  for (const [label, file, source] of [
+    ['an alias of run', 'launch.js', "const invoke = run;\ninvoke('npm', ['test'], { kind: 'validation' });\n"],
+    ['an alias of execFileSync', 'process.js', "const direct = execFileSync;\n"],
+    ['spawn destructured from child_process', 'process.js', "const { execFile, execFileSync, spawn } = require('node:child_process');\nspawn('npm', ['test']);\n"],
+    ['a property call on child_process', 'launch.js', "require('node:child_process').spawnSync('npm', ['test']);\n"],
+    ['run passed as a value', 'launch.js', "[run].forEach((f) => f('npm', ['test']));\n"],
+    ['run.call', 'launch.js', "run.call(null, 'npm', ['test']);\n"],
+    ['a transport call with another program', 'snapshot.js', "function defaultTransport(command, args) { return run(command, args); }\ntransport('npm', []);\n"],
+    ['eval', 'launch.js', "eval(\"run('npm', [])\");\n"],
+    ['a rename inside a destructured import', 'launch.js', "const { run: r } = require('./process');\nr('npm', ['test']);\n"],
+    ['a dynamic load of child_process', 'launch.js', "module.constructor._load('node:child_process').spawnSync('npm', ['test']);\n"],
+    ['a process binding', 'launch.js', "process.binding('spawn_sync').spawn({ file: 'npm' });\n"],
+  ]) assert.ok(spawnReferenceProblems(file, source).length > 0, `${label} is refused`);
+  assert.deepEqual(spawnReferenceProblems('launch.js', "// run it later\nconst note = 'run the thing';\nconst pattern = /run(/;\nconst text = `run ${'x'}`;\n"), [], 'a comment, a string, a regular expression, and template text are not code');
 });
 
 // CL-D72, third choice: the gate's required-evidence set is derived, not assembled by hand — the paths the change
