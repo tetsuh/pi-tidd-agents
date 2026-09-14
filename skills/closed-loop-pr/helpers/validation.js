@@ -14,7 +14,7 @@ const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
 const { run, gitArgs } = require('./process');
 
-const DEFAULT_TIMEOUT_MS = 600000, MAX_TIMEOUT_MS = 3600000, TAIL_BYTES = 4096;
+const DEFAULT_TIMEOUT_MS = 600000, MAX_TIMEOUT_MS = 3600000, TAIL_BYTES = 4096, STREAM_BYTES = 16 * 1024 * 1024;
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 function fail(code, message, phase, details) { throw Object.assign(new Error(message), { code, phase, details }); }
@@ -27,7 +27,7 @@ async function validationRun(data) {
   try {
     if (!plain(data)) fail('invalid_request', 'request data must be a plain object', 'request');
     if (typeof data.cwd !== 'string' || data.cwd.length === 0 || !path.isAbsolute(data.cwd)) fail('invalid_request', 'cwd must be an absolute path', 'request');
-    if (!Array.isArray(data.command) || data.command.length === 0 || data.command.some((argument) => typeof argument !== 'string' || argument.length === 0)) fail('invalid_request', 'command must be an argv array of non-empty strings', 'request');
+    if (!Array.isArray(data.command) || data.command.length === 0 || data.command.some((argument) => typeof argument !== 'string' || argument.length === 0 || argument.includes('\u0000'))) fail('invalid_request', 'command must be an argv array of non-empty strings without NUL', 'request');
     if (Object.hasOwn(data, 'timeoutMs') && !(Number.isInteger(data.timeoutMs) && data.timeoutMs > 0 && data.timeoutMs <= MAX_TIMEOUT_MS)) fail('invalid_request', `timeoutMs must be an integer from 1 to ${MAX_TIMEOUT_MS}`, 'request');
     // The cwd is the toplevel of a work tree — the operator checkout or the run's workspace — and nothing
     // below it; a bare repository also answers an empty prefix, so the work tree is asked for as well
@@ -40,9 +40,11 @@ async function validationRun(data) {
     const started = Date.now();
     let result;
     try {
-      result = await run(program, args, { cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, acceptAnyExit: true, phase: 'spawn' });
+      result = await run(program, args, { cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' });
     } catch (error) {
-      const reason = error.code === 'command_timeout' ? 'timeout' : error.signal ? `signal:${error.signal}` : error.spawnError || 'spawn';
+      // The timeout is enforced by SIGKILL and decides the outcome; a stream beyond its capture bound is named as such.
+      const reason = error.spawnError === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' ? 'output_limit'
+        : error.code === 'command_timeout' ? 'timeout' : error.signal ? `signal:${error.signal}` : error.spawnError || 'spawn';
       // The same stream evidence as every other outcome: what each stream held when the command stopped
       // (CONV-124-HARNESS-EVIDENCE).
       const streams = error.streams ?? { stdout: Buffer.alloc(0), stderr: Buffer.alloc(0) };

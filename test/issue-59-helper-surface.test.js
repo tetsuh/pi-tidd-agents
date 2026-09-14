@@ -93,7 +93,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/process.js|execFile|command|args|{ ...commandOptions(options, kind), encoding: 'buffer' }`,
   `${HELPER_DIR}/process.js|execFileSync|command|args|{ ...commandOptions(options, kind), encoding: options.encoding ?? 'utf8', input: options.stdin, stdio: ['pipe', 'pipe', 'pipe'], }`,
   `${HELPER_DIR}/snapshot.js|run|command|args|options`,
-  `${HELPER_DIR}/validation.js|run|program|args|{ cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, acceptAnyExit: true, phase: 'spawn' }`,
+  `${HELPER_DIR}/validation.js|run|program|args|{ cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|command|args|options`,
 ].sort();
 const AGGREGATE_SMOKE_ALARM = 240000; // CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run
@@ -145,7 +145,9 @@ function gitCommands(sources) {
       const args = [...match[1].matchAll(/['"]([^'"]*)['"]/g)].map((entry) => entry[1]);
       let index = 0;
       while (index < args.length) {
-        if (args[index] === '-c') { index += 2; continue; }
+        // A literal configuration pair overrides SAFE_GIT_CONFIG and can make an allowed command run a program
+        // (core.fsmonitor, diff.external, core.hooksPath); only gitArgs' own non-literal pairs are skipped.
+        if (args[index] === '-c') { if (args[index + 1] !== undefined) commands.push({ file, command: `-c ${args[index + 1]}` }); index += 2; continue; }
         if (args[index] === '--no-replace-objects' || args[index] === '--no-pager') { index += 1; continue; }
         break;
       }
@@ -268,6 +270,15 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'an alias hidden behind a postfix increment', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nlet count = 1, divisor = 2, invoke;\ncount++ / (invoke = run) / divisor;\ninvoke('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
   rejectsMutation(model, 'an alias hidden behind a postfix decrement', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nlet count = 1, divisor = 2, invoke;\ncount-- / (invoke = run) / divisor;\ninvoke('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
   rejectsMutation(model, 'a source that does not parse', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst = ;\n"; }, 'helper source does not parse');
+  // Pre-push adversarial review of 1b9328e: literal references, loaders, the transport rule, and Git config overrides.
+  rejectsMutation(model, 'a computed string key on module.exports', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] += "\nmodule.exports['run']('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'a computed key in a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] = copy.sources[`${HELPER_DIR}/guards.js`].replace("const { runSync, gitArgs } = require('./process');", "const { ['runSync']: spawnProgram, gitArgs } = require('./process');"); }, 'a destructured import of the spawn modules renames a name');
+  rejectsMutation(model, 'a rest element in a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] = copy.sources[`${HELPER_DIR}/guards.js`].replace("const { runSync, gitArgs } = require('./process');", "const { gitArgs, ...rest } = require('./process');"); }, 'a destructured import of the spawn modules gathers names into a rest element');
+  rejectsMutation(model, 'getBuiltinModule', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.getBuiltinModule('node:child\\u005fprocess').spawnSync('npm', ['test']);\n"; }, 'a module loader outside require is forbidden');
+  rejectsMutation(model, 'a transport call beside a function-expression wrapper', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace('function defaultTransport(command, args, options) { return run(command, args, options); }', 'const defaultTransport = function (command, args, options) { return run(command, args, options); };').replace("transport('gh', args,", "transport('npm', args,"); }, "transport call passes a program other than 'gh'");
+  rejectsMutation(model, 'a Git config override that runs a program', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] += "\ngitBytes(cwd, ['-c', 'core.fsmonitor=/tmp/evil.sh', 'status'], phase);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'a glued Git config override', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] += "\ngitBytes(cwd, ['-ccore.fsmonitor=/tmp/evil.sh', 'status'], phase);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'a direct literal Git config override', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrunSync('git', ['-c', 'core.hooksPath=/tmp/hooks', 'checkout', 'x']);\n"; }, 'Git command is outside');
   rejectsMutation(model, 'a process binding', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.binding('spawn_sync');\n"; }, 'process bindings are forbidden');
   // ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS: references of any form, not only call syntax.
   rejectsMutation(model, 'global.Function', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nglobal.Function('return 1')();\n"; }, 'dynamic code execution is forbidden');

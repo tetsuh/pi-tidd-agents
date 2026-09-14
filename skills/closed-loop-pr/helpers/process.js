@@ -194,6 +194,7 @@ function commandOptions(options, kind) {
     env: sanitizedEnv(options.env, kind),
     shell: false,
     timeout: options.timeout ?? 30000,
+    killSignal: options.killSignal ?? 'SIGTERM',
     windowsHide: true,
     maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
     encoding: options.encoding ?? 'utf8',
@@ -214,7 +215,7 @@ function safeError(error, command, options, stdout = '', stderr = '') {
   safe.exitCode = Number.isInteger(error.status) ? error.status : null;
   safe.signal = error.signal || null;
   // A spawn failure carries the system's own code (ENOENT, EACCES); an exit carries a number, a signal none.
-  safe.spawnError = typeof error.code === 'string' && !error.killed ? error.code : null;
+  safe.spawnError = typeof error.code === 'string' ? error.code : null;
   safe.stdout = redact(stdout);
   safe.stderr = redact(stderr);
   // The complete streams as captured, for a caller that reports evidence rather than a message (CL-D72).
@@ -233,10 +234,12 @@ function run(command, args, options = {}) {
   const kind = options.kind || (path.basename(command).toLowerCase().startsWith('gh') ? 'gh' : 'git');
   return new Promise((resolve, reject) => {
     const child = execFile(command, args, { ...commandOptions(options, kind), encoding: 'buffer' }, (error, stdout, stderr) => {
-      // `acceptAnyExit` resolves every exit code the command chose for itself; a spawn error, a signal, or the
-      // timeout still rejects, which is how validation_run tells the two classes apart (CL-D72).
-      if (error && !(options.acceptExitCodes || []).includes(error.code) && !(options.acceptAnyExit && Number.isInteger(error.code))) {
-        reject(safeError(error, command, options, stdout, stderr));
+      // `acceptAnyExit` resolves every exit code the command chose for itself. A spawn error, a signal, or a kill by
+      // the harness still rejects, whatever exit a killed command then reports, which is how validation_run tells
+      // the classes apart (CL-D72).
+      const harnessKilled = Boolean(options.acceptAnyExit) && child.killed && !(error && typeof error.code === 'string');
+      if (harnessKilled || (error && !(options.acceptExitCodes || []).includes(error.code) && !(options.acceptAnyExit && Number.isInteger(error.code)))) {
+        reject(safeError(Object.assign(error || new Error('killed by the harness'), harnessKilled ? { killed: true } : {}), command, options, stdout, stderr));
         return;
       }
       resolve({ stdout: Buffer.from(stdout || ''), stderr: Buffer.from(stderr || ''), exitCode: error?.code || 0 });

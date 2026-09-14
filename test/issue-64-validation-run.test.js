@@ -91,6 +91,27 @@ test('Issue #64 validation_run reports passed, validation_failed, and harness_fa
     // The two failure classes differ in code and in phase, as the acceptance criterion requires.
     assert.notEqual(failed.error.code, missing.error.code);
     assert.notEqual(failed.error.phase, missing.error.phase);
+    // Pre-push adversarial review of 1b9328e: the harness's own bound decides, never the exit a killed command reports,
+    // and the bound is enforced rather than advisory.
+    if (process.platform !== 'win32') {
+      for (const [label, code] of [
+        ['a command that traps SIGTERM and exits 0 later', 'process.on("SIGTERM", () => {}); setTimeout(() => process.exit(0), 3000)'],
+        ['a command that traps SIGTERM and exits 2 later', 'process.on("SIGTERM", () => {}); setTimeout(() => process.exit(2), 3000)'],
+        ['a command whose SIGTERM handler exits 130 at once', 'process.on("SIGTERM", () => process.exit(130)); setTimeout(() => {}, 3000)'],
+      ]) {
+        const started = Date.now();
+        const bounded = await helpers.validationRun({ cwd: repo.root, command: script(code), timeoutMs: 500 });
+        assert.equal(bounded.ok, false, `${label}: ${JSON.stringify(bounded)}`);
+        assert.equal(bounded.error.code, 'harness_failed', `${label}: ${JSON.stringify(bounded.error)}`);
+        assert.equal(bounded.error.details.reason, 'timeout', label);
+        assert.ok(Date.now() - started < 2500, `${label}: the bound is enforced, not advisory (${Date.now() - started} ms)`);
+      }
+    }
+    const flood = await helpers.validationRun({ cwd: repo.root, command: script('process.stdout.write(Buffer.alloc(20 * 1024 * 1024, 97))') });
+    assert.equal(flood.ok, false);
+    assert.equal(flood.error.code, 'harness_failed', JSON.stringify(flood.error));
+    assert.equal(flood.error.details.reason, 'output_limit', 'a stream beyond the capture bound is named as such');
+    assert.ok(flood.error.details.stdout.bytes <= 16 * 1024 * 1024, 'the captured bytes stay within the bound');
   } finally { fs.rmSync(repo.root, { recursive: true, force: true }); }
 });
 
@@ -113,6 +134,7 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
       ['an empty argv', { cwd: repo.root, command: [] }],
       ['an empty argument', { cwd: repo.root, command: [NODE, ''] }],
       ['a non-string argument', { cwd: repo.root, command: [NODE, 7] }],
+      ['a NUL inside an argument', { cwd: repo.root, command: [NODE, '-e', '0', 'a\u0000b'] }],
       ['a relative cwd', { cwd: 'sub', command: script('') }],
       ['a zero timeout', { cwd: repo.root, command: script(''), timeoutMs: 0 }],
       ['a timeout above the cap', { cwd: repo.root, command: script(''), timeoutMs: 3600001 }],
@@ -148,10 +170,10 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.match(readText('README.md'), /`validation_run` spawns the target's validation command as an argv at a Git toplevel/);
   // ADV-124-REVIEW-ONLY-OPERATIONS-UNREACHABLE: each route's own authority names the operations it uses.
   assert.ok(readText('skills/closed-loop-pr/references/review-only.md').includes("Review-only's validation step runs each of the target's validation commands through packaged `validation_run`"), 'review-only names validation_run');
-  assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('The set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
+  assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On the PR root, the set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', 'exactly one non-git spawn site, in `validation.js`', 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', '`absent` names only a file the head does not carry']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -196,6 +218,18 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
     ['an alias of process', 'launch.js', "const p = process;\np.binding('spawn_sync');\n"],
     ['a binding destructured from process', 'launch.js', "const { binding } = process;\nbinding('spawn_sync');\n"],
     ['process.execve', 'launch.js', "process.execve('/bin/sh', ['sh']);\n"],
+    // Pre-push adversarial review of 1b9328e: static literal references and module loaders.
+    ['a computed string key on module.exports', 'process.js', "module.exports['run']('npm', ['test']);\n"],
+    ['a computed template key on module.exports', 'process.js', "module.exports[`run`]('npm', ['test']);\n"],
+    ['a computed key in a destructured import', 'guards.js', "const { ['run']: spawnProgram, gitArgs } = require('./process');\nspawnProgram('npm', ['test']);\n"],
+    ['a rest element in a destructured import', 'guards.js', "const { gitArgs, ...rest } = require('./process');\nrest['run']('npm', []);\n"],
+    ['getBuiltinModule with an escaped child_process', 'launch.js', "process.getBuiltinModule('node:child\\u005fprocess').spawnSync('npm', ['test']);\n"],
+    ['getBuiltinModule for vm', 'launch.js', "process.getBuiltinModule('node:vm').runInThisContext('1');\n"],
+    ['a binding reached through getBuiltinModule', 'launch.js', "process.getBuiltinModule('node:process').binding('spawn_sync');\n"],
+    ['a computed binding call', 'launch.js', "someModule['execve']('/bin/sh', ['sh']);\n"],
+    ['process.mainModule', 'launch.js', "process.mainModule.require('x');\n"],
+    ['an escaped child_process require', 'launch.js', "require('node:child\\u005fprocess');\n"],
+    ['a transport call beside a function-expression wrapper', 'snapshot.js', "const courier = function (command, args) { return run(command, args); };\ntransport('npm', []);\n"],
   ]) assert.ok(spawnReferenceProblems(file, source).length > 0, `${label} is refused`);
   assert.deepEqual(spawnReferenceProblems('launch.js', "// run it later\nconst note = 'run the thing';\nconst pattern = /run\\(/;\nconst text = `run ${'x'}`;\n"), [], 'a comment, a string, a regular expression, and template text are not code');
   // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS reopened: every context in which a slash was guessed is read by the grammar.
@@ -252,7 +286,7 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     const tabbed = process.platform === 'win32' ? [] : [file('tab\there.txt')];
     assert.deepEqual(derived.data.requiredEvidence, [file('CONTRACT.md'), file('README.md'), file('a.txt'), file('bin.dat'), file('new file.txt'), ...tabbed, ...identities],
       'changed paths existing at the head, in byte order, then the authority files that did not change, then the identities as given; the deleted path and the untouched path are absent; a tab in a name is part of the name');
-    assert.deepEqual(derived.data.authority, { included: ['CONTRACT.md', 'README.md'], absent: [] });
+    assert.deepEqual(derived.data.authority, { included: ['CONTRACT.md', 'README.md'], absent: [], excluded: [] });
     // Owner option A (CL-D72): the derived set carries only what the checker can verify — regular blobs — and
     // names every changed entry it left out, with its mode.
     const link = process.platform === 'win32' ? [] : [{ source: 'link', mode: '120000' }];
@@ -266,7 +300,7 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     // A target without the authority files: reported as absent, not refused.
     const bareSet = helpers.requiredEvidenceSet({ cwd: bare.root, baseOid: bare.base, headOid: bare.head, identities: [] });
     assert.equal(bareSet.ok, true, JSON.stringify(bareSet.error));
-    assert.deepEqual(bareSet.data.authority, { included: [], absent: ['CONTRACT.md', 'README.md'] });
+    assert.deepEqual(bareSet.data.authority, { included: [], absent: ['CONTRACT.md', 'README.md'], excluded: [] });
     assert.deepEqual(bareSet.data.requiredEvidence.map((entry) => entry.source), ['a.txt', 'bin.dat', 'new file.txt', ...tabbed.map((entry) => entry.source)]);
     for (const [label, data, subcheck] of [
       ['a file-kind identity', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'a.txt', kind: 'file', identity: 'f'.repeat(64) }] }, 'identities_shape'],
@@ -275,6 +309,9 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
       ['a base that is not a commit here', { cwd: repo.root, baseOid: 'f'.repeat(40), headOid: repo.head, identities: [] }, 'commit_presence'],
       ['a head that is not an OID', { cwd: repo.root, baseOid: repo.base, headOid: 'main', identities: [] }, 'request_shape'],
       ['a cwd below the toplevel', { cwd: path.join(repo.root, 'dir'), baseOid: repo.base, headOid: repo.head, identities: [] }, 'cwd_toplevel'],
+      ['a relative cwd', { cwd: 'relative/dir', baseOid: repo.base, headOid: repo.head, identities: [] }, 'request_shape'],
+      ['a cwd carrying a NUL', { cwd: `${repo.root}\u0000x`, baseOid: repo.base, headOid: repo.head, identities: [] }, 'request_shape'],
+      ['a head identity of another kind', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_head', kind: 'github', identity: repo.head }] }, 'identity_correlation'],
       ['two identities of one source', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_head', kind: 'git', identity: repo.head }, { source: 'git:pr_head', kind: 'git', identity: repo.head + '' }] }, 'required_evidence_shape'],
       // An identity the request repeats agrees with the argument it repeats, or the request is refused.
       ['a head identity disagreeing with headOid', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_head', kind: 'git', identity: repo.base }] }, 'identity_correlation'],
@@ -304,6 +341,29 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
         assert.match(refused.error.details.observed, /^66fe2e747874$/, 'the first such path is named by its bytes');
       } finally { fs.rmSync(odd, { recursive: true, force: true }); }
     }
+    // Pre-push adversarial review of 1b9328e: the reads carry their own bounds rather than the 16 MiB process default,
+    // and a present authority entry that is not a regular file is excluded with its mode, never reported absent.
+    const big = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-bounds-'));
+    try {
+      git(big, ['init', '-q', '-b', 'main']); git(big, ['config', 'user.name', 'Issue 64 Test']); git(big, ['config', 'user.email', 'issue64@example.invalid']);
+      fs.writeFileSync(path.join(big, 'small.txt'), 'small\n');
+      // A listing beyond 16 MiB: thousands of paths three thousand bytes long, recorded straight into the index.
+      const blob = execFileSync('git', ['hash-object', '-w', 'small.txt'], { cwd: big, encoding: 'utf8' }).trim();
+      const deep = Array.from({ length: 15 }, (_, index) => `${String(index).padStart(2, '0')}${'d'.repeat(198)}`).join('/');
+      const lines = Array.from({ length: 6000 }, (_, index) => `100644 ${blob}\t${deep}/f${index}\n`).join('');
+      execFileSync('git', ['update-index', '--add', '--index-info'], { cwd: big, input: lines });
+      git(big, ['add', 'small.txt']); git(big, ['commit', '-q', '-m', 'test: base']);
+      const bigBase = git(big, ['rev-parse', 'HEAD']);
+      assert.ok(execFileSync('git', ['ls-tree', '-r', '-z', bigBase], { cwd: big, maxBuffer: 64 * 1024 * 1024 }).length > 16 * 1024 * 1024, 'the fixture listing exceeds 16 MiB');
+      const large = Buffer.alloc(17 * 1024 * 1024, 120);
+      fs.writeFileSync(path.join(big, 'large.bin'), large);
+      if (process.platform !== 'win32') { fs.symlinkSync('small.txt', path.join(big, 'CONTRACT.md')); fs.mkdirSync(path.join(big, 'README.md')); fs.writeFileSync(path.join(big, 'README.md', 'inner.txt'), 'inner\n'); }
+      git(big, ['add', 'large.bin', ...(process.platform !== 'win32' ? ['CONTRACT.md', 'README.md'] : [])]); git(big, ['commit', '-q', '-m', 'test: head']);
+      const bounded = helpers.requiredEvidenceSet({ cwd: big, baseOid: bigBase, headOid: git(big, ['rev-parse', 'HEAD']), identities: [] });
+      assert.equal(bounded.ok, true, JSON.stringify(bounded.error));
+      assert.ok(bounded.data.requiredEvidence.some((entry) => entry.source === 'large.bin' && entry.identity === crypto.createHash('sha256').update(large).digest('hex')), 'a 17 MiB changed blob is derived with its digest');
+      if (process.platform !== 'win32') assert.deepEqual(bounded.data.authority, { included: [], absent: [], excluded: [{ source: 'CONTRACT.md', mode: '120000' }, { source: 'README.md', mode: '040000' }] }, 'present authority entries that are not regular files are excluded with their modes');
+    } finally { fs.rmSync(big, { recursive: true, force: true }); }
     assert.deepEqual(cliSchemas().required_evidence_set, ['cwd', 'baseOid', 'headOid', 'identities']);
     const viaCli = cli('required_evidence_set', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });
     assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error)); assert.deepEqual(viaCli.data.requiredEvidence, derived.data.requiredEvidence);

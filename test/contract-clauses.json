@@ -3415,7 +3415,8 @@
         "raises the authority ceiling once more, from 140,000 to 150,000 bytes",
         "the cleanup builder and the cleanup operation share one pure cwd predicate",
         "widens CL-D44's declared field set by `build_gate_launch.expectation`",
-        "a step the runner still records as in progress is `run_in_progress`, neither a result nor a failure"
+        "a step the runner still records as in progress is `run_in_progress`, neither a result nor a failure",
+        "A run the runner has already recorded as terminal is never `run_in_progress`"
       ]
     },
     {
@@ -3571,10 +3572,17 @@
         "Option A on all three",
         "fails closed as `validation_failed` at phase `validation`",
         "or as `harness_failed` at phase `spawn`",
-        "exactly one non-git spawn site, in `validation.js`",
+        "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`",
         "That guard is a structural check of reviewed source bounded to direct references, not a JavaScript evaluator",
         "owner option A, https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510",
         "a form outside this bound is not a finding against the guard",
+        "a literal name counts as a reference wherever it is written",
+        "every call of `transport` passes the literal `'gh'`",
+        "a module loader other than `require`, `getBuiltinModule` or `mainModule`, appears nowhere",
+        "a literal Git argument list carries no `-c` configuration pair of its own",
+        "The timeout is enforced by SIGKILL and decides the outcome",
+        "a read beyond its bound fails closed as `output_limit` naming it",
+        "`absent` names only a file the head does not carry",
         "are refused as references of any form",
         "read from the syntax tree that Node's own bundled parser builds",
         "A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`",
@@ -3620,7 +3628,7 @@
       ],
       "section": "### Structured gate result transport (CL-D36)",
       "requires": [
-        "The set itself is derived through packaged `required_evidence_set` from the paths the change touches, the authority files at the head, and the identities the parent holds (CL-D72)"
+        "On the PR root, the set itself is derived through packaged `required_evidence_set` from the paths the change touches, the authority files at the head, and the identities the parent holds (CL-D72)"
       ]
     },
     {

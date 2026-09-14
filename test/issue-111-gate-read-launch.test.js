@@ -104,7 +104,16 @@ test('Issue #111 gate_result_read fails closed with a distinct code and the path
     for (const state of ['running', 'failed', 'cancelled']) { runRecord(root, { state }); const read = helpers.readGateResult({ runId: RUN, runsRoot: root }); assert.equal(read.ok, true, `${state}: ${JSON.stringify(read.error)}`); assert.equal(read.data.state, state); }
     // A step the runner still records as in progress is not a result and not a failure: the parent waits for
     // the runner's own completion and reads again (CL-D68 amendment, the third autofix run of PR #124).
-    for (const stepStatus of ['running', 'pending', 'queued']) { runRecord(root, { runId: RUN, state: 'running', stepStatus }); const result = expectFail({ runId: RUN, runsRoot: root }, 'run_in_progress', 'statusPath'); assert.equal(result.error.details.stepStatus, stepStatus); }
+    for (const state of ['queued', 'running']) for (const stepStatus of ['running', 'pending']) { runRecord(root, { runId: RUN, state, stepStatus }); const result = expectFail({ runId: RUN, runsRoot: root }, 'run_in_progress', 'statusPath'); assert.equal(result.error.details.stepStatus, stepStatus); }
+    // Pre-push adversarial review of 1b9328e: a run the runner has already recorded as terminal is never run_in_progress,
+    // whatever its last step says, because nothing more will be written to it (pi-subagents records a startup failure
+    // as state failed with the step still pending).
+    for (const state of ['failed', 'stopped', 'complete']) {
+      runRecord(root, { runId: RUN, state, stepStatus: 'pending', withPath: false }); expectFail({ runId: RUN, runsRoot: root }, 'designated_output_unrecorded', 'statusPath');
+      runRecord(root, { runId: RUN, state, stepStatus: 'running' }); expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath');
+    }
+    // queued is a run state, never a step state.
+    runRecord(root, { runId: RUN, state: 'running', stepStatus: 'queued' }); expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath');
     runRecord(root, { runId: RUN, state: 'running', stepStatus: 'running', withPath: false });
     expectFail({ runId: RUN, runsRoot: root }, 'run_in_progress', 'statusPath');
     fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: '0'.repeat(8) + RUN.slice(8), state: 'complete', steps: [] }));
@@ -350,6 +359,7 @@ test('Issue #111 CL-D68 records the widening and the manifest pins it', () => {
   assert.match(record, /reads anything but those two classes — the installed package's authority files and the supplied expectation file — or a second source for the launch request, requires a new owner decision/);
   assert.match(record, /the parent never chooses the path/);
   assert.match(record, /a step the runner still records as in progress is `run_in_progress`, neither a result nor a failure/);
+  assert.match(record, /A run the runner has already recorded as terminal is never `run_in_progress`/);
   assert.match(sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '### Structured gate result transport (CL-D36)'), /A `run_in_progress` result from that read is neither a result nor a failure/);
   assert.match(record, /`validation_run` \(#64 item 1\) is deferred to its own decision/);
   assert.match(record, /the cleanup builder and the cleanup operation share one pure cwd predicate: the operation applies it to canonical filesystem identities and the builder to the request's strings, because filesystem identity is consumer-side state like every identity check/);

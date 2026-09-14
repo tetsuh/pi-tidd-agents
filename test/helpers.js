@@ -116,6 +116,10 @@ const input = JSON.parse(require('node:fs').readFileSync(0, 'utf8'));
 const PRIMS = new Set(['run', 'runSync', 'execFile', 'execFileSync']);
 const DYNAMIC = new Set(['eval', 'Function', 'constructor', 'global', 'globalThis']);
 const BINDINGS = new Set(['binding', '_linkedBinding', 'dlopen', 'execve']);
+const LOADERS = new Set(['getBuiltinModule', 'mainModule']);
+// A name written as a string or a template without substitutions is the same name.
+const literalName = (node) => node && node.type === 'Literal' && typeof node.value === 'string' ? node.value
+  : node && node.type === 'TemplateLiteral' && node.expressions.length === 0 ? node.quasis[0].value.cooked : null;
 function visit(node, ancestors, fn) {
   if (!node || typeof node.type !== 'string') return;
   fn(node, ancestors);
@@ -136,21 +140,31 @@ for (const [id, source] of Object.entries(input)) {
   const text = (node) => source.slice(node.start, node.end).trim().replace(/\s+/g, ' ');
   const requireOf = (node) => node && node.type === 'CallExpression' && node.callee.type === 'Identifier' && node.callee.name === 'require'
     && node.arguments.length === 1 && node.arguments[0].type === 'Literal' ? node.arguments[0].value : null;
-  const facts = { calls: [], transportCalls: [], definesDefaultTransport: false, references: [], dynamic: [], processUses: [] };
+  const facts = { calls: [], transportCalls: [], references: [], dynamic: [], processUses: [], loaders: [], childLiterals: 0, childImportNames: null };
   visit(ast, [], (node, ancestors) => {
     const parent = ancestors[ancestors.length - 1], grand = ancestors[ancestors.length - 2], great = ancestors[ancestors.length - 3];
     if (node.type === 'CallExpression' && node.callee.type === 'Identifier') {
       if (PRIMS.has(node.callee.name)) facts.calls.push({ callee: node.callee.name, args: node.arguments.map(text) });
       if (node.callee.name === 'transport') facts.transportCalls.push(node.arguments.map(text));
     }
-    if (node.type === 'FunctionDeclaration' && node.id && node.id.name === 'defaultTransport') facts.definesDefaultTransport = true;
     if (node.type === 'ImportExpression') facts.dynamic.push('import()');
-    if (node.type === 'MemberExpression' && node.computed && node.property.type === 'Literal' && DYNAMIC.has(String(node.property.value))) facts.dynamic.push(String(node.property.value));
+    if ((node.type === 'Literal' && typeof node.value === 'string' && node.value.includes('child_process')) || (node.type === 'TemplateElement' && String(node.value.cooked).includes('child_process'))) facts.childLiterals += 1;
+    if (node.type === 'VariableDeclarator' && node.id.type === 'ObjectPattern' && requireOf(node.init) === 'node:child_process') facts.childImportNames = node.id.properties.map((property) => property.type === 'Property' && !property.computed && property.shorthand && property.key.type === 'Identifier' ? property.key.name : '?');
+    if (node.type === 'RestElement' && parent && parent.type === 'ObjectPattern' && grand && grand.type === 'VariableDeclarator' && grand.id === parent && ['./process', 'node:child_process'].includes(requireOf(grand.init))) facts.references.push({ name: '...', context: 'rest' });
+    if (node.type === 'Property' && node.computed && parent && parent.type === 'ObjectPattern' && PRIMS.has(literalName(node.key))) facts.references.push({ name: literalName(node.key), context: 'rename' });
+    if (node.type === 'MemberExpression' && node.computed) {
+      const name = literalName(node.property);
+      if (DYNAMIC.has(name)) facts.dynamic.push(name);
+      if (PRIMS.has(name)) facts.references.push({ name, context: 'property' });
+      if (LOADERS.has(name)) facts.loaders.push(name);
+    }
+    if (node.type === 'CallExpression' && node.callee.type === 'MemberExpression' && BINDINGS.has(node.callee.computed ? literalName(node.callee.property) : node.callee.property.name)) facts.processUses.push('binding');
     if (node.type !== 'Identifier') return;
     // A property name after a dot, and a key in an object, are names rather than references.
     if (parent && parent.type === 'MemberExpression' && parent.property === node && !parent.computed) {
       if (DYNAMIC.has(node.name)) facts.dynamic.push(node.name);
       if (PRIMS.has(node.name)) facts.references.push({ name: node.name, context: 'property' });
+      if (LOADERS.has(node.name)) facts.loaders.push(node.name);
       return;
     }
     if (parent && (parent.type === 'Property' || parent.type === 'MethodDefinition' || parent.type === 'PropertyDefinition') && parent.key === node && !parent.computed) {
@@ -158,6 +172,7 @@ for (const [id, source] of Object.entries(input)) {
       return;
     }
     if (DYNAMIC.has(node.name)) facts.dynamic.push(node.name);
+    if (LOADERS.has(node.name)) facts.loaders.push(node.name);
     if (node.name === 'process') {
       if (parent && parent.type === 'MemberExpression' && parent.object === node) facts.processUses.push(!parent.computed && !BINDINGS.has(parent.property.name) ? 'member' : 'binding');
       else if (parent && parent.type === 'CallExpression' && parent.arguments.includes(node) && parent.callee.type === 'MemberExpression' && !parent.callee.computed && parent.callee.property.name === 'bind') facts.processUses.push('bind');
@@ -194,16 +209,17 @@ function parseFacts(sources) {
 // CONV-124-SPAWN-SCAN-MULTILINE-GAP). A definition and a comment are not calls; a source that does not parse has none.
 function spawnCalls(source) { const facts = parseFacts([source])[0]; return facts.parseError ? [] : facts.calls; }
 
-// The bound CL-D72 records for the static spawn guard (owner option A): a spawn primitive reaches a program only through
-// a direct call. Read from the syntax tree, `run`, `runSync`, `execFile`, and `execFileSync` may appear only as a direct
-// call, as a definition or the export list in process.js, or in a destructured import from ./process or
-// node:child_process that lists plain names without renaming them; the text `child_process` appears only in
-// process.js's one import, for execFile and execFileSync; a module that defines a forwarding `defaultTransport` calls
-// its injected `transport` only with the literal program 'gh'; and eval, the Function constructor, and process
-// bindings are refused as references of any form: `eval`, `Function`, `constructor`, `global`, `globalThis`, and a
-// dynamic `import()` appear nowhere in code, and `process` appears only as a member access other than `binding`,
-// `_linkedBinding`, `dlopen`, and `execve`, or as `bind(process)` (ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS). The guard is
-// a structural check of reviewed source bounded to these forms, not a JavaScript evaluator.
+// The bound CL-D72 records for the static spawn guard (owner option A), read from the syntax tree: `run`, `runSync`,
+// `execFile`, and `execFileSync` appear only as a direct call, as a definition or the export list in process.js, or in a
+// destructured import from ./process or node:child_process that lists plain names; a literal name counts as a reference
+// wherever it is written, so a computed member or key naming one is refused, as is a rest element gathering an import;
+// the text `child_process`, and any string literal whose value names it, appears only in process.js's one import, for
+// execFile and execFileSync; every call of `transport` passes the literal 'gh'; eval, the Function constructor, and
+// process bindings are refused as references of any form (`eval`, `Function`, `constructor`, `global`, `globalThis`, and
+// `import()` nowhere; `process` only as a member access other than its bindings, or as `bind(process)`; no member named
+// `binding`, `_linkedBinding`, `dlopen`, or `execve` is called); and a module loader other than `require`,
+// `getBuiltinModule` or `mainModule`, appears nowhere. The guard is a structural check of reviewed source bounded to
+// these forms, not a JavaScript evaluator.
 const SPAWN_PRIMITIVES = ['run', 'runSync', 'execFile', 'execFileSync'];
 function spawnReferenceProblems(file, source) {
   const facts = parseFacts([source])[0];
@@ -213,17 +229,17 @@ function spawnReferenceProblems(file, source) {
   for (const { name, context } of facts.references) {
     if (context === 'call' || context === 'import') continue;
     if ((context === 'definition' || context === 'export') && base === 'process.js') continue;
-    problems.push(context === 'rename' ? `a destructured import of the spawn modules renames a name: ${file}` : `spawn primitive referenced outside a direct call: ${file}:${name}`);
+    problems.push(context === 'rename' ? `a destructured import of the spawn modules renames a name: ${file}`
+      : context === 'rest' ? `a destructured import of the spawn modules gathers names into a rest element: ${file}`
+      : `spawn primitive referenced outside a direct call: ${file}:${name}`);
   }
-  // The raw text, strings and comments included, so a dynamic load spelled as a string is counted too.
-  const childMentions = [...source.matchAll(/child_process/g)];
-  const childImport = source.match(/const\s*\{[^}]*\}\s*=\s*require\(\s*'node:child_process'\s*\);/);
-  const exact = base === 'process.js' && childMentions.length === 1 && childImport !== null
-    && childMentions[0].index >= childImport.index && childMentions[0].index < childImport.index + childImport[0].length
-    && /^const\s*\{\s*execFile,\s*execFileSync\s*\}/.test(childImport[0]);
-  if (childMentions.length > 0 && !exact) problems.push(`node:child_process is used outside process.js's execFile and execFileSync import: ${file}`);
-  if (facts.definesDefaultTransport) for (const args of facts.transportCalls) if (args[0] !== "'gh'") problems.push(`transport call passes a program other than 'gh': ${file}`);
+  // The raw text catches a comment or a plain string; the cooked literal values catch an escaped spelling.
+  const childMentions = (source.match(/child_process/g) || []).length;
+  const exact = base === 'process.js' && childMentions === 1 && facts.childLiterals === 1 && JSON.stringify(facts.childImportNames) === '["execFile","execFileSync"]';
+  if ((childMentions > 0 || facts.childLiterals > 0) && !exact) problems.push(`node:child_process is used outside process.js's execFile and execFileSync import: ${file}`);
+  for (const args of facts.transportCalls) if (args[0] !== "'gh'") problems.push(`transport call passes a program other than 'gh': ${file}`);
   if (facts.dynamic.length > 0) problems.push(`dynamic code execution is forbidden: ${file}`);
+  if (facts.loaders.length > 0) problems.push(`a module loader outside require is forbidden: ${file}`);
   if (facts.processUses.some((use) => use !== 'member' && use !== 'bind')) problems.push(`process bindings are forbidden: ${file}`);
   return problems;
 }
