@@ -93,7 +93,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/process.js|execFile|command|args|{ ...commandOptions(options, kind), encoding: 'buffer' }`,
   `${HELPER_DIR}/process.js|execFileSync|command|args|{ ...commandOptions(options, kind), encoding: options.encoding ?? 'utf8', input: options.stdin, stdio: ['pipe', 'pipe', 'pipe'], }`,
   `${HELPER_DIR}/snapshot.js|run|'gh'|args|options`,
-  `${HELPER_DIR}/validation.js|run|program|args|{ cwd: data.cwd, kind: 'validation', timeout: data.timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
+  `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
 const AGGREGATE_SMOKE_ALARM = 240000; // CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run
@@ -252,7 +252,7 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   // CONV-124-SPAWN-SCAN-MULTILINE-GAP: a call split across lines is the same call.
   rejectsMutation(model, 'a multiline spawn site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun(\n  'npm',\n  ['test'],\n  { kind: 'git' }\n);\n"; }, 'executable-spawn callsites');
   rejectsMutation(model, 'a multiline git push', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrunSync(\n  'git',\n  ['push', 'origin', 'HEAD']\n);\n"; }, 'Git command is outside');
-  rejectsMutation(model, 'the validation site rewritten across lines with another label', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("run(program, args, { cwd: data.cwd, kind: 'validation',", "run(\n  program,\n  args,\n  { cwd: data.cwd, kind: 'gh',"); }, 'executable-spawn callsites');
+  rejectsMutation(model, 'the validation site rewritten across lines with another label', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("run(program, args, { cwd, kind: 'validation',", "run(\n  program,\n  args,\n  { cwd, kind: 'gh',"); }, 'executable-spawn callsites');
   // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS: a spawn primitive reaches a program only through a direct call; every other
   // reference, a second child_process import, a non-gh transport call, and eval or Function are refused.
   rejectsMutation(model, 'an alias of run', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst invoke = run;\ninvoke('npm', ['test'], { kind: 'validation' });\n"; }, 'spawn primitive referenced outside a direct call');

@@ -129,12 +129,48 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
     // The environment is the package's sanitized one: no terminal prompts from Git, and a real HOME for toolchains.
     const env = await helpers.validationRun({ cwd: repo.root, command: script('process.stdout.write(`${process.env.GIT_TERMINAL_PROMPT}|${typeof process.env.HOME}|${process.env.LC_ALL}`)') });
     assert.equal(env.data.stdout.tail, '0|string|C');
+    // ADV-124-ARGV-EMPTY-ARGUMENT: an empty string after the program is an argument like any other, and it reaches the
+    // child exactly as written, however many there are and wherever they stand.
+    const echoArgv = script('process.stdout.write(JSON.stringify(process.argv.slice(1)))');
+    const empties = await helpers.validationRun({ cwd: repo.root, command: [...echoArgv, '', 'a', '', ''] });
+    assert.equal(empties.ok, true, JSON.stringify(empties.error));
+    assert.equal(empties.data.stdout.tail, '["","a","",""]', 'the child receives every empty argument');
+    assert.deepEqual(empties.data.command, [...echoArgv, '', 'a', '', ''], 'the evidence names the argv as run');
+    const emptyViaCli = cli('validation_run', { cwd: repo.root, command: [...echoArgv, ''] });
+    assert.equal(emptyViaCli.ok, true, JSON.stringify(emptyViaCli.error)); assert.equal(emptyViaCli.data.stdout.tail, '[""]');
+    // Pre-push sweep of the request check: each field is read once and the command runs as that copy, so what the check
+    // read, what the child receives, and what the evidence names are one argv, whatever the caller's array does.
+    const NUL = String.fromCharCode(0), lone = String.fromCharCode(0xd800);
+    let reads = 0;
+    const flipping = [...echoArgv];
+    Object.defineProperty(flipping, 3, { enumerable: true, get: () => (reads++ === 0 ? 'first' : `second${NUL}`) });
+    const iterated = [...echoArgv, 'validated'];
+    iterated[Symbol.iterator] = function* iterate() { yield* [...echoArgv, 'iterated']; };
+    for (const [label, command, expected] of [['an argument getter that changes after its first read', flipping, 'first'], ['an argv whose own iterator yields other arguments', iterated, 'validated']]) {
+      const once = await helpers.validationRun({ cwd: repo.root, command });
+      assert.equal(once.ok, true, `${label}: ${JSON.stringify(once.error)}`);
+      assert.deepEqual(JSON.parse(once.data.stdout.tail), [expected], `${label}: the child ran the argument the check read`);
+      assert.deepEqual(once.data.command.slice(echoArgv.length), [expected], `${label}: the evidence names that argument`);
+    }
+    let cwdReads = 0;
+    const movingCwd = { command: script('process.stdout.write(process.cwd())') };
+    Object.defineProperty(movingCwd, 'cwd', { enumerable: true, get: () => (cwdReads++ === 0 ? repo.root : outside) });
+    const cwdOnce = await helpers.validationRun(movingCwd);
+    assert.equal(cwdOnce.ok, true, JSON.stringify(cwdOnce.error));
+    assert.deepEqual([fs.realpathSync.native(cwdOnce.data.stdout.tail), cwdOnce.data.cwd], [fs.realpathSync.native(repo.root), repo.root], 'the cwd the check read is the one the child runs in and the evidence names');
+    const holes = [...echoArgv]; holes[4] = 'after a hole';
     for (const [label, data] of [
       ['a shell string', { cwd: repo.root, command: 'npm test' }],
       ['an empty argv', { cwd: repo.root, command: [] }],
-      ['an empty argument', { cwd: repo.root, command: [NODE, ''] }],
+      ['an empty program', { cwd: repo.root, command: ['', '-e', '0'] }],
       ['a non-string argument', { cwd: repo.root, command: [NODE, 7] }],
+      ['a hole in the argv', { cwd: repo.root, command: holes }],
+      ['an argv whose own some() hides a non-string argument', { cwd: repo.root, command: Object.assign([NODE, '-e', '0', 7], { some: () => false }) }],
       ['a NUL inside an argument', { cwd: repo.root, command: [NODE, '-e', '0', 'a\u0000b'] }],
+      ['an argument that is not well-formed Unicode', { cwd: repo.root, command: [NODE, '-e', '0', `a${lone}`] }],
+      ['a program that is not well-formed Unicode', { cwd: repo.root, command: [`${NODE}${lone}`, '-e', '0'] }],
+      ['a NUL inside the cwd', { cwd: `${repo.root}${NUL}x`, command: script('') }],
+      ['a cwd that is not well-formed Unicode', { cwd: `${repo.root}${lone}`, command: script('') }],
       ['a relative cwd', { cwd: 'sub', command: script('') }],
       ['a zero timeout', { cwd: repo.root, command: script(''), timeoutMs: 0 }],
       ['a timeout above the cap', { cwd: repo.root, command: script(''), timeoutMs: 3600001 }],
@@ -173,7 +209,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On the PR root, the set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'applied to each of its two streams', '`absent` names only a file the head does not carry']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'applied to each of its two streams', '`absent` names only a file the head does not carry', 'Each request field is read once and the command runs as that copy', 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
