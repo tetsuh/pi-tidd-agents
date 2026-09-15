@@ -19,14 +19,14 @@ const NUL = String.fromCharCode(0);
 const MAX_ARGUMENTS = 65536, LONE_SURROGATE = /\p{Cs}/u;
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
-// Each of the request's own fields, read once: an inherited field is not the request's, and the argv is copied element
-// by element, up to MAX_ARGUMENTS, so the caller's array cannot answer differently later (ADV-124-ARGV-EMPTY-ARGUMENT,
-// with its sweep).
+// Each of the request's own fields, asked for and read once: an inherited field is not the request's, an own field left
+// undefined is absent, and the argv is copied element by element, up to MAX_ARGUMENTS, so the caller's objects cannot
+// answer differently later (ADV-124-ARGV-EMPTY-ARGUMENT, with its sweep; ADV-124-TIMEOUT-OWNERSHIP-ASKED-TWICE).
 function readRequest(data) {
   const own = (key) => (Object.hasOwn(data, key) ? data[key] : undefined);
   const input = own('command'), length = Array.isArray(input) ? input.length : 0;
   const command = Number.isSafeInteger(length) && length <= MAX_ARGUMENTS ? Array.from({ length }, (_, position) => input[position]) : null;
-  return { cwd: own('cwd'), timed: Object.hasOwn(data, 'timeoutMs'), timeoutMs: own('timeoutMs'), command };
+  return { cwd: own('cwd'), timeoutMs: own('timeoutMs'), command };
 }
 function fail(code, message, phase, details) { throw Object.assign(new Error(message), { code, phase, details }); }
 function stream(buffer) {
@@ -44,11 +44,11 @@ async function validationRun(data) {
     // The command runs as the copy, so the argv the check read, the argv the child receives, and the argv the evidence
     // names are one. A string reaches the child as written only without NUL and in well-formed Unicode; the program is
     // non-empty, and an empty later argument is an argument like any other.
-    const { cwd, command, timed, timeoutMs } = request;
+    const { cwd, command, timeoutMs } = request;
     const writable = (value) => typeof value === 'string' && !value.includes(NUL) && !LONE_SURROGATE.test(value);
     if (!writable(cwd) || cwd.length === 0 || !path.isAbsolute(cwd)) fail('invalid_request', 'cwd must be an absolute path without NUL, in well-formed Unicode', 'request');
     if (!command || command.length === 0 || !command.every(writable) || command[0].length === 0) fail('invalid_request', `command must be an argv array of at most ${MAX_ARGUMENTS} strings without NUL, in well-formed Unicode, whose program is non-empty`, 'request');
-    if (timed && !(Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= MAX_TIMEOUT_MS)) fail('invalid_request', `timeoutMs must be an integer from 1 to ${MAX_TIMEOUT_MS}`, 'request');
+    if (timeoutMs !== undefined && !(Number.isInteger(timeoutMs) && timeoutMs > 0 && timeoutMs <= MAX_TIMEOUT_MS)) fail('invalid_request', `timeoutMs must be an integer from 1 to ${MAX_TIMEOUT_MS}`, 'request');
     // The cwd is the toplevel of a work tree — the operator checkout or the run's workspace — and nothing
     // below it; a bare repository also answers an empty prefix, so the work tree is asked for as well
     // (ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT). Git's whole answer is compared, so a subdirectory whose name begins

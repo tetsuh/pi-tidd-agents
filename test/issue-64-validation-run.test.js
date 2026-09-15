@@ -151,10 +151,17 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
     // ADV-124-ARGV-EMPTY-ARGUMENT: an empty string after the program is an argument like any other, and it reaches the
     // child exactly as written, however many there are and wherever they stand.
     const echoArgv = script('process.stdout.write(JSON.stringify(process.argv.slice(1)))');
-    const empties = await helpers.validationRun({ cwd: repo.root, command: [...echoArgv, '', 'a', '', ''] });
+    const astral = String.fromCodePoint(0x1f600);
+    const empties = await helpers.validationRun({ cwd: repo.root, command: [...echoArgv, '', 'a', '', '', astral] });
     assert.equal(empties.ok, true, JSON.stringify(empties.error));
-    assert.equal(empties.data.stdout.tail, '["","a","",""]', 'the child receives every empty argument');
-    assert.deepEqual(empties.data.command, [...echoArgv, '', 'a', '', ''], 'the evidence names the argv as run');
+    assert.equal(empties.data.stdout.tail, JSON.stringify(['', 'a', '', '', astral]), 'the child receives every empty argument, and a well-formed astral character, as written');
+    assert.deepEqual(empties.data.command, [...echoArgv, '', 'a', '', '', astral], 'the evidence names the argv as run');
+    // A well-formed astral character is a string like any other in every position (the review's surviving mutation M24b,
+    // a surrogate check that refused paired surrogates too).
+    const astralProgram = await helpers.validationRun({ cwd: repo.root, command: [`${NODE}${astral}`, '-e', '0'] });
+    assert.deepEqual([astralProgram.error?.code, astralProgram.error?.phase], ['harness_failed', 'spawn'], `an astral program reaches the spawn: ${JSON.stringify(astralProgram.error)}`);
+    const astralCwd = await helpers.validationRun({ cwd: `${repo.root}${astral}`, command: script('') });
+    assert.deepEqual([astralCwd.error?.code, astralCwd.error?.phase], ['invalid_request', 'cwd'], `an astral cwd reaches the toplevel check: ${JSON.stringify(astralCwd.error)}`);
     const emptyViaCli = cli('validation_run', { cwd: repo.root, command: [...echoArgv, ''] });
     assert.equal(emptyViaCli.ok, true, JSON.stringify(emptyViaCli.error)); assert.equal(emptyViaCli.data.stdout.tail, '[""]');
     // Pre-push sweep of the request check: each field is read once and the command runs as that copy, so what the check
@@ -183,13 +190,31 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
     assert.equal(inheritedTimeout.ok, true, `an inherited timeout is not the request's: ${JSON.stringify(inheritedTimeout.error)}`);
     const inheritedCwd = await helpers.validationRun(Object.assign(Object.create({ cwd: repo.root }), { command: script('') }));
     assert.deepEqual([inheritedCwd.ok, inheritedCwd.error?.code, inheritedCwd.error?.phase], [false, 'invalid_request', 'request'], "an inherited cwd is not the request's");
+    const inheritedCommand = await helpers.validationRun(Object.assign(Object.create({ command: script('') }), { cwd: repo.root }));
+    assert.deepEqual([inheritedCommand.ok, inheritedCommand.error?.code, inheritedCommand.error?.phase], [false, 'invalid_request', 'request'], "an inherited command is not the request's");
+    // Pre-push adversarial review of 71934ff (ADV-124-TIMEOUT-OWNERSHIP-ASKED-TWICE): each field's ownership is asked once, so
+    // a request cannot report a field absent to the check and present to the spawn; and an own field left undefined is
+    // absent, as an optional field.
+    const asks = {};
+    const count = (kind, key) => { asks[`${kind}:${String(key)}`] = (asks[`${kind}:${String(key)}`] ?? 0) + 1; };
+    const flippingOwnership = new Proxy({ cwd: repo.root, command: script('setTimeout(() => {}, 300)'), timeoutMs: 'bogus' }, {
+      getOwnPropertyDescriptor: (target, key) => { count('own', key); return key === 'timeoutMs' && asks['own:timeoutMs'] === 1 ? undefined : Reflect.getOwnPropertyDescriptor(target, key); },
+      get: (target, key, receiver) => { count('get', key); return Reflect.get(target, key, receiver); },
+    });
+    const ownedOnce = await helpers.validationRun(flippingOwnership);
+    assert.equal(ownedOnce.ok, true, `a field reported absent is absent for the whole request: ${JSON.stringify(ownedOnce.error)}`);
+    assert.ok(Object.values(asks).every((times) => times === 1), `each field is asked for and read at most once: ${JSON.stringify(asks)}`);
+    const undefinedTimeout = await helpers.validationRun({ cwd: repo.root, command: script(''), timeoutMs: undefined });
+    assert.equal(undefinedTimeout.ok, true, `an own timeoutMs left undefined is absent: ${JSON.stringify(undefinedTimeout.error)}`);
     // ADV-124-HOSTILE-ARGV-OBJECT-NOT-REFUSED-AT-REQUEST: a request that throws while it is read, or claims more arguments
     // than the bound, is refused at the request with an envelope.
     const throwing = { cwd: repo.root };
     Object.defineProperty(throwing, 'command', { enumerable: true, get: () => { throw new Error(''); } });
     const claimsHuge = new Proxy([NODE], { get: (target, key) => (key === 'length' ? 2 ** 32 : target[key]) });
     const claimsTooMany = new Proxy([NODE], { get: (target, key) => (key === 'length' ? 65537 : NODE) });
-    for (const [label, data] of [['a field that throws while it is read', throwing], ['an argv claiming 2^32 elements', { cwd: repo.root, command: claimsHuge }], ['an argv of 65,537 elements', { cwd: repo.root, command: claimsTooMany }]]) {
+    const claimsTextLength = new Proxy([NODE, '-e', '0'], { get: (target, key) => (key === 'length' ? '3' : target[key]) });
+    const claimsFractionalLength = new Proxy([NODE, '-e', '0'], { get: (target, key) => (key === 'length' ? 2.5 : target[key]) });
+    for (const [label, data] of [['a field that throws while it is read', throwing], ['an argv claiming 2^32 elements', { cwd: repo.root, command: claimsHuge }], ['an argv of 65,537 elements', { cwd: repo.root, command: claimsTooMany }], ['an argv whose length is text', { cwd: repo.root, command: claimsTextLength }], ['an argv whose length is fractional', { cwd: repo.root, command: claimsFractionalLength }]]) {
       const hostile = await helpers.validationRun(data);
       assert.deepEqual([hostile.ok, hostile.error?.code, hostile.error?.phase], [false, 'invalid_request', 'request'], `${label}: ${JSON.stringify(hostile.error)}`);
     }
@@ -243,6 +268,14 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
       assert.equal(refused.error.code, 'invalid_request', `${label}: ${JSON.stringify(refused.error)}`);
       assert.equal(refused.error.phase, 'cwd', label);
     }
+    // The refusal carries Git's whole answer, and a spawn error Node throws at once while the cwd is checked names its code.
+    const belowTop = await helpers.validationRun({ cwd: path.join(repo.root, 'sub'), command: script('') });
+    assert.equal(belowTop.error.details.answer, `true${String.fromCharCode(10)}sub/${String.fromCharCode(10)}`, 'the refusal carries the answer it compared');
+    if (process.platform !== 'win32') {
+      const underFile = await helpers.validationRun({ cwd: path.join(repo.root, 'tracked.txt', 'below'), command: script('') });
+      assert.deepEqual([underFile.error.code, underFile.error.phase], ['invalid_request', 'cwd'], JSON.stringify(underFile.error));
+      assert.match(underFile.error.message, /ENOTDIR/, 'the cwd refusal names the system code of a synchronous spawn error');
+    }
     // Through the CLI, with exactly the declared request fields.
     assert.deepEqual(cliSchemas().validation_run, ['cwd', 'command'], 'the required request fields');
     assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /validation_run: \{ required: \['cwd', 'command'\], optional: \['timeoutMs'\] \}/, 'the timeout is the only optional field');
@@ -266,7 +299,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On the PR root, the set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'applied to each of its two streams', '`absent` names only a file the head does not carry', "Each of the request's own fields is read once and the command runs as that copy", 'the argv holds at most 65,536 elements', 'a subdirectory whose name begins with a newline is not mistaken for the toplevel', "a spawn error Node throws at once still carries the system's own code as its reason", 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'applied to each of its two streams', '`absent` names only a file the head does not carry', "Each of the request's own fields is read once and the command runs as that copy", 'the argv holds at most 65,536 elements', 'a request that throws while it is read is refused at the request', 'an own field left undefined is absent', 'a subdirectory whose name begins with a newline is not mistaken for the toplevel', "a spawn error Node throws at once still carries the system's own code as its reason", 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
