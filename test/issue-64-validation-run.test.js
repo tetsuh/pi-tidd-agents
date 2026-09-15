@@ -145,9 +145,49 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
     const literal = await helpers.validationRun({ cwd: repo.root, command: [...script('process.stdout.write(process.argv[1])'), '$(echo expanded); `echo expanded`'] });
     assert.equal(literal.ok, true, JSON.stringify(literal.error));
     assert.equal(literal.data.stdout.tail, '$(echo expanded); `echo expanded`');
-    // The environment is the package's sanitized one: no terminal prompts from Git, and a real HOME for toolchains.
+    // The environment is the validation allowlist: no terminal prompts from Git, and a real HOME for toolchains.
     const env = await helpers.validationRun({ cwd: repo.root, command: script('process.stdout.write(`${process.env.GIT_TERMINAL_PROMPT}|${typeof process.env.HOME}|${process.env.LC_ALL}`)') });
     assert.equal(env.data.stdout.tail, '0|string|C');
+    // ADV-124-VALIDATION-ENVIRONMENT-INHERITANCE: the validation child receives an explicit allowlist, never the inherited
+    // environment, so an interpreter or loader hook, a credential, an agent socket, a command-resolution control, or any
+    // other secret the parent inherited does not reach it; names match exactly off Windows.
+    const VALIDATION_ENV_EXPECTED = ['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'USER', 'LOGNAME', 'USERNAME', 'SystemRoot', 'SystemDrive', 'windir', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'CommonProgramFiles', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS'];
+    // Node propagates NODE_V8_COVERAGE from its own environment unless the child carries the name, so the hostile set
+    // includes it and the directory it names must stay empty (pre-push review of 64f6fff).
+    const coverageDir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-coverage-'));
+    const hostile = { NODE_V8_COVERAGE: coverageDir, NODE_OPTIONS: '--max-old-space-size=4097', NODE_PATH: '/hostile/node', PYTHONPATH: '/hostile/py', PYTHONSTARTUP: '/hostile/start.py', PERL5LIB: '/hostile/perl', RUBYOPT: '-rhostile', JAVA_TOOL_OPTIONS: '-Dhostile', LD_PRELOAD: '/hostile/none.so', LD_LIBRARY_PATH: '/hostile/lib', DYLD_INSERT_LIBRARIES: '/hostile/x.dylib', GH_TOKEN: 'hostile', GITHUB_TOKEN: 'hostile', NPM_TOKEN: 'hostile', AWS_SECRET_ACCESS_KEY: 'hostile', SSH_AUTH_SOCK: '/hostile/agent.sock', GPG_AGENT_INFO: '/hostile/gpg', BASH_ENV: '/hostile/bashenv', ENV: '/hostile/env', CDPATH: '/hostile', npm_config_script_shell: '/hostile/sh', HOSTILE_SECRET: 'hostile', ...(process.platform === 'win32' ? {} : { path: '/hostile/bin', Node_Options: '--hostile' }) };
+    const saved = Object.fromEntries(Object.keys(hostile).map((key) => [key, process.env[key]]));
+    const probeEnv = [...script('const e = process.env; process.stdout.write(JSON.stringify({ keys: Object.keys(e).sort(), fixed: [e.LC_ALL, e.LANG, e.GIT_TERMINAL_PROMPT], samePath: e.PATH === process.argv[1], sameHome: e.HOME === process.argv[2] }))'), process.env.PATH ?? '', process.env.HOME ?? ''];
+    Object.assign(process.env, hostile);
+    let inherited;
+    try { inherited = await helpers.validationRun({ cwd: repo.root, command: probeEnv }); } finally { for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+    assert.equal(inherited.ok, true, JSON.stringify(inherited.error));
+    const seen = JSON.parse(inherited.data.stdout.tail);
+    assert.deepEqual(Object.keys(hostile).filter((key) => seen.keys.includes(key)), [], 'no inherited hook, credential, socket, resolution control, or secret reaches the validation child');
+    const allowedKeys = new Set([...VALIDATION_ENV_EXPECTED, 'GIT_TERMINAL_PROMPT', 'LC_ALL', 'LANG', ...(process.platform === 'win32' ? ['PATHEXT', 'ComSpec', 'LOGONSERVER', 'USERDOMAIN'] : [])]);
+    assert.deepEqual(seen.keys.filter((key) => !allowedKeys.has(key)), [], 'the child environment holds only the allowlist and the fixed values');
+    assert.deepEqual([seen.fixed, seen.samePath, seen.sameHome], [['C', 'C', '0'], true, true], "the locale is fixed, and PATH and HOME are the parent's");
+    assert.deepEqual(fs.readdirSync(coverageDir), [], 'the inherited coverage hook wrote nothing');
+    fs.rmSync(coverageDir, { recursive: true, force: true });
+    assert.deepEqual(Object.keys(hostile).filter((key) => process.env[key] !== saved[key]), [], 'the fixture restored the parent environment');
+    const overrides = require('../skills/closed-loop-pr/helpers/process').sanitizedEnv({ LC_ALL: 'tr_TR.UTF-8', LANG: 'tr_TR.UTF-8', GIT_TERMINAL_PROMPT: '1', NODE_V8_COVERAGE: '/hostile/coverage' }, 'validation');
+    assert.deepEqual([overrides.LC_ALL, overrides.LANG, overrides.GIT_TERMINAL_PROMPT, Object.hasOwn(overrides, 'NODE_V8_COVERAGE'), overrides.NODE_V8_COVERAGE], ['C', 'C', '0', true, undefined], 'a caller extra cannot override the fixed values, and the coverage name stays present and undefined');
+    // The Windows pinning is behaviour, not only source text: the environment builder takes the platform, so the branch
+    // is exercised from any host (pre-push review of 30ce19a, surviving mutation M2b).
+    const backslash = String.fromCharCode(92);
+    const hostileWindows = { SystemRoot: 'C:/Windows', PATHEXT: '.HOSTILE', ComSpec: '/hostile/cmd.exe' };
+    const windows = require('../skills/closed-loop-pr/helpers/process').validationEnv(hostileWindows, 'win32');
+    assert.deepEqual([windows.PATHEXT, windows.ComSpec], ['.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC', ['C:', 'Windows', 'System32', 'cmd.exe'].join(backslash)], 'Windows pins the command-resolution controls to the system defaults');
+    const withoutSystemRoot = require('../skills/closed-loop-pr/helpers/process').validationEnv({ PATHEXT: '.HOSTILE', ComSpec: '/hostile/cmd.exe' }, 'win32');
+    assert.deepEqual([withoutSystemRoot.PATHEXT, Object.hasOwn(withoutSystemRoot, 'ComSpec')], ['.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC', false], 'without a system root there is no command shell to derive, and neither control is inherited');
+    const posix = require('../skills/closed-loop-pr/helpers/process').validationEnv({ SystemRoot: 'C:/Windows', PATHEXT: '.HOSTILE' }, 'linux');
+    assert.deepEqual([Object.hasOwn(posix, 'PATHEXT'), Object.hasOwn(posix, 'ComSpec'), posix.SystemRoot], [false, false, 'C:/Windows'], 'off Windows neither control exists and nothing is pinned');
+    const processSource = readText('skills/closed-loop-pr/helpers/process.js');
+    assert.ok(processSource.includes('env.NODE_V8_COVERAGE = undefined;'), 'the coverage name is carried as undefined, which is what stops Node propagating it');
+    assert.ok(processSource.includes('env.PATHEXT = WINDOWS_PATHEXT;') && processSource.includes("env.ComSpec = path.win32.join(systemRoot, 'System32', 'cmd.exe');"), 'Windows pins the command-resolution controls instead of inheriting them');
+    const extras = require('../skills/closed-loop-pr/helpers/process').sanitizedEnv({ NODE_OPTIONS: '--hostile', HOSTILE_SECRET: 'hostile', PATH: '/extra/bin' }, 'validation');
+    assert.deepEqual([Object.keys(extras).filter((key) => !allowedKeys.has(key) && key !== 'NODE_V8_COVERAGE'), extras.PATH, Object.hasOwn(extras, 'NODE_V8_COVERAGE'), extras.NODE_V8_COVERAGE], [[], '/extra/bin', true, undefined], 'a caller extra passes the same allowlist, and the coverage name stays present and undefined');
+    assert.ok(readText('skills/closed-loop-pr/helpers/process.js').includes(`const VALIDATION_ENV = [${VALIDATION_ENV_EXPECTED.map((name) => `'${name}'`).join(', ')}];`), 'the allowlist is the one the record names');
     // ADV-124-ARGV-EMPTY-ARGUMENT: an empty string after the program is an argument like any other, and it reaches the
     // child exactly as written, however many there are and wherever they stand.
     const echoArgv = script('process.stdout.write(JSON.stringify(process.argv.slice(1)))');
@@ -293,13 +333,13 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(map.includes("| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |"), 'the map offers validation_run with its fields');
   assert.ok(autofix.includes('| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |'), 'the recovery row names the packaged operation');
   assert.equal(autofix.includes('validation_harness@focused_validation'), false, 'the old key is gone');
-  assert.match(readText('README.md'), /`validation_run` spawns the target's validation command as an argv at a Git toplevel/);
+  assert.match(readText('README.md'), /`validation_run` spawns the target's validation command as an argv at a Git toplevel under an explicit environment allowlist/);
   // ADV-124-REVIEW-ONLY-OPERATIONS-UNREACHABLE: each route's own authority names the operations it uses.
   assert.ok(readText('skills/closed-loop-pr/references/review-only.md').includes("Review-only's validation step runs each of the target's validation commands through packaged `validation_run`"), 'review-only names validation_run');
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On the PR root, the set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'applied to each of its two streams', '`absent` names only a file the head does not carry', "Each of the request's own fields is read once and the command runs as that copy", 'the argv holds at most 65,536 elements', 'a request that throws while it is read is refused at the request', 'an own field left undefined is absent', 'a subdirectory whose name begins with a newline is not mistaken for the toplevel', "a spawn error Node throws at once still carries the system's own code as its reason", 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'counted across what the child writes on both streams together', "headroom so an ordinary Git warning cannot turn an accepted read into an overflow", 'says which stream overflowed', 'the process spawner forwards a few Windows system variables of its own', '`absent` names only a file the head does not carry', "Each of the request's own fields is read once and the command runs as that copy", 'the argv holds at most 65,536 elements', 'a request that throws while it is read is refused at the request', 'an own field left undefined is absent', 'the child runs under an explicit environment allowlist rather than the inherited environment', 'whether an interpreter or loader hook, a credential, an agent socket, or a command-resolution control, is dropped', "while `git` and `gh` keep the package's sanitized environment", 'the validation environment carries the name itself and undefined', 'pinned to the system defaults rather than inherited', 'a subdirectory whose name begins with a newline is not mistaken for the toplevel', "a spawn error Node throws at once still carries the system's own code as its reason", 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -508,8 +548,8 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     // constants, and the reader's hand-off to the spawn are pinned too.
     const readLimit = (at) => { let depth = 0, k = at + 'bounded('.length; do { if (derivation[k] === '[') depth += 1; else if (derivation[k] === ']') depth -= 1; k += 1; } while (depth > 0); return `${derivation.slice(at + 10, derivation.indexOf("'", at + 10))} ${derivation.slice(k).match(/^,\s*([^,]+),/)[1].trim()}`; };
     assert.deepEqual([...derivation.matchAll(/\bbounded\(\[/g)].map((match) => readLimit(match.index)), ['rev-parse SMALL_MAX_BYTES', 'cat-file SMALL_MAX_BYTES', 'diff LISTING_MAX_BYTES', 'ls-tree LISTING_MAX_BYTES', 'ls-tree LISTING_MAX_BYTES', 'cat-file SMALL_MAX_BYTES', 'cat-file BLOB_MAX_BYTES'], 'each read carries the bound the record names for it');
-    assert.ok(guardsSource.includes('const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024;'), 'the bounds are 256 MiB, 256 MiB, and 64 KiB');
-    assert.ok(derivation.includes('try { return gitBytes(data.cwd, args, phase, acceptExitCodes, limit); }') && guardsSource.includes("runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes, maxBuffer })"), 'the reader hands its limit to the spawn');
+    assert.ok(guardsSource.includes('const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024, WARNING_HEADROOM = 64 * 1024;'), 'the bounds are 256 MiB, 256 MiB, and 64 KiB, each with 64 KiB of warning headroom');
+    assert.ok(derivation.includes('try { return gitBytes(data.cwd, args, phase, acceptExitCodes, limit + WARNING_HEADROOM); }') && guardsSource.includes("runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes, maxBuffer })"), 'the reader hands its limit to the spawn');
     // ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR: a ref named after the head's hex makes Git warn on stderr, and a spawn's bound
     // applies to each of its streams, so a blob read bounded by the blob's own size failed as output_limit.
     const ambiguous = repository();
@@ -565,9 +605,27 @@ test('Issue #64 required_evidence_set fails closed as output_limit exactly beyon
     const over = feed(['hash-object', '-w', '--stdin'], Buffer.alloc(256 * MiB + 1, 120));
     const withExact = commit([small('one\n'), ['100644', 'blob', exact, 'exact.bin']], shallow);
     const withOver = commit([small('one\n'), ['100644', 'blob', exact, 'exact.bin'], ['100644', 'blob', over, 'over.bin']], withExact);
+    // Pre-push review of 64f6fff: the synchronous read counts both streams against one bound, so Git's own warning
+    // could turn a blob that is exactly at the bound into an overflow. A ref named after the head makes Git warn.
+    git(root, ['update-ref', `refs/tags/${withExact}`, withExact]);
     const derived = helpers.requiredEvidenceSet({ cwd: root, baseOid: shallow, headOid: withExact, identities: [] });
     assert.equal(derived.ok, true, JSON.stringify(derived.error));
     assert.deepEqual(derived.data.requiredEvidence, [{ source: 'exact.bin', kind: 'file', identity: crypto.createHash('sha256').update(exactBytes).digest('hex') }], 'a blob at the bound is derived');
     overflow(withExact, withOver, 'over.bin', 'a changed file exceeds 268435456 bytes');
+    // Pre-push review of the headroom (ADV7-1): an adverse repository can make Git write far more than the headroom on
+    // stderr while the payload stays small, and the refusal must name that rather than the payload.
+    const noisy = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-noisy-'));
+    try {
+      git(noisy, ['init', '-q', '-b', 'main']); git(noisy, ['config', 'user.name', 'Issue 64 Test']); git(noisy, ['config', 'user.email', 'issue64@example.invalid']);
+      fs.writeFileSync(path.join(noisy, 'tracked.txt'), 'base' + String.fromCharCode(10)); git(noisy, ['add', 'tracked.txt']); git(noisy, ['commit', '-q', '-m', 'test: base']);
+      const noisyBase = git(noisy, ['rev-parse', 'HEAD']);
+      fs.writeFileSync(path.join(noisy, 'tracked.txt'), 'head' + String.fromCharCode(10)); git(noisy, ['commit', '-q', '-am', 'test: head']);
+      // Each unreadable alternate makes Git print the whole path on every object read, and it still exits 0.
+      fs.writeFileSync(path.join(noisy, '.git', 'objects', 'info', 'alternates'), Array.from({ length: 100 }, (_, index) => `/nonexistent/${index}/${'x'.repeat(3000)}`).join(String.fromCharCode(10)) + String.fromCharCode(10));
+      const drowned = helpers.requiredEvidenceSet({ cwd: noisy, baseOid: noisyBase, headOid: git(noisy, ['rev-parse', 'HEAD']), identities: [] });
+      assert.equal(drowned.ok, false, 'a read drowned in Git warnings fails closed');
+      assert.deepEqual([drowned.error.code, drowned.error.details.subcheck], ['output_limit', 'output_limit'], JSON.stringify(drowned.error));
+      assert.match(drowned.error.message, /Git wrote more than 65536 bytes on its error stream/, `the refusal names the stream that overflowed: ${drowned.error.message}`);
+    } finally { fs.rmSync(noisy, { recursive: true, force: true }); }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

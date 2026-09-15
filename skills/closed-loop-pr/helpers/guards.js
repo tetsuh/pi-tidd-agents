@@ -278,7 +278,7 @@ const IDENTITY_KINDS = ['git', 'github', 'snapshot'];
 // An identity the request repeats must agree with the argument it repeats (CL-D47's rule).
 const CORRELATED_SOURCES = { 'git:pr_head': 'headOid', 'git:pr_base': 'baseOid' };
 // Each Git read carries its own bound rather than the 16 MiB process default; a read beyond it fails closed by name.
-const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024;
+const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024, WARNING_HEADROOM = 64 * 1024;
 function requiredEvidenceSet(data) {
   return wrap('required_evidence_set', () => {
     const phase = 'required_evidence_set';
@@ -294,10 +294,19 @@ function requiredEvidenceSet(data) {
     // Every Git read of the derivation goes through this reader with its own bound, never the process default: a
     // listing or a blob up to 256 MiB, anything else up to 64 KiB; a read beyond its bound fails closed as output_limit
     // naming it (CONV-124-AUTHORITY-LISTING-UNBOUNDED). A bound applies to each stream, and Git's warnings count on stderr, so
-    // a blob is read under the blob bound, never its own size (ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR).
+    // a blob is read under the blob bound, never its own size (ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR). The synchronous
+    // spawn counts both streams against one bound, so each read adds WARNING_HEADROOM above the payload it must
+    // accept, and an ordinary Git warning cannot turn an accepted read into an overflow. An adverse repository can
+    // still drown a read in warnings, and the refusal then names the stream that overflowed rather than the payload.
     const bounded = (args, limit, what, acceptExitCodes) => {
-      try { return gitBytes(data.cwd, args, phase, acceptExitCodes, limit); }
-      catch (error) { if (/ENOBUFS|MAXBUFFER/.test(String(error.message))) fail('output_limit', 'output_limit', `${what} exceeds ${limit} bytes`, what); throw error; }
+      try { return gitBytes(data.cwd, args, phase, acceptExitCodes, limit + WARNING_HEADROOM); }
+      catch (error) {
+        if (/ENOBUFS|MAXBUFFER/.test(String(error.message))) {
+          const captured = error.streams?.stdout?.length ?? 0;
+          fail('output_limit', 'output_limit', captured <= limit ? `${what} stayed within ${limit} bytes and Git wrote more than ${WARNING_HEADROOM} bytes on its error stream` : `${what} exceeds ${limit} bytes`, what);
+        }
+        throw error;
+      }
     };
     // A work tree at its toplevel; a bare repository also answers an empty prefix (ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT).
     // Git's whole answer is compared, so a subdirectory whose name begins with a newline cannot pass (ADV-124-CWD-NEWLINE-SUBDIR-ACCEPTED).

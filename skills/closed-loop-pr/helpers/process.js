@@ -151,7 +151,40 @@ function isolationPaths() {
   }
 }
 
+// The validation child's environment is an explicit allowlist rather than the inherited one
+// (ADV-124-VALIDATION-ENVIRONMENT-INHERITANCE): PATH and HOME, so an argv program and its toolchain resolve; the
+// temporary-directory and user-name variables; and the Windows system variables a process there needs. Names match
+// exactly, and without case on Windows, where the environment itself ignores case. Every other inherited variable, an
+// interpreter or loader hook, a credential, an agent socket, or a command-resolution control alike, is dropped.
+const VALIDATION_ENV = ['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'USER', 'LOGNAME', 'USERNAME', 'SystemRoot', 'SystemDrive', 'windir', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'CommonProgramFiles', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS'];
+const WINDOWS_PATHEXT = '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC';
+function validationEnv(extra, platform = process.platform) {
+  const allowed = (key) => (platform === 'win32' ? VALIDATION_ENV.some((name) => name.toUpperCase() === key.toUpperCase()) : VALIDATION_ENV.includes(key));
+  const env = {};
+  for (const source of [process.env, extra]) {
+    for (const [key, value] of Object.entries(source)) {
+      if (allowed(key)) env[key] = value;
+    }
+  }
+  // Node propagates NODE_V8_COVERAGE from its own environment unless the child environment carries the name itself, so
+  // the name is present here and undefined: an inherited coverage hook neither reaches the child nor writes its files.
+  env.NODE_V8_COVERAGE = undefined;
+  // On Windows a command shell resolves a bare name through PATHEXT, and npm and a shell spawn through ComSpec, so both
+  // are pinned to the system defaults rather than inherited, as the comparable POSIX controls are dropped. The spawn
+  // itself forwards a few Windows system variables of its own, which no allowlist here can prevent.
+  if (platform === 'win32') {
+    const systemRoot = Object.entries(env).find(([key]) => key.toUpperCase() === 'SYSTEMROOT')?.[1];
+    env.PATHEXT = WINDOWS_PATHEXT;
+    if (systemRoot) env.ComSpec = path.win32.join(systemRoot, 'System32', 'cmd.exe');
+  }
+  env.GIT_TERMINAL_PROMPT = '0';
+  env.LC_ALL = 'C';
+  env.LANG = 'C';
+  return env;
+}
+
 function sanitizedEnv(extra = {}, kind = 'git') {
+  if (kind === 'validation') return validationEnv(extra);
   const env = {};
   for (const source of [process.env, extra]) {
     for (const [key, value] of Object.entries(source)) {
@@ -392,4 +425,4 @@ function assertSafeRepositoryConfig(cwd) {
   return crypto.createHash('sha256').update(frameConfigParts(first, currentBranchName(cwd))).digest('hex');
 }
 
-module.exports = { sanitizedEnv, run, runSync, gitArgs, isolationPaths, assertSafeRepositoryConfig };
+module.exports = { sanitizedEnv, validationEnv, run, runSync, gitArgs, isolationPaths, assertSafeRepositoryConfig };

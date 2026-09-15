@@ -5,7 +5,7 @@
 // `validation_failed` (it ran and exited nonzero by itself; code `validation_failed`, phase `validation`),
 // or `harness_failed` (it could not run or did not finish — a spawn error, a signal, or the timeout; code
 // `harness_failed`, phase `spawn`). Each is terminal for the caller under CL-D39. The command is an argv,
-// never a shell string; the cwd is a Git toplevel; the environment is the package's sanitized one. The
+// never a shell string; the cwd is a Git toplevel; the environment is the validation allowlist in process.js. The
 // operation interprets nothing about the output: it reports bytes, a digest, and a bounded tail of each
 // stream. This is the package's only spawn of anything but git and gh (CL-D37, the issue-59 model).
 
