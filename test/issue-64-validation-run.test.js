@@ -40,6 +40,12 @@ function repository() {
   return { root, head: git(root, ['rev-parse', 'HEAD']) };
 }
 const script = (code) => [NODE, '-e', code || '0'];
+// Subdirectories whose names begin with a newline, created on demand where the file system allows them.
+function newlineDirectories(root) {
+  if (process.platform === 'win32') return [];
+  const LF = String.fromCharCode(10);
+  return [`${LF}sub`, LF].map((name) => { fs.mkdirSync(path.join(root, name), { recursive: true }); return [`a subdirectory named ${JSON.stringify(name)}`, path.join(root, name)]; });
+}
 
 test('Issue #64 validation_run reports passed, validation_failed, and harness_failed as distinct outcomes', async () => {
   const repo = repository();
@@ -72,6 +78,19 @@ test('Issue #64 validation_run reports passed, validation_failed, and harness_fa
     assert.equal(missing.error.details.exitCode, null);
     streams(missing.error.details);
     assert.deepEqual(missing.error.details.stdout, { bytes: 0, sha256: sha256(''), tail: '' }, 'a program that never ran wrote nothing');
+    // Pre-push adversarial review of 18eecdc (ADV-124-SYNC-SPAWN-ERROR-REASON-LOST): Node throws most spawn errors at once
+    // instead of reporting them to the callback; each is still harness_failed at spawn, naming the system's own code, with
+    // the stream evidence.
+    if (process.platform !== 'win32') {
+      const spawnErrors = [['a program path longer than the system allows', [`/${'p'.repeat(5000)}`], 'ENAMETOOLONG'], ['a program below a regular file', [path.join(repo.root, 'tracked.txt', 'validator')], 'ENOTDIR']];
+      if (process.platform === 'linux') spawnErrors.push(['an argument longer than the kernel accepts', [...script(''), 'x'.repeat(200 * 1024)], 'E2BIG']);
+      for (const [label, command, reason] of spawnErrors) {
+        const thrown = await helpers.validationRun({ cwd: repo.root, command });
+        assert.equal(thrown.ok, false, label);
+        assert.deepEqual([thrown.error.code, thrown.error.phase, thrown.error.details.reason], ['harness_failed', 'spawn', reason], `${label}: ${JSON.stringify(thrown.error)}`);
+        streams(thrown.error.details);
+      }
+    }
 
     const slow = await helpers.validationRun({ cwd: repo.root, command: script('process.stdout.write("partial\\n"); process.stderr.write("still\\n"); setTimeout(() => {}, 5000)'), timeoutMs: 1500 });
     assert.equal(slow.error.code, 'harness_failed', JSON.stringify(slow.error));
@@ -158,6 +177,41 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
     const cwdOnce = await helpers.validationRun(movingCwd);
     assert.equal(cwdOnce.ok, true, JSON.stringify(cwdOnce.error));
     assert.deepEqual([fs.realpathSync.native(cwdOnce.data.stdout.tail), cwdOnce.data.cwd], [fs.realpathSync.native(repo.root), repo.root], 'the cwd the check read is the one the child runs in and the evidence names');
+    // Pre-push adversarial review of 18eecdc (ADV-124-INHERITED-TIMEOUT-UNVALIDATED): only the request's own fields count, so
+    // an inherited value is neither validated nor used.
+    const inheritedTimeout = await helpers.validationRun(Object.assign(Object.create({ timeoutMs: 300 }), { cwd: repo.root, command: script('setTimeout(() => {}, 1000)') }));
+    assert.equal(inheritedTimeout.ok, true, `an inherited timeout is not the request's: ${JSON.stringify(inheritedTimeout.error)}`);
+    const inheritedCwd = await helpers.validationRun(Object.assign(Object.create({ cwd: repo.root }), { command: script('') }));
+    assert.deepEqual([inheritedCwd.ok, inheritedCwd.error?.code, inheritedCwd.error?.phase], [false, 'invalid_request', 'request'], "an inherited cwd is not the request's");
+    // ADV-124-HOSTILE-ARGV-OBJECT-NOT-REFUSED-AT-REQUEST: a request that throws while it is read, or claims more arguments
+    // than the bound, is refused at the request with an envelope.
+    const throwing = { cwd: repo.root };
+    Object.defineProperty(throwing, 'command', { enumerable: true, get: () => { throw new Error(''); } });
+    const claimsHuge = new Proxy([NODE], { get: (target, key) => (key === 'length' ? 2 ** 32 : target[key]) });
+    const claimsTooMany = new Proxy([NODE], { get: (target, key) => (key === 'length' ? 65537 : NODE) });
+    for (const [label, data] of [['a field that throws while it is read', throwing], ['an argv claiming 2^32 elements', { cwd: repo.root, command: claimsHuge }], ['an argv of 65,537 elements', { cwd: repo.root, command: claimsTooMany }]]) {
+      const hostile = await helpers.validationRun(data);
+      assert.deepEqual([hostile.ok, hostile.error?.code, hostile.error?.phase], [false, 'invalid_request', 'request'], `${label}: ${JSON.stringify(hostile.error)}`);
+    }
+    if (process.platform === 'linux') {
+      const atBound = await helpers.validationRun({ cwd: repo.root, command: [...script(''), ...Array.from({ length: 65536 - 3 }, () => '')] });
+      assert.equal(atBound.ok, true, `an argv of exactly 65,536 elements runs: ${JSON.stringify(atBound.error)}`);
+    }
+    // The copy decides every outcome, not only a pass: the evidence of a spawn failure and of a nonzero exit names the
+    // argument the check read, and the timeout the check read is the one enforced.
+    for (const [label, prefix, code] of [['a program that does not exist', [path.join(repo.root, 'no-such-validator')], 'harness_failed'], ['a command that exits 3', script('process.exit(3)'), 'validation_failed']]) {
+      let seen = 0;
+      const moving = [...prefix];
+      Object.defineProperty(moving, prefix.length, { enumerable: true, get: () => (seen++ === 0 ? 'first' : 'second') });
+      const failedOnce = await helpers.validationRun({ cwd: repo.root, command: moving });
+      assert.equal(failedOnce.error?.code, code, `${label}: ${JSON.stringify(failedOnce)}`);
+      assert.deepEqual(failedOnce.error.details.command.slice(prefix.length), ['first'], `${label}: the evidence names the argument the check read`);
+    }
+    let timeoutReads = 0;
+    const movingTimeout = { cwd: repo.root, command: script('setTimeout(() => {}, 3000)') };
+    Object.defineProperty(movingTimeout, 'timeoutMs', { enumerable: true, get: () => (timeoutReads++ === 0 ? 500 : 600000) });
+    const timeoutOnce = await helpers.validationRun(movingTimeout);
+    assert.equal(timeoutOnce.error?.details?.reason, 'timeout', `the timeout the check read is the one enforced: ${JSON.stringify(timeoutOnce)}`);
     const holes = [...echoArgv]; holes[4] = 'after a hole';
     for (const [label, data] of [
       ['a shell string', { cwd: repo.root, command: 'npm test' }],
@@ -167,6 +221,7 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
       ['a hole in the argv', { cwd: repo.root, command: holes }],
       ['an argv whose own some() hides a non-string argument', { cwd: repo.root, command: Object.assign([NODE, '-e', '0', 7], { some: () => false }) }],
       ['a NUL inside an argument', { cwd: repo.root, command: [NODE, '-e', '0', 'a\u0000b'] }],
+      ['a NUL inside the program', { cwd: repo.root, command: [`${NODE}${NUL}`, '-e', '0'] }],
       ['an argument that is not well-formed Unicode', { cwd: repo.root, command: [NODE, '-e', '0', `a${lone}`] }],
       ['a program that is not well-formed Unicode', { cwd: repo.root, command: [`${NODE}${lone}`, '-e', '0'] }],
       ['a NUL inside the cwd', { cwd: `${repo.root}${NUL}x`, command: script('') }],
@@ -180,7 +235,9 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
       assert.equal(refused.error.code, 'invalid_request', `${label}: ${JSON.stringify(refused.error)}`);
       assert.equal(refused.error.phase, 'request', label);
     }
-    for (const [label, cwd] of [['a subdirectory of the checkout', path.join(repo.root, 'sub')], ['a directory outside any checkout', outside], ['a missing directory', path.join(repo.root, 'absent')], ['a bare repository', bare]]) {
+    // Pre-push adversarial review of 18eecdc (ADV-124-CWD-NEWLINE-SUBDIR-ACCEPTED): a subdirectory whose name begins with a
+    // newline answered an empty prefix line and passed as the toplevel.
+    for (const [label, cwd] of [['a subdirectory of the checkout', path.join(repo.root, 'sub')], ['a directory outside any checkout', outside], ['a missing directory', path.join(repo.root, 'absent')], ['a bare repository', bare], ...newlineDirectories(repo.root)]) {
       const refused = await helpers.validationRun({ cwd, command: script('') });
       assert.equal(refused.ok, false, `${label} must be refused`);
       assert.equal(refused.error.code, 'invalid_request', `${label}: ${JSON.stringify(refused.error)}`);
@@ -209,7 +266,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On the PR root, the set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'applied to each of its two streams', '`absent` names only a file the head does not carry', 'Each request field is read once and the command runs as that copy', 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'applied to each of its two streams', '`absent` names only a file the head does not carry', "Each of the request's own fields is read once and the command runs as that copy", 'the argv holds at most 65,536 elements', 'a subdirectory whose name begins with a newline is not mistaken for the toplevel', "a spawn error Node throws at once still carries the system's own code as its reason", 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -352,6 +409,7 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
       ['a base that is not a commit here', { cwd: repo.root, baseOid: 'f'.repeat(40), headOid: repo.head, identities: [] }, 'commit_presence'],
       ['a head that is not an OID', { cwd: repo.root, baseOid: repo.base, headOid: 'main', identities: [] }, 'request_shape'],
       ['a cwd below the toplevel', { cwd: path.join(repo.root, 'dir'), baseOid: repo.base, headOid: repo.head, identities: [] }, 'cwd_toplevel'],
+      ...newlineDirectories(repo.root).map(([label, cwd]) => [label, { cwd, baseOid: repo.base, headOid: repo.head, identities: [] }, 'cwd_toplevel']),
       ['a relative cwd', { cwd: 'relative/dir', baseOid: repo.base, headOid: repo.head, identities: [] }, 'request_shape'],
       ['a cwd carrying a NUL', { cwd: `${repo.root}\u0000x`, baseOid: repo.base, headOid: repo.head, identities: [] }, 'request_shape'],
       ['a head identity of another kind', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities: [{ source: 'git:pr_head', kind: 'github', identity: repo.head }] }, 'identity_correlation'],

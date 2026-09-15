@@ -233,17 +233,25 @@ function run(command, args, options = {}) {
   try { validateInvocation(command, args); } catch (error) { return Promise.reject(error); }
   const kind = options.kind || (path.basename(command).toLowerCase().startsWith('gh') ? 'gh' : 'git');
   return new Promise((resolve, reject) => {
-    const child = execFile(command, args, { ...commandOptions(options, kind), encoding: 'buffer' }, (error, stdout, stderr) => {
-      // `acceptAnyExit` resolves every exit code the command chose for itself. A spawn error, a signal, or a kill by
-      // the harness still rejects, whatever exit a killed command then reports, which is how validation_run tells
-      // the classes apart (CL-D72).
-      const harnessKilled = Boolean(options.acceptAnyExit) && child.killed && !(error && typeof error.code === 'string');
-      if (harnessKilled || (error && !(options.acceptExitCodes || []).includes(error.code) && !(options.acceptAnyExit && Number.isInteger(error.code)))) {
-        reject(safeError(Object.assign(error || new Error('killed by the harness'), harnessKilled ? { killed: true } : {}), command, options, stdout, stderr));
-        return;
-      }
-      resolve({ stdout: Buffer.from(stdout || ''), stderr: Buffer.from(stderr || ''), exitCode: error?.code || 0 });
-    });
+    let child;
+    try {
+      child = execFile(command, args, { ...commandOptions(options, kind), encoding: 'buffer' }, (error, stdout, stderr) => {
+        // `acceptAnyExit` resolves every exit code the command chose for itself. A spawn error, a signal, or a kill by
+        // the harness still rejects, whatever exit a killed command then reports, which is how validation_run tells
+        // the classes apart (CL-D72).
+        const harnessKilled = Boolean(options.acceptAnyExit) && child.killed && !(error && typeof error.code === 'string');
+        if (harnessKilled || (error && !(options.acceptExitCodes || []).includes(error.code) && !(options.acceptAnyExit && Number.isInteger(error.code)))) {
+          reject(safeError(Object.assign(error || new Error('killed by the harness'), harnessKilled ? { killed: true } : {}), command, options, stdout, stderr));
+          return;
+        }
+        resolve({ stdout: Buffer.from(stdout || ''), stderr: Buffer.from(stderr || ''), exitCode: error?.code || 0 });
+      });
+    } catch (error) {
+      // Node throws most spawn errors at once instead of passing them to the callback; they are made safe the same way,
+      // so the system's own code still reaches the caller (ADV-124-SYNC-SPAWN-ERROR-REASON-LOST).
+      reject(safeError(error, command, options));
+      return;
+    }
     if (options.stdin !== undefined) child.stdin.end(options.stdin);
     else child.stdin.end();
   });

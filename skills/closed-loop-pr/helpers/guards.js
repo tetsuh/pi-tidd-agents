@@ -300,8 +300,9 @@ function requiredEvidenceSet(data) {
       catch (error) { if (/ENOBUFS|MAXBUFFER/.test(String(error.message))) fail('output_limit', 'output_limit', `${what} exceeds ${limit} bytes`, what); throw error; }
     };
     // A work tree at its toplevel; a bare repository also answers an empty prefix (ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT).
-    const answer = bounded(['rev-parse', '--is-inside-work-tree', '--show-prefix'], SMALL_MAX_BYTES, 'the work-tree check').toString('utf8').split('\n');
-    if (answer[0] !== 'true' || (answer[1] ?? '') !== '') fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of a Git work tree', data.cwd);
+    // Git's whole answer is compared, so a subdirectory whose name begins with a newline cannot pass (ADV-124-CWD-NEWLINE-SUBDIR-ACCEPTED).
+    const answer = bounded(['rev-parse', '--is-inside-work-tree', '--show-prefix'], SMALL_MAX_BYTES, 'the work-tree check').toString('utf8');
+    if (answer !== 'true\n\n') fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of a Git work tree', data.cwd);
     for (const key of ['baseOid', 'headOid']) {
       if (bounded(['cat-file', '-t', data[key]], SMALL_MAX_BYTES, key, [128]).toString('utf8').trim() !== 'commit') fail('invalid_request', 'commit_presence', `${key} is not a commit in this checkout`, data[key]);
     }
