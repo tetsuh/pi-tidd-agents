@@ -371,6 +371,12 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
       assert.ok(bounded.data.requiredEvidence.some((entry) => entry.source === 'large.bin' && entry.identity === crypto.createHash('sha256').update(large).digest('hex')), 'a 17 MiB changed blob is derived with its digest');
       if (process.platform !== 'win32') assert.deepEqual(bounded.data.authority, { included: [], absent: [], excluded: [{ source: 'CONTRACT.md', mode: '120000' }, { source: 'README.md', mode: '040000' }] }, 'present authority entries that are not regular files are excluded with their modes');
     } finally { fs.rmSync(big, { recursive: true, force: true }); }
+    // CONV-124-AUTHORITY-LISTING-UNBOUNDED, swept across the component: every Git read of the derivation goes through its
+    // bounded reader, so none falls back to the process default and every overflow fails closed as output_limit.
+    const guardsSource = readText('skills/closed-loop-pr/helpers/guards.js');
+    const derivation = guardsSource.slice(guardsSource.indexOf('function requiredEvidenceSet('), guardsSource.indexOf('\nmodule.exports', guardsSource.indexOf('function requiredEvidenceSet(')));
+    assert.deepEqual([...derivation.matchAll(/\bgit(?:Bytes|Text)\s*\(/g)].length, 1, 'the only direct Git read is the one inside the bounded reader');
+    assert.deepEqual([...derivation.matchAll(/\bbounded\(\[/g)].map((match) => derivation.slice(match.index, derivation.indexOf(',', match.index + 9))), ["bounded(['rev-parse'", "bounded(['cat-file'", "bounded(['diff'", "bounded(['ls-tree'", "bounded(['ls-tree'", "bounded(['cat-file'", "bounded(['cat-file'"], 'the work-tree check, the commit checks, both listings, the size, and the blob are all bounded');
     assert.deepEqual(cliSchemas().required_evidence_set, ['cwd', 'baseOid', 'headOid', 'identities']);
     const viaCli = cli('required_evidence_set', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });
     assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error)); assert.deepEqual(viaCli.data.requiredEvidence, derived.data.requiredEvidence);
