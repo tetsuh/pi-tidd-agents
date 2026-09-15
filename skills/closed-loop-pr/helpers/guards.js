@@ -293,7 +293,8 @@ function requiredEvidenceSet(data) {
     }
     // Every Git read of the derivation goes through this reader with its own bound, never the process default: a
     // listing or a blob up to 256 MiB, anything else up to 64 KiB; a read beyond its bound fails closed as output_limit
-    // naming it (CONV-124-AUTHORITY-LISTING-UNBOUNDED).
+    // naming it (CONV-124-AUTHORITY-LISTING-UNBOUNDED). A bound applies to each stream, and Git's warnings count on stderr, so
+    // a blob is read under the blob bound, never its own size (ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR).
     const bounded = (args, limit, what, acceptExitCodes) => {
       try { return gitBytes(data.cwd, args, phase, acceptExitCodes, limit); }
       catch (error) { if (/ENOBUFS|MAXBUFFER/.test(String(error.message))) fail('output_limit', 'output_limit', `${what} exceeds ${limit} bytes`, what); throw error; }
@@ -340,7 +341,7 @@ function requiredEvidenceSet(data) {
     const files = byteSort([...sources]).map((source) => {
       const size = Number(bounded(['cat-file', '-s', `${data.headOid}:${source}`], SMALL_MAX_BYTES, source).toString('utf8').trim());
       if (!(size <= BLOB_MAX_BYTES)) fail('output_limit', 'output_limit', `a changed file exceeds ${BLOB_MAX_BYTES} bytes`, source);
-      return { source, kind: 'file', identity: crypto.createHash('sha256').update(bounded(['cat-file', 'blob', `${data.headOid}:${source}`], size + 1, source)).digest('hex') };
+      return { source, kind: 'file', identity: crypto.createHash('sha256').update(bounded(['cat-file', 'blob', `${data.headOid}:${source}`], BLOB_MAX_BYTES, source)).digest('hex') };
     });
     const requiredEvidence = [...files, ...data.identities.map(({ source, kind, identity }) => ({ source, kind, identity }))];
     try { checkRequiredEvidence(requiredEvidence); } catch (error) { fail('invalid_request', 'required_evidence_shape', error.message, error.message); }

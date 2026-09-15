@@ -173,7 +173,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On the PR root, the set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', '`absent` names only a file the head does not carry']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'applied to each of its two streams', '`absent` names only a file the head does not carry']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -377,10 +377,70 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     const derivation = guardsSource.slice(guardsSource.indexOf('function requiredEvidenceSet('), guardsSource.indexOf('\nmodule.exports', guardsSource.indexOf('function requiredEvidenceSet(')));
     assert.deepEqual([...derivation.matchAll(/\bgit(?:Bytes|Text)\s*\(/g)].length, 1, 'the only direct Git read is the one inside the bounded reader');
     assert.deepEqual([...derivation.matchAll(/\bbounded\(\[/g)].map((match) => derivation.slice(match.index, derivation.indexOf(',', match.index + 9))), ["bounded(['rev-parse'", "bounded(['cat-file'", "bounded(['diff'", "bounded(['ls-tree'", "bounded(['ls-tree'", "bounded(['cat-file'", "bounded(['cat-file'"], 'the work-tree check, the commit checks, both listings, the size, and the blob are all bounded');
+    // Pre-push adversarial review of 468ad1f: routing through the reader is not enough, so each read's own limit, the
+    // constants, and the reader's hand-off to the spawn are pinned too.
+    const readLimit = (at) => { let depth = 0, k = at + 'bounded('.length; do { if (derivation[k] === '[') depth += 1; else if (derivation[k] === ']') depth -= 1; k += 1; } while (depth > 0); return `${derivation.slice(at + 10, derivation.indexOf("'", at + 10))} ${derivation.slice(k).match(/^,\s*([^,]+),/)[1].trim()}`; };
+    assert.deepEqual([...derivation.matchAll(/\bbounded\(\[/g)].map((match) => readLimit(match.index)), ['rev-parse SMALL_MAX_BYTES', 'cat-file SMALL_MAX_BYTES', 'diff LISTING_MAX_BYTES', 'ls-tree LISTING_MAX_BYTES', 'ls-tree LISTING_MAX_BYTES', 'cat-file SMALL_MAX_BYTES', 'cat-file BLOB_MAX_BYTES'], 'each read carries the bound the record names for it');
+    assert.ok(guardsSource.includes('const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024;'), 'the bounds are 256 MiB, 256 MiB, and 64 KiB');
+    assert.ok(derivation.includes('try { return gitBytes(data.cwd, args, phase, acceptExitCodes, limit); }') && guardsSource.includes("runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes, maxBuffer })"), 'the reader hands its limit to the spawn');
+    // ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR: a ref named after the head's hex makes Git warn on stderr, and a spawn's bound
+    // applies to each of its streams, so a blob read bounded by the blob's own size failed as output_limit.
+    const ambiguous = repository();
+    try {
+      fs.writeFileSync(path.join(ambiguous.root, 'tracked.txt'), 'changed\n'); git(ambiguous.root, ['commit', '-q', '-am', 'test: head']);
+      const ambiguousHead = git(ambiguous.root, ['rev-parse', 'HEAD']);
+      for (const ref of ['refs/tags/', 'refs/heads/', 'refs/remotes/', 'refs/']) {
+        git(ambiguous.root, ['update-ref', `${ref}${ambiguousHead}`, ambiguousHead]);
+        const warned = helpers.requiredEvidenceSet({ cwd: ambiguous.root, baseOid: ambiguous.head, headOid: ambiguousHead, identities: [] });
+        assert.equal(warned.ok, true, `${ref}<head hex>: ${JSON.stringify(warned.error)}`);
+        assert.deepEqual(warned.data.requiredEvidence.find((entry) => entry.source === 'tracked.txt'), { source: 'tracked.txt', kind: 'file', identity: sha256('changed\n') }, `${ref}<head hex>: the blob is derived with its digest`);
+        git(ambiguous.root, ['update-ref', '-d', `${ref}${ambiguousHead}`]);
+      }
+    } finally { fs.rmSync(ambiguous.root, { recursive: true, force: true }); }
     assert.deepEqual(cliSchemas().required_evidence_set, ['cwd', 'baseOid', 'headOid', 'identities']);
     const viaCli = cli('required_evidence_set', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });
     assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error)); assert.deepEqual(viaCli.data.requiredEvidence, derived.data.requiredEvidence);
     const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
     assert.ok(map.includes("| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |"), 'the map offers required_evidence_set with its fields');
   } finally { fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(bare.root, { recursive: true, force: true }); }
+});
+
+test('Issue #64 required_evidence_set fails closed as output_limit exactly beyond each bound', () => {
+  // Pre-push adversarial review of 468ad1f: every overflow is observed, not only inferred from the reader's shape. The
+  // trees are written object by object, so no index or checkout carries the long names.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-overflow-'));
+  const MiB = 1024 * 1024;
+  const feed = (args, input) => execFileSync('git', args, { cwd: root, input, encoding: 'utf8', maxBuffer: 64 * MiB }).trim();
+  try {
+    git(root, ['init', '-q', '-b', 'main']); git(root, ['config', 'user.name', 'Issue 64 Test']); git(root, ['config', 'user.email', 'issue64@example.invalid']);
+    const blob = (content) => feed(['hash-object', '-w', '--stdin'], content);
+    const tree = (entries) => feed(['mktree', '-z'], entries.map(([mode, type, oid, name]) => `${mode} ${type} ${oid}\t${name}\0`).join(''));
+    const commit = (entries, parent) => feed(['commit-tree', tree(entries), ...(parent ? ['-p', parent] : []), '-m', 'test']);
+    // Eleven thousand names under a hundred directories of 250 bytes each list at about 276 MB, beyond 256 MiB.
+    const leaf = blob('x\n');
+    let deep = tree(Array.from({ length: 11000 }, (_, index) => ['100644', 'blob', leaf, `f${index}`]));
+    for (let level = 99; level >= 0; level -= 1) deep = tree([['040000', 'tree', deep, `${String(level).padStart(3, '0')}${'d'.repeat(247)}`]]);
+    const small = (content) => ['100644', 'blob', blob(content), 'small.txt'];
+    const shallow = commit([small('one\n')]);
+    const wide = commit([['040000', 'tree', deep, 'deep'], small('one\n')], shallow);
+    const wideHead = commit([['040000', 'tree', deep, 'deep'], small('two\n')], wide);
+    git(root, ['update-ref', 'HEAD', shallow]);
+    const overflow = (baseOid, headOid, observed, message) => {
+      const result = helpers.requiredEvidenceSet({ cwd: root, baseOid, headOid, identities: [] });
+      assert.equal(result.ok, false, `${observed}: ${JSON.stringify(result.data)}`);
+      assert.deepEqual([result.error.code, result.error.details.subcheck, result.error.details.observed, result.error.message], ['output_limit', 'output_limit', observed, `output_limit: ${message}`]);
+    };
+    overflow(wide, wideHead, 'the tree listing', 'the tree listing exceeds 268435456 bytes');
+    overflow(shallow, wideHead, 'the changed-path listing', 'the changed-path listing exceeds 268435456 bytes');
+    // A blob of exactly 256 MiB is derived with its digest; one byte more fails before it is read.
+    const exactBytes = Buffer.alloc(256 * MiB, 120);
+    const exact = feed(['hash-object', '-w', '--stdin'], exactBytes);
+    const over = feed(['hash-object', '-w', '--stdin'], Buffer.alloc(256 * MiB + 1, 120));
+    const withExact = commit([small('one\n'), ['100644', 'blob', exact, 'exact.bin']], shallow);
+    const withOver = commit([small('one\n'), ['100644', 'blob', exact, 'exact.bin'], ['100644', 'blob', over, 'over.bin']], withExact);
+    const derived = helpers.requiredEvidenceSet({ cwd: root, baseOid: shallow, headOid: withExact, identities: [] });
+    assert.equal(derived.ok, true, JSON.stringify(derived.error));
+    assert.deepEqual(derived.data.requiredEvidence, [{ source: 'exact.bin', kind: 'file', identity: crypto.createHash('sha256').update(exactBytes).digest('hex') }], 'a blob at the bound is derived');
+    overflow(withExact, withOver, 'over.bin', 'a changed file exceeds 268435456 bytes');
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
