@@ -79,7 +79,7 @@ test('Issue #111 gate_result_read returns the designated envelope from the runne
     const validated = helpers.validateGateResult(read.data.envelope, expected);
     assert.equal(validated.ok, true, JSON.stringify(validated.error));
     assert.deepEqual(cliSchemas().gate_result_read, ['runId'], 'the request names a run, never a path');
-    assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /gate_result_read: \{ required: \['runId'\], optional: \[\] \}/, 'the packaged request carries a run id and nothing else');
+    assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /gate_result_read: \{ required: \['runId'\], optional: \['expectationPath'\] \}/, 'the packaged request carries a run id and, since CL-D73, the expectation file to validate against');
     assert.equal(fs.statSync(parentChosen).size, 0, 'the parent-chosen file stays empty and unread');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -337,7 +337,7 @@ test('Issue #111 the invocation map, the transport section, and the README name 
   const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map);
   assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |'));
-  assert.ok(map.includes('| Every gate result, before `gate_result_validate` (CL-D58, CL-D68) | `gate_result_read` | `runId` |'));
+  assert.ok(map.includes('| Every gate result; with `expectationPath` it is the validation too (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |'));
   assert.match(map, /Run the CLI from the installed package, never from the reviewed checkout: `operator_capture` records `helperPath` and fails closed with `helper_inside_target` \(CL-D68\)\./);
   assert.match(map, /`build_gate_launch` reads the payload blocks from that package and emits no `output` field: pass its request to the subagent tool unchanged and read the result with `gate_result_read` by run id/);
   // Bootstrap rule: two reviews of this PR ended BLOCKED because the parent read the target's map as its own instructions.

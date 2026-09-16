@@ -12,11 +12,11 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
-  'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'launch.js', 'operator.js', 'paths.js',
+  'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js',
   'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
-  'build_fingerprint_snapshot', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
+  'build_fingerprint_snapshot', 'build_gate_assignments', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
   'build_workspace_verify', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
   'marker_create', 'marker_reconcile', 'required_evidence_check', 'required_evidence_set', 'validation_run',
@@ -56,8 +56,9 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/guards.js|const noise = fs.statSync(noisePath).size;',
   "skills/closed-loop-pr/helpers/workspace.js|const fs = require('node:fs');",
   "skills/closed-loop-pr/helpers/workspace.js|fs.writeFileSync(target, JSON.stringify(receipt), { mode: 0o600, flag: 'wx' });",
-  "skills/closed-loop-pr/helpers/workspace.js|return JSON.parse(fs.readFileSync(target, 'utf8'));",
-  'skills/closed-loop-pr/helpers/workspace.js|function canon(file) { return fs.realpathSync.native(file); }',
+  "skills/closed-loop-pr/helpers/workspace.js|try { return JSON.parse(fs.readFileSync(target, 'utf8')); } catch (error) { if (error instanceof SyntaxError) return null; throw error; }",
+  "skills/closed-loop-pr/helpers/inspect.js|const fs = require('node:fs');",
+  'skills/closed-loop-pr/helpers/inspect.js|function canon(file) { return fs.realpathSync.native(file); }',
   "skills/closed-loop-pr/helpers/workspace.js|try { root = fs.mkdtempSync(path.join(canonicalParent, 'pi-autofix-helper-')); }",
   'skills/closed-loop-pr/helpers/workspace.js|try { fs.mkdirSync(root, { recursive: false, mode: 0o700 }); }',
   'skills/closed-loop-pr/helpers/workspace.js|if (!fs.existsSync(worktrees)) return [];',
@@ -67,9 +68,9 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './launch': 1, './operator': 3,
-  './paths': 4, './process': 6, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 6, 'node:os': 3, 'node:path': 7,
+  './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
+  './paths': 5, './process': 7, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 7, 'node:os': 3, 'node:path': 8,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
 const PROVENANCE_ANCHORS = [
@@ -102,7 +103,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
-const AGGREGATE_SMOKE_ALARM = 240000; // CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run
+const AGGREGATE_SMOKE_ALARM = 260000; // CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -236,6 +237,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'CL-D53 later reset the aggregate smoke alarm to 160,000 bytes',
     'CL-D71 reset it a third time to 220,000 bytes',
     'CL-D72 reset it a fourth time to 240,000 bytes',
+    'CL-D73 reset it a fifth time to 260,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);

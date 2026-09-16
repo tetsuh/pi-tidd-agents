@@ -6,10 +6,15 @@ const crypto = require('node:crypto');
 const os = require('node:os');
 const { run, runSync, gitArgs, assertSafeRepositoryConfig, isolationPaths } = require('./process');
 const { createResult, createError } = require('./protocol');
-const { cleanupCwdProblem } = require('./composition');
+const { cleanupCwdProblem, absoluteSpelling, isCreationReceipt } = require('./composition');
 const { assertSymlinkFreePath, lstatKind, classifyRuntimeRoots, normalizeCheckoutPath } = require('./paths');
+const { canon, git, gitRaw, parseWorktrees, symlinkFreePathKey, registrationAtPath, remoteIdentity, inspectWorkspace } = require('./inspect');
 
 function nonce() { return crypto.randomBytes(32).toString('base64url'); }
+function text(value) { return typeof value === 'string' && value.length > 0; }
+// What a stored identity must state: every field cleanup's comparison consults, plus the head and tree the run
+// records and cleanup does not compare, because the run moves them. A field it may omit is never held to.
+const STATED_IDENTITY = 'kind path detached gitDir commonGitDir originFetch originPush head tree registered'.split(' ');
 function receiptPath(root) { return path.join(root, '.cleanup-receipt.json'); }
 function writeReceipt(root, receipt) {
   const target = receiptPath(root);
@@ -19,63 +24,9 @@ function writeReceipt(root, receipt) {
 function readReceipt(root) {
   const target = receiptPath(root);
   if (lstatKind(target) !== 'file') return null;
-  return JSON.parse(fs.readFileSync(target, 'utf8'));
-}
-function canon(file) { return fs.realpathSync.native(file); }
-function git(cwd, args, phase, options = {}) { return runSync('git', gitArgs(args), { cwd, phase, acceptExitCodes: options.acceptExitCodes }).trim(); }
-function gitRaw(cwd, args, phase) { return Buffer.from(runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer' })).toString('utf8'); }
-function parseWorktrees(cwd) {
-  return git(cwd, ['worktree', 'list', '--porcelain', '-z'], 'workspace_verify').split('\0\0').filter(Boolean).map((block) => {
-    const fields = {};
-    for (const line of block.split('\0').filter(Boolean)) { const i = line.indexOf(' '); fields[i < 0 ? line : line.slice(0, i)] = i < 0 ? true : line.slice(i + 1); }
-    return fields;
-  });
-}
-function pathKey(file) {
-  const absolute = path.resolve(file);
-  let current = absolute;
-  const missing = [];
-  for (;;) {
-    try {
-      const resolved = path.join(canon(current), ...missing);
-      return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
-    } catch (error) {
-      if (!['ENOENT', 'ENOTDIR'].includes(error.code)) throw error;
-      const parent = path.dirname(current);
-      if (parent === current) break;
-      missing.unshift(path.basename(current));
-      current = parent;
-    }
-  }
-  return process.platform === 'win32' ? absolute.toLowerCase() : absolute;
-}
-function symlinkFreePathKey(file) {
-  let current = path.resolve(file);
-  for (;;) {
-    let kind;
-    try { kind = lstatKind(current); }
-    catch (error) { if (error.code === 'ENOTDIR') return null; throw error; }
-    if (kind === 'symlink') return null;
-    const parent = path.dirname(current);
-    if (parent === current) break;
-    current = parent;
-  }
-  return pathKey(file);
-}
-function registrationAtPath(records, workspace) {
-  const expected = symlinkFreePathKey(workspace);
-  if (!expected) return null;
-  return records.find((item) => item.worktree && symlinkFreePathKey(item.worktree) === expected) || null;
-}
-function registration(cwd, workspace) {
-  // Symlink-free exact-path lookup only. `pathKey` canonicalizes the existing ancestors of both
-  // sides, so a registration Git recorded under another spelling still matches, and
-  // `symlinkFreePathKey` refuses a path whose ancestor is a symlink. A registration reachable
-  // only by following a symlink is deliberately not matched: the no-follow rule that governs
-  // runtime roots governs registration identity too, and the caller then fails closed.
-  const record = registrationAtPath(parseWorktrees(cwd), workspace);
-  if (!record || lstatKind(record.worktree) !== 'directory') return null;
-  try { return canon(record.worktree) === canon(workspace) ? record : null; } catch { return null; }
+  // Bytes that are not a receipt are the stored file failing, not the operation: the caller's own refusal carries
+  // it, so cleanup answers `cleanup_not_authorized` rather than a parser's message (CONV-128-RECEIPT).
+  try { return JSON.parse(fs.readFileSync(target, 'utf8')); } catch (error) { if (error instanceof SyntaxError) return null; throw error; }
 }
 function recoveryEvidence({ repository, commonGitDir, workspace, expectedHead, record, root, runRootSource }) {
   const pathKind = lstatKind(workspace);
@@ -105,29 +56,6 @@ function recoveryEvidence({ repository, commonGitDir, workspace, expectedHead, r
     runRootSource,
     exactRemovalCandidate: eligible,
   };
-}
-function detached(cwd) { return git(cwd, ['symbolic-ref', '-q', 'HEAD'], 'workspace_verify', { acceptExitCodes: [1] }) === ''; }
-function remoteIdentity(workspace) {
-  const originFetch = git(workspace, ['remote', 'get-url', 'origin'], 'workspace_verify');
-  let originPush; try { originPush = git(workspace, ['remote', 'get-url', '--push', 'origin'], 'workspace_verify'); } catch { originPush = originFetch; }
-  return { originFetch, originPush };
-}
-function inspectWorkspace(workspace, repositoryCwd, expected = {}) {
-  const workspacePath = canon(workspace);
-  const repository = canon(git(workspacePath, ['rev-parse', '--show-toplevel'], 'workspace_verify'));
-  const head = git(workspacePath, ['rev-parse', 'HEAD'], 'workspace_verify');
-  const tree = git(workspacePath, ['rev-parse', 'HEAD^{tree}'], 'workspace_verify');
-  const gitDir = canon(git(workspacePath, ['rev-parse', '--absolute-git-dir'], 'workspace_verify'));
-  const commonRaw = git(workspacePath, ['rev-parse', '--path-format=absolute', '--git-common-dir'], 'workspace_verify');
-  const commonGitDir = canon(path.isAbsolute(commonRaw) ? commonRaw : path.resolve(workspacePath, commonRaw));
-  const registered = expected.kind === 'clone' ? null : registration(repositoryCwd || workspacePath, workspacePath);
-  const identity = { kind: expected.kind || 'linked', path: workspacePath, repository, head, tree, detached: detached(workspacePath), gitDir, commonGitDir, registered, ...remoteIdentity(workspacePath) };
-  const immutable = ['kind', 'path', 'detached', 'gitDir', 'commonGitDir', 'originFetch', 'originPush'];
-  const matches = immutable.every((field) => expected[field] === undefined || JSON.stringify(identity[field]) === JSON.stringify(expected[field]))
-    && (expected.head === undefined || identity.head === expected.head)
-    && (expected.tree === undefined || identity.tree === expected.tree)
-    && (expected.registered === undefined || (expected.registered === null ? identity.registered === null : identity.registered && expected.registered.worktree === identity.registered.worktree));
-  return { ...identity, matches };
 }
 function transitionError(message) { const error = new Error(message); error.code = 'invalid_transition'; throw error; }
 function workspaceStateError(code, message) { const error = new Error(message); error.code = code; error.phase = 'workspace_verify'; throw error; }
@@ -326,15 +254,59 @@ function canonicalThroughExisting(target) {
 }
 async function cleanupWorkspace(input, cwd) {
   try {
-    const receipt = input?.data?.receipt || input?.receipt || input;
+    // CL-D73: the run's own workspace path is enough — its parent is the run root and the stored receipt is read
+    // there — so a run that no longer holds the creation data it was given at launch can still clean up (#125 run 3).
+    // A request carries the `cwd` its schema requires and a creation receipt never does, which is what tells a
+    // request naming neither input apart from a direct call that hands the receipt itself. Both receipt forms,
+    // the envelope's data and the receipt alone, are unchanged, and so is every identity check below.
+    const named = input?.data ?? input;
+    const request = named !== null && typeof named === 'object' ? named : {};
+    const carriesReceipt = Object.hasOwn(request, 'receipt');
+    const workspace = carriesReceipt ? undefined : request.workspace;
+    if (carriesReceipt && request.workspace !== undefined) return createError('workspace_cleanup', 'invalid_request', 'give either the receipt or the workspace path, never both', 'workspace_cleanup');
+    if (!carriesReceipt && workspace === undefined && Object.hasOwn(request, 'cwd')) return createError('workspace_cleanup', 'invalid_request', 'give either the receipt or the workspace path', 'workspace_cleanup');
+    if (workspace !== undefined && !(typeof workspace === 'string' && workspace.length > 0)) return createError('workspace_cleanup', 'invalid_request', 'the workspace path must be a nonempty string', 'workspace_cleanup');
+    // A relative path in either field has no identity to judge, and the workspace form has no builder in front of
+    // it to refuse one (CL-D49's rule, applied where the request arrives).
+    if (workspace !== undefined && !absoluteSpelling(workspace)) return createError('workspace_cleanup', 'cleanup_workspace_relative', 'the workspace path must be an absolute path', 'workspace_cleanup', { workspace });
+    // A request that carries a cwd states one, and states it in the request: an empty or absent value took the
+    // repository from the receipt the request had just located, which is the file deciding where Git runs.
+    const requestCwd = Object.hasOwn(request, 'cwd') ? request.cwd : cwd;
+    if (Object.hasOwn(request, 'cwd') && !(text(requestCwd) && absoluteSpelling(requestCwd))) return createError('workspace_cleanup', 'cleanup_cwd_relative', 'cleanup cwd must be a nonempty absolute path', 'workspace_cleanup', { cwd: requestCwd });
+    let receipt = carriesReceipt ? request.receipt : (workspace === undefined ? named : undefined);
+    if (workspace !== undefined) {
+      const runRoot = path.dirname(path.resolve(workspace));
+      const stored = readReceipt(runRoot);
+      // The stored receipt is what authorizes the removal here, so it is held to the declared receipt shape: the
+      // run root and the receipt's path are known from the named workspace, and the version and the id must come
+      // from the file itself. The identity comparison below would otherwise compare this file with a copy of itself.
+      receipt = { ...stored, root: runRoot, storedPath: receiptPath(runRoot) };
+      // The stored file is the whole authority in this form, so it must carry the declared receipt shape. What it
+      // must state about the workspace is required of both ways in, below.
+      if (!isCreationReceipt(receipt)) return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
+    }
     if (!receipt?.root || !receipt?.storedPath || path.resolve(receipt.storedPath) !== receiptPath(path.resolve(receipt.root))) return createError('workspace_cleanup', 'cleanup_not_authorized', 'run-owned cleanup receipt path required', 'workspace_cleanup');
     assertSymlinkFreePath(receipt.root);
     const stored = readReceipt(receipt.root);
     const creation = stored?.creationIdentity;
-    const validReceipt = stored && stored.version === 1 && stored.id === receipt.id && receipt.version === 1
-      && JSON.stringify(receipt.creationIdentity) === JSON.stringify(creation);
+    // Both ways in are held to the same stored identity: a caller that can write the file can also hand back an
+    // equal copy of it, so a receipt the request carries establishes nothing the stored file does not. An identity
+    // stating nothing matches everything, because inspectWorkspace skips a field it is not given.
+    const complete = creation !== null && typeof creation === 'object' && text(creation.path)
+      && STATED_IDENTITY.every((field) => Object.hasOwn(creation, field));
+    const validReceipt = stored && stored.version === 1 && text(stored.id) && stored.id === receipt.id
+      && receipt.version === 1 && complete && JSON.stringify(receipt.creationIdentity) === JSON.stringify(creation);
     if (!validReceipt || creation.kind !== 'linked') return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
-    const repositoryCwd = cwd || receipt.repositoryCwd;
+    // The named path located the receipt; what the receipt points at is what would be removed. Unless they are the
+    // same workspace by identity, a request naming one run's workspace would remove another's.
+    if (workspace !== undefined) {
+      const namedWorkspace = canonicalThroughExisting(path.resolve(workspace));
+      const receiptWorkspace = canonicalThroughExisting(path.resolve(creation.path));
+      // The receipt sits in the run root beside the workspace it was written for, not beside whatever path a
+      // request names: a copy of it elsewhere, next to a symlink, would otherwise remove the real workspace.
+      if (namedWorkspace !== receiptWorkspace || path.dirname(receiptWorkspace) !== canonicalThroughExisting(path.resolve(receipt.root))) return createError('workspace_cleanup', 'workspace_mismatch', 'the receipt must sit in the run root beside the workspace the request names', 'workspace_cleanup', { workspace: namedWorkspace, receiptWorkspace });
+    }
+    const repositoryCwd = requestCwd || receipt.repositoryCwd;
     // Identity, not spelling: the cwd is canonicalized through its deepest existing ancestor, so a symlink
     // alias of the workspace, or a path below one, is the same cwd (CONV-123-SYMLINK-CLEANUP-CWD).
     const resolvedCwd = canonicalThroughExisting(path.resolve(repositoryCwd)), workspaceRoot = canonicalThroughExisting(path.resolve(creation.path));
@@ -346,7 +318,12 @@ async function cleanupWorkspace(input, cwd) {
     if (fs.existsSync(actual.path) || parseWorktrees(repositoryCwd).some((item) => item.worktree === actual.path)) return createError('workspace_cleanup', 'cleanup_incomplete', 'workspace removal was incomplete', 'workspace_cleanup');
     fs.unlinkSync(receipt.storedPath);
     return createResult('workspace_cleanup', { removed: true, path: actual.path, terminalHead: actual.head, terminalTree: actual.tree, id: receipt.id });
-  } catch (error) { return createError('workspace_cleanup', error.code || 'cleanup_failed', error.message, error.phase || 'workspace_cleanup'); }
+  } catch (error) {
+    // A lower layer's failure is not this operation's vocabulary: an errno names what the filesystem refused, not
+    // what cleanup decided, so only this operation's own codes pass (CONV-128-RECEIPT, same class).
+    const code = /^[a-z_]+$/.test(error.code || '') ? error.code : 'cleanup_failed';
+    return createError('workspace_cleanup', code, error.message, error.phase || 'workspace_cleanup');
+  }
 }
 
 module.exports = { createWorkspace, verifyWorkspace, cleanupWorkspace, inspectWorkspace, parseWorktrees, adminInventory };

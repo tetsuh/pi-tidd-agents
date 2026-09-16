@@ -2772,8 +2772,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 240000;",
-        "CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run"
+        "const AGGREGATE_SMOKE_ALARM = 260000;",
+        "CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions"
       ]
     },
     {
@@ -3406,7 +3406,7 @@
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "| Every gate result, before `gate_result_validate` (CL-D58, CL-D68) | `gate_result_read` | `runId` |",
+        "| Every gate result; with `expectationPath` it is the validation too (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |",
         "| Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |",
         "Run the CLI from the installed package, never from the reviewed checkout: `operator_capture` records `helperPath` and fails closed with `helper_inside_target` (CL-D68).",
         "`build_gate_launch` reads the payload blocks from that package and emits no `output` field: pass its request to the subagent tool unchanged and read the result with `gate_result_read` by run id",
@@ -3571,8 +3571,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 240000;",
-        "CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run"
+        "const AGGREGATE_SMOKE_ALARM = 260000;",
+        "CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions"
       ]
     },
     {
@@ -3669,6 +3669,75 @@
       "requires": [
         "The guarded focused validation runs through packaged `validation_run` (CL-D72)."
       ]
+    },
+    {
+      "id": "CL-D73-operations",
+      "marker": "CL-D73",
+      "title": "The invocation map offers the three packaged gate-step compositions",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
+      "requires": [
+        "| `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |",
+        "| `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |",
+        "| `workspace_cleanup` | `cwd`, and either `receipt` (receipt inside `workspace_create` data) or `workspace` (the run workspace path) |"
+      ]
+    },
+    {
+      "id": "CL-D73-record",
+      "marker": "CL-D73",
+      "title": "CL-D73 records the three compositions, the alarm reset, and the boundary",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D73 — The gate step composes no request by hand",
+      "requires": [
+        "*Owner choice:* Option A on all three",
+        "resets from 240,000 to 260,000 bytes",
+        "the parent keeps every judgment it has today and loses only the transcription",
+        "save that the validator's `invalid_request`, which is always the expectation's, is reported as the file's fault"
+      ]
+    },
+    {
+      "id": "CL-D73-tests",
+      "marker": "CL-D73",
+      "title": "The packaged compositions are pinned by their own tests",
+      "files": [
+        "test/issue-125-gate-step-builders.test.js"
+      ],
+      "requires": [
+        "Issue #125 gate_result_read validates the envelope against the expectation file in one result",
+        "Issue #125 build_gate_assignments turns findings and settled keys into the tuples the expectation needs",
+        "Issue #125 workspace_cleanup removes the workspace from its own path, without the receipt the run held",
+        "Issue #125 workspace_cleanup removes only the workspace the request names",
+        "Issue #125 the transport section and the addendum name the packaged compositions"
+      ]
+    },
+    {
+      "id": "CL-D73-transport",
+      "marker": "CL-D73",
+      "title": "The transport section states what the packaged read returns and who builds the tuples",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Structured gate result transport (CL-D36)",
+      "requires": [
+        "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals except that its `invalid_request`, always the expectation's, is reported as the file's fault, in the same result, so the parent carries no document from one operation into the next (CL-D73).",
+        "built by packaged `build_gate_assignments` from the validated result's findings, the settled ledger's keys, and the reopens the parent states, so the parent states which blocker a finding reopens and transcribes no tuple (CL-D73)"
+      ]
+    },
+    {
+      "id": "CL-D73-addendum",
+      "marker": "CL-D73",
+      "title": "The exact-autofix addendum names the three packaged compositions beside the rule they extend",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "It governs the gate step's requests too: packaged `gate_result_read`, given its expectation file, validates the result, packaged `build_gate_assignments` builds the assigned tuples, and packaged `workspace_cleanup` takes the workspace path (CL-D73)."
+      ],
+      "section": "### Exact identity and Luna publication phases"
     }
   ]
 }
