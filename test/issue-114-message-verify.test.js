@@ -172,3 +172,36 @@ test('Issue #114 the modelled strip is the byte class Git strips', () => {
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   }
 });
+
+// A commit object written directly. `git commit` stores exactly one terminal LF under the pinned cleanup, so the
+// two shapes acceptance criterion 3 names — a stored message missing that LF, and one carrying an extra — exist
+// only if the object is built by hand. `test/issue-64-validation-run.test.js` builds objects the same way.
+function rawCommit(root, body) {
+  const env = { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' };
+  const git = (args, options = {}) => execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], { cwd: root, env, ...options });
+  const LF = String.fromCharCode(10);
+  const tree = git(['rev-parse', 'HEAD^{tree}'], { encoding: 'utf8' }).trim();
+  const who = 't <t@x> 1700000000 +0000';
+  const header = `tree ${tree}${LF}author ${who}${LF}committer ${who}${LF}${LF}`;
+  const oid = git(['hash-object', '-t', 'commit', '-w', '--stdin'], { input: Buffer.concat([Buffer.from(header, 'utf8'), Buffer.from(body, 'utf8')]), encoding: 'utf8' }).trim();
+  git(['update-ref', 'refs/heads/main', oid]);
+}
+
+test('Issue #114 a terminal LF missing from or added to the stored message is refused', () => {
+  // The whole subject of this issue is the terminal LF, and the operation must tell an exact stored message from
+  // one that differs only by it — through the packaged operation, not through a shell or a local comparator.
+  const LF = String.fromCharCode(10);
+  const approved = `feat: s (#114)${LF}${LF}body.${LF}`;
+  const { root } = fixture(approved, { args: ['--cleanup=whitespace'] });
+  try {
+    assert.equal(cli('message_verify', { cwd: root, expected: approved }).ok, true, 'the exact stored message verifies');
+    for (const [name, body] of [
+      ['missing', `feat: s (#114)${LF}${LF}body.`],
+      ['extra', `feat: s (#114)${LF}${LF}body.${LF}${LF}`],
+    ]) {
+      rawCommit(root, body);
+      const verified = cli('message_verify', { cwd: root, expected: approved });
+      assert.deepEqual([verified.ok, verified.error.details.subcheck], [false, 'message_bytes'], `${name} terminal LF: ${JSON.stringify(verified.data ?? verified.error)}`);
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
