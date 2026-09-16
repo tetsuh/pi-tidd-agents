@@ -135,6 +135,11 @@ function isolationPaths() {
   let root;
   try { root = fs.mkdtempSync(path.join(temporaryParent, 'pi-tidd-pr-helper-')); }
   catch (error) { throw isolationError('isolation_create_failed', 'process isolation directory could not be created', error); }
+  // The root belongs to this process and outlives no part of it. Removal names the one path this process created,
+  // never a prefix, so a root another process is still using is untouched; a run that is already failing must not
+  // be turned into a different failure by the removal, so the attempt is allowed to fail silently (Issue #130).
+  const created = root;
+  process.on('exit', () => { try { fs.rmSync(created, { recursive: true, force: true }); } catch { /* the process is ending */ } });
   try {
     const home = path.join(root, 'home');
     const hooks = path.join(root, 'hooks');
