@@ -43,7 +43,7 @@ test('Issue #114 the packaged verification compares the stored message bytes', (
   assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /message_verify: \{ required: \['cwd', 'expected'\], optional: \[\] \}/, 'the CLI offers the verification with the cwd and the approved message');
 
   const approved = 'feat: subject (#114)\n\nTest provenance: node --test.\n';
-  const { root } = fixture(approved);
+  const { root } = fixture(approved, { args: ['--cleanup=whitespace'] });
   try {
     // The message the run approved, verified as stored.
     const exact = cli('message_verify', { cwd: root, expected: approved });
@@ -88,7 +88,7 @@ test('Issue #114 the approved message is put through the cleanup Git itself appl
     'feat: s (#114)\n\nbody.\n   \n',
   ];
   for (const approved of shapes) {
-    const { root } = fixture(approved);
+    const { root } = fixture(approved, { args: ['--cleanup=whitespace'] });
     try {
       const verified = cli('message_verify', { cwd: root, expected: approved });
       assert.equal(verified.ok, true, `Git stored this message as asked: ${JSON.stringify(approved)} -> ${JSON.stringify(verified.error)}`);
@@ -98,7 +98,7 @@ test('Issue #114 the approved message is put through the cleanup Git itself appl
 
 test('Issue #114 a commit object beyond the read bound names the bound, not an errno', () => {
   const approved = `feat: s (#114)\n\n${'x'.repeat(70000)}\n`;
-  const { root } = fixture(approved);
+  const { root } = fixture(approved, { args: ['--cleanup=whitespace'] });
   try {
     const verified = cli('message_verify', { cwd: root, expected: approved });
     assert.deepEqual([verified.ok, verified.error.code], [false, 'output_limit'], JSON.stringify(verified.error));
@@ -108,7 +108,7 @@ test('Issue #114 a commit object beyond the read bound names the bound, not an e
 
 test('Issue #114 the cwd is a work tree toplevel, named when it is not', () => {
   const approved = 'feat: s (#114)\n\nbody.\n';
-  const { root } = fixture(approved);
+  const { root } = fixture(approved, { args: ['--cleanup=whitespace'] });
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-114-bare-'));
   try {
     const sub = path.join(root, 'nested');
@@ -198,10 +198,13 @@ test('Issue #114 a terminal LF missing from or added to the stored message is re
     for (const [name, body] of [
       ['missing', `feat: s (#114)${LF}${LF}body.`],
       ['extra', `feat: s (#114)${LF}${LF}body.${LF}${LF}`],
+      // The same byte count as the approved message, with the LF moved: a comparator that only measures
+      // lengths accepts this, and the two shapes above cannot tell it apart because both change the length.
+      ['moved', `feat: s (#114)${LF}${LF}body${LF}.`],
     ]) {
       rawCommit(root, body);
       const verified = cli('message_verify', { cwd: root, expected: approved });
-      assert.deepEqual([verified.ok, verified.error.details.subcheck], [false, 'message_bytes'], `${name} terminal LF: ${JSON.stringify(verified.data ?? verified.error)}`);
+      assert.deepEqual([verified.ok, verified.error?.details?.subcheck], [false, 'message_bytes'], `${name} terminal LF: ${JSON.stringify(verified.data ?? verified.error)}`);
     }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
