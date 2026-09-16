@@ -249,7 +249,7 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
   assert.equal(readText('test/package.test.js').includes('helperBytes < 240000'), false, 'the superseded alarm must not survive');
 
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D73').map((clause) => clause.id).sort(), ['CL-D73-operations', 'CL-D73-record', 'CL-D73-tests']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D73').map((clause) => clause.id).sort(), ['CL-D73-addendum', 'CL-D73-operations', 'CL-D73-record', 'CL-D73-tests', 'CL-D73-transport']);
   assert.ok(fs.existsSync(repoPath('test/issue-125-gate-step-builders.test.js')));
 });
 
@@ -319,6 +319,19 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
     const badPath = cli('workspace_cleanup', { cwd: repository.root, workspace });
     assert.deepEqual([badPath.ok, badPath.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(badPath.data ?? badPath.error));
 
+    // Bytes that are not a receipt at all are the same refusal as a receipt that says the wrong thing: a parse
+    // failure is the stored file failing, not the operation, and it carries the operation's own code.
+    const malformed = ['{"version":1,', String.fromCharCode(0, 1) + 'garbage', ''];
+    for (const bytes of malformed) {
+      fs.writeFileSync(storedPath, bytes);
+      const viaWorkspace = cli('workspace_cleanup', { cwd: repository.root, workspace });
+      assert.deepEqual([viaWorkspace.ok, viaWorkspace.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(viaWorkspace.data ?? viaWorkspace.error));
+      const viaReceiptForm = cli('workspace_cleanup', { cwd: repository.root, receipt: { ...JSON.parse(genuine), root: runRoot, storedPath } });
+      assert.deepEqual([viaReceiptForm.ok, viaReceiptForm.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(viaReceiptForm.data ?? viaReceiptForm.error));
+      assert.ok(fs.existsSync(workspace), 'no unreadable receipt removed anything');
+    }
+    fs.writeFileSync(storedPath, genuine);
+
     // Both ways in are held to the same stored identity: a forger who wrote the file supplies an equal copy, so a
     // receipt the request carries proves nothing the stored file does not.
     const incomplete = { version: 1, id: 'x', creationIdentity: { kind: 'linked', path: workspace } };
@@ -347,4 +360,18 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
     fs.rmSync(repository.bare, { recursive: true, force: true });
     if (runRoot) fs.rmSync(runRoot, { recursive: true, force: true });
   }
+});
+
+const TRANSPORT_READ = "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals, in the same result, so the parent carries no document from one operation into the next (CL-D73).";
+const TRANSPORT_TUPLES = "built by packaged `build_gate_assignments` from the validated result's findings and the settled ledger's keys so no tuple is transcribed by hand (CL-D73)";
+const ADDENDUM = "It governs the gate step's requests too: packaged `gate_result_read` validates the result against its expectation file, packaged `build_gate_assignments` builds the assigned tuples, and packaged `workspace_cleanup` takes the workspace path (CL-D73).";
+
+test('Issue #125 the transport section and the addendum name the packaged compositions', () => {
+  const transport = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '### Structured gate result transport (CL-D36)');
+  assert.ok(transport, 'the transport section exists');
+  assert.ok(transport.includes(TRANSPORT_READ), 'the transport section states what the packaged read returns');
+  assert.ok(transport.includes(TRANSPORT_TUPLES), 'the transport section states who builds the tuples');
+  // The addendum states it beside the rule it extends, not in a section of its own.
+  const phases = sectionOf(readText('skills/closed-loop-pr/references/autofix-addendum.md'), '### Exact identity and Luna publication phases');
+  assert.ok(phases.includes(ADDENDUM), 'the addendum names all three operations and their package-owned usage');
 });

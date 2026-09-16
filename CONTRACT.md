@@ -559,7 +559,7 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Validity and invalidation conditions:* Applies to `validation_run`, `required_evidence_set`, the recovery row key, the alarm value, and the spawn-site rule. It adds no recovery, retry, or relaxation of CL-D39 and no mutation, publication, or writer authority; the operation runs what the parent names and decides nothing about what a failure means. A second non-git spawn site, a shell string, a cwd below a toplevel, a program allowlist, or a further alarm raise requires a new owner decision.
 
 ## CL-D73 — The gate step composes no request by hand
-**Clauses:** CL-D73-operations, CL-D73-record, CL-D73-tests
+**Clauses:** CL-D73-operations, CL-D73-transport, CL-D73-addendum, CL-D73-record, CL-D73-tests
 
 *Decision ID:* CL-D73
 *Kind:* contract

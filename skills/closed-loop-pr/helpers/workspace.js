@@ -24,7 +24,9 @@ function writeReceipt(root, receipt) {
 function readReceipt(root) {
   const target = receiptPath(root);
   if (lstatKind(target) !== 'file') return null;
-  return JSON.parse(fs.readFileSync(target, 'utf8'));
+  // Bytes that are not a receipt are the stored file failing, not the operation: the caller's own refusal carries
+  // it, so cleanup answers `cleanup_not_authorized` rather than a parser's message (CONV-128-RECEIPT).
+  try { return JSON.parse(fs.readFileSync(target, 'utf8')); } catch { return null; }
 }
 function recoveryEvidence({ repository, commonGitDir, workspace, expectedHead, record, root, runRootSource }) {
   const pathKind = lstatKind(workspace);
