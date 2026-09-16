@@ -553,7 +553,7 @@ test('artifact assertions cover exact autofix safety records and remain non-auth
     '`AFTER_COMMIT` immediately after commit', '`BEFORE_PUSH` immediately before push independently repeats `WORKSPACE_POST_COMMIT(C, P)`',
     'After verifying public head `C`, require `AUTOFIX_WORKSPACE@C` and `WORKSPACE_POST_PUSH(C, O)`',
     'All three local dimensions remain independently guarded', 'tracked worktree, index, and untracked state outside `RUNTIME_ROOTS`',
-    'pre-existing tracked unstaged edit is rejected', 'git log -1 --format=%B',
+    'pre-existing tracked unstaged edit is rejected', 'through packaged `message_verify`',
     'stored bytes/content exactly', 'expected approved message',
     'unexpected worktree or index mutation', 'regardless of path authorization', 'Cleanup failure is fail-closed',
     'never claims that the whole PR is ready unless final readiness has independently been reached',
