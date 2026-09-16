@@ -9,7 +9,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync, spawnSync } = require('node:child_process');
+const { execFileSync, spawn, spawnSync } = require('node:child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
 const CLI = path.join(repoRoot, 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
@@ -65,17 +65,52 @@ test('Issue #130 a packaged invocation leaves no isolation root behind', () => {
   } finally { fs.rmSync(repository, { recursive: true, force: true }); }
 });
 
-test('Issue #130 a root another process owns is left alone', () => {
+test('Issue #130 a root another process owns, while that process lives, is left alone', { timeout: 30000 }, async () => {
+  // The criterion names a live owner, not a directory the test made to look like one: the foreign root is created
+  // by a separate process through the packaged `isolationPaths()`, and that process stays alive across the
+  // invocation. Ending it gracefully afterwards also shows the owner removing its own root.
   const repository = fixtureRepository();
   const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-130-parent-'));
+  const owner = spawn(process.execPath, ['-e', ([
+    "const m = require(process.argv[1]);",
+    "process.stdout.write(`${m.isolationPaths().root}\n`);",
+    "process.stdin.resume();",
+    "process.stdin.on('end', () => process.exit(0));",
+  ].join('')), path.join(repoRoot, 'skills', 'closed-loop-pr', 'helpers', 'process.js')], {
+    env: { ...process.env, TMPDIR: parent, TEMP: parent, TMP: parent },
+    stdio: ['pipe', 'pipe', 'inherit'],
+  });
+  owner.unref?.();
   try {
-    // A root indistinguishable from one of ours, created by something else and still in use.
-    const foreign = fs.mkdtempSync(path.join(parent, 'pi-tidd-pr-helper-'));
-    fs.writeFileSync(path.join(foreign, 'global.gitconfig'), '');
+    const foreign = await new Promise((resolve, reject) => {
+      let buffered = '';
+      owner.stdout.on('data', (chunk) => {
+        buffered += chunk.toString('utf8');
+        const end = buffered.indexOf(String.fromCharCode(10));
+        if (end >= 0) resolve(buffered.slice(0, end));
+      });
+      owner.on('error', reject);
+      owner.on('exit', (code) => reject(new Error(`the owning process ended before it reported its root (${code})`)));
+    });
+    assert.equal(fs.existsSync(foreign), true, 'the owning process created its root');
+    assert.equal(owner.exitCode, null, 'the owning process is still alive');
+
     const run = invoke({ cwd: repository, expected: MESSAGE }, parent);
     assert.equal(JSON.parse(run.stdout).ok, true, `${run.stdout}${run.stderr}`);
-    assert.deepEqual(rootsIn(parent), [path.basename(foreign)], 'only the root this process did not create remains');
+    assert.deepEqual(rootsIn(parent), [path.basename(foreign)], 'only the live owner\'s root remains');
+    // `exitCode` is null for a child that has died but not been reaped, and the invocation blocked the loop, so
+    // liveness is re-proved after it: one turn for any pending exit, then the owner is signalled with 0.
+    await new Promise(setImmediate);
+    assert.equal(owner.exitCode, null, 'the owning process was still alive across the invocation');
+    assert.doesNotThrow(() => owner.kill(0), 'the owning process still exists');
+
+    // The owner ends the way a packaged process ends, and takes its own root with it.
+    const ended = new Promise((resolve) => owner.on('exit', resolve));
+    owner.stdin.end();
+    await ended;
+    assert.equal(fs.existsSync(foreign), false, 'the owning process removed its own root when it ended');
   } finally {
+    if (owner.exitCode === null) owner.kill();
     fs.rmSync(parent, { recursive: true, force: true });
     fs.rmSync(repository, { recursive: true, force: true });
   }
