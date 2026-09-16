@@ -56,7 +56,7 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/guards.js|const noise = fs.statSync(noisePath).size;',
   "skills/closed-loop-pr/helpers/workspace.js|const fs = require('node:fs');",
   "skills/closed-loop-pr/helpers/workspace.js|fs.writeFileSync(target, JSON.stringify(receipt), { mode: 0o600, flag: 'wx' });",
-  "skills/closed-loop-pr/helpers/workspace.js|try { return JSON.parse(fs.readFileSync(target, 'utf8')); } catch { return null; }",
+  "skills/closed-loop-pr/helpers/workspace.js|try { return JSON.parse(fs.readFileSync(target, 'utf8')); } catch (error) { if (error instanceof SyntaxError) return null; throw error; }",
   "skills/closed-loop-pr/helpers/inspect.js|const fs = require('node:fs');",
   'skills/closed-loop-pr/helpers/inspect.js|function canon(file) { return fs.realpathSync.native(file); }',
   "skills/closed-loop-pr/helpers/workspace.js|try { root = fs.mkdtempSync(path.join(canonicalParent, 'pi-autofix-helper-')); }",

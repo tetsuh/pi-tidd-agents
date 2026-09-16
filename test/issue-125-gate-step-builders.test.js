@@ -263,6 +263,7 @@ test('Issue #125 the invocation map offers the packaged compositions', () => {
 test('Issue #125 workspace_cleanup removes only the workspace the request names', async () => {
   const repository = fixtureRepository();
   let runRoot;
+  let probeRoot;
   try {
     const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
     assert.equal(created.ok, true, JSON.stringify(created.error));
@@ -341,6 +342,24 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
     assert.ok(fs.existsSync(workspace), 'the receipt form refuses what the workspace form refuses');
     fs.writeFileSync(storedPath, genuine);
 
+    // A lower layer's failure is not this operation's vocabulary: an errno never becomes the code, and a receipt
+    // that is present but unreadable is a read that failed, not a receipt that does not match. Both are probed on a
+    // second workspace, because each leaves the run it touches unusable.
+    const probe = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
+    assert.equal(probe.ok, true, JSON.stringify(probe.error));
+    probeRoot = probe.data.root;
+    fs.chmodSync(path.join(probeRoot, '.cleanup-receipt.json'), 0);
+    const unreadable = cli('workspace_cleanup', { cwd: repository.root, workspace: probe.data.path });
+    fs.chmodSync(path.join(probeRoot, '.cleanup-receipt.json'), 0o600);
+    assert.match(unreadable.error.code, /^[a-z_]+$/, 'the code is this operation\'s own vocabulary, never an errno');
+    assert.notEqual(unreadable.error.code, 'cleanup_not_authorized', 'a receipt that cannot be read is not a receipt that does not match');
+    assert.ok(fs.existsSync(probe.data.path), 'no unreadable receipt removed anything');
+
+    // The same, for a workspace directory removed by hand while its receipt and registration stay in place.
+    fs.rmSync(probe.data.path, { recursive: true, force: true });
+    const vanished = cli('workspace_cleanup', { cwd: repository.root, workspace: probe.data.path });
+    assert.match(vanished.error.code, /^[a-z_]+$/, 'a missing directory is reported in this operation\'s vocabulary');
+
     // A receipt sits beside the workspace it was written for, not beside whatever path a request names: a copy of it
     // in an unrelated directory, next to a symlink, removed the workspace and left the real receipt orphaned.
     const elsewhere = temp('issue-125-elsewhere-');
@@ -359,12 +378,13 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
     fs.rmSync(repository.root, { recursive: true, force: true });
     fs.rmSync(repository.bare, { recursive: true, force: true });
     if (runRoot) fs.rmSync(runRoot, { recursive: true, force: true });
+    if (probeRoot) fs.rmSync(probeRoot, { recursive: true, force: true });
   }
 });
 
-const TRANSPORT_READ = "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals, in the same result, so the parent carries no document from one operation into the next (CL-D73).";
-const TRANSPORT_TUPLES = "built by packaged `build_gate_assignments` from the validated result's findings and the settled ledger's keys so no tuple is transcribed by hand (CL-D73)";
-const ADDENDUM = "It governs the gate step's requests too: packaged `gate_result_read` validates the result against its expectation file, packaged `build_gate_assignments` builds the assigned tuples, and packaged `workspace_cleanup` takes the workspace path (CL-D73).";
+const TRANSPORT_READ = "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals except that a bad expectation is reported as the file's fault, in the same result, so the parent carries no document from one operation into the next (CL-D73).";
+const TRANSPORT_TUPLES = "built by packaged `build_gate_assignments` from the validated result's findings, the settled ledger's keys, and the reopens the parent states, so the parent states which blocker a finding reopens and transcribes no tuple (CL-D73)";
+const ADDENDUM = "It governs the gate step's requests too: packaged `gate_result_read`, given its expectation file, validates the result, packaged `build_gate_assignments` builds the assigned tuples, and packaged `workspace_cleanup` takes the workspace path (CL-D73).";
 
 test('Issue #125 the transport section and the addendum name the packaged compositions', () => {
   const transport = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '### Structured gate result transport (CL-D36)');

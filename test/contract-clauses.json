@@ -3722,8 +3722,8 @@
       ],
       "section": "### Structured gate result transport (CL-D36)",
       "requires": [
-        "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals, in the same result, so the parent carries no document from one operation into the next (CL-D73).",
-        "built by packaged `build_gate_assignments` from the validated result's findings and the settled ledger's keys so no tuple is transcribed by hand (CL-D73)"
+        "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals except that a bad expectation is reported as the file's fault, in the same result, so the parent carries no document from one operation into the next (CL-D73).",
+        "built by packaged `build_gate_assignments` from the validated result's findings, the settled ledger's keys, and the reopens the parent states, so the parent states which blocker a finding reopens and transcribes no tuple (CL-D73)"
       ]
     },
     {
@@ -3734,8 +3734,9 @@
         "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
-        "It governs the gate step's requests too: packaged `gate_result_read` validates the result against its expectation file, packaged `build_gate_assignments` builds the assigned tuples, and packaged `workspace_cleanup` takes the workspace path (CL-D73)."
-      ]
+        "It governs the gate step's requests too: packaged `gate_result_read`, given its expectation file, validates the result, packaged `build_gate_assignments` builds the assigned tuples, and packaged `workspace_cleanup` takes the workspace path (CL-D73)."
+      ],
+      "section": "### Exact identity and Luna publication phases"
     }
   ]
 }

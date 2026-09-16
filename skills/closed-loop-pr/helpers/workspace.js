@@ -26,7 +26,7 @@ function readReceipt(root) {
   if (lstatKind(target) !== 'file') return null;
   // Bytes that are not a receipt are the stored file failing, not the operation: the caller's own refusal carries
   // it, so cleanup answers `cleanup_not_authorized` rather than a parser's message (CONV-128-RECEIPT).
-  try { return JSON.parse(fs.readFileSync(target, 'utf8')); } catch { return null; }
+  try { return JSON.parse(fs.readFileSync(target, 'utf8')); } catch (error) { if (error instanceof SyntaxError) return null; throw error; }
 }
 function recoveryEvidence({ repository, commonGitDir, workspace, expectedHead, record, root, runRootSource }) {
   const pathKind = lstatKind(workspace);
@@ -318,7 +318,12 @@ async function cleanupWorkspace(input, cwd) {
     if (fs.existsSync(actual.path) || parseWorktrees(repositoryCwd).some((item) => item.worktree === actual.path)) return createError('workspace_cleanup', 'cleanup_incomplete', 'workspace removal was incomplete', 'workspace_cleanup');
     fs.unlinkSync(receipt.storedPath);
     return createResult('workspace_cleanup', { removed: true, path: actual.path, terminalHead: actual.head, terminalTree: actual.tree, id: receipt.id });
-  } catch (error) { return createError('workspace_cleanup', error.code || 'cleanup_failed', error.message, error.phase || 'workspace_cleanup'); }
+  } catch (error) {
+    // A lower layer's failure is not this operation's vocabulary: an errno names what the filesystem refused, not
+    // what cleanup decided, so only this operation's own codes pass (CONV-128-RECEIPT, same class).
+    const code = /^[a-z_]+$/.test(error.code || '') ? error.code : 'cleanup_failed';
+    return createError('workspace_cleanup', code, error.message, error.phase || 'workspace_cleanup');
+  }
 }
 
 module.exports = { createWorkspace, verifyWorkspace, cleanupWorkspace, inspectWorkspace, parseWorktrees, adminInventory };
