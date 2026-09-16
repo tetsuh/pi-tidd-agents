@@ -188,6 +188,7 @@ function fixtureRepository() {
 }
 
 test('Issue #125 workspace_cleanup removes the workspace from its own path, without the receipt the run held', async () => {
+  let runRoot;
   assert.deepEqual(cliSchemas().workspace_cleanup, ['cwd'], 'only the cwd stays required');
   assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /workspace_cleanup: \{ required: \['cwd'\], optional: \['receipt', 'workspace'\] \}/, 'the receipt and the workspace path are the two ways in');
 
@@ -200,6 +201,7 @@ test('Issue #125 workspace_cleanup removes the workspace from its own path, with
     const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
     assert.equal(created.ok, true, JSON.stringify(created.error));
     const workspace = created.data.path;
+    runRoot = created.data.root;
     assert.ok(fs.existsSync(workspace), 'the workspace exists before cleanup');
 
     // Neither input given, and both given, are refused before anything is removed.
@@ -216,7 +218,11 @@ test('Issue #125 workspace_cleanup removes the workspace from its own path, with
     assert.equal(removed.ok, true, JSON.stringify(removed.error));
     assert.deepEqual([removed.data.removed, removed.data.path], [true, workspace], 'the workspace it names is the one removed');
     assert.equal(fs.existsSync(workspace), false, 'the linked worktree is gone');
-  } finally { fs.rmSync(repository.root, { recursive: true, force: true }); fs.rmSync(repository.bare, { recursive: true, force: true }); }
+  } finally {
+    fs.rmSync(repository.root, { recursive: true, force: true });
+    fs.rmSync(repository.bare, { recursive: true, force: true });
+    if (runRoot) fs.rmSync(runRoot, { recursive: true, force: true });
+  }
 });
 
 test('Issue #125 CL-D73 records the three compositions and the reviewed alarm reset', () => {
@@ -252,7 +258,7 @@ test('Issue #125 the invocation map offers the packaged compositions', () => {
   assert.ok(map.includes('| `workspace_cleanup` | `cwd`, and either `receipt` (receipt inside `workspace_create` data) or `workspace` (the run workspace path) |'), 'the map offers cleanup from the workspace path');
 });
 
-test('Issue #125 workspace_cleanup removes only the workspace the request names', () => {
+test('Issue #125 workspace_cleanup removes only the workspace the request names', async () => {
   const repository = fixtureRepository();
   let runRoot;
   try {
@@ -293,7 +299,13 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
     // The stored receipt must carry what a run writes: a nonempty id and a creation identity. A file with neither
     // authorized a removal, and a file without a creation identity crashed the comparison meant to guard it.
     const genuine = fs.readFileSync(storedPath, 'utf8');
-    for (const forged of [{ version: 1, id: null, creationIdentity: { kind: 'linked', path: workspace } }, { version: 1, id: 'x' }]) {
+    for (const forged of [
+      { version: 1, id: null, creationIdentity: { kind: 'linked', path: workspace } },
+      { version: 1, id: 'x' },
+      // An identity that states nothing matches everything: inspectWorkspace compares only the fields it is given.
+      { version: 1, id: 'x', creationIdentity: { kind: 'linked', path: workspace } },
+      { version: 1, id: 'x', creationIdentity: { kind: 'linked' } },
+    ]) {
       fs.writeFileSync(storedPath, JSON.stringify(forged));
       const out = cli('workspace_cleanup', { cwd: repository.root, workspace });
       assert.deepEqual([out.ok, out.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(out.data ?? out.error));
@@ -311,9 +323,10 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
     assert.ok(fs.existsSync(workspace), 'a copied receipt removed nothing');
     fs.rmSync(elsewhere, { recursive: true, force: true });
 
-    const removed = cli('workspace_cleanup', { cwd: repository.root, workspace });
-    assert.equal(removed.ok, true, JSON.stringify(removed.error));
-    assert.deepEqual([removed.data.removed, removed.data.path], [true, workspace], 'the workspace it names is the one removed');
+    // The cwd a request states is the cwd, whether or not a caller repeats it as the second argument.
+    const inProcess = await helpers.cleanupWorkspace({ cwd: repository.root, workspace });
+    assert.equal(inProcess.ok, true, JSON.stringify(inProcess.error));
+    assert.deepEqual([inProcess.data.removed, inProcess.data.path], [true, workspace], 'the workspace it names is the one removed');
   } finally {
     fs.rmSync(repository.root, { recursive: true, force: true });
     fs.rmSync(repository.bare, { recursive: true, force: true });

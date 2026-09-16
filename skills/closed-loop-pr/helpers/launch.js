@@ -115,7 +115,9 @@ function readGateResult(data) {
     const validated = validateGateResult(envelope, expected);
     // The validator judges the expectation with the envelope's own version, so this read refuses nothing the
     // two-step path accepts (CL-D60). Its `invalid_request` is always about the expectation and never about the
-    // envelope, and here that expectation came from a file: the refusal names the file, not the caller's request.
+    // envelope, and here that expectation came from a file: that one code is reported as the file's fault. The
+    // expectation's own schema failures keep the validator's codes, named by their `expected.` path, and every
+    // refusal carries the file it read.
     if (!validated.ok) {
       const code = validated.error.code === 'invalid_request' ? 'expectation_file_mismatch' : validated.error.code;
       return { ...validated, operation, error: { ...validated.error, code, details } };
