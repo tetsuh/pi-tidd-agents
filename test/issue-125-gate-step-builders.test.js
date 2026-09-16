@@ -94,6 +94,25 @@ test('Issue #125 gate_result_read validates the envelope against the expectation
     assert.deepEqual([badFile.ok, badFile.error.code], [false, 'expectation_file_mismatch'], JSON.stringify(badFile.error));
     assert.equal(badFile.error.details?.expectationPath, notExpectation, 'the refusal names the file it read');
 
+    // Version parity: the read validates with the envelope's own version, as the two-step path does, so a v1
+    // envelope and its v1 expectation are accepted by both or by neither (CL-D60 keeps v1 verbatim for a release).
+    const v1Correlation = correlation('sol');
+    const v1Envelope = {
+      schemaVersion: 1, verdict: 'MERGE', correlation: v1Correlation,
+      evidenceRead: evidence().map(({ source, kind }) => ({ source, kind, readCompletely: true })),
+      findings: [], confirmations: [], decisions: [],
+      adversarialResults: [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }],
+    };
+    const v1Expected = { workflow: 'pr', correlation: v1Correlation, assignedFindings: [], requiredEvidence: evidence() };
+    const v1Paths = runRecord(v1Envelope);
+    const v1Path = path.join(v1Paths.root, 'v1-expectation.json');
+    fs.writeFileSync(v1Path, JSON.stringify(v1Expected));
+    try {
+      const twoStep = helpers.validateGateResult(v1Envelope, v1Expected);
+      const oneStep = helpers.readGateResult({ runId: RUN, runsRoot: v1Paths.root, expectationPath: v1Path });
+      assert.deepEqual([oneStep.ok, twoStep.ok], [true, true], JSON.stringify(oneStep.error ?? twoStep.error));
+    } finally { fs.rmSync(v1Paths.root, { recursive: true, force: true }); }
+
     // The shape run 4 sent by hand stays refused by the CLI.
     const handComposed = cli('gate_result_validate', { expectation: expected, workflow: 'pr', result: envelope });
     assert.deepEqual([handComposed.ok, handComposed.error.code], [false, 'invalid_request'], JSON.stringify(handComposed.error));
@@ -146,6 +165,16 @@ test('Issue #125 build_gate_assignments turns findings and settled keys into the
   assert.deepEqual([silentReopen.ok, silentReopen.error.code], [false, 'invalid_request'], JSON.stringify(silentReopen.error));
   const statedReopen = cli('build_gate_assignments', { findings: [{ findingId: 'ADV-124-OLD' }], settledKeys: ['ADV-124-OLD'], reopens: { 'ADV-124-OLD': 'ADV-124-OLD' } });
   assert.equal(statedReopen.ok, true, JSON.stringify(statedReopen.error));
+
+  // Only an assigned finding carries a key, and it always carries one: a key on a fresh finding is invented, and an
+  // assigned finding without one has lost the key the parent gave it. Both were emitted as tuples before.
+  const invented = cli('build_gate_assignments', { findings: [{ findingId: 'ADV-125-A', blockerKey: 'MADE-UP' }], settledKeys: [] });
+  assert.deepEqual([invented.ok, invented.error.code], [false, 'invalid_request'], JSON.stringify(invented.data ?? invented.error));
+  const assignedWithoutKey = cli('build_gate_assignments', { findings: [{ findingId: 'ADV-125-A', origin: 'assigned' }], settledKeys: [] });
+  assert.deepEqual([assignedWithoutKey.ok, assignedWithoutKey.error.code], [false, 'invalid_request'], JSON.stringify(assignedWithoutKey.data ?? assignedWithoutKey.error));
+  // An assigned finding's key is not in the settled ledger while its blocker is still open, so it is accepted.
+  const openAssigned = cli('build_gate_assignments', { findings: [{ findingId: 'ADV-125-A', origin: 'assigned', blockerKey: 'ADV-124-OPEN' }], settledKeys: [] });
+  assert.deepEqual(openAssigned.data.assignedFindings, [{ findingId: 'ADV-125-A', blockerKey: 'ADV-124-OPEN' }], JSON.stringify(openAssigned.error));
 });
 
 // A repository with an origin, as workspace_create needs one.
@@ -253,6 +282,34 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
     assert.deepEqual([unshaped.ok, unshaped.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(unshaped.data ?? unshaped.error));
     fs.writeFileSync(storedPath, JSON.stringify(stored));
     assert.ok(fs.existsSync(workspace), 'no refusal removed anything');
+
+    // A cwd the request carries but does not state is not a cwd: an empty or null value took the repository from
+    // the receipt the request had just located.
+    for (const empty of ['', null]) {
+      const emptyCwd = cli('workspace_cleanup', { cwd: empty, workspace });
+      assert.deepEqual([emptyCwd.ok, emptyCwd.error.code], [false, 'cleanup_cwd_relative'], JSON.stringify(emptyCwd.data ?? emptyCwd.error));
+    }
+
+    // The stored receipt must carry what a run writes: a nonempty id and a creation identity. A file with neither
+    // authorized a removal, and a file without a creation identity crashed the comparison meant to guard it.
+    const genuine = fs.readFileSync(storedPath, 'utf8');
+    for (const forged of [{ version: 1, id: null, creationIdentity: { kind: 'linked', path: workspace } }, { version: 1, id: 'x' }]) {
+      fs.writeFileSync(storedPath, JSON.stringify(forged));
+      const out = cli('workspace_cleanup', { cwd: repository.root, workspace });
+      assert.deepEqual([out.ok, out.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(out.data ?? out.error));
+      assert.ok(fs.existsSync(workspace), 'no forged receipt removed anything');
+    }
+    fs.writeFileSync(storedPath, genuine);
+
+    // A receipt sits beside the workspace it was written for, not beside whatever path a request names: a copy of it
+    // in an unrelated directory, next to a symlink, removed the workspace and left the real receipt orphaned.
+    const elsewhere = temp('issue-125-elsewhere-');
+    fs.writeFileSync(path.join(elsewhere, '.cleanup-receipt.json'), genuine);
+    fs.symlinkSync(workspace, path.join(elsewhere, 'link'));
+    const copied = cli('workspace_cleanup', { cwd: repository.root, workspace: path.join(elsewhere, 'link') });
+    assert.deepEqual([copied.ok, copied.error.code], [false, 'workspace_mismatch'], JSON.stringify(copied.data ?? copied.error));
+    assert.ok(fs.existsSync(workspace), 'a copied receipt removed nothing');
+    fs.rmSync(elsewhere, { recursive: true, force: true });
 
     const removed = cli('workspace_cleanup', { cwd: repository.root, workspace });
     assert.equal(removed.ok, true, JSON.stringify(removed.error));

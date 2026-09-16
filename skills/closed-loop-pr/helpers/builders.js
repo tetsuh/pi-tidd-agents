@@ -94,13 +94,15 @@ function buildGateAssignments(data) {
       const findingId = finding.findingId;
       const carried = finding.blockerKey;
       const stated = Object.hasOwn(reopens, findingId) ? reopens[findingId] : undefined;
-      if (carried !== undefined) {
-        if (!text(carried)) fail('invalid_request', `finding ${findingId} carries a blockerKey that is not a nonempty string`);
-        // The key the parent assigned is immutable: re-keying an assigned finding to its own id would restart the
-        // no-progress count for that blocker under a new key, which is the transcription this builder removes.
+      // Only an assigned finding carries a key, and it always carries one. The key the parent assigned is
+      // immutable: re-keying an assigned finding to its own id restarts the no-progress count for that blocker
+      // under a new key, and a key on a fresh finding is one nothing assigned.
+      if (finding.origin === 'assigned') {
+        if (!text(carried)) fail('invalid_request', `assigned finding ${findingId} carries no blockerKey`);
         if (stated !== undefined && stated !== carried) fail('invalid_request', `finding ${findingId} already carries the blocker key ${carried}; reopens cannot move it to ${stated}`);
         return { findingId, blockerKey: carried };
       }
+      if (carried !== undefined) fail('invalid_request', `finding ${findingId} is not assigned, so it carries no blockerKey of its own`);
       // A fresh finding keys itself. An id the ledger already holds is a reopen whatever else it is, and whether it
       // is one stays the parent's judgment to state, so it is refused here rather than assumed either way.
       if (stated !== undefined) return { findingId, blockerKey: stated };

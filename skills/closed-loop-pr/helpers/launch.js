@@ -112,11 +112,14 @@ function readGateResult(data) {
     let expected;
     try { expected = JSON.parse(expectationText); } catch (error) { fail('expectation_file_mismatch', `expectation file is not JSON: ${error.message}`, { expectationPath: data.expectationPath }); }
     const details = { expectationPath: data.expectationPath, statusPath, structuredOutputPath };
-    // A file that is not an expectation is the file's fault, not the request's: the launch composer's own refusal,
-    // naming the file, rather than `invalid_request` about a request that was well formed.
-    try { expectedState(expected); } catch (error) { fail('expectation_file_mismatch', `expectation file is not an expectation: ${error.message}`, details); }
     const validated = validateGateResult(envelope, expected);
-    if (!validated.ok) return { ...validated, operation, error: { ...validated.error, details } };
+    // The validator judges the expectation with the envelope's own version, so this read refuses nothing the
+    // two-step path accepts (CL-D60). Its `invalid_request` is always about the expectation and never about the
+    // envelope, and here that expectation came from a file: the refusal names the file, not the caller's request.
+    if (!validated.ok) {
+      const code = validated.error.code === 'invalid_request' ? 'expectation_file_mismatch' : validated.error.code;
+      return { ...validated, operation, error: { ...validated.error, code, details } };
+    }
     return createResult(operation, { ...reported, ...validated.data });
   } catch (error) {
     return createError(operation, error.code || 'read_failed', error.message, operation, error.details);

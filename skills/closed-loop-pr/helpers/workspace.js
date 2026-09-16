@@ -10,6 +10,7 @@ const { cleanupCwdProblem, absoluteSpelling, isCreationReceipt } = require('./co
 const { assertSymlinkFreePath, lstatKind, classifyRuntimeRoots, normalizeCheckoutPath } = require('./paths');
 
 function nonce() { return crypto.randomBytes(32).toString('base64url'); }
+function text(value) { return typeof value === 'string' && value.length > 0; }
 function receiptPath(root) { return path.join(root, '.cleanup-receipt.json'); }
 function writeReceipt(root, receipt) {
   const target = receiptPath(root);
@@ -341,7 +342,9 @@ async function cleanupWorkspace(input, cwd) {
     // A relative path in either field has no identity to judge, and the workspace form has no builder in front of
     // it to refuse one (CL-D49's rule, applied where the request arrives).
     if (workspace !== undefined && !absoluteSpelling(workspace)) return createError('workspace_cleanup', 'cleanup_workspace_relative', 'the workspace path must be an absolute path', 'workspace_cleanup', { workspace });
-    if (cwd !== undefined && cwd !== null && cwd !== '' && !absoluteSpelling(cwd)) return createError('workspace_cleanup', 'cleanup_cwd_relative', 'cleanup cwd must be an absolute path', 'workspace_cleanup', { cwd });
+    // A request that carries a cwd states one: an empty or absent value took the repository from the receipt the
+    // request had just located, which is the file deciding where Git runs.
+    if (Object.hasOwn(request, 'cwd') && !(text(cwd) && absoluteSpelling(cwd))) return createError('workspace_cleanup', 'cleanup_cwd_relative', 'cleanup cwd must be a nonempty absolute path', 'workspace_cleanup', { cwd });
     let receipt = carriesReceipt ? request.receipt : (workspace === undefined ? named : undefined);
     if (workspace !== undefined) {
       const runRoot = path.dirname(path.resolve(workspace));
@@ -350,7 +353,11 @@ async function cleanupWorkspace(input, cwd) {
       // run root and the receipt's path are known from the named workspace, and the version and the id must come
       // from the file itself. The identity comparison below would otherwise compare this file with a copy of itself.
       receipt = { ...stored, root: runRoot, storedPath: receiptPath(runRoot) };
-      if (!isCreationReceipt(receipt)) return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
+      // The stored file is the whole authority in this form, so it must carry what a run writes: the declared
+      // shape, a nonempty nonce, and a creation identity. Without the last two, the comparison below compares this
+      // file with a copy of itself and then reads `kind` off nothing.
+      const identity = receipt.creationIdentity;
+      if (!isCreationReceipt(receipt) || !text(receipt.id) || identity === null || typeof identity !== 'object') return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
     }
     if (!receipt?.root || !receipt?.storedPath || path.resolve(receipt.storedPath) !== receiptPath(path.resolve(receipt.root))) return createError('workspace_cleanup', 'cleanup_not_authorized', 'run-owned cleanup receipt path required', 'workspace_cleanup');
     assertSymlinkFreePath(receipt.root);
@@ -364,7 +371,9 @@ async function cleanupWorkspace(input, cwd) {
     if (workspace !== undefined) {
       const namedWorkspace = canonicalThroughExisting(path.resolve(workspace));
       const receiptWorkspace = canonicalThroughExisting(path.resolve(creation.path));
-      if (namedWorkspace !== receiptWorkspace) return createError('workspace_cleanup', 'workspace_mismatch', 'the receipt beside the named path points at another workspace', 'workspace_cleanup', { workspace: namedWorkspace, receiptWorkspace });
+      // The receipt sits in the run root beside the workspace it was written for, not beside whatever path a
+      // request names: a copy of it elsewhere, next to a symlink, would otherwise remove the real workspace.
+      if (namedWorkspace !== receiptWorkspace || path.dirname(receiptWorkspace) !== canonicalThroughExisting(path.resolve(receipt.root))) return createError('workspace_cleanup', 'workspace_mismatch', 'the receipt must sit in the run root beside the workspace the request names', 'workspace_cleanup', { workspace: namedWorkspace, receiptWorkspace });
     }
     const repositoryCwd = cwd || receipt.repositoryCwd;
     // Identity, not spelling: the cwd is canonicalized through its deepest existing ancestor, so a symlink
