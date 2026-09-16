@@ -31,6 +31,13 @@ test('Issue #73 the raised guards are the ones the suite actually asserts', () =
   assert.equal(PACKAGE_TEST.includes('total < 116000'), false, 'the superseded six-file ceiling must not survive');
   assert.match(CLEANLINESS_TEST, /Buffer\.byteLength\(addendum\) < 29000,/);
   assert.equal(CLEANLINESS_TEST.includes('byteLength(addendum) < 25022'), false, 'the superseded addendum ceiling must not survive');
+  // The regex above names one file, so a site deleted elsewhere is a guard silently gone. Every other file that
+  // asserts this guard is listed here, and removing the assertion from any of them fails here (CL-D74).
+  for (const file of ['test/issue-87-addendum-split.test.js', 'test/issue-115-writer-pre-guard.test.js',
+    'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js',
+    'test/issue-126-sol-component-sweep.test.js', 'test/pr-operational-cleanliness.test.js']) {
+    assert.match(readText(file), /< 29000/, `${file} must carry the CL-D30 addendum guard`);
+  }
 
   // The disclosure guard is not a budget and is deliberately not raised.
   assert.match(PACKAGE_TEST, /const PR_SKILL_PRE_SPLIT_BYTES = 57160;/);

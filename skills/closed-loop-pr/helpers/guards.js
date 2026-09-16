@@ -279,12 +279,13 @@ function messageVerify(data) {
     const separator = raw.indexOf(Buffer.from([10, 10]));
     if (separator < 0) fail('guard_failed', 'commit_object_shape', 'the commit object carries no header separator', `${raw.length} bytes`);
     const stored = raw.subarray(separator + 2);
-    // `git commit -F` cleans the message before storing it: trailing whitespace off every line, leading and
+    // `git commit -F --cleanup=whitespace` cleans the message before storing it: trailing space, tab and CR off
+    // every line — Git's own space class, which keeps a vertical tab and a form feed — leading and
     // trailing blank lines dropped, runs of blank lines collapsed to one. The approved message is put through that
     // same cleanup before the comparison, so a message Git stored as asked is never reported as a difference.
     const kept = [];
     let blank = false;
-    for (const line of data.expected.split(String.fromCharCode(10)).map((entry) => entry.replace(/[ \t\v\f\r]+$/, ''))) {
+    for (const line of data.expected.split(String.fromCharCode(10)).map((entry) => entry.replace(/[ \t\r]+$/, ''))) {
       if (line.length === 0) { blank = kept.length > 0; continue; }
       if (blank) kept.push('');
       blank = false;

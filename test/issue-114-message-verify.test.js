@@ -158,3 +158,17 @@ test('Issue #114 the commit and the verification share one pinned cleanup mode',
     assert.deepEqual([refused.ok, refused.error.details.subcheck], [false, 'message_bytes'], JSON.stringify(refused.error));
   } finally { fs.rmSync(unpinned.root, { recursive: true, force: true }); }
 });
+
+test('Issue #114 the modelled strip is the byte class Git strips', () => {
+  // Git's trailing-whitespace strip is its own space class — space, TAB, LF, CR — so a vertical tab or a form feed
+  // stays in the stored message. A model that strips those two refuses a commit created exactly as the contract
+  // prescribes, which is this branch's own failure reached by another route (CONV-129 class, CL-D74).
+  for (const [name, code] of [['tab', 9], ['vertical tab', 11], ['form feed', 12], ['carriage return', 13], ['space', 32]]) {
+    const approved = `feat: s (#114)${String.fromCharCode(code)}${String.fromCharCode(10)}`;
+    const { root } = fixture(approved, { args: ['--cleanup=whitespace'] });
+    try {
+      const verified = cli('message_verify', { cwd: root, expected: approved });
+      assert.equal(verified.ok, true, `trailing ${name}: ${JSON.stringify(verified.error)}`);
+    } finally { fs.rmSync(root, { recursive: true, force: true }); }
+  }
+});
