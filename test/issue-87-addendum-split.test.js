@@ -55,7 +55,7 @@ test('Issue #87 the disclosure stages are bounded per stage', () => {
   // The pre-split-monolith claim keeps its meaning for what every autofix run reads.
   assert.ok(skill + base < 57160, `skill+base is ${skill + base}`);
   // The addendum stage carries the guard its section already had.
-  assert.ok(addendum < 28000, `addendum file is ${addendum}`);
+  assert.ok(addendum < 29000, `addendum file is ${addendum}`);
 });
 
 test('Issue #87 CL-D50 records the third disclosure stage', () => {

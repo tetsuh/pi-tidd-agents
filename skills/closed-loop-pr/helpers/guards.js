@@ -255,6 +255,48 @@ function manifestCompare(data) {
 // CL-D61: a required-evidence entry naming a file that does not exist is an assembly error to
 // catch before any gate runs (PR #104 spent Terra's only retry on one), never a gate outcome.
 // Only `file`-kind sources are paths; the other kinds carry digests or GitHub identities.
+function messageVerify(data) {
+  return wrap('message_verify', () => {
+    const phase = 'message_verify';
+    if (!text(data.cwd) || !path.isAbsolute(data.cwd) || data.cwd.includes(String.fromCharCode(0))) fail('invalid_request', 'request_shape', 'cwd must be an absolute path without NUL', typeof data.cwd);
+    if (typeof data.expected !== 'string' || data.expected.length === 0) fail('invalid_request', 'request_shape', 'expected must be the approved message', typeof data.expected);
+    // Each read carries its own bound and names it, so a read past it is this operation's refusal and never a
+    // spawn errno reaching the caller as the observed value (CONV-124-AUTHORITY-LISTING-UNBOUNDED, same class).
+    const bounded = (args, what) => {
+      try { return gitBytes(data.cwd, args, phase, undefined, SMALL_MAX_BYTES); }
+      catch (error) {
+        if (/ENOBUFS|MAXBUFFER/.test(String(error.message))) fail('output_limit', 'output_limit', `${what} exceeds ${SMALL_MAX_BYTES} bytes`, what);
+        throw error;
+      }
+    };
+    // A work tree at its toplevel; a bare repository answers false and a subdirectory a nonempty prefix
+    // (ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT).
+    if (bounded(['rev-parse', '--is-inside-work-tree', '--show-prefix'], 'the work-tree check').toString('utf8') !== 'true\n\n') fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of a Git work tree', data.cwd);
+    // The commit object carries the stored message itself. The log format that shows a message appends one LF to
+    // it, and a shell capturing that output strips every trailing LF, so the exact comparison the contract requires
+    // cannot be made through either; reading the object needs no byte added and none removed (Issue #114, CL-D74).
+    const raw = bounded(['--no-replace-objects', 'cat-file', 'commit', 'HEAD'], 'the commit object');
+    const separator = raw.indexOf(Buffer.from([10, 10]));
+    if (separator < 0) fail('guard_failed', 'commit_object_shape', 'the commit object carries no header separator', `${raw.length} bytes`);
+    const stored = raw.subarray(separator + 2);
+    // `git commit -F --cleanup=whitespace` cleans the message before storing it: trailing space, tab and CR off
+    // every line — Git's own space class, which keeps a vertical tab and a form feed — leading and
+    // trailing blank lines dropped, runs of blank lines collapsed to one. The approved message is put through that
+    // same cleanup before the comparison, so a message Git stored as asked is never reported as a difference.
+    const kept = [];
+    let blank = false;
+    for (const line of data.expected.split(String.fromCharCode(10)).map((entry) => entry.replace(/[ \t\r]+$/, ''))) {
+      if (line.length === 0) { blank = kept.length > 0; continue; }
+      if (blank) kept.push('');
+      blank = false;
+      kept.push(line);
+    }
+    const approved = Buffer.from(kept.map((line) => `${line}${String.fromCharCode(10)}`).join(''), 'utf8');
+    if (!stored.equals(approved)) fail('guard_failed', 'message_bytes', 'the stored commit message differs from the approved message', `stored ${stored.length} bytes, approved ${approved.length} bytes`);
+    return createResult('message_verify', { bytes: stored.length });
+  });
+}
+
 function requiredEvidenceCheck(data) {
   return wrap('required_evidence_check', () => {
     if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
@@ -364,4 +406,4 @@ function requiredEvidenceSet(data) {
   });
 }
 
-module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, parsePorcelainRecords, requiredEvidenceCheck, requiredEvidenceSet };
+module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, messageVerify, parsePorcelainRecords, requiredEvidenceCheck, requiredEvidenceSet };
