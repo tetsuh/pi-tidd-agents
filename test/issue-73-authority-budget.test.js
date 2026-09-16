@@ -29,7 +29,7 @@ test('Issue #73 the raised guards are the ones the suite actually asserts', () =
   // re-raise in either file fails here as well as there.
   assert.match(PACKAGE_TEST, /assert\.ok\(total < 150000,/);
   assert.equal(PACKAGE_TEST.includes('total < 116000'), false, 'the superseded six-file ceiling must not survive');
-  assert.match(CLEANLINESS_TEST, /Buffer\.byteLength\(addendum\) < 28000,/);
+  assert.match(CLEANLINESS_TEST, /Buffer\.byteLength\(addendum\) < 29000,/);
   assert.equal(CLEANLINESS_TEST.includes('byteLength(addendum) < 25022'), false, 'the superseded addendum ceiling must not survive');
 
   // The disclosure guard is not a budget and is deliberately not raised.
@@ -48,7 +48,7 @@ test('Issue #73 the live measurements sit inside the raised guards', () => {
 
   const addendum = sectionOf((readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md')), '## Exact PR `autofix` addendum (CL-D30)');
   assert.ok(addendum, 'the CL-D30 addendum must exist');
-  assert.ok(Buffer.byteLength(addendum) < 28000, 'the addendum must sit inside its raised guard');
+  assert.ok(Buffer.byteLength(addendum) < 29000, 'the addendum must sit inside its raised guard');
 
   // The exact-autofix prose absorbs each new decision. Before CL-D50 that was autofix.md;
   // after the split it is the addendum stage, and its growth signals when a further split —

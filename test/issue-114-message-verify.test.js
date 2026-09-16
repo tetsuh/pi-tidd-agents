@@ -24,7 +24,7 @@ function cli(operation, data) {
 }
 
 // A repository holding one commit whose message is exactly the approved bytes.
-function fixture(approved) {
+function fixture(approved, options = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-114-'));
   const git = (...args) => execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
     cwd: root,
@@ -32,9 +32,10 @@ function fixture(approved) {
     env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0', GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@x' },
   });
   git('init', '-q', '-b', 'main', '.');
+  if (options.cleanup) git('config', 'commit.cleanup', options.cleanup);
   const file = path.join(root, 'message.txt');
   fs.writeFileSync(file, Buffer.from(approved, 'utf8'));
-  git('commit', '-q', '--allow-empty', '-F', file);
+  git('commit', '-q', '--allow-empty', '-F', file, ...(options.args || []));
   return { root, git };
 }
 
@@ -132,4 +133,28 @@ test('Issue #114 the verification reads the commit object, never the log format'
   assert.match(source, /'--no-replace-objects', 'cat-file', 'commit'/, 'the read refuses a replaced object');
   assert.match(source, /SMALL_MAX_BYTES\)/, 'the read carries its own bound');
   assert.match(source, /stored\.equals\(approved\)/, 'the comparison is of bytes, never of decoded strings');
+});
+
+test('Issue #114 the commit and the verification share one pinned cleanup mode', () => {
+  // The contract invoked `git commit -F` without pinning --cleanup, so repository configuration decided which
+  // normalization ran: under commit.cleanup=verbatim Git stores the message as given while the verification models
+  // the whitespace cleanup, and a correct commit stops unpushed (CONV-129-CLEANUP-CONFIG-001, CL-D74).
+  for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/autofix.md']) {
+    assert.match(readText(file), /git commit -F --cleanup=whitespace/, `${file} pins the cleanup mode the verification models`);
+  }
+
+  const approved = 'feat: s (#114)\n\nbody with tail.   \n';
+  // Created as the contract now prescribes, the stored bytes are the cleaned bytes whatever the repository says.
+  const pinned = fixture(approved, { cleanup: 'verbatim', args: ['--cleanup=whitespace'] });
+  try {
+    const verified = cli('message_verify', { cwd: pinned.root, expected: approved });
+    assert.equal(verified.ok, true, JSON.stringify(verified.error));
+  } finally { fs.rmSync(pinned.root, { recursive: true, force: true }); }
+
+  // Unpinned under that same configuration is the refusal the finding reported, which is why the mode is pinned.
+  const unpinned = fixture(approved, { cleanup: 'verbatim' });
+  try {
+    const refused = cli('message_verify', { cwd: unpinned.root, expected: approved });
+    assert.deepEqual([refused.ok, refused.error.details.subcheck], [false, 'message_bytes'], JSON.stringify(refused.error));
+  } finally { fs.rmSync(unpinned.root, { recursive: true, force: true }); }
 });
