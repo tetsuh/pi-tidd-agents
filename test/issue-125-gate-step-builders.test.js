@@ -250,6 +250,9 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
 
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D73').map((clause) => clause.id).sort(), ['CL-D73-addendum', 'CL-D73-operations', 'CL-D73-record', 'CL-D73-tests', 'CL-D73-transport']);
+  const byId = Object.fromEntries(manifest.clauses.map((clause) => [clause.id, clause]));
+  assert.equal(byId['CL-D73-transport'].section, '### Structured gate result transport (CL-D36)', 'the transport clause names the section its sentences live in');
+  assert.equal(byId['CL-D73-addendum'].section, '### Exact identity and Luna publication phases', 'the addendum clause names the section its sentence lives in');
   assert.ok(fs.existsSync(repoPath('test/issue-125-gate-step-builders.test.js')));
 });
 
@@ -348,12 +351,15 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
     const probe = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
     assert.equal(probe.ok, true, JSON.stringify(probe.error));
     probeRoot = probe.data.root;
-    fs.chmodSync(path.join(probeRoot, '.cleanup-receipt.json'), 0);
-    const unreadable = cli('workspace_cleanup', { cwd: repository.root, workspace: probe.data.path });
-    fs.chmodSync(path.join(probeRoot, '.cleanup-receipt.json'), 0o600);
-    assert.match(unreadable.error.code, /^[a-z_]+$/, 'the code is this operation\'s own vocabulary, never an errno');
-    assert.notEqual(unreadable.error.code, 'cleanup_not_authorized', 'a receipt that cannot be read is not a receipt that does not match');
-    assert.ok(fs.existsSync(probe.data.path), 'no unreadable receipt removed anything');
+    // Only where the mode actually withholds a read: root bypasses it, and Windows applies it to writes alone.
+    if (process.platform !== 'win32' && (process.getuid === undefined || process.getuid() !== 0)) {
+      fs.chmodSync(path.join(probeRoot, '.cleanup-receipt.json'), 0);
+      const unreadable = cli('workspace_cleanup', { cwd: repository.root, workspace: probe.data.path });
+      fs.chmodSync(path.join(probeRoot, '.cleanup-receipt.json'), 0o600);
+      assert.match(unreadable.error.code, /^[a-z_]+$/, 'the code is this operation\'s own vocabulary, never an errno');
+      assert.notEqual(unreadable.error.code, 'cleanup_not_authorized', 'a receipt that cannot be read is not a receipt that does not match');
+      assert.ok(fs.existsSync(probe.data.path), 'no unreadable receipt removed anything');
+    }
 
     // The same, for a workspace directory removed by hand while its receipt and registration stay in place.
     fs.rmSync(probe.data.path, { recursive: true, force: true });
@@ -382,7 +388,7 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
   }
 });
 
-const TRANSPORT_READ = "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals except that a bad expectation is reported as the file's fault, in the same result, so the parent carries no document from one operation into the next (CL-D73).";
+const TRANSPORT_READ = "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals except that its `invalid_request`, always the expectation's, is reported as the file's fault, in the same result, so the parent carries no document from one operation into the next (CL-D73).";
 const TRANSPORT_TUPLES = "built by packaged `build_gate_assignments` from the validated result's findings, the settled ledger's keys, and the reopens the parent states, so the parent states which blocker a finding reopens and transcribes no tuple (CL-D73)";
 const ADDENDUM = "It governs the gate step's requests too: packaged `gate_result_read`, given its expectation file, validates the result, packaged `build_gate_assignments` builds the assigned tuples, and packaged `workspace_cleanup` takes the workspace path (CL-D73).";
 
