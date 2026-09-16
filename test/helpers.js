@@ -117,7 +117,7 @@ const PRIMS = new Set(['run', 'runSync', 'execFile', 'execFileSync']);
 const DYNAMIC = new Set(['eval', 'Function', 'constructor', 'global', 'globalThis']);
 const BINDINGS = new Set(['binding', '_linkedBinding', 'dlopen', 'execve']);
 const LOADERS = new Set(['getBuiltinModule', 'mainModule']);
-const GIT_ARG_CALLEES = new Set(['git', 'gitRaw', 'gitText', 'gitBytes', 'gitBuffer', 'collect', 'gitArgs']);
+const GIT_ARG_CALLEES = new Set(['git', 'gitRaw', 'gitText', 'gitBytes', 'gitBuffer', 'collect', 'gitArgs', 'gitPathBytes', 'stableGitPaths']);
 // A name written as a string or a template without substitutions is the same name.
 const literalName = (node) => node && node.type === 'Literal' && typeof node.value === 'string' ? node.value
   : node && node.type === 'TemplateLiteral' && node.expressions.length === 0 ? node.quasis[0].value.cooked : null;
