@@ -90,7 +90,23 @@ function buildGateAssignments(data) {
       if (!ids.includes(findingId)) fail('invalid_request', `reopens names ${findingId}, which is not among the findings`);
       if (!text(key) || !settled.has(key)) fail('invalid_request', `reopens names the blocker key ${key}, which the ledger does not hold`);
     }
-    const assignedFindings = ids.map((findingId) => ({ findingId, blockerKey: Object.hasOwn(reopens, findingId) ? reopens[findingId] : findingId }));
+    const assignedFindings = data.findings.map((finding) => {
+      const findingId = finding.findingId;
+      const carried = finding.blockerKey;
+      const stated = Object.hasOwn(reopens, findingId) ? reopens[findingId] : undefined;
+      if (carried !== undefined) {
+        if (!text(carried)) fail('invalid_request', `finding ${findingId} carries a blockerKey that is not a nonempty string`);
+        // The key the parent assigned is immutable: re-keying an assigned finding to its own id would restart the
+        // no-progress count for that blocker under a new key, which is the transcription this builder removes.
+        if (stated !== undefined && stated !== carried) fail('invalid_request', `finding ${findingId} already carries the blocker key ${carried}; reopens cannot move it to ${stated}`);
+        return { findingId, blockerKey: carried };
+      }
+      // A fresh finding keys itself. An id the ledger already holds is a reopen whatever else it is, and whether it
+      // is one stays the parent's judgment to state, so it is refused here rather than assumed either way.
+      if (stated !== undefined) return { findingId, blockerKey: stated };
+      if (settled.has(findingId)) fail('invalid_request', `finding ${findingId} is a settled blocker key; state the reopen in reopens`);
+      return { findingId, blockerKey: findingId };
+    });
     return createResult('build_gate_assignments', { assignedFindings });
   });
 }

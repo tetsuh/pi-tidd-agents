@@ -107,8 +107,7 @@ const PREDICATES = Object.freeze({
       && value.fallbackReason === 'linked_unavailable' && !Object.hasOwn(value, 'receipt');
     return false;
   },
-  'receipt:workspace_create': (value) => plain(value) && value.version === 1
-    && text(value.root) && text(value.storedPath) && Object.hasOwn(value, 'id'),
+  'receipt:workspace_create': isCreationReceipt,
   'data:snapshot': (value) => keysExactly(value, SNAPSHOT_DATA_KEYS)
     && plain(value.before) && plain(value.after) && plain(value.pull)
     && plain(value.completeness) && plain(value.policies)
@@ -174,9 +173,13 @@ function lexicalPath(value) {
   }
   return `${drive}${absolute ? '/' : ''}${segments.join('/')}`;
 }
+// One spelling test for every caller that must refuse a path with no identity to judge (CL-D73).
+function absoluteSpelling(value) { return /^[\\/]/.test(value) || /^[A-Za-z]:[\\/]/.test(value); }
+// The declared creation-receipt shape, named so a consumer holds a stored receipt to it without restating it.
+function isCreationReceipt(value) { return plain(value) && value.version === 1 && text(value.root) && text(value.storedPath) && Object.hasOwn(value, 'id'); }
 function cleanupCwdProblem(cwd, workspaceRoot) {
   // A relative cwd has no identity a pure builder can judge; it is refused before the inside/outside question.
-  if (!(/^[\\/]/.test(cwd) || /^[A-Za-z]:[\\/]/.test(cwd))) return { subcheck: 'cleanup_cwd_relative', message: 'cleanup cwd must be an absolute path', observed: cwd };
+  if (!absoluteSpelling(cwd)) return { subcheck: 'cleanup_cwd_relative', message: 'cleanup cwd must be an absolute path', observed: cwd };
   // A Windows or UNC spelling names one path in any letter case; a POSIX spelling does not
   // (ADV-123-WINDOWS-CLEANUP-CWD-CASE).
   const windows = (value) => /^[A-Za-z]:[\\/]/.test(value) || /^(?:\\\\|\/\/)/.test(value);
@@ -201,4 +204,4 @@ function normalizeDeclaredInputs(operation, data) {
   return normalized;
 }
 
-module.exports = { INPUT_SHAPES, inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem };
+module.exports = { INPUT_SHAPES, inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem, absoluteSpelling, isCreationReceipt };

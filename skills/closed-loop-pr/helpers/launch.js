@@ -111,8 +111,12 @@ function readGateResult(data) {
     try { expectationText = readUtf8(data.expectationPath); } catch (error) { fail('expectation_file_absent', `expectation file is not readable: ${error.message}`, { expectationPath: data.expectationPath }); }
     let expected;
     try { expected = JSON.parse(expectationText); } catch (error) { fail('expectation_file_mismatch', `expectation file is not JSON: ${error.message}`, { expectationPath: data.expectationPath }); }
+    const details = { expectationPath: data.expectationPath, statusPath, structuredOutputPath };
+    // A file that is not an expectation is the file's fault, not the request's: the launch composer's own refusal,
+    // naming the file, rather than `invalid_request` about a request that was well formed.
+    try { expectedState(expected); } catch (error) { fail('expectation_file_mismatch', `expectation file is not an expectation: ${error.message}`, details); }
     const validated = validateGateResult(envelope, expected);
-    if (!validated.ok) return { ...validated, operation };
+    if (!validated.ok) return { ...validated, operation, error: { ...validated.error, details } };
     return createResult(operation, { ...reported, ...validated.data });
   } catch (error) {
     return createError(operation, error.code || 'read_failed', error.message, operation, error.details);

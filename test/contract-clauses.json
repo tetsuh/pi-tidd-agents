@@ -3708,7 +3708,8 @@
       "requires": [
         "Issue #125 gate_result_read validates the envelope against the expectation file in one result",
         "Issue #125 build_gate_assignments turns findings and settled keys into the tuples the expectation needs",
-        "Issue #125 workspace_cleanup removes the workspace from its own path, without the receipt the run held"
+        "Issue #125 workspace_cleanup removes the workspace from its own path, without the receipt the run held",
+        "Issue #125 workspace_cleanup removes only the workspace the request names"
       ]
     }
   ]
