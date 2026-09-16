@@ -3641,6 +3641,44 @@
       "requires": [
         "The guarded focused validation runs through packaged `validation_run` (CL-D72)."
       ]
+    },
+    {
+      "id": "CL-D73-payload",
+      "marker": "CL-D73",
+      "title": "The adversarial gate exhausts a component it has broken",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
+      "requires": [
+        "When a finding exhibits a counterexample against a component, attempt every other counterexample class against that same component — its other inputs, encodings, syntax forms, and boundaries — and report all that succeed in that one result, so the component is corrected once (CL-D73)."
+      ]
+    },
+    {
+      "id": "CL-D73-record",
+      "marker": "CL-D73",
+      "title": "CL-D73 records the component sweep, its declined alternatives, and its boundary",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D73 — A component broken once is attacked exhaustively before the gate returns",
+      "requires": [
+        "*Owner choice:* Option A",
+        "attempts every other counterexample class against that same component",
+        "re-invoking the gate for each component costs a counted gate and a full review, and is declined"
+      ]
+    },
+    {
+      "id": "CL-D73-tests",
+      "marker": "CL-D73",
+      "title": "The component sweep is pinned by its own test",
+      "files": [
+        "test/issue-126-sol-component-sweep.test.js"
+      ],
+      "requires": [
+        "Issue #126 the adversarial gate exhausts a broken component before it returns",
+        "Issue #126 CL-D73 records the placement, the declined alternatives, and the boundary"
+      ]
     }
   ]
 }
