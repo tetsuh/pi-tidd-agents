@@ -191,6 +191,8 @@ test('Issue #125 workspace_cleanup removes the workspace from its own path, with
   let runRoot;
   assert.deepEqual(cliSchemas().workspace_cleanup, ['cwd'], 'only the cwd stays required');
   assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /workspace_cleanup: \{ required: \['cwd'\], optional: \['receipt', 'workspace'\] \}/, 'the receipt and the workspace path are the two ways in');
+  // The fields a stored identity must state, exactly: a field it may omit is one the comparison never holds it to.
+  assert.match(readText('skills/closed-loop-pr/helpers/workspace.js'), /const STATED_IDENTITY = 'kind path detached gitDir commonGitDir originFetch originPush head tree registered'\.split\(' '\);/, 'the stated-identity list is pinned exactly');
 
   // Run 3's stop: the cleanup request built from creation data the run had lost.
   const lost = cli('build_workspace_cleanup', { created: null, cwd: '/tmp' });
@@ -311,6 +313,19 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
       assert.deepEqual([out.ok, out.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(out.data ?? out.error));
       assert.ok(fs.existsSync(workspace), 'no forged receipt removed anything');
     }
+    // A complete identity that states a path of the wrong type reached Node's own error before any check ran.
+    const genuineStored = JSON.parse(genuine);
+    fs.writeFileSync(storedPath, JSON.stringify({ ...genuineStored, creationIdentity: { ...genuineStored.creationIdentity, path: null } }));
+    const badPath = cli('workspace_cleanup', { cwd: repository.root, workspace });
+    assert.deepEqual([badPath.ok, badPath.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(badPath.data ?? badPath.error));
+
+    // Both ways in are held to the same stored identity: a forger who wrote the file supplies an equal copy, so a
+    // receipt the request carries proves nothing the stored file does not.
+    const incomplete = { version: 1, id: 'x', creationIdentity: { kind: 'linked', path: workspace } };
+    fs.writeFileSync(storedPath, JSON.stringify(incomplete));
+    const viaReceipt = cli('workspace_cleanup', { cwd: repository.root, receipt: { ...incomplete, root: runRoot, storedPath } });
+    assert.deepEqual([viaReceipt.ok, viaReceipt.error.code], [false, 'cleanup_not_authorized'], JSON.stringify(viaReceipt.data ?? viaReceipt.error));
+    assert.ok(fs.existsSync(workspace), 'the receipt form refuses what the workspace form refuses');
     fs.writeFileSync(storedPath, genuine);
 
     // A receipt sits beside the workspace it was written for, not beside whatever path a request names: a copy of it

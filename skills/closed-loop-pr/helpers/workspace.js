@@ -11,7 +11,8 @@ const { assertSymlinkFreePath, lstatKind, classifyRuntimeRoots, normalizeCheckou
 
 function nonce() { return crypto.randomBytes(32).toString('base64url'); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
-// Every field inspectWorkspace compares: one a stored identity does not state is one it is never held to.
+// What a stored identity must state: every field cleanup's comparison consults, plus the head and tree the run
+// records and cleanup does not compare, because the run moves them. A field it may omit is never held to.
 const STATED_IDENTITY = 'kind path detached gitDir commonGitDir originFetch originPush head tree registered'.split(' ');
 function receiptPath(root) { return path.join(root, '.cleanup-receipt.json'); }
 function writeReceipt(root, receipt) {
@@ -356,19 +357,21 @@ async function cleanupWorkspace(input, cwd) {
       // run root and the receipt's path are known from the named workspace, and the version and the id must come
       // from the file itself. The identity comparison below would otherwise compare this file with a copy of itself.
       receipt = { ...stored, root: runRoot, storedPath: receiptPath(runRoot) };
-      // The stored file is the whole authority in this form, so it must carry what a run writes: the declared
-      // shape, a nonempty nonce, and a creation identity that states every field the comparison below consults.
-      // An identity stating nothing matches everything, because a field it does not state is not compared.
-      const identity = receipt.creationIdentity;
-      const complete = identity !== null && typeof identity === 'object' && STATED_IDENTITY.every((field) => Object.hasOwn(identity, field));
-      if (!isCreationReceipt(receipt) || !text(receipt.id) || !complete) return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
+      // The stored file is the whole authority in this form, so it must carry the declared receipt shape. What it
+      // must state about the workspace is required of both ways in, below.
+      if (!isCreationReceipt(receipt)) return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
     }
     if (!receipt?.root || !receipt?.storedPath || path.resolve(receipt.storedPath) !== receiptPath(path.resolve(receipt.root))) return createError('workspace_cleanup', 'cleanup_not_authorized', 'run-owned cleanup receipt path required', 'workspace_cleanup');
     assertSymlinkFreePath(receipt.root);
     const stored = readReceipt(receipt.root);
     const creation = stored?.creationIdentity;
-    const validReceipt = stored && stored.version === 1 && stored.id === receipt.id && receipt.version === 1
-      && JSON.stringify(receipt.creationIdentity) === JSON.stringify(creation);
+    // Both ways in are held to the same stored identity: a caller that can write the file can also hand back an
+    // equal copy of it, so a receipt the request carries establishes nothing the stored file does not. An identity
+    // stating nothing matches everything, because inspectWorkspace skips a field it is not given.
+    const complete = creation !== null && typeof creation === 'object' && text(creation.path)
+      && STATED_IDENTITY.every((field) => Object.hasOwn(creation, field));
+    const validReceipt = stored && stored.version === 1 && text(stored.id) && stored.id === receipt.id
+      && receipt.version === 1 && complete && JSON.stringify(receipt.creationIdentity) === JSON.stringify(creation);
     if (!validReceipt || creation.kind !== 'linked') return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
     // The named path located the receipt; what the receipt points at is what would be removed. Unless they are the
     // same workspace by identity, a request naming one run's workspace would remove another's.
