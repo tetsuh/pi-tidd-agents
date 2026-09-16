@@ -48,6 +48,12 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/process.js|fs.mkdirSync(hooks, { mode: 0o700 });',
   "skills/closed-loop-pr/helpers/process.js|fs.writeFileSync(emptyGlobal, '', { mode: 0o600 });",
   "skills/closed-loop-pr/helpers/process.js|fs.writeFileSync(emptySystem, '', { mode: 0o600 });",
+  "skills/closed-loop-pr/helpers/process.js|fs.writeFileSync(gitStderr, '', { mode: 0o600 });",
+  "skills/closed-loop-pr/helpers/guards.js|const fs = require('node:fs');",
+  "skills/closed-loop-pr/helpers/guards.js|const noiseFd = fs.openSync(noisePath, 'w');",
+  "skills/closed-loop-pr/helpers/guards.js|if (noise > WARNING_MAX_BYTES) { fs.truncateSync(noisePath, 0); fail('output_limit', 'output_limit', `Git wrote ${noise} bytes on its error stream while reading ${what}, beyond the ${WARNING_MAX_BYTES} bytes allowed`, what); }",
+  'skills/closed-loop-pr/helpers/guards.js|finally { fs.closeSync(noiseFd); }',
+  'skills/closed-loop-pr/helpers/guards.js|const noise = fs.statSync(noisePath).size;',
   "skills/closed-loop-pr/helpers/workspace.js|const fs = require('node:fs');",
   "skills/closed-loop-pr/helpers/workspace.js|fs.writeFileSync(target, JSON.stringify(receipt), { mode: 0o600, flag: 'wx' });",
   "skills/closed-loop-pr/helpers/workspace.js|return JSON.parse(fs.readFileSync(target, 'utf8'));",
@@ -63,7 +69,7 @@ const APPROVED_FS_SITES = [
 const EXPECTED_REQUIRE_COUNTS = {
   './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './launch': 1, './operator': 3,
   './paths': 4, './process': 6, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 5, 'node:os': 3, 'node:path': 7,
+  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 6, 'node:os': 3, 'node:path': 7,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
 const PROVENANCE_ANCHORS = [
@@ -91,7 +97,7 @@ const ROOT_GUARDS = [
 // or split across lines differs from the allowlist (CONV-124-SPAWN-SCAN-MULTILINE-GAP).
 const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/process.js|execFile|command|args|{ ...commandOptions(options, kind), encoding: 'buffer' }`,
-  `${HELPER_DIR}/process.js|execFileSync|command|args|{ ...commandOptions(options, kind), encoding: options.encoding ?? 'utf8', input: options.stdin, stdio: ['pipe', 'pipe', 'pipe'], }`,
+  `${HELPER_DIR}/process.js|execFileSync|command|args|{ ...commandOptions(options, kind), encoding: options.encoding ?? 'utf8', input: options.stdin, stdio: ['pipe', 'pipe', options.stderrFd ?? 'pipe'], }`,
   `${HELPER_DIR}/snapshot.js|run|'gh'|args|options`,
   `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
@@ -271,8 +277,8 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'a source that does not parse', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst = ;\n"; }, 'helper source does not parse');
   // Pre-push adversarial review of 1b9328e: literal references, loaders, the transport rule, and Git config overrides.
   rejectsMutation(model, 'a computed string key on module.exports', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] += "\nmodule.exports['run']('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
-  rejectsMutation(model, 'a computed key in a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] = copy.sources[`${HELPER_DIR}/guards.js`].replace("const { runSync, gitArgs } = require('./process');", "const { ['runSync']: spawnProgram, gitArgs } = require('./process');"); }, 'a destructured import of the spawn modules renames a name');
-  rejectsMutation(model, 'a rest element in a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] = copy.sources[`${HELPER_DIR}/guards.js`].replace("const { runSync, gitArgs } = require('./process');", "const { gitArgs, ...rest } = require('./process');"); }, 'a destructured import of the spawn modules gathers names into a rest element');
+  rejectsMutation(model, 'a computed key in a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] = copy.sources[`${HELPER_DIR}/guards.js`].replace("const { runSync, gitArgs, isolationPaths } = require('./process');", "const { ['runSync']: spawnProgram, gitArgs } = require('./process');"); }, 'a destructured import of the spawn modules renames a name');
+  rejectsMutation(model, 'a rest element in a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] = copy.sources[`${HELPER_DIR}/guards.js`].replace("const { runSync, gitArgs, isolationPaths } = require('./process');", "const { gitArgs, ...rest } = require('./process');"); }, 'a destructured import of the spawn modules gathers names into a rest element');
   rejectsMutation(model, 'getBuiltinModule', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.getBuiltinModule('node:child\\u005fprocess').spawnSync('npm', ['test']);\n"; }, 'a module loader outside require is forbidden');
   rejectsMutation(model, 'a transport call beside a function-expression wrapper', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace('function defaultTransport(command, args, options) { return run(command, args, options); }', 'const defaultTransport = function (command, args, options) { return run(command, args, options); };').replace("transport('gh', args,", "transport('npm', args,"); }, "transport call passes a program other than 'gh'");
   rejectsMutation(model, 'a Git config override that runs a program', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] += "\ngitBytes(cwd, ['-c', 'core.fsmonitor=/tmp/evil.sh', 'status'], phase);\n"; }, 'Git command is outside');

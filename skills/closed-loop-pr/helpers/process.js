@@ -106,18 +106,19 @@ function validateCachedIsolation(value, temporaryParent) {
     hooks: path.join(value.root, 'hooks'),
     emptyGlobal: path.join(value.root, 'global.gitconfig'),
     emptySystem: path.join(value.root, 'system.gitconfig'),
+    gitStderr: path.join(value.root, 'git-stderr'),
   };
   if (Object.values(expected).some((entry) => typeof entry !== 'string')
       || typeof value.home !== 'string' || typeof value.hooks !== 'string'
-      || typeof value.emptyGlobal !== 'string' || typeof value.emptySystem !== 'string'
+      || typeof value.emptyGlobal !== 'string' || typeof value.emptySystem !== 'string' || typeof value.gitStderr !== 'string'
       || !samePath(value.root, expected.root)
       || !samePath(value.home, expected.home) || !samePath(value.hooks, expected.hooks)
-      || !samePath(value.emptyGlobal, expected.emptyGlobal) || !samePath(value.emptySystem, expected.emptySystem)
+      || !samePath(value.emptyGlobal, expected.emptyGlobal) || !samePath(value.emptySystem, expected.emptySystem) || !samePath(value.gitStderr, expected.gitStderr)
       || !path.basename(value.root).startsWith('pi-tidd-pr-helper-')) {
     throw isolationError('isolation_cache_invalid', 'cached process isolation paths are invalid');
   }
   try {
-    for (const [file, directory] of [[value.root, true], [value.home, true], [value.hooks, true], [value.emptyGlobal, false], [value.emptySystem, false]]) {
+    for (const [file, directory] of [[value.root, true], [value.home, true], [value.hooks, true], [value.emptyGlobal, false], [value.emptySystem, false], [value.gitStderr, false]]) {
       const stat = fs.lstatSync(file);
       if (stat.isSymbolicLink() || (directory ? !stat.isDirectory() : !stat.isFile())) throw new Error('unexpected cached isolation entry');
     }
@@ -143,7 +144,11 @@ function isolationPaths() {
     const emptySystem = path.join(root, 'system.gitconfig');
     fs.writeFileSync(emptyGlobal, '', { mode: 0o600 });
     fs.writeFileSync(emptySystem, '', { mode: 0o600 });
-    isolation = { root, home, hooks, emptyGlobal, emptySystem };
+    // The derivation's Git reads send the child's error stream here, so it is part of the isolation root the
+    // recovery exemption enumerates and is validated like every other entry (ADV-124-WARNING-HEADROOM-NOT-ENFORCED).
+    const gitStderr = path.join(root, 'git-stderr');
+    fs.writeFileSync(gitStderr, '', { mode: 0o600 });
+    isolation = { root, home, hooks, emptyGlobal, emptySystem, gitStderr };
     return validateCachedIsolation(isolation, temporaryParent);
   } catch (error) {
     if (error.code?.startsWith('isolation_')) throw error;
@@ -298,7 +303,7 @@ function runSync(command, args, options = {}) {
       ...commandOptions(options, kind),
       encoding: options.encoding ?? 'utf8',
       input: options.stdin,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', options.stderrFd ?? 'pipe'],
     });
   } catch (error) {
     if ((options.acceptExitCodes || []).includes(error.status)) {

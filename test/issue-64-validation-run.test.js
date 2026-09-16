@@ -339,7 +339,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On the PR root, the set itself is derived through packaged `required_evidence_set`'), 'the shared transport section names required_evidence_set');
   assert.ok(autofix.includes('The guarded focused validation runs through packaged `validation_run` (CL-D72).'), 'autofix names validation_run at the guarded step');
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
-  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', 'counted across what the child writes on both streams together', "headroom so an ordinary Git warning cannot turn an accepted read into an overflow", 'says which stream overflowed', 'the process spawner forwards a few Windows system variables of its own', '`absent` names only a file the head does not carry', "Each of the request's own fields is read once and the command runs as that copy", 'the argv holds at most 65,536 elements', 'a request that throws while it is read is refused at the request', 'an own field left undefined is absent', 'the child runs under an explicit environment allowlist rather than the inherited environment', 'whether an interpreter or loader hook, a credential, an agent socket, or a command-resolution control, is dropped', "while `git` and `gh` keep the package's sanitized environment", 'the validation environment carries the name itself and undefined', 'pinned to the system defaults rather than inherited', 'a subdirectory whose name begins with a newline is not mistaken for the toplevel', "a spawn error Node throws at once still carries the system's own code as its reason", 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
+  for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', "the child's error stream goes to a file of its own in the package's isolation root, measured after the read and refused beyond 64 KiB", 'a threshold on what a read may carry rather than a cap on what Git may write', 'a read whose warnings pass that bound fails closed naming the error stream', 'the process spawner forwards a few Windows system variables of its own', '`absent` names only a file the head does not carry', "Each of the request's own fields is read once and the command runs as that copy", 'the argv holds at most 65,536 elements', 'a request that throws while it is read is refused at the request', 'an own field left undefined is absent', 'the child runs under an explicit environment allowlist rather than the inherited environment', 'whether an interpreter or loader hook, a credential, an agent socket, or a command-resolution control, is dropped', "while `git` and `gh` keep the package's sanitized environment", 'the validation environment carries the name itself and undefined', 'pinned to the system defaults rather than inherited', 'a subdirectory whose name begins with a newline is not mistaken for the toplevel', "a spawn error Node throws at once still carries the system's own code as its reason", 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
@@ -548,8 +548,8 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     // constants, and the reader's hand-off to the spawn are pinned too.
     const readLimit = (at) => { let depth = 0, k = at + 'bounded('.length; do { if (derivation[k] === '[') depth += 1; else if (derivation[k] === ']') depth -= 1; k += 1; } while (depth > 0); return `${derivation.slice(at + 10, derivation.indexOf("'", at + 10))} ${derivation.slice(k).match(/^,\s*([^,]+),/)[1].trim()}`; };
     assert.deepEqual([...derivation.matchAll(/\bbounded\(\[/g)].map((match) => readLimit(match.index)), ['rev-parse SMALL_MAX_BYTES', 'cat-file SMALL_MAX_BYTES', 'diff LISTING_MAX_BYTES', 'ls-tree LISTING_MAX_BYTES', 'ls-tree LISTING_MAX_BYTES', 'cat-file SMALL_MAX_BYTES', 'cat-file BLOB_MAX_BYTES'], 'each read carries the bound the record names for it');
-    assert.ok(guardsSource.includes('const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024, WARNING_HEADROOM = 64 * 1024;'), 'the bounds are 256 MiB, 256 MiB, and 64 KiB, each with 64 KiB of warning headroom');
-    assert.ok(derivation.includes('try { return gitBytes(data.cwd, args, phase, acceptExitCodes, limit + WARNING_HEADROOM); }') && guardsSource.includes("runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes, maxBuffer })"), 'the reader hands its limit to the spawn');
+    assert.ok(guardsSource.includes('const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024, WARNING_MAX_BYTES = 64 * 1024;'), 'the payload bounds are 256 MiB, 256 MiB, and 64 KiB, and Git\'s error stream is bounded at 64 KiB');
+    assert.ok(derivation.includes('read = gitBytes(data.cwd, args, phase, acceptExitCodes, limit, noiseFd);') && derivation.includes('if (noise > WARNING_MAX_BYTES) { fs.truncateSync(noisePath, 0); fail(') && derivation.includes('const noisePath = isolationPaths().gitStderr;' + String.fromCharCode(10) + '      const noiseFd = fs.openSync(noisePath, ' + JSON.stringify(String.fromCharCode(39) + 'w' + String.fromCharCode(39)).slice(1, -1) + ');') && guardsSource.includes("runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes, maxBuffer, stderrFd })"), 'the reader hands its limit to the spawn');
     // ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR: a ref named after the head's hex makes Git warn on stderr, and a spawn's bound
     // applies to each of its streams, so a blob read bounded by the blob's own size failed as output_limit.
     const ambiguous = repository();
@@ -612,7 +612,7 @@ test('Issue #64 required_evidence_set fails closed as output_limit exactly beyon
     assert.equal(derived.ok, true, JSON.stringify(derived.error));
     assert.deepEqual(derived.data.requiredEvidence, [{ source: 'exact.bin', kind: 'file', identity: crypto.createHash('sha256').update(exactBytes).digest('hex') }], 'a blob at the bound is derived');
     overflow(withExact, withOver, 'over.bin', 'a changed file exceeds 268435456 bytes');
-    // Pre-push review of the headroom (ADV7-1): an adverse repository can make Git write far more than the headroom on
+    // Pre-push review of the warning bound (ADV7-1): an adverse repository can make Git write far more than the bound on
     // stderr while the payload stays small, and the refusal must name that rather than the payload.
     const noisy = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-64-noisy-'));
     try {
@@ -622,10 +622,60 @@ test('Issue #64 required_evidence_set fails closed as output_limit exactly beyon
       fs.writeFileSync(path.join(noisy, 'tracked.txt'), 'head' + String.fromCharCode(10)); git(noisy, ['commit', '-q', '-am', 'test: head']);
       // Each unreadable alternate makes Git print the whole path on every object read, and it still exits 0.
       fs.writeFileSync(path.join(noisy, '.git', 'objects', 'info', 'alternates'), Array.from({ length: 100 }, (_, index) => `/nonexistent/${index}/${'x'.repeat(3000)}`).join(String.fromCharCode(10)) + String.fromCharCode(10));
-      const drowned = helpers.requiredEvidenceSet({ cwd: noisy, baseOid: noisyBase, headOid: git(noisy, ['rev-parse', 'HEAD']), identities: [] });
+      const noisyHead = git(noisy, ['rev-parse', 'HEAD']);
+      const noise = (count) => { fs.writeFileSync(path.join(noisy, '.git', 'objects', 'info', 'alternates'), Array.from({ length: count }, (_, index) => `/nonexistent/${index}/${'x'.repeat(3000)}`).join(String.fromCharCode(10)) + String.fromCharCode(10)); return spawnSync('git', ['cat-file', '-t', noisyHead], { cwd: noisy, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, LC_ALL: 'C', LANG: 'C', GIT_CONFIG_NOSYSTEM: '1' } }).stderr.length; };
+      // Under the warning bound the read still succeeds, and the warnings are neither counted against the payload nor
+      // silently buffered beyond the bound.
+      const quiet = noise(10);
+      assert.ok(quiet > 0 && quiet < 65536, `the quiet fixture writes warnings within the bound: ${quiet}`);
+      const accepted = helpers.requiredEvidenceSet({ cwd: noisy, baseOid: noisyBase, headOid: noisyHead, identities: [] });
+      assert.equal(accepted.ok, true, `warnings within the bound do not refuse the read: ${JSON.stringify(accepted.error)}`);
+      const loud = noise(40);
+      assert.ok(loud > 65536, `the loud fixture writes warnings beyond the bound: ${loud}`);
+      // Unreadable alternates of equal length cost equal warning bytes, so the fixture can land on the bound itself: at
+      // 65,536 bytes the read is accepted, and one byte more refuses it. Git truncates a path beyond the system limit,
+      // so the tuning adds lines and adjusts only the remainder on the last one.
+      const alternates = (paths) => { fs.writeFileSync(path.join(noisy, '.git', 'objects', 'info', 'alternates'), paths.join(String.fromCharCode(10)) + String.fromCharCode(10)); return spawnSync('git', ['cat-file', '-t', noisyHead], { cwd: noisy, maxBuffer: 64 * 1024 * 1024, env: { ...process.env, LC_ALL: 'C', LANG: 'C', GIT_CONFIG_NOSYSTEM: '1' } }).stderr.length; };
+      const alternate = (index, pad) => `/nonexistent/${String(index).padStart(4, '0')}/${'x'.repeat(pad)}`;
+      const perLine = alternates([alternate(0, 500)]);
+      assert.ok(perLine > 500 && perLine < 2000, `one unreadable alternate writes one warning: ${perLine}`);
+      const lines = Math.floor(65536 / perLine);
+      const paths = Array.from({ length: lines }, (_, index) => alternate(index, 500));
+      const remainder = 65536 - lines * perLine;
+      paths[lines - 1] = alternate(lines - 1, 500 + remainder);
+      assert.equal(alternates(paths), 65536, 'the fixture writes exactly the bound');
+      const atBound = helpers.requiredEvidenceSet({ cwd: noisy, baseOid: noisyBase, headOid: noisyHead, identities: [] });
+      assert.equal(atBound.ok, true, `warnings exactly at the bound are accepted: ${JSON.stringify(atBound.error)}`);
+      paths[lines - 1] = alternate(lines - 1, 500 + remainder + 1);
+      assert.equal(alternates(paths), 65537, 'one byte more than the bound');
+      const overBound = helpers.requiredEvidenceSet({ cwd: noisy, baseOid: noisyBase, headOid: noisyHead, identities: [] });
+      assert.deepEqual([overBound.ok, overBound.error?.code], [false, 'output_limit'], `one byte past the bound refuses: ${JSON.stringify(overBound)}`);
+      alternates(Array.from({ length: 40 }, (_, index) => alternate(index, 3000)));
+      const drowned = helpers.requiredEvidenceSet({ cwd: noisy, baseOid: noisyBase, headOid: noisyHead, identities: [] });
       assert.equal(drowned.ok, false, 'a read drowned in Git warnings fails closed');
       assert.deepEqual([drowned.error.code, drowned.error.details.subcheck], ['output_limit', 'output_limit'], JSON.stringify(drowned.error));
-      assert.match(drowned.error.message, /Git wrote more than 65536 bytes on its error stream/, `the refusal names the stream that overflowed: ${drowned.error.message}`);
+        assert.match(drowned.error.message, /Git wrote [0-9]+ bytes on its error stream while reading baseOid, beyond the 65536 bytes allowed/, `the refusal names the stream that overflowed and what it was reading: ${drowned.error.message}`);
     } finally { fs.rmSync(noisy, { recursive: true, force: true }); }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Issue #64 the isolation root validates its error-stream file like every other entry', () => {
+  const processHelper = require('../skills/closed-loop-pr/helpers/process');
+  const isolation = processHelper.isolationPaths();
+  assert.equal(isolation.gitStderr, path.join(isolation.root, 'git-stderr'), 'the error-stream file belongs to the isolation root');
+  const plants = [
+    ['a directory', () => { fs.rmSync(isolation.gitStderr, { force: true }); fs.mkdirSync(isolation.gitStderr); }],
+    ['an absent file', () => { fs.rmSync(isolation.gitStderr, { force: true }); }],
+    ...(process.platform === 'win32' ? [] : [['a symlink', () => { fs.rmSync(isolation.gitStderr, { force: true }); fs.symlinkSync(path.join(isolation.root, 'home'), isolation.gitStderr); }]]),
+  ];
+  for (const [label, plant] of plants) {
+    plant();
+    try {
+      assert.throws(() => processHelper.isolationPaths(), (error) => error.code === 'isolation_cache_invalid', `${label} at the error-stream path must be refused`);
+    } finally {
+      fs.rmSync(isolation.gitStderr, { recursive: true, force: true });
+      fs.writeFileSync(isolation.gitStderr, '', { mode: 0o600 });
+    }
+  }
+  assert.equal(processHelper.isolationPaths().gitStderr, isolation.gitStderr, 'the restored cache validates again');
 });

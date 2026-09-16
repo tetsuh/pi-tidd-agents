@@ -8,9 +8,10 @@
 // failure with nothing to name cannot be produced, because each check reports what it saw.
 
 const crypto = require('node:crypto');
+const fs = require('node:fs');
 const path = require('node:path');
 const { createResult, createError, keysExactly } = require('./protocol');
-const { runSync, gitArgs } = require('./process');
+const { runSync, gitArgs, isolationPaths } = require('./process');
 const { RUNTIME_ROOTS, byteSort } = require('./operator');
 const { classifyRuntimeRoots, lstatKind } = require('./paths');
 const { checkRequiredEvidence } = require('./gate-result');
@@ -40,8 +41,8 @@ function assertSafeRuntimeRoots(cwd) {
     if (!info.safe) fail('guard_failed', 'runtime_root_classification', `runtime root is not absent or a real directory: ${root} is ${info.kind}`, `${root}:${info.kind}`);
   }
 }
-function gitBytes(cwd, args, phase, acceptExitCodes, maxBuffer) {
-  return Buffer.from(runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes, maxBuffer }));
+function gitBytes(cwd, args, phase, acceptExitCodes, maxBuffer, stderrFd) {
+  return Buffer.from(runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes, maxBuffer, stderrFd }));
 }
 function gitText(cwd, args, phase, acceptExitCodes) {
   return gitBytes(cwd, args, phase, acceptExitCodes).toString('utf8');
@@ -278,7 +279,7 @@ const IDENTITY_KINDS = ['git', 'github', 'snapshot'];
 // An identity the request repeats must agree with the argument it repeats (CL-D47's rule).
 const CORRELATED_SOURCES = { 'git:pr_head': 'headOid', 'git:pr_base': 'baseOid' };
 // Each Git read carries its own bound rather than the 16 MiB process default; a read beyond it fails closed by name.
-const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024, WARNING_HEADROOM = 64 * 1024;
+const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024, WARNING_MAX_BYTES = 64 * 1024;
 function requiredEvidenceSet(data) {
   return wrap('required_evidence_set', () => {
     const phase = 'required_evidence_set';
@@ -292,21 +293,25 @@ function requiredEvidenceSet(data) {
       if (argument && (entry.kind !== 'git' || entry.identity !== data[argument])) fail('invalid_request', 'identity_correlation', `${entry.source} must be a git record equal to ${argument}`, `${entry.kind}:${entry.identity}`);
     }
     // Every Git read of the derivation goes through this reader with its own bound, never the process default: a
-    // listing or a blob up to 256 MiB, anything else up to 64 KiB; a read beyond its bound fails closed as output_limit
-    // naming it (CONV-124-AUTHORITY-LISTING-UNBOUNDED). A bound applies to each stream, and Git's warnings count on stderr, so
-    // a blob is read under the blob bound, never its own size (ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR). The synchronous
-    // spawn counts both streams against one bound, so each read adds WARNING_HEADROOM above the payload it must
-    // accept, and an ordinary Git warning cannot turn an accepted read into an overflow. An adverse repository can
-    // still drown a read in warnings, and the refusal then names the stream that overflowed rather than the payload.
+    // listing or a blob up to 256 MiB, anything else up to 64 KiB (CONV-124-AUTHORITY-LISTING-UNBOUNDED). One buffer
+    // covers both streams of a synchronous spawn, so the child writes its error stream to a file of its own: the
+    // payload bound is the spawn's, and the file's size is measured after the read and refused beyond WARNING_MAX_BYTES,
+    // naming the stream that passed it (ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR, ADV-124-WARNING-HEADROOM-NOT-ENFORCED).
+    // The path comes from the validated cache on every read, so an entry planted at it mid-derivation is refused
+    // before anything opens it, and the size is a threshold on what a read may carry, not a cap on Git's writing.
     const bounded = (args, limit, what, acceptExitCodes) => {
-      try { return gitBytes(data.cwd, args, phase, acceptExitCodes, limit + WARNING_HEADROOM); }
+      const noisePath = isolationPaths().gitStderr;
+      const noiseFd = fs.openSync(noisePath, 'w');
+      let read;
+      try { read = gitBytes(data.cwd, args, phase, acceptExitCodes, limit, noiseFd); }
       catch (error) {
-        if (/ENOBUFS|MAXBUFFER/.test(String(error.message))) {
-          const captured = error.streams?.stdout?.length ?? 0;
-          fail('output_limit', 'output_limit', captured <= limit ? `${what} stayed within ${limit} bytes and Git wrote more than ${WARNING_HEADROOM} bytes on its error stream` : `${what} exceeds ${limit} bytes`, what);
-        }
+        if (/ENOBUFS|MAXBUFFER/.test(String(error.message))) fail('output_limit', 'output_limit', `${what} exceeds ${limit} bytes`, what);
         throw error;
       }
+      finally { fs.closeSync(noiseFd); }
+      const noise = fs.statSync(noisePath).size;
+      if (noise > WARNING_MAX_BYTES) { fs.truncateSync(noisePath, 0); fail('output_limit', 'output_limit', `Git wrote ${noise} bytes on its error stream while reading ${what}, beyond the ${WARNING_MAX_BYTES} bytes allowed`, what); }
+      return read;
     };
     // A work tree at its toplevel; a bare repository also answers an empty prefix (ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT).
     // Git's whole answer is compared, so a subdirectory whose name begins with a newline cannot pass (ADV-124-CWD-NEWLINE-SUBDIR-ACCEPTED).
