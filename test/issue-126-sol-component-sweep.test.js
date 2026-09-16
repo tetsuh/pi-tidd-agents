@@ -37,7 +37,12 @@ test('Issue #126 the adversarial gate exhausts a broken component before it retu
   }
   assert.match(contract, /never the Sol-only adversarial block/, 'the convergence child still never receives the Sol-only block');
   // The extension is owned by CL-D66, as Issue #126 placed it: no separate record, and the sentence is the issue's own.
-  assert.equal(readText('CONTRACT.md').includes('CL-D73'), false, 'the extension belongs to CL-D66, not to a record of its own');
+  // Pinned by ownership rather than by the next free decision id: an id is free only until the next decision takes it,
+  // and what Issue #126 placed is that one record owns the extension. CL-D73 later took that id for another decision.
+  const owners = readText('CONTRACT.md').split(/^## /m).slice(1)
+    .filter((record) => record.includes('issues/126#issuecomment-5671862619'))
+    .map((record) => record.split(' ')[0]);
+  assert.deepEqual(owners, ['CL-D66'], 'the extension belongs to CL-D66, not to a record of its own');
   const carriers = AUTHORITY_FILES.filter((file) => readText(file).includes(SENTENCE));
   assert.deepEqual(carriers, ['skills/closed-loop-shared/references/gate-contract.md'], 'exactly one authority file carries the sentence');
   assert.ok(Buffer.byteLength(readText('skills/closed-loop-pr/references/autofix-addendum.md')) < 28000, 'the CL-D30 addendum stays inside its recorded guard');

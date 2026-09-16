@@ -45,9 +45,9 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | `AUTOFIX_WORKSPACE@H`/`@P` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and before any edit, including immediately before delegating Luna | `workspace_verify` | `cwd`, `expected` (data of `workspace_create`) |
 | Sole-parent transition evidence toward `WORKSPACE_POST_COMMIT(C, P)`, `WORKSPACE_POST_PUSH(C, O)` | `workspace_verify` | `cwd`, `expected` (data of `workspace_create`), `transition` |
 | `OPERATOR_CHECKOUT_UNCHANGED@O` at every pre-push boundary — before each gate, route-to-Sol, reply, final classification, post-reply, summary mutation — and every terminal recheck | `operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |
-| Optional linked cleanup at a terminal observation | `workspace_cleanup` | `receipt` (receipt inside `workspace_create` data), `cwd` |
+| Optional linked cleanup at a terminal observation | `workspace_cleanup` | `cwd`, and either `receipt` (receipt inside `workspace_create` data) or `workspace` (the run workspace path) |
 | Every convergence, Sol, or Terra result, before it is read as a verdict (CL-D36, CL-D62) | `gate_result_validate` | `result` (structured gate output), `expected` |
-| Every gate result, before `gate_result_validate` (CL-D58, CL-D68) | `gate_result_read` | `runId` |
+| Every gate result, before `gate_result_validate` (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |
 | Reply body construction (CL-D45) | `marker_create` | `binding`, `visibleBody` |
 | Post-attempt reconciliation (CL-D45) | `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |
 | Before each gate invocation, on the assembled evidence (CL-D42) | `evidence_verify` | `envelope`, `expected` |
@@ -56,6 +56,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Construct the cleanup request from the workspace's own receipt (CL-D56) | `build_workspace_cleanup` | `created` (data of `workspace_create`), `cwd` |
 | Construct the snapshot-fingerprint request (CL-D56) | `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |
 | Construct the gate expectation and the canonical result schema (CL-D36, CL-D56) | `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |
+| Construct the assigned-finding tuples from the validated result and the ledger (CL-D73) | `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |
 | Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |
 | Construct the `AFTER_STAGING` capture request from the frozen overlay (CL-D61) | `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |
 | Construct the `BEFORE_COMMIT` compare request from the capture it compares against (CL-D61) | `build_manifest_compare` | `captured` (data of `manifest_compare`), `cwd` |

@@ -78,7 +78,9 @@ const SNAPSHOT_DATA_KEYS = Object.freeze([
 // executed positive composition fixtures keep each predicate in lockstep with its producer.
 // manifest_compare's manifest is a compare-mode field; capture mode legitimately omits it,
 // so it is validated only when supplied (CL-D57).
-const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manifest']) });
+// CL-D73: cleanup accepts the receipt or the run's own workspace path, so an absent receipt is a shape the
+// operation itself judges, not a declared-shape violation. A present receipt is checked exactly as before.
+const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manifest']), workspace_cleanup: Object.freeze(['receipt']) });
 const PREDICATES = Object.freeze({
   // The two guard producers carry the same envelope keys, so each predicate states its own
   // producer's exact key set. Exactness is what makes them mutually exclusive: a value

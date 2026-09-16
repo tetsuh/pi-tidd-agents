@@ -72,6 +72,29 @@ function buildWorkspaceCleanup(data) {
   });
 }
 
+// CL-D73: the parent still decides which fresh finding reopens which settled blocker — the normalization rule in
+// autofix-addendum.md is its judgment — and states that judgment as data. The assembly is the package's: a fresh
+// finding keys itself, an explicit reopen carries the settled key, and a reopen the ledger does not hold is refused
+// (#125 run 2 sent a tuple with no key at all).
+function buildGateAssignments(data) {
+  return wrap('build_gate_assignments', () => {
+    if (!Array.isArray(data.findings)) fail('invalid_request', 'findings must be the validated result findings array');
+    if (!Array.isArray(data.settledKeys) || !data.settledKeys.every(text)) fail('invalid_request', 'settledKeys must be an array of settled blocker keys');
+    const reopens = Object.hasOwn(data, 'reopens') ? data.reopens : {};
+    if (reopens === null || typeof reopens !== 'object' || Array.isArray(reopens)) fail('invalid_request', 'reopens must map a fresh finding id to the settled blocker key it reopens');
+    const ids = data.findings.map((finding) => (finding === null || typeof finding !== 'object' ? undefined : finding.findingId));
+    if (!ids.every(text)) fail('invalid_request', 'every finding must carry a findingId');
+    if (new Set(ids).size !== ids.length) fail('invalid_request', 'a findingId is assigned more than once');
+    const settled = new Set(data.settledKeys);
+    for (const [findingId, key] of Object.entries(reopens)) {
+      if (!ids.includes(findingId)) fail('invalid_request', `reopens names ${findingId}, which is not among the findings`);
+      if (!text(key) || !settled.has(key)) fail('invalid_request', `reopens names the blocker key ${key}, which the ledger does not hold`);
+    }
+    const assignedFindings = ids.map((findingId) => ({ findingId, blockerKey: Object.hasOwn(reopens, findingId) ? reopens[findingId] : findingId }));
+    return createResult('build_gate_assignments', { assignedFindings });
+  });
+}
+
 function buildFingerprintSnapshot(data) {
   return wrap('build_fingerprint_snapshot', () => built('build_fingerprint_snapshot', 'fingerprint_snapshot', { snapshot: data.snapshot }));
 }
@@ -121,4 +144,4 @@ function buildGateExpectation(data) {
   });
 }
 
-module.exports = { buildOperatorRevalidate, buildWorkspaceVerify, buildWorkspaceCleanup, buildFingerprintSnapshot, buildGateExpectation, buildManifestCapture, buildManifestCompare };
+module.exports = { buildOperatorRevalidate, buildWorkspaceVerify, buildWorkspaceCleanup, buildFingerprintSnapshot, buildGateExpectation, buildGateAssignments, buildManifestCapture, buildManifestCompare };

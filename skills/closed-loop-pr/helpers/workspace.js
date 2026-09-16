@@ -326,7 +326,25 @@ function canonicalThroughExisting(target) {
 }
 async function cleanupWorkspace(input, cwd) {
   try {
-    const receipt = input?.data?.receipt || input?.receipt || input;
+    // CL-D73: the run's own workspace path is enough — its parent is the run root and the stored receipt is read
+    // there — so a run that no longer holds the creation data it was given at launch can still clean up (#125 run 3).
+    // A request carries the `cwd` its schema requires and a creation receipt never does, which is what tells a
+    // request naming neither input apart from a direct call that hands the receipt itself. Both receipt forms,
+    // the envelope's data and the receipt alone, are unchanged, and so is every identity check below.
+    const named = input?.data ?? input;
+    const request = named !== null && typeof named === 'object' ? named : {};
+    const carriesReceipt = Object.hasOwn(request, 'receipt');
+    const workspace = carriesReceipt ? undefined : request.workspace;
+    if (carriesReceipt && request.workspace !== undefined) return createError('workspace_cleanup', 'invalid_request', 'give either the receipt or the workspace path, never both', 'workspace_cleanup');
+    if (!carriesReceipt && workspace === undefined && Object.hasOwn(request, 'cwd')) return createError('workspace_cleanup', 'invalid_request', 'give either the receipt or the workspace path', 'workspace_cleanup');
+    if (workspace !== undefined && !(typeof workspace === 'string' && workspace.length > 0)) return createError('workspace_cleanup', 'invalid_request', 'the workspace path must be a nonempty string', 'workspace_cleanup');
+    let receipt = carriesReceipt ? request.receipt : (workspace === undefined ? named : undefined);
+    if (workspace !== undefined) {
+      const runRoot = path.dirname(path.resolve(workspace));
+      const stored = readReceipt(runRoot);
+      if (!stored) return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
+      receipt = { ...stored, root: runRoot, storedPath: receiptPath(runRoot) };
+    }
     if (!receipt?.root || !receipt?.storedPath || path.resolve(receipt.storedPath) !== receiptPath(path.resolve(receipt.root))) return createError('workspace_cleanup', 'cleanup_not_authorized', 'run-owned cleanup receipt path required', 'workspace_cleanup');
     assertSymlinkFreePath(receipt.root);
     const stored = readReceipt(receipt.root);

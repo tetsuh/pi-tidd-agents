@@ -13,7 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
-const { SCHEMA, ROOT_GATES, expectedState } = require('./gate-result');
+const { SCHEMA, ROOT_GATES, expectedState, validateGateResult } = require('./gate-result');
 const { inputShapeProblem } = require('./composition');
 const { VOLATILE_FIELDS, volatileRequired, volatileEmptiness, nestedProblem, citedRecords } = require('./envelope');
 
@@ -101,7 +101,19 @@ function readGateResult(data) {
     let envelope;
     try { envelope = JSON.parse(outputText); } catch (error) { fail('designated_output_unparsable', `designated output is not JSON: ${error.message}`, { statusPath, structuredOutputPath, bytes }); }
     if (!plain(envelope)) fail('designated_output_unparsable', 'designated output is not a JSON object', { statusPath, structuredOutputPath, bytes });
-    return createResult(operation, { statusPath, structuredOutputPath, bytes, state: status.state ?? null, stepStatus: step.status ?? null, envelope });
+    // The composition CL-D73 packages: given the expectation file `build_gate_launch` already verified, the read
+    // returns the envelope validated by the same code `gate_result_validate` runs, so the parent carries no
+    // document from one operation into the next (#125 run 4 sent the builder's inputs in place of `expected`).
+    const reported = { statusPath, structuredOutputPath, bytes, state: status.state ?? null, stepStatus: step.status ?? null, envelope };
+    if (!Object.hasOwn(data, 'expectationPath')) return createResult(operation, reported);
+    if (!text(data.expectationPath)) fail('invalid_request', 'expectationPath must be a nonempty string when given');
+    let expectationText;
+    try { expectationText = readUtf8(data.expectationPath); } catch (error) { fail('expectation_file_absent', `expectation file is not readable: ${error.message}`, { expectationPath: data.expectationPath }); }
+    let expected;
+    try { expected = JSON.parse(expectationText); } catch (error) { fail('expectation_file_mismatch', `expectation file is not JSON: ${error.message}`, { expectationPath: data.expectationPath }); }
+    const validated = validateGateResult(envelope, expected);
+    if (!validated.ok) return { ...validated, operation };
+    return createResult(operation, { ...reported, ...validated.data });
   } catch (error) {
     return createError(operation, error.code || 'read_failed', error.message, operation, error.details);
   }

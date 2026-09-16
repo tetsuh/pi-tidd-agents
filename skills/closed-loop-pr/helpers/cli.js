@@ -19,9 +19,9 @@ const SCHEMAS = Object.freeze({
   fingerprint_snapshot: { required: ['snapshot'], optional: [] },
   workspace_create: { required: ['cwd', 'head', 'tree'], optional: ['runRoot', 'allowCloneFallback'] },
   workspace_verify: { required: ['cwd', 'expected'], optional: ['transition'] },
-  workspace_cleanup: { required: ['receipt', 'cwd'], optional: [] },
+  workspace_cleanup: { required: ['cwd'], optional: ['receipt', 'workspace'] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
-  gate_result_read: { required: ['runId'], optional: [] },
+  gate_result_read: { required: ['runId'], optional: ['expectationPath'] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
   guard_before_edit: { required: ['cwd', 'expected', 'authorizedPaths'], optional: [] },
   overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
@@ -32,6 +32,7 @@ const SCHEMAS = Object.freeze({
   build_workspace_cleanup: { required: ['created', 'cwd'], optional: [] },
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
   build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },
+  build_gate_assignments: { required: ['findings', 'settledKeys'], optional: ['reopens'] },
   build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: [] },
   build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },
   build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },
@@ -137,7 +138,7 @@ async function dispatch(request) {
     case 'fingerprint_snapshot': return fingerprintResult(operation, 'snapshot', fingerprints.snapshotFingerprint(data.snapshot));
     case 'workspace_create': return wrap(operation, helpers.createWorkspace(data));
     case 'workspace_verify': return wrap(operation, helpers.verifyWorkspace(data.cwd, data.expected, data.transition));
-    case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data.receipt, data.cwd));
+    case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data, data.cwd));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
     case 'gate_result_read': return wrap(operation, helpers.readGateResult(data));
     case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));
@@ -150,6 +151,7 @@ async function dispatch(request) {
     case 'build_workspace_cleanup': return wrap(operation, helpers.buildWorkspaceCleanup(data));
     case 'build_fingerprint_snapshot': return wrap(operation, helpers.buildFingerprintSnapshot(data));
     case 'build_gate_expectation': return wrap(operation, helpers.buildGateExpectation(data));
+    case 'build_gate_assignments': return wrap(operation, helpers.buildGateAssignments(data));
     case 'build_gate_launch': return wrap(operation, helpers.buildGateLaunch(data));
     case 'build_manifest_capture': return wrap(operation, helpers.buildManifestCapture(data));
     case 'build_manifest_compare': return wrap(operation, helpers.buildManifestCompare(data));

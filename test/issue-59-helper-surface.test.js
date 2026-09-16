@@ -16,7 +16,7 @@ const HELPER_FILES = [
   'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
-  'build_fingerprint_snapshot', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
+  'build_fingerprint_snapshot', 'build_gate_assignments', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
   'build_workspace_verify', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
   'marker_create', 'marker_reconcile', 'required_evidence_check', 'required_evidence_set', 'validation_run',
@@ -102,7 +102,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
-const AGGREGATE_SMOKE_ALARM = 240000; // CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run
+const AGGREGATE_SMOKE_ALARM = 250000; // CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -236,6 +236,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'CL-D53 later reset the aggregate smoke alarm to 160,000 bytes',
     'CL-D71 reset it a third time to 220,000 bytes',
     'CL-D72 reset it a fourth time to 240,000 bytes',
+    'CL-D73 reset it a fifth time to 250,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);
