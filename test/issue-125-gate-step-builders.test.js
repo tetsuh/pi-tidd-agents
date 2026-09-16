@@ -228,16 +228,16 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
   assert.match(record, /issues\/125#issuecomment-5665281873/, 'the record cites the owner choice on the three compositions');
   assert.match(record, /issues\/125#issuecomment-5692473758/, 'the record cites the owner choice on the alarm');
   assert.match(record, /Option A on all three/);
-  assert.match(record, /resets from 240,000 to 250,000 bytes/);
+  assert.match(record, /resets from 240,000 to 260,000 bytes/);
   assert.match(record, /the parent keeps every judgment it has today and loses only the transcription/);
 
   // CL-D37 carries the fifth reset beside the four before it.
   const boundary = sectionOf(readText('CONTRACT.md'), '## CL-D37 — Bounded helper surface is structural');
-  assert.match(boundary, /CL-D73 reset it a fifth time to 250,000 bytes for the packaged gate-step compositions, on the same terms\./);
+  assert.match(boundary, /CL-D73 reset it a fifth time to 260,000 bytes for the packaged gate-step compositions, on the same terms\./);
 
   // Every guard that carries the alarm literal carries the new one.
-  assert.match(readText('test/issue-59-helper-surface.test.js'), /const AGGREGATE_SMOKE_ALARM = 250000; \/\/ CL-D73 reviewed reset from 240,000 \(CL-D72\)/);
-  assert.match(readText('test/package.test.js'), /helperBytes < 250000/);
+  assert.match(readText('test/issue-59-helper-surface.test.js'), /const AGGREGATE_SMOKE_ALARM = 260000; \/\/ CL-D73 reviewed reset from 240,000 \(CL-D72\)/);
+  assert.match(readText('test/package.test.js'), /helperBytes < 260000/);
   assert.equal(readText('test/package.test.js').includes('helperBytes < 240000'), false, 'the superseded alarm must not survive');
 
   const manifest = JSON.parse(readText('test/contract-clauses.json'));

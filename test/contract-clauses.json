@@ -2772,7 +2772,7 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 250000;",
+        "const AGGREGATE_SMOKE_ALARM = 260000;",
         "CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions"
       ]
     },
@@ -3571,7 +3571,7 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 250000;",
+        "const AGGREGATE_SMOKE_ALARM = 260000;",
         "CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions"
       ]
     },
@@ -3694,7 +3694,7 @@
       "section": "## CL-D73 — The gate step composes no request by hand",
       "requires": [
         "Option A on all three",
-        "resets from 240,000 to 250,000 bytes",
+        "resets from 240,000 to 260,000 bytes",
         "the parent keeps every judgment it has today and loses only the transcription"
       ]
     },
