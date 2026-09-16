@@ -2669,58 +2669,58 @@
         "this suite must not reintroduce one either"
       ]
     },
-      {
-        "id": "CL-D49-autofix",
-        "marker": "CL-D49",
-        "title": "Exact autofix names the cleanup result terminal",
-        "files": [
-          "skills/closed-loop-pr/references/autofix.md"
-        ],
-        "section": "### Isolated exact-autofix invariants (CL-D10, CL-D30)",
-        "requires": [
-          "a successful `workspace_cleanup` result is the terminal workspace evidence",
-          "no `workspace_*` operation may target the removed path afterwards",
-          "the terminal recheck after removal is operator-side only",
-          "a post-removal verification failure is a caller error, never evidence about the target"
-        ]
-      },
-      {
-        "id": "CL-D49-tests",
-        "marker": "CL-D49",
-        "title": "Cleanup-terminal fixtures pin the prose and the returned evidence",
-        "files": [
-          "test/issue-80-cleanup-terminal.test.js"
-        ],
-        "requires": [
-          "the cleanup result is named terminal and post-removal workspace calls are forbidden",
-          "the cleanup operation already returns the terminal evidence it is now named for"
-        ]
-      },
-      {
-        "id": "CL-D50-base",
-        "marker": "CL-D50",
-        "title": "The base reference directs the third disclosure stage",
-        "files": [
-          "skills/closed-loop-pr/references/autofix.md"
-        ],
-        "requires": [
-          "The exact `autofix` token additionally selects the CL-D30 addendum in `references/autofix-addendum.md`; read it only then, after this reference (CL-D50)."
-        ]
-      },
-      {
-        "id": "CL-D50-tests",
-        "marker": "CL-D50",
-        "title": "Split fixtures pin the seven-file set, the stage bounds, and the record",
-        "files": [
-          "test/issue-87-addendum-split.test.js"
-        ],
-        "requires": [
-          "the addendum is its own authority file and the aggregate set has seven entries",
-          "the addendum content moved whole and the base directs to it",
-          "the disclosure stages are bounded per stage",
-          "CL-D50 records the third disclosure stage"
-        ]
-      },
+    {
+      "id": "CL-D49-autofix",
+      "marker": "CL-D49",
+      "title": "Exact autofix names the cleanup result terminal",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Isolated exact-autofix invariants (CL-D10, CL-D30)",
+      "requires": [
+        "a successful `workspace_cleanup` result is the terminal workspace evidence",
+        "no `workspace_*` operation may target the removed path afterwards",
+        "the terminal recheck after removal is operator-side only",
+        "a post-removal verification failure is a caller error, never evidence about the target"
+      ]
+    },
+    {
+      "id": "CL-D49-tests",
+      "marker": "CL-D49",
+      "title": "Cleanup-terminal fixtures pin the prose and the returned evidence",
+      "files": [
+        "test/issue-80-cleanup-terminal.test.js"
+      ],
+      "requires": [
+        "the cleanup result is named terminal and post-removal workspace calls are forbidden",
+        "the cleanup operation already returns the terminal evidence it is now named for"
+      ]
+    },
+    {
+      "id": "CL-D50-base",
+      "marker": "CL-D50",
+      "title": "The base reference directs the third disclosure stage",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "The exact `autofix` token additionally selects the CL-D30 addendum in `references/autofix-addendum.md`; read it only then, after this reference (CL-D50)."
+      ]
+    },
+    {
+      "id": "CL-D50-tests",
+      "marker": "CL-D50",
+      "title": "Split fixtures pin the seven-file set, the stage bounds, and the record",
+      "files": [
+        "test/issue-87-addendum-split.test.js"
+      ],
+      "requires": [
+        "the addendum is its own authority file and the aggregate set has seven entries",
+        "the addendum content moved whole and the base directs to it",
+        "the disclosure stages are bounded per stage",
+        "CL-D50 records the third disclosure stage"
+      ]
+    },
     {
       "id": "CL-D51-mapping",
       "marker": "CL-D51",
@@ -3315,7 +3315,11 @@
       "requires": [
         "a deterministic lint over test files, which classifies open-world test code and is declined",
         "a presence check where presence is the criterion is not a finding",
-        "verdict vocabulary, gate authority, the CL-D30 caps, and the CL-D63 fence-grammar bound are unchanged"
+        "verdict vocabulary, gate authority, the CL-D30 caps, and the CL-D63 fence-grammar bound are unchanged",
+        "re-invoke the gate against the named component after each finding, which costs a counted gate and a full review and is declined",
+        "no verdict rule, no severity, no anchoring class, and no round budget",
+        "attempts every other counterexample class against that same component",
+        "https://github.com/tetsuh/pi-tidd-agents/issues/126#issuecomment-5671862619"
       ]
     },
     {
@@ -3328,6 +3332,30 @@
       "requires": [
         "the adversarial gate names every same-class rigor gap in one result and the writer writes exact checks",
         "CL-D66 records the placement, the declined alternatives, and the boundary"
+      ]
+    },
+    {
+      "id": "CL-D66-sweep",
+      "marker": "CL-D66",
+      "title": "The adversarial gate exhausts a component it has broken",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
+      "requires": [
+        "When a finding exhibits a counterexample against a component, attempt every other counterexample class against that same component — its other inputs, encodings, syntax forms, and boundaries — and report all that succeed in that one result, so the component is corrected once."
+      ]
+    },
+    {
+      "id": "CL-D66-sweep-tests",
+      "marker": "CL-D66",
+      "title": "The component sweep is pinned by its own test",
+      "files": [
+        "test/issue-126-sol-component-sweep.test.js"
+      ],
+      "requires": [
+        "Issue #126 the adversarial gate exhausts a broken component before it returns",
+        "Issue #126 CL-D66 records the component sweep, its declined alternatives, and its boundary"
       ]
     },
     {
