@@ -12,7 +12,7 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
-  'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'launch.js', 'operator.js', 'paths.js',
+  'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js',
   'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
@@ -57,7 +57,8 @@ const APPROVED_FS_SITES = [
   "skills/closed-loop-pr/helpers/workspace.js|const fs = require('node:fs');",
   "skills/closed-loop-pr/helpers/workspace.js|fs.writeFileSync(target, JSON.stringify(receipt), { mode: 0o600, flag: 'wx' });",
   "skills/closed-loop-pr/helpers/workspace.js|return JSON.parse(fs.readFileSync(target, 'utf8'));",
-  'skills/closed-loop-pr/helpers/workspace.js|function canon(file) { return fs.realpathSync.native(file); }',
+  "skills/closed-loop-pr/helpers/inspect.js|const fs = require('node:fs');",
+  'skills/closed-loop-pr/helpers/inspect.js|function canon(file) { return fs.realpathSync.native(file); }',
   "skills/closed-loop-pr/helpers/workspace.js|try { root = fs.mkdtempSync(path.join(canonicalParent, 'pi-autofix-helper-')); }",
   'skills/closed-loop-pr/helpers/workspace.js|try { fs.mkdirSync(root, { recursive: false, mode: 0o700 }); }',
   'skills/closed-loop-pr/helpers/workspace.js|if (!fs.existsSync(worktrees)) return [];',
@@ -67,9 +68,9 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './launch': 1, './operator': 3,
-  './paths': 4, './process': 6, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 6, 'node:os': 3, 'node:path': 7,
+  './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
+  './paths': 5, './process': 7, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 7, 'node:os': 3, 'node:path': 8,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
 const PROVENANCE_ANCHORS = [
