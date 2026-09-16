@@ -106,18 +106,19 @@ function validateCachedIsolation(value, temporaryParent) {
     hooks: path.join(value.root, 'hooks'),
     emptyGlobal: path.join(value.root, 'global.gitconfig'),
     emptySystem: path.join(value.root, 'system.gitconfig'),
+    gitStderr: path.join(value.root, 'git-stderr'),
   };
   if (Object.values(expected).some((entry) => typeof entry !== 'string')
       || typeof value.home !== 'string' || typeof value.hooks !== 'string'
-      || typeof value.emptyGlobal !== 'string' || typeof value.emptySystem !== 'string'
+      || typeof value.emptyGlobal !== 'string' || typeof value.emptySystem !== 'string' || typeof value.gitStderr !== 'string'
       || !samePath(value.root, expected.root)
       || !samePath(value.home, expected.home) || !samePath(value.hooks, expected.hooks)
-      || !samePath(value.emptyGlobal, expected.emptyGlobal) || !samePath(value.emptySystem, expected.emptySystem)
+      || !samePath(value.emptyGlobal, expected.emptyGlobal) || !samePath(value.emptySystem, expected.emptySystem) || !samePath(value.gitStderr, expected.gitStderr)
       || !path.basename(value.root).startsWith('pi-tidd-pr-helper-')) {
     throw isolationError('isolation_cache_invalid', 'cached process isolation paths are invalid');
   }
   try {
-    for (const [file, directory] of [[value.root, true], [value.home, true], [value.hooks, true], [value.emptyGlobal, false], [value.emptySystem, false]]) {
+    for (const [file, directory] of [[value.root, true], [value.home, true], [value.hooks, true], [value.emptyGlobal, false], [value.emptySystem, false], [value.gitStderr, false]]) {
       const stat = fs.lstatSync(file);
       if (stat.isSymbolicLink() || (directory ? !stat.isDirectory() : !stat.isFile())) throw new Error('unexpected cached isolation entry');
     }
@@ -143,7 +144,11 @@ function isolationPaths() {
     const emptySystem = path.join(root, 'system.gitconfig');
     fs.writeFileSync(emptyGlobal, '', { mode: 0o600 });
     fs.writeFileSync(emptySystem, '', { mode: 0o600 });
-    isolation = { root, home, hooks, emptyGlobal, emptySystem };
+    // The derivation's Git reads send the child's error stream here, so it is part of the isolation root the
+    // recovery exemption enumerates and is validated like every other entry (ADV-124-WARNING-HEADROOM-NOT-ENFORCED).
+    const gitStderr = path.join(root, 'git-stderr');
+    fs.writeFileSync(gitStderr, '', { mode: 0o600 });
+    isolation = { root, home, hooks, emptyGlobal, emptySystem, gitStderr };
     return validateCachedIsolation(isolation, temporaryParent);
   } catch (error) {
     if (error.code?.startsWith('isolation_')) throw error;
@@ -151,7 +156,40 @@ function isolationPaths() {
   }
 }
 
+// The validation child's environment is an explicit allowlist rather than the inherited one
+// (ADV-124-VALIDATION-ENVIRONMENT-INHERITANCE): PATH and HOME, so an argv program and its toolchain resolve; the
+// temporary-directory and user-name variables; and the Windows system variables a process there needs. Names match
+// exactly, and without case on Windows, where the environment itself ignores case. Every other inherited variable, an
+// interpreter or loader hook, a credential, an agent socket, or a command-resolution control alike, is dropped.
+const VALIDATION_ENV = ['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'USER', 'LOGNAME', 'USERNAME', 'SystemRoot', 'SystemDrive', 'windir', 'USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'ProgramData', 'ProgramFiles', 'ProgramFiles(x86)', 'CommonProgramFiles', 'PROCESSOR_ARCHITECTURE', 'NUMBER_OF_PROCESSORS'];
+const WINDOWS_PATHEXT = '.COM;.EXE;.BAT;.CMD;.VBS;.VBE;.JS;.JSE;.WSF;.WSH;.MSC';
+function validationEnv(extra, platform = process.platform) {
+  const allowed = (key) => (platform === 'win32' ? VALIDATION_ENV.some((name) => name.toUpperCase() === key.toUpperCase()) : VALIDATION_ENV.includes(key));
+  const env = {};
+  for (const source of [process.env, extra]) {
+    for (const [key, value] of Object.entries(source)) {
+      if (allowed(key)) env[key] = value;
+    }
+  }
+  // Node propagates NODE_V8_COVERAGE from its own environment unless the child environment carries the name itself, so
+  // the name is present here and undefined: an inherited coverage hook neither reaches the child nor writes its files.
+  env.NODE_V8_COVERAGE = undefined;
+  // On Windows a command shell resolves a bare name through PATHEXT, and npm and a shell spawn through ComSpec, so both
+  // are pinned to the system defaults rather than inherited, as the comparable POSIX controls are dropped. The spawn
+  // itself forwards a few Windows system variables of its own, which no allowlist here can prevent.
+  if (platform === 'win32') {
+    const systemRoot = Object.entries(env).find(([key]) => key.toUpperCase() === 'SYSTEMROOT')?.[1];
+    env.PATHEXT = WINDOWS_PATHEXT;
+    if (systemRoot) env.ComSpec = path.win32.join(systemRoot, 'System32', 'cmd.exe');
+  }
+  env.GIT_TERMINAL_PROMPT = '0';
+  env.LC_ALL = 'C';
+  env.LANG = 'C';
+  return env;
+}
+
 function sanitizedEnv(extra = {}, kind = 'git') {
+  if (kind === 'validation') return validationEnv(extra);
   const env = {};
   for (const source of [process.env, extra]) {
     for (const [key, value] of Object.entries(source)) {
@@ -194,6 +232,7 @@ function commandOptions(options, kind) {
     env: sanitizedEnv(options.env, kind),
     shell: false,
     timeout: options.timeout ?? 30000,
+    killSignal: options.killSignal ?? 'SIGTERM',
     windowsHide: true,
     maxBuffer: options.maxBuffer ?? 16 * 1024 * 1024,
     encoding: options.encoding ?? 'utf8',
@@ -213,8 +252,12 @@ function safeError(error, command, options, stdout = '', stderr = '') {
   safe.phase = options.phase || 'process';
   safe.exitCode = Number.isInteger(error.status) ? error.status : null;
   safe.signal = error.signal || null;
+  // A spawn failure carries the system's own code (ENOENT, EACCES); an exit carries a number, a signal none.
+  safe.spawnError = typeof error.code === 'string' ? error.code : null;
   safe.stdout = redact(stdout);
   safe.stderr = redact(stderr);
+  // The complete streams as captured, for a caller that reports evidence rather than a message (CL-D72).
+  safe.streams = { stdout: Buffer.isBuffer(stdout) ? stdout : Buffer.from(String(stdout || '')), stderr: Buffer.isBuffer(stderr) ? stderr : Buffer.from(String(stderr || '')) };
   return safe;
 }
 
@@ -228,13 +271,25 @@ function run(command, args, options = {}) {
   try { validateInvocation(command, args); } catch (error) { return Promise.reject(error); }
   const kind = options.kind || (path.basename(command).toLowerCase().startsWith('gh') ? 'gh' : 'git');
   return new Promise((resolve, reject) => {
-    const child = execFile(command, args, { ...commandOptions(options, kind), encoding: 'buffer' }, (error, stdout, stderr) => {
-      if (error && !(options.acceptExitCodes || []).includes(error.code)) {
-        reject(safeError(error, command, options, stdout, stderr));
-        return;
-      }
-      resolve({ stdout: Buffer.from(stdout || ''), stderr: Buffer.from(stderr || ''), exitCode: error?.code || 0 });
-    });
+    let child;
+    try {
+      child = execFile(command, args, { ...commandOptions(options, kind), encoding: 'buffer' }, (error, stdout, stderr) => {
+        // `acceptAnyExit` resolves every exit code the command chose for itself. A spawn error, a signal, or a kill by
+        // the harness still rejects, whatever exit a killed command then reports, which is how validation_run tells
+        // the classes apart (CL-D72).
+        const harnessKilled = Boolean(options.acceptAnyExit) && child.killed && !(error && typeof error.code === 'string');
+        if (harnessKilled || (error && !(options.acceptExitCodes || []).includes(error.code) && !(options.acceptAnyExit && Number.isInteger(error.code)))) {
+          reject(safeError(Object.assign(error || new Error('killed by the harness'), harnessKilled ? { killed: true } : {}), command, options, stdout, stderr));
+          return;
+        }
+        resolve({ stdout: Buffer.from(stdout || ''), stderr: Buffer.from(stderr || ''), exitCode: error?.code || 0 });
+      });
+    } catch (error) {
+      // Node throws most spawn errors at once instead of passing them to the callback; they are made safe the same way,
+      // so the system's own code still reaches the caller (ADV-124-SYNC-SPAWN-ERROR-REASON-LOST).
+      reject(safeError(error, command, options));
+      return;
+    }
     if (options.stdin !== undefined) child.stdin.end(options.stdin);
     else child.stdin.end();
   });
@@ -248,7 +303,7 @@ function runSync(command, args, options = {}) {
       ...commandOptions(options, kind),
       encoding: options.encoding ?? 'utf8',
       input: options.stdin,
-      stdio: ['pipe', 'pipe', 'pipe'],
+      stdio: ['pipe', 'pipe', options.stderrFd ?? 'pipe'],
     });
   } catch (error) {
     if ((options.acceptExitCodes || []).includes(error.status)) {
@@ -375,4 +430,4 @@ function assertSafeRepositoryConfig(cwd) {
   return crypto.createHash('sha256').update(frameConfigParts(first, currentBranchName(cwd))).digest('hex');
 }
 
-module.exports = { sanitizedEnv, run, runSync, gitArgs, isolationPaths, assertSafeRepositoryConfig };
+module.exports = { sanitizedEnv, validationEnv, run, runSync, gitArgs, isolationPaths, assertSafeRepositoryConfig };

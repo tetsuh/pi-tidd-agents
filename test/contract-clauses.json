@@ -2270,7 +2270,7 @@
       "section": "### Bounded pre-writer recovery (CL-D39)",
       "requires": [
         "One recovery is permitted for either a deterministic local tooling failure under the original CL-D39 rows or the CL-D51 pure gate transport failure with zero designated output bytes",
-        "process-isolation root `pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, and `system.gitconfig`",
+        "process-isolation root `pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`",
         "no Luna task, commit, push, or reply exists",
         "the budget is exactly one per key",
         "one canonical `operation@phase` key",
@@ -2772,8 +2772,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 220000;",
-        "CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979"
+        "const AGGREGATE_SMOKE_ALARM = 240000;",
+        "CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run"
       ]
     },
     {
@@ -3395,6 +3395,7 @@
       "section": "### Structured gate result transport (CL-D36)",
       "requires": [
         "the parent reads it from that path after completion through packaged `gate_result_read`, which resolves the path from the run id (CL-D68)",
+        "A `run_in_progress` result from that read is neither a result nor a failure",
         "the launch request is composed by packaged `build_gate_launch` (CL-D68)"
       ]
     },
@@ -3413,7 +3414,9 @@
         "A composer that writes, reaches the network or Git, or reads anything but those two classes — the installed package's authority files and the supplied expectation file — or a second source for the launch request, requires a new owner decision",
         "raises the authority ceiling once more, from 140,000 to 150,000 bytes",
         "the cleanup builder and the cleanup operation share one pure cwd predicate",
-        "widens CL-D44's declared field set by `build_gate_launch.expectation`"
+        "widens CL-D44's declared field set by `build_gate_launch.expectation`",
+        "a step the runner still records as in progress is `run_in_progress`, neither a result nor a failure",
+        "A run the runner has already recorded as terminal is never `run_in_progress`"
       ]
     },
     {
@@ -3540,8 +3543,103 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 220000;",
-        "CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979"
+        "const AGGREGATE_SMOKE_ALARM = 240000;",
+        "CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run"
+      ]
+    },
+    {
+      "id": "CL-D72-map",
+      "marker": "CL-D72",
+      "title": "The invocation map offers the packaged validation run and names the recovery key",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |",
+        "| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |",
+        "| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |"
+      ]
+    },
+    {
+      "id": "CL-D72-record",
+      "marker": "CL-D72",
+      "title": "The CL-D72 record states the three choices, the spawn-site rule, and the reset",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D72 — The focused validation is packaged and the alarm is reset for it",
+      "requires": [
+        "Option A on all three",
+        "fails closed as `validation_failed` at phase `validation`",
+        "or as `harness_failed` at phase `spawn`",
+        "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`",
+        "That guard is a structural check of reviewed source bounded to direct references, not a JavaScript evaluator",
+        "owner option A, https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510",
+        "a form outside this bound is not a finding against the guard",
+        "a literal name counts as a reference wherever it is written",
+        "every call of `transport` or `defaultTransport` passes the literal `'gh'`, and each gh transport spawns only the literal `'gh'`",
+        "a module loader other than `require`, `getBuiltinModule` or `mainModule`, appears nowhere",
+        "a literal Git argument list carries no `-c` configuration pair of its own",
+        "The timeout is enforced by SIGKILL and decides the outcome",
+        "a read beyond its bound fails closed as `output_limit` naming it",
+        "`absent` names only a file the head does not carry",
+        "are refused as references of any form",
+        "read from the syntax tree that Node's own bundled parser builds",
+        "A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`",
+        "resets from 220,000 to 240,000 bytes",
+        "the owner chose the step name (https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859",
+        "a changed symlink or submodule pointer is excluded and named with its mode in the result",
+        "owner option A, https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628",
+        "A second non-git spawn site, a shell string, a cwd below a toplevel, a program allowlist, or a further alarm raise requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D72-tests",
+      "marker": "CL-D72",
+      "title": "The CL-D72 fixtures pin the outcomes, the boundary, the prose, and the record",
+      "files": [
+        "test/issue-64-validation-run.test.js"
+      ],
+      "requires": [
+        "validation_run reports passed, validation_failed, and harness_failed as distinct outcomes",
+        "validation_run takes an argv, never a shell, and runs only at a Git toplevel",
+        "the map, the README, the recovery key, and the record name the packaged validation run",
+        "required_evidence_set derives the set from the change and the authority files"
+      ]
+    },
+    {
+      "id": "CL-D72-route-review-only",
+      "marker": "CL-D72",
+      "title": "Review-only names the packaged validation run and the derived evidence set",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "Review-only's validation step runs each of the target's validation commands through packaged `validation_run`",
+        "The gate's required-evidence set is derived through packaged `required_evidence_set`, never assembled by hand (CL-D72)"
+      ]
+    },
+    {
+      "id": "CL-D72-route-shared",
+      "marker": "CL-D72",
+      "title": "The shared transport section names the derived evidence set",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Structured gate result transport (CL-D36)",
+      "requires": [
+        "On the PR root, the set itself is derived through packaged `required_evidence_set` from the paths the change touches, the authority files at the head, and the identities the parent holds (CL-D72)"
+      ]
+    },
+    {
+      "id": "CL-D72-route-autofix",
+      "marker": "CL-D72",
+      "title": "Exact autofix names the packaged validation run at the guarded step",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "The guarded focused validation runs through packaged `validation_run` (CL-D72)."
       ]
     }
   ]

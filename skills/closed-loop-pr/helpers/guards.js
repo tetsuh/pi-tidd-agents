@@ -8,10 +8,11 @@
 // failure with nothing to name cannot be produced, because each check reports what it saw.
 
 const crypto = require('node:crypto');
+const fs = require('node:fs');
 const path = require('node:path');
-const { createResult, createError } = require('./protocol');
-const { runSync, gitArgs } = require('./process');
-const { RUNTIME_ROOTS } = require('./operator');
+const { createResult, createError, keysExactly } = require('./protocol');
+const { runSync, gitArgs, isolationPaths } = require('./process');
+const { RUNTIME_ROOTS, byteSort } = require('./operator');
 const { classifyRuntimeRoots, lstatKind } = require('./paths');
 const { checkRequiredEvidence } = require('./gate-result');
 const { authorizedPathsProblem } = require('./composition');
@@ -40,8 +41,8 @@ function assertSafeRuntimeRoots(cwd) {
     if (!info.safe) fail('guard_failed', 'runtime_root_classification', `runtime root is not absent or a real directory: ${root} is ${info.kind}`, `${root}:${info.kind}`);
   }
 }
-function gitBytes(cwd, args, phase, acceptExitCodes) {
-  return Buffer.from(runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes }));
+function gitBytes(cwd, args, phase, acceptExitCodes, maxBuffer, stderrFd) {
+  return Buffer.from(runSync('git', gitArgs(args), { cwd, phase, encoding: 'buffer', acceptExitCodes, maxBuffer, stderrFd }));
 }
 function gitText(cwd, args, phase, acceptExitCodes) {
   return gitBytes(cwd, args, phase, acceptExitCodes).toString('utf8');
@@ -269,4 +270,98 @@ function requiredEvidenceCheck(data) {
   });
 }
 
-module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, parsePorcelainRecords, requiredEvidenceCheck };
+// CL-D72: the gate's required-evidence set, derived rather than assembled by hand — the paths the change
+// touches that exist at the head, plus the authority files present there, each identified by the SHA-256 of
+// its blob at the head, plus the identity records the parent holds, unchanged. A read-only observation
+// through the allowed diff, ls-tree, and cat-file; it reads Git, so it is not one of the pure builders.
+const AUTHORITY_AT_HEAD = ['CONTRACT.md', 'README.md'];
+const IDENTITY_KINDS = ['git', 'github', 'snapshot'];
+// An identity the request repeats must agree with the argument it repeats (CL-D47's rule).
+const CORRELATED_SOURCES = { 'git:pr_head': 'headOid', 'git:pr_base': 'baseOid' };
+// Each Git read carries its own bound rather than the 16 MiB process default; a read beyond it fails closed by name.
+const LISTING_MAX_BYTES = 256 * 1024 * 1024, BLOB_MAX_BYTES = 256 * 1024 * 1024, SMALL_MAX_BYTES = 64 * 1024, WARNING_MAX_BYTES = 64 * 1024;
+function requiredEvidenceSet(data) {
+  return wrap('required_evidence_set', () => {
+    const phase = 'required_evidence_set';
+    if (!text(data.cwd) || !path.isAbsolute(data.cwd) || data.cwd.includes('\u0000')) fail('invalid_request', 'request_shape', 'cwd must be an absolute path without NUL', JSON.stringify(data.cwd));
+    for (const key of ['baseOid', 'headOid']) if (!text(data[key]) || !OID.test(data[key])) fail('invalid_request', 'request_shape', `${key} must be a commit OID`, String(data[key]));
+    if (!Array.isArray(data.identities)) fail('invalid_request', 'request_shape', 'identities must be an array', typeof data.identities);
+    for (const entry of data.identities) {
+      const shaped = keysExactly(entry, ['identity', 'kind', 'source']) && text(entry.source) && text(entry.identity) && IDENTITY_KINDS.includes(entry.kind);
+      if (!shaped) fail('invalid_request', 'identities_shape', 'each identity record carries exactly source, kind (git, github, or snapshot), and identity; file records are derived here', JSON.stringify(entry));
+      const argument = CORRELATED_SOURCES[entry.source];
+      if (argument && (entry.kind !== 'git' || entry.identity !== data[argument])) fail('invalid_request', 'identity_correlation', `${entry.source} must be a git record equal to ${argument}`, `${entry.kind}:${entry.identity}`);
+    }
+    // Every Git read of the derivation goes through this reader with its own bound, never the process default: a
+    // listing or a blob up to 256 MiB, anything else up to 64 KiB (CONV-124-AUTHORITY-LISTING-UNBOUNDED). One buffer
+    // covers both streams of a synchronous spawn, so the child writes its error stream to a file of its own: the
+    // payload bound is the spawn's, and the file's size is measured after the read and refused beyond WARNING_MAX_BYTES,
+    // naming the stream that passed it (ADV-124-BLOB-BOUND-TRIPPED-BY-STDERR, ADV-124-WARNING-HEADROOM-NOT-ENFORCED).
+    // The path comes from the validated cache on every read, so an entry planted at it mid-derivation is refused
+    // before anything opens it, and the size is a threshold on what a read may carry, not a cap on Git's writing.
+    const bounded = (args, limit, what, acceptExitCodes) => {
+      const noisePath = isolationPaths().gitStderr;
+      const noiseFd = fs.openSync(noisePath, 'w');
+      let read;
+      try { read = gitBytes(data.cwd, args, phase, acceptExitCodes, limit, noiseFd); }
+      catch (error) {
+        if (/ENOBUFS|MAXBUFFER/.test(String(error.message))) fail('output_limit', 'output_limit', `${what} exceeds ${limit} bytes`, what);
+        throw error;
+      }
+      finally { fs.closeSync(noiseFd); }
+      const noise = fs.statSync(noisePath).size;
+      if (noise > WARNING_MAX_BYTES) { fs.truncateSync(noisePath, 0); fail('output_limit', 'output_limit', `Git wrote ${noise} bytes on its error stream while reading ${what}, beyond the ${WARNING_MAX_BYTES} bytes allowed`, what); }
+      return read;
+    };
+    // A work tree at its toplevel; a bare repository also answers an empty prefix (ADV-124-BARE-REPOSITORY-ACCEPTED-AS-CHECKOUT).
+    // Git's whole answer is compared, so a subdirectory whose name begins with a newline cannot pass (ADV-124-CWD-NEWLINE-SUBDIR-ACCEPTED).
+    const answer = bounded(['rev-parse', '--is-inside-work-tree', '--show-prefix'], SMALL_MAX_BYTES, 'the work-tree check').toString('utf8');
+    if (answer !== 'true\n\n') fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of a Git work tree', data.cwd);
+    for (const key of ['baseOid', 'headOid']) {
+      if (bounded(['cat-file', '-t', data[key]], SMALL_MAX_BYTES, key, [128]).toString('utf8').trim() !== 'commit') fail('invalid_request', 'commit_presence', `${key} is not a commit in this checkout`, data[key]);
+    }
+    // Git names a path as bytes and evidence names it as text: a changed path that is not valid UTF-8 cannot be named
+    // losslessly and fails closed by its bytes, and both listings are matched by bytes, so two names that decode alike
+    // never stand in for each other (ADV-124-NONUTF8-EVIDENCE-PATH-OMISSION).
+    const records = (buffer) => { const out = []; let start = 0; for (let k = 0; k <= buffer.length; k += 1) if (k === buffer.length || buffer[k] === 0) { if (k > start) out.push(buffer.subarray(start, k)); start = k + 1; } return out; };
+    const changedBytes = records(bounded(['diff', '--name-only', '--no-renames', '-z', data.baseOid, data.headOid, '--'], LISTING_MAX_BYTES, 'the changed-path listing'));
+    for (const name of changedBytes) if (!Buffer.from(name.toString('utf8'), 'utf8').equals(name)) fail('invalid_request', 'path_encoding', 'a changed path is not valid UTF-8, so evidence cannot name it losslessly', name.toString('hex'));
+    const changed = changedBytes.map((name) => name.toString('utf8'));
+    const key = (source) => Buffer.from(source, 'utf8').toString('latin1');
+    // The tree at the head, by entry: only a regular blob (100644 or 100755) can be attested as a file; a
+    // symlink or a submodule pointer is excluded and named with its mode (owner option A, CL-D72).
+    const atHead = new Map();
+    for (const record of records(bounded(['ls-tree', '-r', '--full-tree', '-z', data.headOid], LISTING_MAX_BYTES, 'the tree listing'))) {
+      // The first tab separates the mode, type, and object from the name; a later tab is part of the name
+      // (CONV-124-TAB-PATH-EVIDENCE-OMISSION).
+      const tab = record.indexOf(9); atHead.set(record.subarray(tab + 1).toString('latin1'), record.subarray(0, tab).toString('latin1').split(' ')[0]);
+    }
+    const modeOf = (source) => atHead.get(key(source));
+    const regular = (mode) => mode === '100644' || mode === '100755';
+    const sources = new Set(changed.filter((source) => modeOf(source) !== undefined && regular(modeOf(source))));
+    const excluded = changed.filter((source) => modeOf(source) !== undefined && !regular(modeOf(source))).map((source) => ({ source, mode: modeOf(source) }));
+    // An authority entry is read without recursion, so a directory or a symlink under that name shows its own mode: a
+    // present entry that is not a regular file is excluded with its mode, and `absent` names only what the head lacks.
+    const authorityModes = new Map();
+    for (const record of records(bounded(['ls-tree', '--full-tree', '-z', data.headOid, '--', ...AUTHORITY_AT_HEAD], LISTING_MAX_BYTES, 'the authority listing'))) {
+      const tab = record.indexOf(9); authorityModes.set(record.subarray(tab + 1).toString('latin1'), record.subarray(0, tab).toString('latin1').split(' ')[0]);
+    }
+    const authority = { included: [], absent: [], excluded: [] };
+    for (const file of AUTHORITY_AT_HEAD) {
+      const mode = authorityModes.get(file);
+      if (mode === undefined) authority.absent.push(file);
+      else if (regular(mode)) { sources.add(file); authority.included.push(file); }
+      else authority.excluded.push({ source: file, mode });
+    }
+    const files = byteSort([...sources]).map((source) => {
+      const size = Number(bounded(['cat-file', '-s', `${data.headOid}:${source}`], SMALL_MAX_BYTES, source).toString('utf8').trim());
+      if (!(size <= BLOB_MAX_BYTES)) fail('output_limit', 'output_limit', `a changed file exceeds ${BLOB_MAX_BYTES} bytes`, source);
+      return { source, kind: 'file', identity: crypto.createHash('sha256').update(bounded(['cat-file', 'blob', `${data.headOid}:${source}`], BLOB_MAX_BYTES, source)).digest('hex') };
+    });
+    const requiredEvidence = [...files, ...data.identities.map(({ source, kind, identity }) => ({ source, kind, identity }))];
+    try { checkRequiredEvidence(requiredEvidence); } catch (error) { fail('invalid_request', 'required_evidence_shape', error.message, error.message); }
+    return createResult('required_evidence_set', { requiredEvidence, baseOid: data.baseOid, headOid: data.headOid, changed: changed.length, files: files.length, authority, excluded });
+  });
+}
+
+module.exports = { guardBeforeEdit, overlayFreeze, overlayCompare, manifestCompare, parsePorcelainRecords, requiredEvidenceCheck, requiredEvidenceSet };

@@ -101,7 +101,8 @@ function evaluateWritability(input) {
   return evaluateRulesets({ repository: { name: input.repository.split('/').pop(), id: input.repositoryId }, rulesets: [...input.repositoryRulesets, ...input.organizationRulesets] }, input.branchRef, input.defaultBranch);
 }
 function parse(bytes, label) { try { return JSON.parse(Buffer.from(bytes).toString('utf8')); } catch { throw Object.assign(new Error(`invalid JSON from ${label}`), { code: 'invalid_json', phase: 'writability_collect' }); } }
-async function defaultTransport(command, args, options) { return run(command, args, options); }
+// The GitHub transport runs only gh, whatever program a caller names (CL-D72).
+async function defaultTransport(command, args, options) { if (command !== 'gh') throw Object.assign(new Error('the GitHub transport runs only gh'), { code: 'transport_program' }); return run('gh', args, options); }
 async function read(transport, args, cwd, label) { return parse((await transport('gh', args, { cwd, phase: 'writability_collect', kind: 'gh' })).stdout, label); }
 async function pages(transport, endpoint, cwd) {
   const result = [];

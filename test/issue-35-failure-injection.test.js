@@ -126,7 +126,7 @@ const INCIDENTS = [
     phase: 'focused_validation', invariant: 'CL-D39 mapping: validation_harness is terminal',
     positive: () => { const m = mappedOutcome('envelope_read@normalize'); return m.found && m.outcome === 'recoverable' ? ok() : fail('normalize', 'CL-D39', m.found ? 'unexpected' : 'row_missing'); },
     sibling: () => {
-      const m = mappedOutcome('validation_harness@focused_validation');
+      const m = mappedOutcome('validation_run@focused_validation');
       if (!m.found) return ok(); // a missing row must NOT look like a terminal sibling; the test below fails it
       return m.outcome === 'terminal' ? fail('focused_validation', 'CL-D39 mapping: validation_harness is terminal', 'terminal') : ok();
     },
@@ -328,7 +328,7 @@ test('Issue #35 fixtures carry an explicit schema version and unknown versions a
 });
 
 test('Issue #35 a CL-D39 row that disappears is reported as missing, not as terminal', () => {
-  const present = mappedOutcome('validation_harness@focused_validation');
+  const present = mappedOutcome('validation_run@focused_validation');
   assert.deepEqual(present, { found: true, outcome: 'terminal' });
   const absent = mappedOutcome('no_such_operation@normalize');
   assert.deepEqual(absent, { found: false, outcome: null }, 'an absent row must be distinguishable from a terminal one');

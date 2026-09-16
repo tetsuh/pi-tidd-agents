@@ -7,19 +7,19 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readJson, readText } = require('./helpers');
+const { repoRoot, repoPath, readJson, readText, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts } = require('./helpers');
 const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace');
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
-  'builders.js', 'cli.js', 'composition.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'launch.js', 'operator.js', 'paths.js',
-  'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'workspace.js', 'writability.js',
+  'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'launch.js', 'operator.js', 'paths.js',
+  'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
   'build_fingerprint_snapshot', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
   'build_workspace_verify', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
-  'marker_create', 'marker_reconcile', 'required_evidence_check',
+  'marker_create', 'marker_reconcile', 'required_evidence_check', 'required_evidence_set', 'validation_run',
   'operator_capture', 'operator_revalidate', 'snapshot', 'workspace_cleanup', 'workspace_create',
   'workspace_verify', 'writability',
 ].sort();
@@ -48,6 +48,12 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/process.js|fs.mkdirSync(hooks, { mode: 0o700 });',
   "skills/closed-loop-pr/helpers/process.js|fs.writeFileSync(emptyGlobal, '', { mode: 0o600 });",
   "skills/closed-loop-pr/helpers/process.js|fs.writeFileSync(emptySystem, '', { mode: 0o600 });",
+  "skills/closed-loop-pr/helpers/process.js|fs.writeFileSync(gitStderr, '', { mode: 0o600 });",
+  "skills/closed-loop-pr/helpers/guards.js|const fs = require('node:fs');",
+  "skills/closed-loop-pr/helpers/guards.js|const noiseFd = fs.openSync(noisePath, 'w');",
+  "skills/closed-loop-pr/helpers/guards.js|if (noise > WARNING_MAX_BYTES) { fs.truncateSync(noisePath, 0); fail('output_limit', 'output_limit', `Git wrote ${noise} bytes on its error stream while reading ${what}, beyond the ${WARNING_MAX_BYTES} bytes allowed`, what); }",
+  'skills/closed-loop-pr/helpers/guards.js|finally { fs.closeSync(noiseFd); }',
+  'skills/closed-loop-pr/helpers/guards.js|const noise = fs.statSync(noisePath).size;',
   "skills/closed-loop-pr/helpers/workspace.js|const fs = require('node:fs');",
   "skills/closed-loop-pr/helpers/workspace.js|fs.writeFileSync(target, JSON.stringify(receipt), { mode: 0o600, flag: 'wx' });",
   "skills/closed-loop-pr/helpers/workspace.js|return JSON.parse(fs.readFileSync(target, 'utf8'));",
@@ -61,9 +67,9 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './builders': 1, './composition': 5, './evidence': 2, './fingerprints': 2, './gate-result': 4, './guards': 1, './index': 1, './launch': 1, './operator': 3,
-  './paths': 4, './process': 5, './protocol': 14, './reply': 1, './snapshot': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 7, 'node:fs': 5, 'node:os': 3, 'node:path': 6,
+  './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './launch': 1, './operator': 3,
+  './paths': 4, './process': 6, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 6, 'node:os': 3, 'node:path': 7,
 };
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
 const PROVENANCE_ANCHORS = [
@@ -86,7 +92,17 @@ const ROOT_GUARDS = [
   [`${HELPER_DIR}/workspace.js`, "if (isInside(requested, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
   [`${HELPER_DIR}/workspace.js`, "if (isInside(root, repository)) runRootError('workspace_inside_repository', 'run root must be external');"],
 ];
-const AGGREGATE_SMOKE_ALARM = 220000; // CL-D71 reviewed reset from 200,000 (CL-D57) after the alarm fired at 200,979
+// Each executable-spawn call that is not a literal `git`, read at the source level (a call is its callee and
+// its first three arguments as written, whitespace collapsed), so a call added, moved, relabelled, reworded,
+// or split across lines differs from the allowlist (CONV-124-SPAWN-SCAN-MULTILINE-GAP).
+const APPROVED_SPAWN_SITES = [
+  `${HELPER_DIR}/process.js|execFile|command|args|{ ...commandOptions(options, kind), encoding: 'buffer' }`,
+  `${HELPER_DIR}/process.js|execFileSync|command|args|{ ...commandOptions(options, kind), encoding: options.encoding ?? 'utf8', input: options.stdin, stdio: ['pipe', 'pipe', options.stderrFd ?? 'pipe'], }`,
+  `${HELPER_DIR}/snapshot.js|run|'gh'|args|options`,
+  `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
+  `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
+].sort();
+const AGGREGATE_SMOKE_ALARM = 240000; // CL-D72 reviewed reset from 220,000 (CL-D71) for the packaged validation run
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -99,6 +115,16 @@ function sourceFsSites(sources) {
   const sites = [];
   for (const [file, source] of Object.entries(sources)) {
     for (const line of source.split(/\r?\n/)) if (/\bfs\b/.test(line)) sites.push(`${file}|${normalizedLine(line)}`);
+  }
+  return sites.sort();
+}
+function spawnSites(sources) {
+  primeSpawnFacts(Object.values(sources));
+  const sites = [];
+  for (const [file, source] of Object.entries(sources)) {
+    for (const call of spawnCalls(source)) {
+      if (call.callee.startsWith('execFile') || call.args[0] !== "'git'") sites.push(`${file}|${call.callee}|${call.args.slice(0, 3).join('|')}`);
+    }
   }
   return sites.sort();
 }
@@ -117,13 +143,16 @@ function requireInventory(sources) {
 }
 function gitCommands(sources) {
   const commands = [];
-  const pattern = /\b(?:git|gitRaw|gitText|gitBuffer|collect|gitArgs)\s*\([^[]*?\[([^\]]*)\]/gs;
+  primeSpawnFacts(Object.values(sources));
   for (const [file, source] of Object.entries(sources)) {
-    for (const match of source.matchAll(pattern)) {
-      const args = [...match[1].matchAll(/['"]([^'"]*)['"]/g)].map((entry) => entry[1]);
+    // Every literal argument list passed to a Git helper or to a direct `run('git', ...)`, read from the syntax tree, so
+    // single, double, and backtick quoting are one literal (CL-D72; the second pre-push review of 5dfaee3).
+    for (const args of gitArgLists(source)) {
       let index = 0;
       while (index < args.length) {
-        if (args[index] === '-c') { index += 2; continue; }
+        // A literal configuration pair overrides SAFE_GIT_CONFIG and can make an allowed command run a program
+        // (core.fsmonitor, diff.external, core.hooksPath); only gitArgs' own non-literal pairs are skipped.
+        if (args[index] === '-c') { if (typeof args[index + 1] === 'string') commands.push({ file, command: `-c ${args[index + 1]}` }); index += 2; continue; }
         if (args[index] === '--no-replace-objects' || args[index] === '--no-pager') { index += 1; continue; }
         break;
       }
@@ -150,6 +179,14 @@ function validateBoundary(model) {
     if (/\breceipt\s*\.\s*(?:storedPath|root)\s*=|\b(?:Object\.assign|Reflect\.set)\s*\(\s*receipt\b|\bdelete\s+receipt\s*\./.test(source)) errors.push(`workspace receipt provenance mutation is forbidden: ${file}`);
   }
   for (const { file, command } of gitCommands(model.sources)) if (!ALLOWED_GIT_COMMANDS.has(command)) errors.push(`Git command is outside the reviewed verification/lifecycle allowlist: ${file}:${command}`);
+  // CL-D72: the complete executable-spawn call surface, parsed and compared exactly — every run/runSync call
+  // whose program is not the literal 'git', and both child_process sites — so a call added, moved, relabeled,
+  // or reworded anywhere differs from the allowlist; and no site spawns through a shell.
+  const spawns = spawnSites(model.sources);
+  if (JSON.stringify(spawns) !== JSON.stringify(APPROVED_SPAWN_SITES)) errors.push(`executable-spawn callsites differ from the reviewed allowlist: ${spawns.join(' ; ')}`);
+  for (const [file, source] of Object.entries(model.sources)) if (/\bshell:\s*true\b/.test(source)) errors.push(`shell spawn is forbidden: ${file}`);
+  // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS: the bound CL-D72 records — a primitive reaches a program only through a direct call.
+  for (const [file, source] of Object.entries(model.sources)) errors.push(...spawnReferenceProblems(file, source));
   for (const [file, anchor, expectedCount = 1] of PROVENANCE_ANCHORS) {
     const count = model.sources[file].split(anchor).length - 1;
     if (count !== expectedCount) errors.push(`write-root provenance anchor is absent or duplicated: ${file}:${anchor}`);
@@ -198,6 +235,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     '140,000-byte aggregate smoke alarm',
     'CL-D53 later reset the aggregate smoke alarm to 160,000 bytes',
     'CL-D71 reset it a third time to 220,000 bytes',
+    'CL-D72 reset it a fourth time to 240,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);
@@ -210,6 +248,58 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'bin', (copy) => { copy.manifest.bin = { tidd: 'skills/closed-loop-pr/helpers/cli.js' }; }, 'package bin');
   rejectsMutation(model, 'exports', (copy) => { copy.manifest.exports = './skills/closed-loop-pr/helpers/cli.js'; }, 'package exports');
   rejectsMutation(model, 'extension', (copy) => { copy.manifest.pi.extensions = ['./extension.js']; }, 'pi.extensions');
+  // CL-D72: a second non-git spawn site, a moved one, or a shell anywhere is rejected.
+  rejectsMutation(model, 'a second spawn site labelled as git', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun('npm', ['test'], { kind: 'git' });\n"; }, 'executable-spawn callsites');
+  rejectsMutation(model, 'a second spawn site with no label', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrunSync(program, ['test']);\n"; }, 'executable-spawn callsites');
+  rejectsMutation(model, 'the validation site relabelled', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("kind: 'validation'", "kind: 'gh'"); }, 'executable-spawn callsites');
+  rejectsMutation(model, 'the validation label dropped', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("kind: 'validation', ", ''); }, 'executable-spawn callsites');
+  rejectsMutation(model, 'a direct child_process site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nexecFileSync('npm', ['test']);\n"; }, 'executable-spawn callsites');
+  rejectsMutation(model, 'a git push through run', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun('git', ['push', 'origin', 'HEAD']);\n"; }, 'Git command is outside');
+  // CONV-124-SPAWN-SCAN-MULTILINE-GAP: a call split across lines is the same call.
+  rejectsMutation(model, 'a multiline spawn site', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun(\n  'npm',\n  ['test'],\n  { kind: 'git' }\n);\n"; }, 'executable-spawn callsites');
+  rejectsMutation(model, 'a multiline git push', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrunSync(\n  'git',\n  ['push', 'origin', 'HEAD']\n);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'the validation site rewritten across lines with another label', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("run(program, args, { cwd, kind: 'validation',", "run(\n  program,\n  args,\n  { cwd, kind: 'gh',"); }, 'executable-spawn callsites');
+  // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS: a spawn primitive reaches a program only through a direct call; every other
+  // reference, a second child_process import, a non-gh transport call, and eval or Function are refused.
+  rejectsMutation(model, 'an alias of run', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst invoke = run;\ninvoke('npm', ['test'], { kind: 'validation' });\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'an alias of execFileSync', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] += "\nconst direct = execFileSync;\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'run passed as a value', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\n[run].forEach((f) => f('npm', ['test']));\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'run.call', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrun.call(null, 'npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'spawn destructured from child_process', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace("const { execFile, execFileSync } = require('node:child_process');", "const { execFile, execFileSync, spawn } = require('node:child_process');"); }, 'node:child_process is used outside');
+  rejectsMutation(model, 'a property call on child_process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrequire('node:child_process').spawnSync('npm', ['test']);\n"; }, 'node:child_process is used outside');
+  rejectsMutation(model, 'a transport call with another program', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace("transport('gh', args,", "transport('npm', args,"); }, "transport call passes a program other than 'gh'");
+  rejectsMutation(model, 'eval', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\neval(\"run('npm', [])\");\n"; }, 'dynamic code execution is forbidden');
+  rejectsMutation(model, 'a rename inside a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/validation.js`] = copy.sources[`${HELPER_DIR}/validation.js`].replace("const { run, gitArgs } = require('./process');", "const { run: launch, gitArgs } = require('./process');"); }, 'a destructured import of the spawn modules renames a name');
+  rejectsMutation(model, 'a dynamic load of child_process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nmodule.constructor._load('node:child_process').spawnSync('npm', ['test']);\n"; }, 'node:child_process is used outside');
+  // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS reopened: a slash after a postfix operator is division, read by the grammar.
+  rejectsMutation(model, 'an alias hidden behind a postfix increment', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nlet count = 1, divisor = 2, invoke;\ncount++ / (invoke = run) / divisor;\ninvoke('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'an alias hidden behind a postfix decrement', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nlet count = 1, divisor = 2, invoke;\ncount-- / (invoke = run) / divisor;\ninvoke('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'a source that does not parse', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst = ;\n"; }, 'helper source does not parse');
+  // Pre-push adversarial review of 1b9328e: literal references, loaders, the transport rule, and Git config overrides.
+  rejectsMutation(model, 'a computed string key on module.exports', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] += "\nmodule.exports['run']('npm', ['test']);\n"; }, 'spawn primitive referenced outside a direct call');
+  rejectsMutation(model, 'a computed key in a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] = copy.sources[`${HELPER_DIR}/guards.js`].replace("const { runSync, gitArgs, isolationPaths } = require('./process');", "const { ['runSync']: spawnProgram, gitArgs } = require('./process');"); }, 'a destructured import of the spawn modules renames a name');
+  rejectsMutation(model, 'a rest element in a destructured import', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] = copy.sources[`${HELPER_DIR}/guards.js`].replace("const { runSync, gitArgs, isolationPaths } = require('./process');", "const { gitArgs, ...rest } = require('./process');"); }, 'a destructured import of the spawn modules gathers names into a rest element');
+  rejectsMutation(model, 'getBuiltinModule', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.getBuiltinModule('node:child\\u005fprocess').spawnSync('npm', ['test']);\n"; }, 'a module loader outside require is forbidden');
+  rejectsMutation(model, 'a transport call beside a function-expression wrapper', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace('function defaultTransport(command, args, options) { return run(command, args, options); }', 'const defaultTransport = function (command, args, options) { return run(command, args, options); };').replace("transport('gh', args,", "transport('npm', args,"); }, "transport call passes a program other than 'gh'");
+  rejectsMutation(model, 'a Git config override that runs a program', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] += "\ngitBytes(cwd, ['-c', 'core.fsmonitor=/tmp/evil.sh', 'status'], phase);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'a glued Git config override', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] += "\ngitBytes(cwd, ['-ccore.fsmonitor=/tmp/evil.sh', 'status'], phase);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'a direct literal Git config override', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrunSync('git', ['-c', 'core.hooksPath=/tmp/hooks', 'checkout', 'x']);\n"; }, 'Git command is outside');
+  // The second pre-push review of 5dfaee3: backtick quoting, the forwarder by its own name, and reflection by name.
+  rejectsMutation(model, 'a backtick-quoted Git config override', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] += "\ngitBytes(cwd, [`-c`, `core.fsmonitor=/tmp/evil.sh`, `status`], phase);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'the GitHub forwarder called by its own name', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] += "\ndefaultTransport('npm', ['x'], {});\n"; }, "transport call passes a program other than 'gh'");
+  rejectsMutation(model, 'the GitHub forwarder spawning a variable program', (copy) => { copy.sources[`${HELPER_DIR}/writability.js`] = copy.sources[`${HELPER_DIR}/writability.js`].replace("return run('gh', args, options);", 'return run(command, args, options);'); }, 'executable-spawn callsites differ');
+  rejectsMutation(model, 'a spawn primitive named in a reflection call', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] += "\nReflect.get(module.exports, 'run')('npm', ['test']);\n"; }, 'a spawn, dynamic-execution, or loader name written as a string is forbidden');
+  rejectsMutation(model, 'require through call', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nrequire.call(null, 'node:vm');\n"; }, 'require is referenced outside a direct call');
+  rejectsMutation(model, 'a process binding', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.binding('spawn_sync');\n"; }, 'process bindings are forbidden');
+  // ADV-124-DYNAMIC-EXECUTION-GUARD-BYPASS: references of any form, not only call syntax.
+  rejectsMutation(model, 'global.Function', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nglobal.Function('return 1')();\n"; }, 'dynamic code execution is forbidden');
+  rejectsMutation(model, 'an indirect eval', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\n(0, eval)('1');\n"; }, 'dynamic code execution is forbidden');
+  rejectsMutation(model, 'the constructor of a function', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\n(() => {}).constructor('return 1')();\n"; }, 'dynamic code execution is forbidden');
+  rejectsMutation(model, 'a bracketed process binding', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess['binding']('spawn_sync');\n"; }, 'process bindings are forbidden');
+  rejectsMutation(model, 'an alias of process', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst host = process;\nhost.binding('spawn_sync');\n"; }, 'process bindings are forbidden');
+  rejectsMutation(model, 'process.execve', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nprocess.execve('/bin/sh', ['sh']);\n"; }, 'process bindings are forbidden');
+  rejectsMutation(model, 'the vm module', (copy) => { copy.sources[`${HELPER_DIR}/launch.js`] += "\nconst vm = require('node:vm');\n"; }, 'module import callsites differ');
+  rejectsMutation(model, 'shell spawn', (copy) => { copy.sources[`${HELPER_DIR}/process.js`] = copy.sources[`${HELPER_DIR}/process.js`].replace('shell: false', 'shell: true'); }, 'shell spawn is forbidden');
   for (const operation of ['commit', 'push', 'merge', 'reply', 'approve', 'thread_resolve', 'schedule', 'state_write']) {
     rejectsMutation(model, `${operation} operation`, (copy) => {
       copy.sources[`${HELPER_DIR}/cli.js`] = copy.sources[`${HELPER_DIR}/cli.js`].replace('  operator_capture:', `  ${operation}: { required: [], optional: [] },\n  operator_capture:`);

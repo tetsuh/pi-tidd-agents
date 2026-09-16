@@ -35,7 +35,9 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   // DEC-PR65-CLD39-WORKSPACE-MUTATION-001: workspace creation is authorized Git administration
   // that AUTOFIX_WORKSPACE@H presupposes, so the guard exempts exactly those setup effects.
   assert.match(section, /namely `workspace_create`'s external run root, linked-worktree registration or clone, and receipt/);
-  assert.match(section, /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, and `system.gitconfig`/);
+  assert.match(section, /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`/);
+  // The record carries the same enumeration, so neither side can drift alone (pre-push review of 77c8362).
+  assert.match(readText('CONTRACT.md'), /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`/);
   assert.match(section, /no correction, publication, provider, target, or operator mutation exists/);
   assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved/);
   // CLEAN@H was retired by Issue #42 and is not a live invariant; it must not return.
@@ -63,12 +65,12 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   const byKey = new Map(rows.map((row) => [row[1], row]));
   assert.deepEqual([...byKey.keys()].sort(), [
     '`envelope_read@normalize`', '`fingerprint_<op>@normalize`', '`gate_transport@gate_launch`',
-    '`manifest_compare@AFTER_STAGING`', '`report_verify@normalize`', '`validation_harness@focused_validation`',
+    '`manifest_compare@AFTER_STAGING`', '`report_verify@normalize`', '`validation_run@focused_validation`',
   ], 'every failure needs its own canonical key');
   // Both post-writer failures stay terminal with no replacement: the manifest assertion, and
   // the harness error, which in the shipped phase model only occurs inside Luna's focused
   // validation or a gate child.
-  const terminalKeys = ['`manifest_compare@AFTER_STAGING`', '`validation_harness@focused_validation`'];
+  const terminalKeys = ['`manifest_compare@AFTER_STAGING`', '`validation_run@focused_validation`'];
   for (const key of terminalKeys) {
     const row = byKey.get(key);
     assert.equal(row[2], 'none', `${key} has no prevalidated replacement`);
@@ -296,7 +298,7 @@ const FAILURE_KEYS = {
   report: 'report_verify@normalize',
   fingerprintBase: 'fingerprint_pr_base@normalize',
   fingerprintTree: 'fingerprint_pr_tree@normalize',
-  harness: 'validation_harness@focused_validation',
+  harness: 'validation_run@focused_validation',
   manifest: 'manifest_compare@AFTER_STAGING',
   gateTransport: 'gate_transport@gate_launch',
 };
