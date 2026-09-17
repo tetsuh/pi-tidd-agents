@@ -44,6 +44,7 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/process.js|try { markerStat = fs.lstatSync(marker); } catch (error) {',
   'skills/closed-loop-pr/helpers/process.js|const stat = fs.lstatSync(file);',
   "skills/closed-loop-pr/helpers/process.js|try { root = fs.mkdtempSync(path.join(temporaryParent, 'pi-tidd-pr-helper-')); }",
+  "skills/closed-loop-pr/helpers/process.js|process.on('exit', () => { try { fs.rmSync(created, { recursive: true, force: true }); } catch { /* the process is ending */ } });",
   'skills/closed-loop-pr/helpers/process.js|fs.mkdirSync(home, { mode: 0o700 });',
   'skills/closed-loop-pr/helpers/process.js|fs.mkdirSync(hooks, { mode: 0o700 });',
   "skills/closed-loop-pr/helpers/process.js|fs.writeFileSync(emptyGlobal, '', { mode: 0o600 });",
