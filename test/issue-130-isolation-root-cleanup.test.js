@@ -80,7 +80,6 @@ test('Issue #130 a root another process owns, while that process lives, is left 
     env: { ...process.env, TMPDIR: parent, TEMP: parent, TMP: parent },
     stdio: ['pipe', 'pipe', 'inherit'],
   });
-  owner.unref?.();
   try {
     const foreign = await new Promise((resolve, reject) => {
       let buffered = '';
