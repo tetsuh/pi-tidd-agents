@@ -297,19 +297,24 @@ async function cleanupWorkspace(input, cwd) {
     const validReceipt = stored && stored.version === 1 && text(stored.id) && stored.id === receipt.id
       && receipt.version === 1 && complete && JSON.stringify(receipt.creationIdentity) === JSON.stringify(creation);
     if (!validReceipt || creation.kind !== 'linked') return createError('workspace_cleanup', 'cleanup_not_authorized', 'matching run-owned linked receipt required', 'workspace_cleanup');
+    // The receipt sits in the run root beside the workspace it was written for, which the comment above requires
+    // of both ways in. Enforcing it only for the named path let a copy of a valid receipt, planted in an unrelated
+    // directory and handed back as `root`, aim the removal at that directory while the real run root survived
+    // holding its own receipt (Issue #132).
+    const workspaceRoot = canonicalThroughExisting(path.resolve(creation.path));
+    if (path.dirname(workspaceRoot) !== canonicalThroughExisting(path.resolve(receipt.root))) return createError('workspace_cleanup', 'workspace_mismatch', 'the receipt must sit in the run root beside the workspace it was written for', 'workspace_cleanup', { receiptWorkspace: workspaceRoot });
     // The named path located the receipt; what the receipt points at is what would be removed. Unless they are the
     // same workspace by identity, a request naming one run's workspace would remove another's.
     if (workspace !== undefined) {
       const namedWorkspace = canonicalThroughExisting(path.resolve(workspace));
-      const receiptWorkspace = canonicalThroughExisting(path.resolve(creation.path));
-      // The receipt sits in the run root beside the workspace it was written for, not beside whatever path a
-      // request names: a copy of it elsewhere, next to a symlink, would otherwise remove the real workspace.
-      if (namedWorkspace !== receiptWorkspace || path.dirname(receiptWorkspace) !== canonicalThroughExisting(path.resolve(receipt.root))) return createError('workspace_cleanup', 'workspace_mismatch', 'the receipt must sit in the run root beside the workspace the request names', 'workspace_cleanup', { workspace: namedWorkspace, receiptWorkspace });
+      // The path the request names must be that same workspace: a copy of the receipt elsewhere, next to a
+      // symlink, would otherwise remove the real workspace.
+      if (namedWorkspace !== workspaceRoot) return createError('workspace_cleanup', 'workspace_mismatch', 'the receipt must sit in the run root beside the workspace the request names', 'workspace_cleanup', { workspace: namedWorkspace, receiptWorkspace: workspaceRoot });
     }
     const repositoryCwd = requestCwd || receipt.repositoryCwd;
     // Identity, not spelling: the cwd is canonicalized through its deepest existing ancestor, so a symlink
     // alias of the workspace, or a path below one, is the same cwd (CONV-123-SYMLINK-CLEANUP-CWD).
-    const resolvedCwd = canonicalThroughExisting(path.resolve(repositoryCwd)), workspaceRoot = canonicalThroughExisting(path.resolve(creation.path));
+    const resolvedCwd = canonicalThroughExisting(path.resolve(repositoryCwd));
     const cwdProblem = cleanupCwdProblem(resolvedCwd, workspaceRoot);
     if (cwdProblem !== null) return createError('workspace_cleanup', 'cleanup_cwd_inside_workspace', cwdProblem.message, 'workspace_cleanup', { cwd: resolvedCwd, workspace: workspaceRoot });
     const actual = inspectWorkspace(creation.path, repositoryCwd, { ...creation, head: undefined, tree: undefined, registered: creation.registered });
@@ -317,6 +322,12 @@ async function cleanupWorkspace(input, cwd) {
     await run('git', gitArgs(['worktree', 'remove', actual.path]), { cwd: repositoryCwd, phase: 'workspace_cleanup' });
     if (fs.existsSync(actual.path) || parseWorktrees(repositoryCwd).some((item) => item.worktree === actual.path)) return createError('workspace_cleanup', 'cleanup_incomplete', 'workspace removal was incomplete', 'workspace_cleanup');
     fs.unlinkSync(receipt.storedPath);
+    // The run root held the workspace and the receipt and now holds neither, so this cleanup is what emptied it.
+    // The removal names that one directory and is not recursive: it fails rather than descending, so content
+    // the run did not put there is kept rather than destroyed. It is allowed to fail silently, because the
+    // worktree and the receipt are already gone and CL-D49 exists precisely because turning a completed cleanup
+    // into a failure killed runs that had in fact succeeded (Issue #132).
+    try { fs.rmdirSync(path.resolve(receipt.root)); } catch { /* a leftover here is not this result's to report */ }
     return createResult('workspace_cleanup', { removed: true, path: actual.path, terminalHead: actual.head, terminalTree: actual.tree, id: receipt.id });
   } catch (error) {
     // A lower layer's failure is not this operation's vocabulary: an errno names what the filesystem refused, not

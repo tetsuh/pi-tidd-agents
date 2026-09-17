@@ -67,6 +67,7 @@ const APPROVED_FS_SITES = [
   "skills/closed-loop-pr/helpers/workspace.js|} catch (error) { return createError('workspace', 'clone_fallback_failed', error.message, 'workspace_clone', { retainedPath: fs.existsSync(clonePath) ? clonePath : null }); }",
   "skills/closed-loop-pr/helpers/workspace.js|if (fs.existsSync(actual.path) || parseWorktrees(repositoryCwd).some((item) => item.worktree === actual.path)) return createError('workspace_cleanup', 'cleanup_incomplete', 'workspace removal was incomplete', 'workspace_cleanup');",
   'skills/closed-loop-pr/helpers/workspace.js|fs.unlinkSync(receipt.storedPath);',
+  "skills/closed-loop-pr/helpers/workspace.js|try { fs.rmdirSync(path.resolve(receipt.root)); } catch { /* a leftover here is not this result's to report */ }",
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
   './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
