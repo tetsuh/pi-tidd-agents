@@ -74,39 +74,48 @@ test('Issue #130 a root another process owns, while that process lives, is left 
   const owner = spawn(process.execPath, ['-e', ([
     "const m = require(process.argv[1]);",
     "process.stdout.write(`${m.isolationPaths().root}\n`);",
-    "process.stdin.resume();",
+    "process.stdin.setEncoding('utf8'); process.stdin.on('data', () => process.stdout.write(`${m.isolationPaths().root}\n`));",
     "process.stdin.on('end', () => process.exit(0));",
   ].join('')), path.join(repoRoot, 'skills', 'closed-loop-pr', 'helpers', 'process.js')], {
     env: { ...process.env, TMPDIR: parent, TEMP: parent, TMP: parent },
     stdio: ['pipe', 'pipe', 'inherit'],
   });
   try {
-    const foreign = await new Promise((resolve, reject) => {
-      let buffered = '';
-      owner.stdout.on('data', (chunk) => {
-        buffered += chunk.toString('utf8');
-        const end = buffered.indexOf(String.fromCharCode(10));
-        if (end >= 0) resolve(buffered.slice(0, end));
-      });
-      owner.on('error', reject);
-      owner.on('exit', (code) => reject(new Error(`the owning process ended before it reported its root (${code})`)));
+    // Lines from the owner, in order: the first reports its root, each later one answers a line it was sent.
+    const lines = [];
+    const waiting = [];
+    let buffered = '';
+    owner.stdout.setEncoding('utf8');
+    owner.stdout.on('data', (chunk) => {
+      buffered += chunk;
+      for (let end = buffered.indexOf(String.fromCharCode(10)); end >= 0; end = buffered.indexOf(String.fromCharCode(10))) {
+        const line = buffered.slice(0, end);
+        buffered = buffered.slice(end + 1);
+        const waiter = waiting.shift();
+        if (waiter) waiter(line); else lines.push(line);
+      }
     });
+    const ownerEnded = new Promise((resolve) => owner.on('exit', (code, signal) => resolve(signal ?? code)));
+    const nextLine = (what) => Promise.race([
+      new Promise((resolve) => (lines.length > 0 ? resolve(lines.shift()) : waiting.push(resolve))),
+      ownerEnded.then((code) => { throw new Error(`the owning process ended before ${what} (${code})`); }),
+    ]);
+    const foreign = await nextLine('it reported its root');
     assert.equal(fs.existsSync(foreign), true, 'the owning process created its root');
-    assert.equal(owner.exitCode, null, 'the owning process is still alive');
 
     const run = invoke({ cwd: repository, expected: MESSAGE }, parent);
     assert.equal(JSON.parse(run.stdout).ok, true, `${run.stdout}${run.stderr}`);
     assert.deepEqual(rootsIn(parent), [path.basename(foreign)], 'only the live owner\'s root remains');
-    // `exitCode` is null for a child that has died but not been reaped, and the invocation blocked the loop, so
-    // liveness is re-proved after it: one turn for any pending exit, then the owner is signalled with 0.
-    await new Promise(setImmediate);
-    assert.equal(owner.exitCode, null, 'the owning process was still alive across the invocation');
-    assert.doesNotThrow(() => owner.kill(0), 'the owning process still exists');
+    // Liveness is asked of the owner itself: it cannot be established from outside, because `exitCode` stays null after
+    // a signal death and a signal-0 probe never throws for a dead child — a zombie still answers it, and once the exit
+    // has been handled it only returns false. Sent a line, a live owner answers with the root it still holds.
+    owner.stdin.on('error', () => { /* the owner ending closes the pipe; ownerEnded reports it */ });
+    owner.stdin.write(`still there${String.fromCharCode(10)}`);
+    assert.equal(await nextLine('it answered after the invocation'), foreign, 'the owning process answered after the invocation with the root it holds');
 
     // The owner ends the way a packaged process ends, and takes its own root with it.
-    const ended = new Promise((resolve) => owner.on('exit', resolve));
     owner.stdin.end();
-    await ended;
+    await ownerEnded;
     assert.equal(fs.existsSync(foreign), false, 'the owning process removed its own root when it ended');
   } finally {
     if (owner.exitCode === null) owner.kill();
