@@ -15,9 +15,17 @@
 // program the invocation starts is recorded as well and must be Git. The wrappers sit on the module objects, so a call
 // reaches them however a name is spelled, however `fs` was loaded, and from a worker thread too, which preloads them.
 //
-// What this does not observe: a call made through the runtime's internal bindings rather than the public modules, and
-// what the Git it starts does. The first is refused by the Issue #59 structural boundary; the second is bounded by the
-// Git command allowlist and the process isolation every packaged spawn runs under.
+// A program recorded as Git can still run other programs, through an alias for instance, so the live owner's root is
+// also checked for continuity. Its owner writes a token into it before the invocation; afterwards the root must still
+// hold that token, and every entry in it must keep the identity and change time it had before, which a removal and
+// re-creation, a copy back, a move aside and back, or damage inside the root does not. And the owner must answer a line
+// afterwards with the token it reads from its root, so it is known to be alive and still using that root.
+//
+// What this does not observe, by the owner's decision on where this hardening stops (Issue #133): a removal delayed
+// until after the invocation returns, which no single check made afterwards can see; a call made through the runtime's
+// internal bindings rather than the public modules, refused by the Issue #59 structural boundary; and a listing or
+// removal Git's children make that leaves the owner's root untouched, bounded by the Git command allowlist and the
+// process isolation every packaged spawn runs under.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -97,25 +105,36 @@ test('Issue #133 an invocation beside a live owner\'s aged root touches nothing 
   fs.writeFileSync(recorder, RECORDER);
   fs.writeFileSync(log, '');
   const owner = spawn(process.execPath, ['-e', ([
-    "const m = require(process.argv[1]);",
-    "process.stdout.write(`${m.isolationPaths().root}\n`);",
-    "process.stdin.resume();",
+    "const m = require(process.argv[1]); const fs = require('node:fs'); const path = require('node:path');",
+    "const root = m.isolationPaths().root; const token = require('node:crypto').randomBytes(16).toString('hex');",
+    "fs.writeFileSync(path.join(root, 'owner-sentinel'), token);",
+    "process.stdout.write(`${root}\t${token}\n`);",
+    "process.stdin.setEncoding('utf8'); process.stdin.on('data', () => process.stdout.write(`${fs.readFileSync(path.join(root, 'owner-sentinel'), 'utf8')}\n`));",
     "process.stdin.on('end', () => process.exit(0));",
   ].join('')), PROCESS], {
     env: { ...process.env, TMPDIR: parent, TEMP: parent, TMP: parent },
     stdio: ['pipe', 'pipe', 'inherit'],
   });
   try {
-    const foreign = await new Promise((resolve, reject) => {
-      let buffered = '';
-      owner.stdout.on('data', (chunk) => {
-        buffered += chunk.toString('utf8');
-        const end = buffered.indexOf(String.fromCharCode(10));
-        if (end >= 0) resolve(buffered.slice(0, end));
-      });
-      owner.on('error', reject);
-      owner.on('exit', (code) => reject(new Error(`the owning process ended before it reported its root (${code})`)));
+    // Lines from the owner, in order: the first reports its root and token, each later one answers a line it was sent.
+    const lines = [];
+    const waiting = [];
+    let buffered = '';
+    owner.stdout.on('data', (chunk) => {
+      buffered += chunk.toString('utf8');
+      for (let end = buffered.indexOf(String.fromCharCode(10)); end >= 0; end = buffered.indexOf(String.fromCharCode(10))) {
+        const line = buffered.slice(0, end);
+        buffered = buffered.slice(end + 1);
+        const waiter = waiting.shift();
+        if (waiter) waiter(line); else lines.push(line);
+      }
     });
+    const ended = new Promise((resolve) => owner.on('exit', resolve));
+    const nextLine = (what) => Promise.race([
+      new Promise((resolve) => (lines.length > 0 ? resolve(lines.shift()) : waiting.push(resolve))),
+      ended.then((code) => { throw new Error(`the owning process ended before ${what} (${code})`); }),
+    ]);
+    const [foreign, token] = (await nextLine('it reported its root')).split(String.fromCharCode(9));
     // `isolationPaths()` has written everything it writes before it returns, so this age is final.
     const twoHoursAgo = (Date.now() - 2 * HOUR) / 1000;
     fs.utimesSync(foreign, twoHoursAgo, twoHoursAgo);
@@ -124,6 +143,16 @@ test('Issue #133 an invocation beside a live owner\'s aged root touches nothing 
     // than as the assertion that names what it did.
     const parentIdentity = fs.realpathSync.native(parent);
     const foreignIdentity = fs.realpathSync.native(foreign);
+    // Every entry of the owner's root, by identity and change time, taken after the ageing. A root removed and copied
+    // back, moved aside and returned, or damaged inside can keep its token; it cannot keep all of this.
+    const snapshot = () => {
+      const describe = (rel, full) => { const s = fs.lstatSync(full, { bigint: true }); return [rel, s.dev, s.ino, s.ctimeNs, s.mtimeNs, s.size, s.mode].map(String); };
+      const entries = [describe('.', foreign)];
+      const walk = (dir, rel) => { for (const name of fs.readdirSync(dir).sort()) { const full = path.join(dir, name); entries.push(describe(path.join(rel, name), full)); if (fs.lstatSync(full).isDirectory()) walk(full, path.join(rel, name)); } };
+      walk(foreign, '');
+      return entries;
+    };
+    const before = snapshot();
 
     const run = spawnSync(process.execPath, ['-r', recorder, CLI], {
       input: JSON.stringify({ version: 1, operation: 'message_verify', data: { cwd: repository, expected: MESSAGE } }),
@@ -158,10 +187,18 @@ test('Issue #133 an invocation beside a live owner\'s aged root touches nothing 
     assert.deepEqual(outside, [], 'every listing and removal it made was of its own root or inside it');
     assert.equal(fs.existsSync(own), false, 'and its own root is gone');
     assert.equal(fs.existsSync(foreign), true, 'the aged root the live process owns is still there');
+    // A path that still exists proves nothing about the directory behind it: a child of the Git the invocation starts
+    // can remove the root and make a new one at the same name, and the freed inode is often reused at once. The owner
+    // wrote a token into its root before the invocation; the root must still hold it.
+    const sentinel = path.join(foreign, 'owner-sentinel');
+    assert.equal(fs.existsSync(sentinel) ? fs.readFileSync(sentinel, 'utf8') : null, token, 'the root still holds what its owner wrote before the invocation');
+    assert.deepEqual(fs.existsSync(foreign) ? snapshot() : null, before, 'the owner\'s root is the same directory, every entry unchanged since before the invocation');
 
-    // The owner is signalled with 0 rather than read from `exitCode`: the invocation blocked this loop, so an exit that
-    // happened meanwhile may not have been processed yet.
-    assert.doesNotThrow(() => owner.kill(0), 'the owning process was still alive across the invocation');
+    // Alive, and still reading its own root: sent a line, the owner answers with the token that root holds. Signal 0
+    // cannot show this: a child that has died but not been reaped still answers it, and afterwards the call only
+    // returns false.
+    owner.stdin.write(`still there${String.fromCharCode(10)}`);
+    assert.equal(await nextLine('it answered after the invocation'), token, 'the owning process answered after the invocation with the token its root holds');
   } finally {
     if (owner.exitCode === null) owner.kill();
     fs.rmSync(parent, { recursive: true, force: true });
