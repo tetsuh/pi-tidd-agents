@@ -106,9 +106,10 @@ test('Issue #130 a root another process owns, while that process lives, is left 
     const run = invoke({ cwd: repository, expected: MESSAGE }, parent);
     assert.equal(JSON.parse(run.stdout).ok, true, `${run.stdout}${run.stderr}`);
     assert.deepEqual(rootsIn(parent), [path.basename(foreign)], 'only the live owner\'s root remains');
-    // Liveness is asked of the owner itself: it cannot be established from outside, because `exitCode` stays null after
-    // a signal death and a signal-0 probe never throws for a dead child — a zombie still answers it, and once the exit
-    // has been handled it only returns false. Sent a line, a live owner answers with the root it still holds.
+    // Liveness is asked of the owner itself, because the two checks this replaces do not establish it for a child
+    // killed by a signal: `exitCode` stays null, the signal being reported separately, and a signal-0 probe throws for
+    // neither state — a zombie still answers it, and once the exit has been handled it returns false without throwing.
+    // Sent a line, a live owner answers with the root it still holds.
     owner.stdin.on('error', () => { /* the owner ending closes the pipe; ownerEnded reports it */ });
     owner.stdin.write(`still there${String.fromCharCode(10)}`);
     assert.equal(await nextLine('it answered after the invocation'), foreign, 'the owning process answered after the invocation with the root it holds');
