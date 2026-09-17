@@ -41,5 +41,5 @@ test('Issue #80 the cleanup operation already returns the terminal evidence it i
   // carries the post-removal facts. If cleanup ever stops returning them, the prose is a lie
   // and this fails rather than drifting.
   const source = readText('skills/closed-loop-pr/helpers/workspace.js');
-  assert.match(source, /createResult\('workspace_cleanup', \{ removed: true, path: actual\.path, terminalHead: actual\.head, terminalTree: actual\.tree, id: receipt\.id \}\)/);
+  assert.match(source, /createResult\('workspace_cleanup', \{ removed: true, path: actual\.path, terminalHead: actual\.head, terminalTree: actual\.tree, id: receipt\.id, retainedRoot \}\)/);
 });
