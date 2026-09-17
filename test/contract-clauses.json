@@ -3787,6 +3787,35 @@
         "Issue #114 the packaged verification compares the stored message bytes",
         "Issue #114 the verification reads the commit object, never the log format"
       ]
+    },
+    {
+      "id": "CL-D75-record",
+      "marker": "CL-D75",
+      "title": "CL-D75 records what a cleanup returns when the root it emptied stands",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D75 — A cleanup that cannot remove the root it emptied names it and still succeeds",
+      "requires": [
+        "*Owner choice:* Option A",
+        "issues/132#issuecomment-5712780270",
+        "result carries `retainedRoot`",
+        "observed rather than inferred from the refusal",
+        "any use of it to sweep, expire, or report roots left by runs that never called cleanup, requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D75-tests",
+      "marker": "CL-D75",
+      "title": "The leftover run root is pinned by its own regression",
+      "files": [
+        "test/issue-132-run-root-cleanup.test.js"
+      ],
+      "requires": [
+        "Issue #132 a root the cleanup emptied but could not remove is named, not claimed removed",
+        "Issue #132 a non-empty root refused by its parent is the same success, named the same way",
+        "Issue #132 the leftover is observed, not inferred from the refusal (CL-D75)"
+      ]
     }
   ]
 }

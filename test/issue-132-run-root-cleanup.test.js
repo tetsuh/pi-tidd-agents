@@ -13,7 +13,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { repoPath } = require('./helpers');
+const { repoPath, readText } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const temp = (prefix) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -72,6 +72,7 @@ test('Issue #132 a successful cleanup leaves no run root behind', () => {
     assert.equal(cleaned.data.removed, true, JSON.stringify(cleaned.data));
     assert.equal(fs.existsSync(created.data.path), false, 'the linked worktree is gone');
     assert.equal(fs.existsSync(created.data.root), false, 'the run root the operation emptied is gone');
+    assert.equal(cleaned.data.retainedRoot, null, 'nothing was left to name');
   });
 });
 
@@ -106,6 +107,53 @@ test('Issue #132 a receipt planted in another directory cannot aim the removal a
   });
 });
 
+const rootSkip = process.platform === 'win32'
+  ? 'directory permissions do not refuse removal on Windows'
+  : (process.getuid?.() === 0 ? 'root bypasses the permission bit this case relies on' : false);
+
+// A run root whose parent refuses the removal. The root gets a container of its own so the packaged process keeps a
+// writable temporary parent for its own isolation root, and only the removal is refused.
+function unremovableRoot(repository, parent, fill) {
+  const container = fs.mkdtempSync(path.join(parent, 'container-'));
+  const runRoot = path.join(container, 'root');
+  const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree, runRoot }, parent);
+  assert.equal(created.ok, true, JSON.stringify(created.error));
+  if (fill) fs.writeFileSync(path.join(created.data.root, fill), 'unexpected' + String.fromCharCode(10));
+  fs.chmodSync(container, 0o500);
+  let cleaned;
+  try { cleaned = cli('workspace_cleanup', { cwd: repository.root, receipt: created.data.receipt }, parent); }
+  finally { fs.chmodSync(container, 0o700); }
+  return { created, cleaned };
+}
+
+test('Issue #132 a root the cleanup emptied but could not remove is named, not claimed removed', { skip: rootSkip }, () => {
+  withFixture((repository, parent) => {
+    const { created, cleaned } = unremovableRoot(repository, parent, null);
+    // The work the operation was asked to do is done, so it succeeds (CL-D75): a cleanup whose worktree and receipt
+    // are gone must not become a dead run over a leftover it cannot remove and cannot retry, since the receipt it
+    // would need to re-authorize with is already unlinked.
+    assert.equal(cleaned.ok, true, JSON.stringify(cleaned.error));
+    assert.equal(cleaned.data.removed, true, JSON.stringify(cleaned.data));
+    assert.equal(fs.existsSync(created.data.path), false, 'the linked worktree is gone');
+    assert.deepEqual(fs.readdirSync(created.data.root), [], 'the root was emptied');
+    // And it says so, rather than reporting an outcome that did not happen (ADV-134-SILENT-RMDIR-FAILURE).
+    assert.equal(cleaned.data.retainedRoot, created.data.root, JSON.stringify(cleaned.data));
+  });
+});
+
+test('Issue #132 a non-empty root refused by its parent is the same success, named the same way', { skip: rootSkip }, () => {
+  withFixture((repository, parent) => {
+    // The same filesystem state as the case below, refused for a different reason: an unwritable parent answers
+    // EACCES where a non-empty directory answers ENOTEMPTY. Reading the outcome from the errno made one of these
+    // succeed and the other fail, so the result is observed instead.
+    const { created, cleaned } = unremovableRoot(repository, parent, 'run.log');
+    assert.equal(cleaned.ok, true, JSON.stringify(cleaned.error));
+    assert.equal(cleaned.data.removed, true, JSON.stringify(cleaned.data));
+    assert.equal(cleaned.data.retainedRoot, created.data.root, JSON.stringify(cleaned.data));
+    assert.deepEqual(fs.readdirSync(created.data.root), ['run.log'], 'what the root still held is kept');
+  });
+});
+
 test('Issue #132 a run root holding anything else is kept, not emptied', () => {
   withFixture((repository, parent) => {
     const created = createWorkspace(repository, parent);
@@ -117,5 +165,13 @@ test('Issue #132 a run root holding anything else is kept, not emptied', () => {
     assert.equal(cleaned.data.removed, true, JSON.stringify(cleaned.data));
     assert.equal(fs.existsSync(created.data.path), false, 'the linked worktree is gone');
     assert.deepEqual(fs.readdirSync(created.data.root), ['run.log'], 'the root and what it still held are kept');
+    assert.equal(cleaned.data.retainedRoot, created.data.root, JSON.stringify(cleaned.data));
   });
+});
+
+test('Issue #132 the leftover is observed, not inferred from the refusal (CL-D75)', () => {
+  // A flag set in the catch is observationally identical to this in every state a test can build, differing only
+  // under a race, so CL-D75's distinguishing claim has no black-box witness and is pinned structurally instead.
+  const source = readText('skills/closed-loop-pr/helpers/workspace.js');
+  assert.match(source, /const retainedRoot = fs\.existsSync\(rootPath\) \? rootPath : null;/);
 });

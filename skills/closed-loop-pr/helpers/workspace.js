@@ -323,12 +323,16 @@ async function cleanupWorkspace(input, cwd) {
     if (fs.existsSync(actual.path) || parseWorktrees(repositoryCwd).some((item) => item.worktree === actual.path)) return createError('workspace_cleanup', 'cleanup_incomplete', 'workspace removal was incomplete', 'workspace_cleanup');
     fs.unlinkSync(receipt.storedPath);
     // The run root held the workspace and the receipt and now holds neither, so this cleanup is what emptied it.
-    // The removal names that one directory and is not recursive: it fails rather than descending, so content
-    // the run did not put there is kept rather than destroyed. It is allowed to fail silently, because the
-    // worktree and the receipt are already gone and CL-D49 exists precisely because turning a completed cleanup
-    // into a failure killed runs that had in fact succeeded (Issue #132).
-    try { fs.rmdirSync(path.resolve(receipt.root)); } catch { /* a leftover here is not this result's to report */ }
-    return createResult('workspace_cleanup', { removed: true, path: actual.path, terminalHead: actual.head, terminalTree: actual.tree, id: receipt.id });
+    // The removal names that one directory and is not recursive: it fails rather than descending, so content the
+    // run did not put there is kept rather than destroyed. Whether the root went is then observed rather than
+    // inferred from the refusal, because the same leftover answers ENOTEMPTY when the directory is not empty and
+    // EACCES when its parent will not allow the removal. The result names what was left standing, so a leftover is
+    // reported without turning a cleanup whose work is complete into a run that cannot retry — the receipt it
+    // would have to re-authorize with is already unlinked (CL-D75, Issue #132).
+    const rootPath = path.resolve(receipt.root);
+    try { fs.rmdirSync(rootPath); } catch { /* whether the root went is observed below, never inferred here */ }
+    const retainedRoot = fs.existsSync(rootPath) ? rootPath : null;
+    return createResult('workspace_cleanup', { removed: true, path: actual.path, terminalHead: actual.head, terminalTree: actual.tree, id: receipt.id, retainedRoot });
   } catch (error) {
     // A lower layer's failure is not this operation's vocabulary: an errno names what the filesystem refused, not
     // what cleanup decided, so only this operation's own codes pass (CONV-128-RECEIPT, same class).
