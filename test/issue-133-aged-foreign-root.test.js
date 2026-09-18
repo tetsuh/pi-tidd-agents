@@ -98,7 +98,7 @@ function lineReader(child) {
       if (waiter) waiter(line); else lines.push(line);
     }
   });
-  const ended = new Promise((resolve) => child.on('exit', (code, signal) => resolve(signal ?? code)));
+  const ended = new Promise((resolve) => child.on('close', (code, signal) => resolve(signal ?? code)));
   const nextLine = (what) => Promise.race([
     new Promise((resolve) => (lines.length > 0 ? resolve(lines.shift()) : waiting.push(resolve))),
     ended.then((end) => { throw new Error(`the child ended before ${what} (${end})`); }),
