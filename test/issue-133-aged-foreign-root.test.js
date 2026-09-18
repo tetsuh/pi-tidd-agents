@@ -29,10 +29,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawn, spawnSync } = require('node:child_process');
+const { StringDecoder } = require('node:string_decoder');
 
 const repoRoot = path.resolve(__dirname, '..');
 const CLI = path.join(repoRoot, 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
@@ -88,9 +90,10 @@ function lineReader(child) {
   const lines = [];
   const waiting = [];
   let buffered = '';
+  const decoder = new StringDecoder('utf8');
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk) => {
-    buffered += chunk;
+    buffered += typeof chunk === 'string' ? chunk : decoder.write(chunk);
     for (let end = buffered.indexOf(String.fromCharCode(10)); end >= 0; end = buffered.indexOf(String.fromCharCode(10))) {
       const line = buffered.slice(0, end);
       buffered = buffered.slice(end + 1);
@@ -122,22 +125,19 @@ function fixtureRepository() {
 }
 
 test('Issue #138 a line split inside a character is read as it was written', { timeout: 30000 }, async () => {
-  // The owner reports a path, and a path can carry any character the filesystem allows. Written in one call it arrives
-  // in one chunk, so this case writes it one byte at a time: every multi-byte character is then split across chunks,
-  // which is what decoding each chunk on its own gets wrong.
+  // The owner reports a path, and a path can carry any character the filesystem allows. Deliver the UTF-8 bytes through
+  // a controlled stream one at a time: every multi-byte character is then split across data events, which is what
+  // decoding each chunk on its own gets wrong. The decoder is deliberately applied by lineReader, as stream decoding is
+  // applied by a real child stdout; the controlled stream keeps the split deterministic instead of relying on a pipe.
   const written = `/tmp/日本語-π-${String.fromCharCode(0xd83d, 0xde00)}/pi-tidd-pr-helper-Sm1i8J`;
-  const child = spawn(process.execPath, ['-e', ([
-    "const line = Buffer.from(process.argv[1] + String.fromCharCode(10));",
-    "let at = 0;",
-    "const tick = () => { if (at < line.length) { process.stdout.write(line.subarray(at, at + 1)); at += 1; setTimeout(tick, 1); } };",
-    "tick();",
-  ].join('')), written], { stdio: ['ignore', 'pipe', 'inherit'] });
-  try {
-    const { nextLine } = lineReader(child);
-    assert.equal(await nextLine('it reported the line'), written, 'the line read is the line written');
-  } finally {
-    if (child.exitCode === null) child.kill();
-  }
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.stdout.setEncoding = () => {};
+  const { nextLine } = lineReader(child);
+  const line = Buffer.from(written + String.fromCharCode(10), 'utf8');
+  for (let at = 0; at < line.length; at += 1) child.stdout.emit('data', line.subarray(at, at + 1));
+  child.emit('close', 0, null);
+  assert.equal(await nextLine('it reported the line'), written, 'the line read is the line written');
 });
 
 test('Issue #133 an invocation beside a live owner\'s aged root touches nothing outside its own root', { timeout: 30000 }, async () => {
