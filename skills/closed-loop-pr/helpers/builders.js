@@ -61,14 +61,17 @@ function buildWorkspaceVerify(data) {
 
 function buildWorkspaceCleanup(data) {
   return wrap('build_workspace_cleanup', () => {
-    if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
-    const shapeProblem = inputShapeProblem('workspace_verify', { cwd: data.cwd, expected: data.created });
+    const shapeProblem = inputShapeProblem('workspace_verify', { expected: data.created });
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem.replace('`expected`', '`created`'));
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
+    // The cwd is the repository the receipt states, not the caller's: a run standing in the workspace handed that in and
+    // ended BLOCKED (Issue #142). It is the copy workspace_cleanup holds against the stored receipt, not the one beside it.
+    const cwd = data.created.receipt.creationIdentity?.repositoryCwd;
+    if (!text(cwd)) fail('invalid_request', 'the receipt states no repository to run the cleanup from');
     // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it before the request exists (CL-D68).
-    const cwdProblem = cleanupCwdProblem(data.cwd, data.created.path);
+    const cwdProblem = cleanupCwdProblem(cwd, data.created.path);
     if (cwdProblem !== null) fail(cwdProblem.subcheck === 'cleanup_cwd_relative' ? 'cleanup_cwd_relative' : 'cleanup_cwd_inside_workspace', cwdProblem.message);
-    return built('build_workspace_cleanup', 'workspace_cleanup', { receipt: data.created.receipt, cwd: data.cwd });
+    return built('build_workspace_cleanup', 'workspace_cleanup', { receipt: data.created.receipt, cwd });
   });
 }
 

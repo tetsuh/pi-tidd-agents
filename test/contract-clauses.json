@@ -3816,6 +3816,36 @@
         "Issue #132 a non-empty root refused by its parent is the same success, named the same way",
         "Issue #132 the leftover is observed, not inferred from the refusal (CL-D75)"
       ]
+    },
+    {
+      "id": "CL-D76-record",
+      "marker": "CL-D76",
+      "title": "CL-D76 records that the cleanup builder takes its cwd from the receipt",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D76 — The cleanup builder takes its cwd from the receipt",
+      "requires": [
+        "*Owner choice:* Option A",
+        "issues/142#issuecomment-5733269978",
+        "the packaged CLI refuses a `cwd` as an unknown request field",
+        "the copy `workspace_cleanup` holds against the stored receipt",
+        "Accepting a caller-stated cwd in the builder again, or deriving it from anything but the stored creation identity, requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D76-tests",
+      "marker": "CL-D76",
+      "title": "The builder-derived cleanup cwd is pinned by its own regression",
+      "files": [
+        "test/issue-142-cleanup-builder-cwd.test.js"
+      ],
+      "requires": [
+        "Issue #142 the cleanup builder takes the repository from the receipt, and the request it builds removes the workspace",
+        "Issue #142 the cleanup builder accepts no cwd, the workspace included",
+        "Issue #142 a receipt whose repository is the workspace is still refused before any request exists",
+        "Issue #142 the unchecked copy beside the stored identity does not choose the cwd"
+      ]
     }
   ]
 }

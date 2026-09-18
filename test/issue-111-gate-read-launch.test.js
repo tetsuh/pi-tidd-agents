@@ -284,9 +284,12 @@ test('Issue #111 workspace_cleanup and its builder refuse a cwd inside the works
   try {
     const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
     assert.equal(created.ok, true, JSON.stringify(created.error));
-    const built = helpers.buildWorkspaceCleanup({ created: created.data, cwd: created.data.path });
+    // The builder takes no cwd (Issue #142, CL-D76); it runs the shared predicate on the repository the receipt
+    // states, so a receipt stating the workspace is refused before the request exists.
+    const stating = (cwd) => ({ ...created.data, receipt: { ...created.data.receipt, creationIdentity: { ...created.data.receipt.creationIdentity, repositoryCwd: cwd } } });
+    const built = helpers.buildWorkspaceCleanup({ created: stating(created.data.path) });
     assert.equal(built.ok, false); assert.equal(built.error.code, 'cleanup_cwd_inside_workspace', JSON.stringify(built.error)); assert.equal(built.error.phase, 'build');
-    const nested = helpers.buildWorkspaceCleanup({ created: created.data, cwd: path.join(created.data.path, 'sub') });
+    const nested = helpers.buildWorkspaceCleanup({ created: stating(path.join(created.data.path, 'sub')) });
     assert.equal(nested.error.code, 'cleanup_cwd_inside_workspace');
     const direct = await helpers.cleanupWorkspace(created.data.receipt, created.data.path);
     assert.equal(direct.ok, false); assert.equal(direct.error.code, 'cleanup_cwd_inside_workspace', JSON.stringify(direct.error));
@@ -310,14 +313,14 @@ test('Issue #111 workspace_cleanup and its builder refuse a cwd inside the works
     assert.equal(helpers.cleanupCwdProblem('/repo/Workspace/sub', '/repo/workspace'), null, 'a POSIX spelling keeps its case');
     // Convergence lead on 3e5caf7 (non-authoritative): the predicate normalizes lexically, without I/O, so `..`, `.`,
     // repeated separators, and backslashes cannot spell a path below the workspace as something else.
-    for (const cwd of [`${path.dirname(ws)}/../${path.basename(path.dirname(ws))}/${path.basename(ws)}/sub`, `${ws}/./sub`, `${ws}/sub/../other`, `${ws}\\sub`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem, `${cwd} is below the workspace`); const builtAlias = helpers.buildWorkspaceCleanup({ created: created.data, cwd }); assert.equal(builtAlias.error?.code, 'cleanup_cwd_inside_workspace', `${cwd}: ${JSON.stringify(builtAlias.error)}`); }
+    for (const cwd of [`${path.dirname(ws)}/../${path.basename(path.dirname(ws))}/${path.basename(ws)}/sub`, `${ws}/./sub`, `${ws}/sub/../other`, `${ws}\\sub`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem, `${cwd} is below the workspace`); const builtAlias = helpers.buildWorkspaceCleanup({ created: stating(cwd) }); assert.equal(builtAlias.error?.code, 'cleanup_cwd_inside_workspace', `${cwd}: ${JSON.stringify(builtAlias.error)}`); }
     assert.equal(helpers.cleanupCwdProblem(`${ws}/../${path.basename(ws)}2`, ws), null, 'a dotdot spelling of the sibling is still outside');
     // ADV-123-RELATIVE-CLEANUP-CWD-BYPASS: a relative cwd has no identity a pure builder can judge; it is refused as such.
-    for (const cwd of ['sub', './sub', `${path.basename(ws)}/sub`, '../elsewhere']) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.equal(problem?.subcheck, 'cleanup_cwd_relative', `${cwd}: ${JSON.stringify(problem)}`); const builtRelative = helpers.buildWorkspaceCleanup({ created: created.data, cwd }); assert.equal(builtRelative.error?.code, 'cleanup_cwd_relative', `${cwd}: ${JSON.stringify(builtRelative.error)}`); }
+    for (const cwd of ['sub', './sub', `${path.basename(ws)}/sub`, '../elsewhere']) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.equal(problem?.subcheck, 'cleanup_cwd_relative', `${cwd}: ${JSON.stringify(problem)}`); const builtRelative = helpers.buildWorkspaceCleanup({ created: stating(cwd) }); assert.equal(builtRelative.error?.code, 'cleanup_cwd_relative', `${cwd}: ${JSON.stringify(builtRelative.error)}`); }
     for (const cwd of [ws, `${ws}/`, path.join(ws, 'sub'), `${ws}//sub/`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem && problem.subcheck === 'cleanup_cwd' && problem.observed === cwd, `${cwd}: ${JSON.stringify(problem)}`); }
-    assert.match(readText('skills/closed-loop-pr/helpers/builders.js'), /cleanupCwdProblem\(data\.cwd, data\.created\.path\)/, 'the builder applies the shared predicate');
+    assert.match(readText('skills/closed-loop-pr/helpers/builders.js'), /cleanupCwdProblem\(cwd, data\.created\.path\)/, 'the builder applies the shared predicate');
     assert.match(readText('skills/closed-loop-pr/helpers/workspace.js'), /cleanupCwdProblem\(resolvedCwd, workspaceRoot\)/, 'the operation applies the shared predicate to canonical identities');
-    const proper = helpers.buildWorkspaceCleanup({ created: created.data, cwd: repository.root });
+    const proper = helpers.buildWorkspaceCleanup({ created: created.data });
     assert.equal(proper.ok, true, JSON.stringify(proper.error));
     const removed = await helpers.cleanupWorkspace(proper.data.request.data.receipt, proper.data.request.data.cwd);
     assert.equal(removed.ok, true, JSON.stringify(removed.error));

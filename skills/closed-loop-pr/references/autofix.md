@@ -53,7 +53,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Before each gate invocation, on the assembled evidence (CL-D42) | `evidence_verify` | `envelope`, `expected` |
 | Construct the revalidation request from the capture it revalidates (CL-D56) | `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |
 | Construct the verify request from the workspace it verifies (CL-D56) | `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |
-| Construct the cleanup request from the workspace's own receipt (CL-D56) | `build_workspace_cleanup` | `created` (data of `workspace_create`), `cwd` |
+| Construct the cleanup request from the workspace's own receipt (CL-D56, CL-D76) | `build_workspace_cleanup` | `created` (data of `workspace_create`); no `cwd`: the request runs from the repository the receipt states |
 | Construct the snapshot-fingerprint request (CL-D56) | `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |
 | Construct the gate expectation and the canonical result schema (CL-D36, CL-D56) | `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |
 | Construct the assigned-finding tuples from the validated result and the ledger (CL-D73) | `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |

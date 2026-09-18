@@ -4,7 +4,7 @@
 // the workspace being removed as the cwd; the builder refused, correctly, and the run ended BLOCKED with the workspace
 // retained. The cwd was never the caller's to choose: the receipt already states the repository the workspace was
 // created from, so the builder takes it from there and no longer accepts one (owner choice,
-// issues/142#issuecomment-5733269978).
+// issues/142#issuecomment-5733269978, recorded as CL-D76).
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -97,5 +97,15 @@ test('Issue #142 a receipt whose repository is the workspace is still refused be
     assert.equal(stated.ok, false, JSON.stringify(stated.data));
     assert.equal(stated.error.code, 'invalid_request', JSON.stringify(stated.error));
     assert.equal(fs.existsSync(created.path), true, 'nothing was removed');
+  });
+});
+
+test('Issue #142 the unchecked copy beside the stored identity does not choose the cwd', () => {
+  withWorkspace((repository, parent, created) => {
+    // The receipt carries the repository twice; workspace_cleanup compares only the one inside the creation identity
+    // with the stored file, so that one is what the builder reads. Altering the other changes nothing.
+    const built = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, repositoryCwd: created.path } } }, parent);
+    assert.equal(built.ok, true, JSON.stringify(built.error));
+    assert.equal(built.data.request.data.cwd, created.receipt.creationIdentity.repositoryCwd);
   });
 });
