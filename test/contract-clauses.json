@@ -3884,7 +3884,8 @@
         "*Owner choice:* Option A",
         "issues/141#issuecomment-5736638735",
         "the owner executing the generated script remains the one owner-approved comment action",
-        "The autofix grant does not widen"
+        "The autofix grant does not widen",
+        "the drafting is granted here, and CL-D33 still grants autofix no action"
       ]
     }
   ]

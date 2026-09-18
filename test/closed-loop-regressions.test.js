@@ -211,7 +211,12 @@ test('Issue #41 publication authority remains review-only-owned and aggregate-on
   assert.match(reviewOnly, /Review-only never executes the script/);
   assert.match(readText(PR_PUBLICATION_TEMPLATE), /aggregate-summary publication only|Issue #40 source-reply authority/);
   assert.match(readText(PR_PUBLICATION_TEMPLATE), /gh pr comment <full-pr-url> --body-file <review-comment\.md>/);
-  assert.doesNotMatch(autofix, /publish-review\.sh|review-publication:v1/);
+  // CL-D77: autofix drafts the same artifacts at every terminal outcome, in one sentence, and never executes them;
+  // executing the script stays the owner's grant.
+  const drafting = autofix.split(/(?<=\.)\s+/).filter((sentence) => /publish-review\.sh|review-publication:v1/.test(sentence));
+  assert.equal(drafting.length, 1, drafting.join('\n'));
+  assert.match(drafting[0], /never executes it \(CL-D77\)\.$/);
+  assert.doesNotMatch(autofix, /review-publication:v1/);
   assert.doesNotMatch(shared, /publish-review\.sh|review-publication:v1/);
 });
 
