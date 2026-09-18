@@ -14,6 +14,7 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const { repoPath } = require('./helpers');
+const helpers = require('../skills/closed-loop-pr/helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const temp = (prefix) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -80,6 +81,11 @@ test('Issue #142 the cleanup builder accepts no cwd, the workspace included', ()
       assert.equal(built.error.code, 'invalid_request', JSON.stringify(built.error));
       assert.equal(built.error.message, 'unknown request field: cwd', JSON.stringify(built.error));
     }
+    // The packaged helper refuses it too, rather than quietly preferring the receipt: a caller handing one in is
+    // told, and a later change cannot start honouring it without failing here.
+    const direct = helpers.buildWorkspaceCleanup({ created, cwd: repository.root });
+    assert.equal(direct.ok, false, JSON.stringify(direct.data));
+    assert.deepEqual([direct.error.code, direct.error.message, direct.error.phase], ['invalid_request', 'unknown request field: cwd', 'build']);
     assert.equal(fs.existsSync(created.path), true, 'a refused build removes nothing');
   });
 });
@@ -93,9 +99,18 @@ test('Issue #142 a receipt whose repository is the workspace is still refused be
     assert.equal(built.ok, false, JSON.stringify(built.data));
     assert.equal(built.error.code, 'cleanup_cwd_inside_workspace', JSON.stringify(built.error));
     assert.equal(built.error.phase, 'build');
-    const stated = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, creationIdentity: { ...created.receipt.creationIdentity, repositoryCwd: undefined } } } }, parent);
-    assert.equal(stated.ok, false, JSON.stringify(stated.data));
-    assert.equal(stated.error.code, 'invalid_request', JSON.stringify(stated.error));
+    // A receipt stating no repository, stating an empty one, or carrying no creation identity at all is refused as
+    // such, by the builder: the code alone would also match the CLI's own schema refusals.
+    const identity = created.receipt.creationIdentity;
+    for (const [label, receiptState] of [
+      ['absent', { ...created.receipt, creationIdentity: { ...identity, repositoryCwd: undefined } }],
+      ['empty', { ...created.receipt, creationIdentity: { ...identity, repositoryCwd: '' } }],
+      ['no identity', { ...created.receipt, creationIdentity: undefined }],
+    ]) {
+      const stated = cli('build_workspace_cleanup', { created: { ...created, receipt: receiptState } }, parent);
+      assert.equal(stated.ok, false, `${label}: ${JSON.stringify(stated.data)}`);
+      assert.deepEqual([stated.error.code, stated.error.message, stated.error.phase], ['invalid_request', 'the receipt states no repository to run the cleanup from', 'build'], label);
+    }
     assert.equal(fs.existsSync(created.path), true, 'nothing was removed');
   });
 });

@@ -3828,8 +3828,9 @@
       "requires": [
         "*Owner choice:* Option A",
         "issues/142#issuecomment-5733269978",
-        "the packaged CLI refuses a `cwd` as an unknown request field",
-        "the copy `workspace_cleanup` holds against the stored receipt",
+        "the packaged CLI and the builder itself both refuse a `cwd` as an unknown request field",
+        "the one `workspace_cleanup` holds against the stored receipt",
+        "That choice between the two copies is this record's reading of the owner's decision, not a further owner choice",
         "Accepting a caller-stated cwd in the builder again, or deriving it from anything but the stored creation identity, requires a new owner decision"
       ]
     },

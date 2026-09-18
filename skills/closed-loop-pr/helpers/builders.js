@@ -61,6 +61,8 @@ function buildWorkspaceVerify(data) {
 
 function buildWorkspaceCleanup(data) {
   return wrap('build_workspace_cleanup', () => {
+    // Refused here as well as by the CLI, so a direct caller is told rather than silently overridden (CL-D76).
+    if (Object.hasOwn(data, 'cwd')) fail('invalid_request', 'unknown request field: cwd');
     const shapeProblem = inputShapeProblem('workspace_verify', { expected: data.created });
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem.replace('`expected`', '`created`'));
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
