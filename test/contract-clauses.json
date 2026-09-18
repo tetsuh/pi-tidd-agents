@@ -3855,6 +3855,37 @@
         "Issue #142 a stored identity field of the wrong type, or missing, is refused at build (pre-push pass on ab05722)",
         "Issue #142 a receipt nested beyond any genuine one, or with an unusable key, is refused at build"
       ]
+    },
+    {
+      "id": "CL-D77-addendum",
+      "marker": "CL-D77",
+      "title": "Every exact-autofix terminal outcome drafts the CL-D33 owner publication artifacts",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "section": "### Source-finding replies and final readiness",
+      "requires": [
+        "At every terminal outcome, `MERGE_READY` or not, the parent writes that draft as the CL-D33 owner publication artifacts",
+        "copies sibling `publish-review.sh` byte-for-byte, replaces its six exact ASCII placeholders once, and follows its Generation contract",
+        "`review-comment.md` and `publish-review.sh` in a fresh external `mktemp` directory",
+        "reports their paths and the exact command `bash \"<path>/publish-review.sh\"`",
+        "never executes it (CL-D77)"
+      ]
+    },
+    {
+      "id": "CL-D77-record",
+      "marker": "CL-D77",
+      "title": "CL-D77 records that autofix drafts the owner publication artifacts at every terminal outcome",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D77 — Every exact-autofix run ends with the owner publication artifacts",
+      "requires": [
+        "*Owner choice:* Option A",
+        "issues/141#issuecomment-5736638735",
+        "the owner executing the generated script remains the one owner-approved comment action",
+        "The autofix grant does not widen"
+      ]
     }
   ]
 }
