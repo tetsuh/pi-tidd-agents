@@ -144,7 +144,7 @@ test('Issue #133 an invocation beside a live owner\'s aged root touches nothing 
   const repository = fixtureRepository();
   // The recorder and its log live outside the parent, so they are not themselves siblings of any root.
   const observer = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-133-observer-'));
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-133-parent-'));
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-133-日本語-parent-'));
   const recorder = path.join(observer, 'recorder.js');
   const log = path.join(observer, 'calls.jsonl');
   fs.writeFileSync(recorder, RECORDER);
@@ -153,7 +153,7 @@ test('Issue #133 an invocation beside a live owner\'s aged root touches nothing 
     "const m = require(process.argv[1]); const fs = require('node:fs'); const path = require('node:path');",
     "const root = m.isolationPaths().root; const token = require('node:crypto').randomBytes(16).toString('hex');",
     "fs.writeFileSync(path.join(root, 'owner-sentinel'), token);",
-    "process.stdout.write(`${root}\t${token}\n`);",
+    "const report = Buffer.from(`${root}\t${token}\n`); let at = 0; const writeReport = () => { if (at < report.length) { process.stdout.write(report.subarray(at, at + 1)); at += 1; setTimeout(writeReport, 1); } }; writeReport();",
     "process.stdin.setEncoding('utf8'); process.stdin.on('data', () => process.stdout.write(`${fs.readFileSync(path.join(root, 'owner-sentinel'), 'utf8')}\n`));",
     "process.stdin.on('end', () => process.exit(0));",
   ].join('')), PROCESS], {
