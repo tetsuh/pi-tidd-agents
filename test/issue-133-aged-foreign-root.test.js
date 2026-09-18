@@ -29,10 +29,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { EventEmitter } = require('node:events');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawn, spawnSync } = require('node:child_process');
+const { StringDecoder } = require('node:string_decoder');
 
 const repoRoot = path.resolve(__dirname, '..');
 const CLI = path.join(repoRoot, 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
@@ -81,6 +83,32 @@ for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'fork', 'e
 `;
 
 // A repository holding one commit, so the invocation reaches the Git spawn that builds its own isolation root.
+// Lines from a child, in order, with the stream decoded as UTF-8: a chunk boundary can fall inside a character, and
+// decoding each chunk on its own replaces that character on both sides of the split, so the line read is not the line
+// written (Issue #138).
+function lineReader(child) {
+  const lines = [];
+  const waiting = [];
+  let buffered = '';
+  child.stdout.setEncoding('utf8');
+  child.stdout.on('data', (chunk) => {
+    buffered += chunk;
+    for (let end = buffered.indexOf(String.fromCharCode(10)); end >= 0; end = buffered.indexOf(String.fromCharCode(10))) {
+      const line = buffered.slice(0, end);
+      buffered = buffered.slice(end + 1);
+      const waiter = waiting.shift();
+      if (waiter) waiter(line); else lines.push(line);
+    }
+  });
+  const ended = new Promise((resolve) => child.on('close', (code, signal) => resolve(signal ?? code)));
+  const nextLine = (what) => Promise.race([
+    new Promise((resolve) => (lines.length > 0 ? resolve(lines.shift()) : waiting.push(resolve))),
+    ended.then((end) => { throw new Error(`the child ended before ${what} (${end})`); }),
+  ]);
+  return { nextLine, ended };
+}
+
+
 function fixtureRepository() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-133-repo-'));
   const git = (...args) => execFileSync('git', ['-c', 'commit.gpgsign=false', ...args], {
@@ -95,11 +123,34 @@ function fixtureRepository() {
   return root;
 }
 
+test('Issue #138 a line split inside a character is read as it was written', { timeout: 30000 }, async () => {
+  // The owner reports a path, and a path can carry any character the filesystem allows. Deliver the UTF-8 bytes through
+  // a controlled stream one at a time: every multi-byte character is then split across data events, which is what
+  // decoding each chunk on its own gets wrong. The decoder is deliberately applied by lineReader, as stream decoding is
+  // applied by a real child stdout; the controlled stream keeps the split deterministic instead of relying on a pipe.
+  const written = `/tmp/日本語-π-${String.fromCharCode(0xd83d, 0xde00)}/pi-tidd-pr-helper-Sm1i8J`;
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  // The stand-in delivers what a child's stdout delivers: bytes until a reader asks for an encoding, decoded text
+  // afterwards, with the decoder carrying a split character across events. A reader that never asks gets the bytes,
+  // which is what the encoding line here exists to prevent.
+  let decoder = null;
+  child.stdout.setEncoding = (encoding) => { decoder = new StringDecoder(encoding); };
+  const { nextLine } = lineReader(child);
+  const line = Buffer.from(written + String.fromCharCode(10), 'utf8');
+  for (let at = 0; at < line.length; at += 1) {
+    const byte = line.subarray(at, at + 1);
+    child.stdout.emit('data', decoder ? decoder.write(byte) : byte);
+  }
+  child.emit('close', 0, null);
+  assert.equal(await nextLine('it reported the line'), written, 'the line read is the line written');
+});
+
 test('Issue #133 an invocation beside a live owner\'s aged root touches nothing outside its own root', { timeout: 30000 }, async () => {
   const repository = fixtureRepository();
   // The recorder and its log live outside the parent, so they are not themselves siblings of any root.
   const observer = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-133-observer-'));
-  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-133-parent-'));
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-133-日本語-parent-'));
   const recorder = path.join(observer, 'recorder.js');
   const log = path.join(observer, 'calls.jsonl');
   fs.writeFileSync(recorder, RECORDER);
@@ -108,7 +159,7 @@ test('Issue #133 an invocation beside a live owner\'s aged root touches nothing 
     "const m = require(process.argv[1]); const fs = require('node:fs'); const path = require('node:path');",
     "const root = m.isolationPaths().root; const token = require('node:crypto').randomBytes(16).toString('hex');",
     "fs.writeFileSync(path.join(root, 'owner-sentinel'), token);",
-    "process.stdout.write(`${root}\t${token}\n`);",
+    "const report = Buffer.from(`${root}\t${token}\n`); let at = 0; const writeReport = () => { if (at < report.length) { process.stdout.write(report.subarray(at, at + 1)); at += 1; setTimeout(writeReport, 1); } }; writeReport();",
     "process.stdin.setEncoding('utf8'); process.stdin.on('data', () => process.stdout.write(`${fs.readFileSync(path.join(root, 'owner-sentinel'), 'utf8')}\n`));",
     "process.stdin.on('end', () => process.exit(0));",
   ].join('')), PROCESS], {
@@ -116,24 +167,7 @@ test('Issue #133 an invocation beside a live owner\'s aged root touches nothing 
     stdio: ['pipe', 'pipe', 'inherit'],
   });
   try {
-    // Lines from the owner, in order: the first reports its root and token, each later one answers a line it was sent.
-    const lines = [];
-    const waiting = [];
-    let buffered = '';
-    owner.stdout.on('data', (chunk) => {
-      buffered += chunk.toString('utf8');
-      for (let end = buffered.indexOf(String.fromCharCode(10)); end >= 0; end = buffered.indexOf(String.fromCharCode(10))) {
-        const line = buffered.slice(0, end);
-        buffered = buffered.slice(end + 1);
-        const waiter = waiting.shift();
-        if (waiter) waiter(line); else lines.push(line);
-      }
-    });
-    const ended = new Promise((resolve) => owner.on('exit', resolve));
-    const nextLine = (what) => Promise.race([
-      new Promise((resolve) => (lines.length > 0 ? resolve(lines.shift()) : waiting.push(resolve))),
-      ended.then((code) => { throw new Error(`the owning process ended before ${what} (${code})`); }),
-    ]);
+    const { nextLine } = lineReader(owner);
     const [foreign, token] = (await nextLine('it reported its root')).split(String.fromCharCode(9));
     // `isolationPaths()` has written everything it writes before it returns, so this age is final.
     const twoHoursAgo = (Date.now() - 2 * HOUR) / 1000;
