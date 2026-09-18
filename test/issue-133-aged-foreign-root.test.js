@@ -90,10 +90,9 @@ function lineReader(child) {
   const lines = [];
   const waiting = [];
   let buffered = '';
-  const decoder = new StringDecoder('utf8');
   child.stdout.setEncoding('utf8');
   child.stdout.on('data', (chunk) => {
-    buffered += typeof chunk === 'string' ? chunk : decoder.write(chunk);
+    buffered += chunk;
     for (let end = buffered.indexOf(String.fromCharCode(10)); end >= 0; end = buffered.indexOf(String.fromCharCode(10))) {
       const line = buffered.slice(0, end);
       buffered = buffered.slice(end + 1);
@@ -132,10 +131,17 @@ test('Issue #138 a line split inside a character is read as it was written', { t
   const written = `/tmp/日本語-π-${String.fromCharCode(0xd83d, 0xde00)}/pi-tidd-pr-helper-Sm1i8J`;
   const child = new EventEmitter();
   child.stdout = new EventEmitter();
-  child.stdout.setEncoding = () => {};
+  // The stand-in delivers what a child's stdout delivers: bytes until a reader asks for an encoding, decoded text
+  // afterwards, with the decoder carrying a split character across events. A reader that never asks gets the bytes,
+  // which is what the encoding line here exists to prevent.
+  let decoder = null;
+  child.stdout.setEncoding = (encoding) => { decoder = new StringDecoder(encoding); };
   const { nextLine } = lineReader(child);
   const line = Buffer.from(written + String.fromCharCode(10), 'utf8');
-  for (let at = 0; at < line.length; at += 1) child.stdout.emit('data', line.subarray(at, at + 1));
+  for (let at = 0; at < line.length; at += 1) {
+    const byte = line.subarray(at, at + 1);
+    child.stdout.emit('data', decoder ? decoder.write(byte) : byte);
+  }
   child.emit('close', 0, null);
   assert.equal(await nextLine('it reported the line'), written, 'the line read is the line written');
 });
