@@ -4035,7 +4035,10 @@
         "issues/140#issuecomment",
         "`priorPushHeads`",
         "at most five",
-        "Re-capturing the baseline after a push, or accepting a head the run did not push, requires a new owner decision"
+        "Re-capturing the baseline after a push, or accepting a head the run did not push, requires a new owner decision",
+        "issues/140#issuecomment-5742362840",
+        "The guard proves ancestry, not who pushed",
+        "provenance comes from `WORKSPACE_POST_PUSH(C, O)` and `AUTOFIX_WORKSPACE@C`"
       ]
     },
     {
