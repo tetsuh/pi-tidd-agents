@@ -115,6 +115,22 @@ test('Issue #142 a receipt whose repository is the workspace is still refused be
   });
 });
 
+test('Issue #142 a repository path carrying a NUL byte is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL)', () => {
+  withWorkspace((repository, parent, created) => {
+    // No filesystem call accepts a path with a NUL byte, so a request carrying one could never run; the builder
+    // refuses it rather than certifying it. Everything else here is the genuine creation result.
+    const NUL = String.fromCharCode(0);
+    const identity = created.receipt.creationIdentity;
+    for (const repositoryCwd of [`${identity.repositoryCwd}${NUL}`, `${identity.repositoryCwd}${NUL}/elsewhere`, `/${NUL}`]) {
+      const receipt = { ...created.receipt, creationIdentity: { ...identity, repositoryCwd } };
+      const built = cli('build_workspace_cleanup', { created: { ...created, receipt } }, parent);
+      assert.equal(built.ok, false, JSON.stringify(built.data));
+      assert.deepEqual([built.error.code, built.error.message, built.error.phase], ['invalid_request', 'the repository the receipt states contains a NUL byte', 'build'], JSON.stringify(repositoryCwd));
+    }
+    assert.equal(fs.existsSync(created.path), true, 'nothing was removed');
+  });
+});
+
 test('Issue #142 the unchecked copy beside the stored identity does not choose the cwd', () => {
   withWorkspace((repository, parent, created) => {
     // The receipt carries the repository twice; workspace_cleanup compares only the one inside the creation identity

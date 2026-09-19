@@ -3845,7 +3845,8 @@
         "Issue #142 the cleanup builder takes the repository from the receipt, and the request it builds removes the workspace",
         "Issue #142 the cleanup builder accepts no cwd, the workspace included",
         "Issue #142 a receipt whose repository is the workspace is still refused before any request exists",
-        "Issue #142 the unchecked copy beside the stored identity does not choose the cwd"
+        "Issue #142 the unchecked copy beside the stored identity does not choose the cwd",
+        "Issue #142 a repository path carrying a NUL byte is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL)"
       ]
     }
   ]

@@ -70,6 +70,8 @@ function buildWorkspaceCleanup(data) {
     // ended BLOCKED (Issue #142). It is the copy workspace_cleanup holds against the stored receipt, not the one beside it.
     const cwd = data.created.receipt.creationIdentity?.repositoryCwd;
     if (!text(cwd)) fail('invalid_request', 'the receipt states no repository to run the cleanup from');
+    // No filesystem call accepts a NUL byte, so such a request could never run (ADV-144-INVALID-REPOSITORY-NUL).
+    if (cwd.includes(String.fromCharCode(0))) fail('invalid_request', 'the repository the receipt states contains a NUL byte');
     // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it before the request exists (CL-D68).
     const cwdProblem = cleanupCwdProblem(cwd, data.created.path);
     if (cwdProblem !== null) fail(cwdProblem.subcheck === 'cleanup_cwd_relative' ? 'cleanup_cwd_relative' : 'cleanup_cwd_inside_workspace', cwdProblem.message);
