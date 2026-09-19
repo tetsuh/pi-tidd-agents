@@ -128,3 +128,32 @@ test('Issue #140 the builder carries priorPushHeads beside postPushHead and refu
     }
   });
 });
+
+test('Issue #140 the packaged CLI carries the chain from the builder to the guard', () => {
+  withOperator(({ root, head, child, track }) => {
+    // The path a run takes: capture, build the revalidation request, run it, each through the packaged CLI.
+    const { spawnSync } = require('node:child_process');
+    const CLI = require('path').resolve(__dirname, '../skills/closed-loop-pr/helpers/cli.js');
+    const cli = (operation, data) => JSON.parse(spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' }).stdout);
+    const bare = git(root, ['remote', 'get-url', 'origin']);
+    const capture = cli('operator_capture', { cwd: root, identity: { repository: 'owner/repo', prNumber: 140, lifecycle: 'OPEN', baseOid: oid('a'), publicHead: head, headRepository: 'owner/repo', headBranch: 'main', originFetch: bare, originPush: bare } });
+    assert.equal(capture.ok, true, JSON.stringify(capture.error));
+    const first = child(head); const second = child(first);
+    track(second);
+    const run = (extra) => {
+      const built = cli('build_operator_revalidate', { captured: capture, cwd: root, postPushHead: second, ...extra });
+      assert.equal(built.ok, true, JSON.stringify(built.error));
+      return cli(built.data.request.operation, built.data.request.data);
+    };
+    const accepted = run({ priorPushHeads: [first] });
+    assert.equal(accepted.ok, true, JSON.stringify(accepted.error));
+    const refused = run({});
+    assert.deepEqual([refused.ok, refused.error?.code], [false, 'operator_changed'], JSON.stringify(refused));
+    // A null list is not an empty one: the direct operation refuses it as the builder does.
+    track(first);
+    const sole = cli('operator_revalidate', { captured: capture, cwd: root, postPushHead: first });
+    assert.equal(sole.ok, true, 'the same request without the null list passes');
+    const nulled = cli('operator_revalidate', { captured: capture, cwd: root, postPushHead: first, priorPushHeads: null });
+    assert.deepEqual([nulled.ok, nulled.error?.code], [false, 'operator_changed'], JSON.stringify(nulled));
+  });
+});

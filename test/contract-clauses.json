@@ -3979,6 +3979,18 @@
       ]
     },
     {
+      "id": "CL-D79-definition",
+      "marker": "CL-D79",
+      "title": "The post-push state is defined for every push, not only the first",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md",
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "`WORKSPACE_POST_PUSH(C, O)` := public/workspace `C`, the no-replace sole child of the public head `P` it was pushed onto (`O` for the run's first push), with clean state; linked permits only the verified remote-tracking chain from `O` to `C` through this run's own pushes (CL-D79), clone operator stays `O`."
+      ]
+    },
+    {
       "id": "CL-D79-autofix",
       "marker": "CL-D79",
       "title": "The invocation map names the chain a later push passes",
@@ -4028,7 +4040,8 @@
         "Issue #140 a head the run did not push breaks the chain",
         "Issue #140 a merge anywhere in the chain is refused",
         "Issue #140 the chain must end at the tracking ref and be well formed",
-        "Issue #140 the builder carries priorPushHeads beside postPushHead and refuses it otherwise"
+        "Issue #140 the builder carries priorPushHeads beside postPushHead and refuses it otherwise",
+        "Issue #140 the packaged CLI carries the chain from the builder to the guard"
       ]
     }
   ]
