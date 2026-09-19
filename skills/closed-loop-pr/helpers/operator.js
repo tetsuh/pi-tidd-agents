@@ -152,23 +152,28 @@ function immutableOperatorBaseline(data) {
 }
 function revalidateOperatorCheckout(captured, input = process.cwd()) {
   const options = typeof input === 'string' ? { cwd: input } : { ...input };
-  const postPushHead = options.postPushHead;
-  delete options.postPushHead;
+  const { postPushHead, priorPushHeads } = options;
+  delete options.postPushHead; delete options.priorPushHeads;
   const current = captureOperatorCheckout({ ...options, identity: captured?.data?.identity });
   if (!current.ok) return current;
   const expected = immutableOperatorBaseline(captured?.data);
+  const changed = (message) => createError('operator_checkout', 'operator_changed', message, 'operator_revalidate');
+  if (priorPushHeads !== undefined && (postPushHead === undefined || !Array.isArray(priorPushHeads))) return changed('earlier pushed heads must be an array beside the current one');
   if (postPushHead !== undefined) {
-    if (typeof postPushHead !== 'string' || !/^[0-9a-f]{40}$/.test(postPushHead)
-      || captured?.data?.trackingRef !== captured?.data?.head) {
-      return createError('operator_checkout', 'operator_changed', 'invalid post-push tracking transition', 'operator_revalidate');
-    }
-    let commit;
-    try { commit = gitText(current.data.root, ['--no-replace-objects', 'cat-file', 'commit', postPushHead], { phase: 'operator_revalidate' }); }
-    catch { return createError('operator_checkout', 'operator_changed', 'post-push head is unavailable', 'operator_revalidate'); }
-    const header = commit.split('\n\n', 1)[0];
-    const parents = header.split('\n').filter((line) => line.startsWith('parent '));
-    if (parents.length !== 1 || parents[0] !== `parent ${captured.data.head}`) {
-      return createError('operator_checkout', 'operator_changed', 'post-push head is not the sole child of the operator baseline', 'operator_revalidate');
+    // The heads the caller names as its pushes, oldest first, ending at the current one: each the sole child of the one before it, the
+    // first of the baseline, at most the five a run may make (Issue #140, CL-D79).
+    const chain = [...(priorPushHeads ?? []), postPushHead];
+    if (chain.length > 5
+      || !chain.every((head) => typeof head === 'string' && /^[0-9a-f]{40}$/.test(head))
+      || captured?.data?.trackingRef !== captured?.data?.head) return changed('invalid post-push tracking transition');
+    let parent = captured.data.head;
+    for (const head of chain) {
+      let commit;
+      try { commit = gitText(current.data.root, ['--no-replace-objects', 'cat-file', 'commit', head], { phase: 'operator_revalidate' }); }
+      catch { return changed('post-push head is unavailable'); }
+      const parents = commit.split('\n\n', 1)[0].split('\n').filter((line) => line.startsWith('parent '));
+      if (parents.length !== 1 || parents[0] !== `parent ${parent}`) return changed('post-push head is not the sole child of the head before it');
+      parent = head;
     }
     expected.trackingRef = postPushHead;
   }

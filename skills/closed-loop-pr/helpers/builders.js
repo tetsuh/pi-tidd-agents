@@ -44,8 +44,12 @@ function buildOperatorRevalidate(data) {
   return wrap('build_operator_revalidate', () => {
     if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
     if (Object.hasOwn(data, 'postPushHead') && !(typeof data.postPushHead === 'string' && COMMIT_OID_PATTERN.test(data.postPushHead))) fail('invalid_request', 'postPushHead must be a commit OID string');
+    // The run's earlier pushes, oldest first; they mean nothing without the current one (Issue #140, CL-D79).
+    if (Object.hasOwn(data, 'priorPushHeads') && !(Object.hasOwn(data, 'postPushHead') && Array.isArray(data.priorPushHeads) && data.priorPushHeads.length < 5
+      && Array.from(data.priorPushHeads).every((head) => typeof head === 'string' && COMMIT_OID_PATTERN.test(head)))) fail('invalid_request', 'priorPushHeads must be up to four commit OID strings beside postPushHead');
     const request = { captured: data.captured, cwd: data.cwd };
     if (Object.hasOwn(data, 'postPushHead')) request.postPushHead = data.postPushHead;
+    if (Object.hasOwn(data, 'priorPushHeads')) request.priorPushHeads = data.priorPushHeads;
     return built('build_operator_revalidate', 'operator_revalidate', request);
   });
 }

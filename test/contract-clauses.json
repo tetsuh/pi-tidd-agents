@@ -3977,6 +3977,100 @@
         "Issue #143 a failed create under an explicit run root names that root",
         "Issue #143 a create refused before any root exists names none"
       ]
+    },
+    {
+      "id": "CL-D79-definition",
+      "marker": "CL-D79",
+      "title": "The post-push state is defined for every push, not only the first",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md",
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "`WORKSPACE_POST_PUSH(C, O)` := public/workspace `C`, the no-replace sole child of the public head `P` it was pushed onto (`O` for the run's first push), with clean state; linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads the parent names as its own pushes (CL-D79), clone operator stays `O`."
+      ]
+    },
+    {
+      "id": "CL-D79-autofix",
+      "marker": "CL-D79",
+      "title": "The invocation map names the chain a later push passes",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "After an earlier push in the same run, linked also passes `priorPushHeads`, the heads it pushed before `C`, oldest first; the chain from `O` to `C` must run through only those heads, each the sole child of the one before, at most five in all (CL-D79)."
+      ]
+    },
+    {
+      "id": "CL-D79-contract",
+      "marker": "CL-D79",
+      "title": "The post-push invariant admits a sole-child chain of pushes",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "After an earlier push in the same run, linked also passes `priorPushHeads`, the heads it pushed before `C`, oldest first; the chain from `O` to `C` must run through only those heads, each the sole child of the one before, at most five in all (CL-D79)."
+      ]
+    },
+    {
+      "id": "CL-D79-record-keeping",
+      "marker": "CL-D79",
+      "title": "The parent's record of its pushes is an obligation, not a check",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md",
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "The parent supplies `priorPushHeads` from its own record of each `C` for which `WORKSPACE_POST_PUSH(C, O)` held; that is a procedural obligation no check enforces, and a linear child someone else pushed passes the helper if supplied, a known residual of CL-D79."
+      ]
+    },
+    {
+      "id": "CL-D79-readme",
+      "marker": "CL-D79",
+      "title": "README names every push before the current one",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "with `priorPushHeads` naming every head the run pushed before `C`, oldest first, taken from the parent's own record, an obligation no check enforces (CL-D79)"
+      ]
+    },
+    {
+      "id": "CL-D79-record",
+      "marker": "CL-D79",
+      "title": "CL-D79 records the chain the post-push guard accepts",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D79 — The post-push guard accepts a sole-child chain of pushes",
+      "requires": [
+        "issues/140#issuecomment",
+        "`priorPushHeads`",
+        "at most five",
+        "Re-capturing the baseline after a push, or binding every chain head to a packaged record of the run's pushes, requires a new owner decision",
+        "issues/140#issuecomment-5742362840",
+        "The guard proves ancestry, not who pushed: any chain meeting those conditions passes it, whoever pushed it",
+        "issues/140#issuecomment-5742591079",
+        "bind only the current head to the run's own workspace",
+        "a known residual, not a defect"
+      ]
+    },
+    {
+      "id": "CL-D79-tests",
+      "marker": "CL-D79",
+      "title": "The chain rule is pinned by its own regression",
+      "files": [
+        "test/issue-140-post-push-chain.test.js"
+      ],
+      "requires": [
+        "Issue #140 a second pushed correction is accepted when the run names the first",
+        "Issue #140 the chain reaches the five-push cap and no further",
+        "Issue #140 a chain that leaves out, reorders, or starts past a head is refused",
+        "Issue #140 a merge anywhere in the chain is refused",
+        "Issue #140 the chain must end at the tracking ref and be well formed",
+        "Issue #140 the builder carries priorPushHeads beside postPushHead and refuses it otherwise",
+        "Issue #140 the packaged CLI carries the chain from the builder to the guard"
+      ]
     }
   ]
 }
