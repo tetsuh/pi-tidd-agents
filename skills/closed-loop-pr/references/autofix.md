@@ -13,7 +13,7 @@ The exact PR `autofix` token itself selects and approves only the bounded CL-D30
 - `OPERATOR_CHECKOUT@H` := captured target/path/HEAD/branch at initial public `H`, clean tracked/index, no unexpected non-ignored untracked paths, and opaque ignored inventory; `H` becomes operator baseline `O`.
 - `AUTOFIX_WORKSPACE@H` := external run-owned detached linked worktree (`git worktree add --detach`) or temporary clone fallback at public `H`, binding repository/source/origin/fetch/push/branch/tree without operator-path copy.
 - `WORKSPACE_POST_COMMIT(C, P)` := workspace `C` has sole parent/current public `P`; manifest/tree/blob and tracked/index/unstaged state match exactly.
-- `WORKSPACE_POST_PUSH(C, O)` := public/workspace `C` with no-replace sole-parent `O -> C` and clean state; linked permits only verified remote-tracking `O -> C`, clone operator stays `O`.
+- `WORKSPACE_POST_PUSH(C, O)` := public/workspace `C`, the no-replace sole child of the public head `P` it was pushed onto (`O` for the run's first push), with clean state; linked permits only the verified remote-tracking chain from `O` to `C` through this run's own pushes (CL-D79), clone operator stays `O`.
 - `OPERATOR_CHECKOUT_UNCHANGED@O` := equality to the immutable baseline's identity, tracked/index, unexpected-non-ignored-untracked, ref/config/tracking, and opaque ignored observations.
 - `REPLY_EXCEPTION` := the sole provider-mutation exception for a confirmed source-finding reply.
 

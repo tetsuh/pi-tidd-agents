@@ -158,11 +158,11 @@ function revalidateOperatorCheckout(captured, input = process.cwd()) {
   if (!current.ok) return current;
   const expected = immutableOperatorBaseline(captured?.data);
   const changed = (message) => createError('operator_checkout', 'operator_changed', message, 'operator_revalidate');
-  if (priorPushHeads !== undefined && postPushHead === undefined) return changed('earlier pushed heads without the current one');
+  if (priorPushHeads !== undefined && (postPushHead === undefined || !Array.isArray(priorPushHeads))) return changed('earlier pushed heads must be an array beside the current one');
   if (postPushHead !== undefined) {
     // The run's own pushes, oldest first, ending at the current one: each the sole child of the one before it, the
     // first of the baseline, at most the five a run may make (Issue #140, CL-D79).
-    const chain = Array.isArray(priorPushHeads ?? []) ? [...(priorPushHeads ?? []), postPushHead] : [];
+    const chain = [...(priorPushHeads ?? []), postPushHead];
     if (!chain.length || chain.length > 5
       || !chain.every((head) => typeof head === 'string' && /^[0-9a-f]{40}$/.test(head))
       || captured?.data?.trackingRef !== captured?.data?.head) return changed('invalid post-push tracking transition');
