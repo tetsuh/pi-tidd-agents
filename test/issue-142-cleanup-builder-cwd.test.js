@@ -115,19 +115,41 @@ test('Issue #142 a receipt whose repository is the workspace is still refused be
   });
 });
 
-test('Issue #142 a repository path carrying a NUL byte is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL)', () => {
+test('Issue #142 a receipt path the filesystem cannot take is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL)', () => {
   withWorkspace((repository, parent, created) => {
-    // No filesystem call accepts a path with a NUL byte, so a request carrying one could never run; the builder
-    // refuses it rather than certifying it. Everything else here is the genuine creation result.
-    const NUL = String.fromCharCode(0);
+    // Every path the built request carries, one at a time, in an otherwise genuine creation result. No filesystem
+    // call accepts a NUL byte, and a lone surrogate is written as U+FFFD, a different path from the one spelled, so a
+    // request carrying either could never do what it names; the builder refuses it rather than certifying it.
     const identity = created.receipt.creationIdentity;
-    for (const repositoryCwd of [`${identity.repositoryCwd}${NUL}`, `${identity.repositoryCwd}${NUL}/elsewhere`, `/${NUL}`]) {
-      const receipt = { ...created.receipt, creationIdentity: { ...identity, repositoryCwd } };
-      const built = cli('build_workspace_cleanup', { created: { ...created, receipt } }, parent);
-      assert.equal(built.ok, false, JSON.stringify(built.data));
-      assert.deepEqual([built.error.code, built.error.message, built.error.phase], ['invalid_request', 'the repository the receipt states contains a NUL byte', 'build'], JSON.stringify(repositoryCwd));
+    const variants = [String.fromCharCode(0), `${String.fromCharCode(0)}/elsewhere`, String.fromCharCode(0xd800), String.fromCharCode(0xdc00)];
+    const fields = {
+      'creationIdentity.repositoryCwd': (bad) => ({ ...created.receipt, creationIdentity: { ...identity, repositoryCwd: `${identity.repositoryCwd}${bad}` } }),
+      'creationIdentity.path': (bad) => ({ ...created.receipt, creationIdentity: { ...identity, path: `${identity.path}${bad}` } }),
+      root: (bad) => ({ ...created.receipt, root: `${created.receipt.root}${bad}` }),
+      storedPath: (bad) => ({ ...created.receipt, storedPath: `${created.receipt.storedPath}${bad}` }),
+    };
+    for (const [field, alter] of Object.entries(fields)) {
+      for (const bad of variants) {
+        const built = cli('build_workspace_cleanup', { created: { ...created, receipt: alter(bad) } }, parent);
+        const label = `${field} + ${JSON.stringify(bad)}`;
+        assert.equal(built.ok, false, `${label}: ${JSON.stringify(built.data)}`);
+        assert.deepEqual([built.error.code, built.error.message, built.error.phase], ['invalid_request', `the receipt's ${field} is not a path the filesystem can take`, 'build'], label);
+      }
     }
     assert.equal(fs.existsSync(created.path), true, 'nothing was removed');
+  });
+});
+
+test('Issue #142 the cwd is judged against the workspace the receipt states, the one the operation compares', () => {
+  withWorkspace((repository, parent, created) => {
+    // `created.path` is never copied into the request; the operation compares the cwd with the stored creation
+    // identity's path. A result whose top-level path disagrees must neither block a working request nor excuse one.
+    const moved = cli('build_workspace_cleanup', { created: { ...created, path: repository.root } }, parent);
+    assert.equal(moved.ok, true, JSON.stringify(moved.error));
+    const inside = { ...created.receipt, creationIdentity: { ...created.receipt.creationIdentity, path: created.receipt.creationIdentity.repositoryCwd } };
+    const refused = cli('build_workspace_cleanup', { created: { ...created, path: '/', receipt: inside } }, parent);
+    assert.equal(refused.ok, false, JSON.stringify(refused.data));
+    assert.deepEqual([refused.error.code, refused.error.phase], ['cleanup_cwd_inside_workspace', 'build']);
   });
 });
 
