@@ -183,6 +183,10 @@ test('Issue #142 a stored identity field of the wrong type, or missing, is refus
     cases.push(['kind clone', { ...identity, kind: 'clone' }], ['registered null', { ...identity, registered: null }]);
     // Nor may either object carry a key workspace_create never writes (CONV-144-IDENTITY-EXTRA-KEY): the stored file is
     // compared whole, so workspace_cleanup would refuse it.
+    // The stored identity is compared as a JSON string, so its key order is part of its shape: a receipt re-encoded by
+    // a tool that sorts keys would otherwise build and then be refused (pre-push pass on 75d7b2c).
+    const sorted = Object.fromEntries(Object.entries(identity).sort(([x], [y]) => x.localeCompare(y)));
+    cases.push(['identity keys sorted', sorted], ['registered keys reversed', { ...identity, registered: Object.fromEntries(Object.entries(identity.registered).reverse()) }]);
     cases.push(['identity extra key', { ...identity, extra: 'x' }], ['registered extra key', { ...identity, registered: { ...identity.registered, extra: 'x' } }]);
     for (const [label, changed] of cases) {
       const built = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, creationIdentity: changed } } }, parent);
