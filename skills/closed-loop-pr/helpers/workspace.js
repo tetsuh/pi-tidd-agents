@@ -133,7 +133,7 @@ function verifyCreatedRoot(root, repository) {
   if (isInside(canonical, repository)) runRootError('workspace_inside_repository', 'run root must be external');
   return canonical;
 }
-function allocateRoot(runRoot, repository) {
+function allocateRoot(runRoot, repository, made) {
   if (runRoot !== undefined && (typeof runRoot !== 'string' || runRoot.trim().length === 0)) runRootError('invalid_run_root', 'run root must be a nonempty string');
   if (runRoot === undefined) {
     const temporaryParent = path.resolve(os.tmpdir());
@@ -142,7 +142,7 @@ function allocateRoot(runRoot, repository) {
     const canonicalParent = canon(temporaryParent);
     if (isInside(canonicalParent, repository)) runRootError('workspace_inside_repository', 'run root must be external');
     let root;
-    try { root = fs.mkdtempSync(path.join(canonicalParent, 'pi-autofix-helper-')); }
+    try { root = made.root = fs.mkdtempSync(path.join(canonicalParent, 'pi-autofix-helper-')); }
     catch (error) { error.code = error.code || 'run_root_create_failed'; throw error; }
     return verifyCreatedRoot(root, repository);
   }
@@ -155,7 +155,7 @@ function allocateRoot(runRoot, repository) {
   if (isInside(root, repository)) runRootError('workspace_inside_repository', 'run root must be external');
   assertSymlinkFreePath(root);
   if (lstatKind(root) !== 'absent') runRootError('run_root_exists', 'explicit run root must not already exist');
-  try { fs.mkdirSync(root, { recursive: false, mode: 0o700 }); }
+  try { fs.mkdirSync(root, { recursive: false, mode: 0o700 }); made.root = root; }
   catch (error) { error.code = error.code || 'run_root_create_failed'; throw error; }
   return verifyCreatedRoot(root, repository);
 }
@@ -182,14 +182,21 @@ function cloneFallback({ repository, workspace, head, tree, root, beforeRegistra
     return createResult('workspace', { ...actual, root, kind: 'clone', cleanupAllowed: false, retained: true, fallbackReason: 'linked_unavailable' });
   } catch (error) { return createError('workspace', 'clone_fallback_failed', error.message, 'workspace_clone', { retainedPath: fs.existsSync(clonePath) ? clonePath : null }); }
 }
-function createWorkspace({ cwd, head, tree, runRoot, allowCloneFallback = true }) {
+// A failure after the run root exists keeps it, so every such error names it (Issue #143, CL-D78).
+function createWorkspace(request) {
+  const made = {};
+  const result = createIn(request, made);
+  if (!result.ok && made.root) result.error.details = { ...result.error.details, root: made.root };
+  return result;
+}
+function createIn({ cwd, head, tree, runRoot, allowCloneFallback = true }, made) {
   try {
     const repository = canon(git(cwd, ['rev-parse', '--show-toplevel'], 'workspace_create'));
     assertSafeRepositoryConfig(repository);
     const expectedRemotes = remoteIdentity(repository);
     const commonRaw = git(repository, ['rev-parse', '--path-format=absolute', '--git-common-dir'], 'workspace_create');
     const commonGitDir = canon(path.isAbsolute(commonRaw) ? commonRaw : path.resolve(repository, commonRaw));
-    const root = allocateRoot(runRoot, repository);
+    const root = allocateRoot(runRoot, repository, made);
     const workspace = path.join(root, 'workspace');
     const runRootSource = runRoot === undefined ? 'generated' : 'explicit';
     const beforeRegistration = parseWorktrees(repository); const beforeAdmin = adminInventory(commonGitDir);
