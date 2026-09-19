@@ -75,7 +75,8 @@ test('Issue #143 a create refused before any root exists names none', () => {
       const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree, runRoot }, parent);
       assert.equal(created.ok, false, JSON.stringify(created.data));
       assert.equal(created.error.code, 'run_root_exists', JSON.stringify(created.error));
-      assert.equal(created.error.details?.root, undefined, 'a root the operation did not create is not named as its own');
+      // Not even an empty details object: the error is exactly what it was before any root naming existed.
+      assert.equal(created.error.details, undefined, 'a root the operation did not create is not named as its own');
     } finally { fs.rmSync(runRoot, { recursive: true, force: true }); }
   });
 });
