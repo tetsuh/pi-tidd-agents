@@ -19,7 +19,7 @@ const plainObject = (value) => value !== null && typeof value === 'object' && !A
 const bool = (value) => typeof value === 'boolean';
 // A linked creation identity as inspectWorkspace writes it.
 const IDENTITY_SHAPE = [...'path repository head tree gitDir commonGitDir originFetch originPush repositoryCwd'.split(' ').map((f) => [f, text]),
-  ['detached', bool], ['matches', bool], ['registered', (v) => plainObject(v) && text(v.worktree) && text(v.HEAD) && bool(v.detached)]];
+  ['detached', bool], ['matches', bool], ['registered', (v) => keysExactly(v, ['worktree', 'HEAD', 'detached']) && text(v.worktree) && text(v.HEAD) && bool(v.detached)]];
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 function wrap(operation, construct) {
   try { return construct(); } catch (error) {
@@ -73,24 +73,24 @@ function buildWorkspaceCleanup(data) {
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
     // The cwd is the receipt's repository, not the caller's (Issue #142): the copy workspace_cleanup checks.
     const { receipt } = data.created;
-    // Every string and key, walked rather than listed: no filesystem call takes a NUL, and a lone surrogate is
-    // written as U+FFFD (ADV-144-UNCHECKED-REQUEST-PATHS). A genuine receipt nests three levels. Non-strings are left
-    // to the shape checks below and in built() (ADV-144-RECEIPT-PATH-TYPE).
+    // Every string and key, walked: no filesystem call takes a NUL, and a lone surrogate becomes U+FFFD
+    // (ADV-144-UNCHECKED-REQUEST-PATHS). Non-strings are left to the shape checks (ADV-144-RECEIPT-PATH-TYPE).
     const bad = (value) => value.includes(String.fromCharCode(0)) || !value.isWellFormed();
     (function scan(value, trail) {
       if (trail.length > 32) fail('invalid_request', 'the receipt nests deeper than 32 levels');
       if (typeof value === 'string' && bad(value)) fail('invalid_request', `the receipt's ${JSON.stringify(trail)} carries a NUL byte or a lone surrogate`);
       if (value !== null && typeof value === 'object') for (const [key, child] of Object.entries(value)) scan(bad(key) ? '\0' : child, [...trail, key]);
     })(receipt, []);
-    // Only the identity workspace_create writes; any other would be refused by workspace_cleanup after publishing.
+    // Only the identity workspace_create writes; workspace_cleanup refuses any other.
     if (!text(receipt.id)) fail('invalid_request', "the receipt's id must be a nonempty string");
     const identity = plainObject(receipt.creationIdentity) ? receipt.creationIdentity : {};
     const cwd = identity.repositoryCwd;
     if (!text(cwd)) fail('invalid_request', 'the receipt states no repository to run the cleanup from');
     if (!text(identity.path)) fail('invalid_request', 'the receipt states no workspace to remove');
     if (identity.kind !== 'linked') fail('invalid_request', "the receipt's creationIdentity.kind must be linked");
+    if (!keysExactly(identity, ['kind', ...IDENTITY_SHAPE.map(([f]) => f)])) fail('invalid_request', "the receipt's creationIdentity has unknown or missing keys");
     for (const [field, valid] of IDENTITY_SHAPE) {
-      if (!Object.hasOwn(identity, field) || !valid(identity[field])) fail('invalid_request', `the receipt's creationIdentity.${field} is not what workspace_create writes`);
+      if (!valid(identity[field])) fail('invalid_request', `the receipt's creationIdentity.${field} is not what workspace_create writes`);
     }
     // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it
     // before the request exists (CL-D68), judged against the workspace the operation compares, not `created.path`.
