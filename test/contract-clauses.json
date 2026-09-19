@@ -4015,13 +4015,13 @@
     {
       "id": "CL-D79-record-keeping",
       "marker": "CL-D79",
-      "title": "The run keeps its own record of the heads it pushed",
+      "title": "The parent's record of its pushes is an obligation, not a check",
       "files": [
         "skills/closed-loop-pr/references/autofix.md",
         "CONTRACT.md"
       ],
       "requires": [
-        "The run records each `C` once `WORKSPACE_POST_PUSH(C, O)` holds, and takes `priorPushHeads` only from that run-local record, never from GitHub or `git log` (CL-D79)."
+        "The parent supplies `priorPushHeads` from its own record of each `C` for which `WORKSPACE_POST_PUSH(C, O)` held; that is a procedural obligation no check enforces, and a linear child someone else pushed passes the helper if supplied, a known residual of CL-D79."
       ]
     },
     {
@@ -4049,8 +4049,10 @@
         "at most five",
         "Re-capturing the baseline after a push, or the workflow accepting a head the run did not push, requires a new owner decision",
         "issues/140#issuecomment-5742362840",
-        "provenance comes from `WORKSPACE_POST_PUSH(C, O)` and `AUTOFIX_WORKSPACE@C`",
-        "The guard proves ancestry, not who pushed: any chain meeting those conditions passes it, whoever pushed it"
+        "The guard proves ancestry, not who pushed: any chain meeting those conditions passes it, whoever pushed it",
+        "issues/140#issuecomment-5742591079",
+        "binds only the current head to the run's own workspace",
+        "a known residual, not a defect"
       ]
     },
     {
