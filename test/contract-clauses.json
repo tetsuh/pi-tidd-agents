@@ -3848,7 +3848,9 @@
         "Issue #142 the unchecked copy beside the stored identity does not choose the cwd",
         "Issue #142 a receipt string the filesystem cannot take is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL, ADV-144-UNCHECKED-REQUEST-PATHS)",
         "Issue #142 the cwd is judged against the workspace the receipt states, the one the operation compares",
-        "Issue #142 an absent or non-string receipt path is refused in the boundary vocabulary, not as a crash (ADV-144-RECEIPT-PATH-TYPE)"
+        "Issue #142 an absent or non-string receipt path is refused in the boundary vocabulary, not as a crash (ADV-144-RECEIPT-PATH-TYPE)",
+        "Issue #142 a stored identity field of the wrong type, or missing, is refused at build (pre-push pass on ab05722)",
+        "Issue #142 a receipt nested beyond any genuine one, or with an unusable key, is refused at build"
       ]
     }
   ]

@@ -139,7 +139,7 @@ test('Issue #142 a receipt string the filesystem cannot take is refused at build
         const built = cli('build_workspace_cleanup', { created: { ...created, receipt } }, parent);
         const label = `${field} + ${JSON.stringify(bad)}`;
         assert.equal(built.ok, false, `${label}: ${JSON.stringify(built.data)}`);
-        assert.deepEqual([built.error.code, built.error.message, built.error.phase], ['invalid_request', `the receipt's ${field} carries a NUL byte or a lone surrogate`, 'build'], label);
+        assert.deepEqual([built.error.code, built.error.message, built.error.phase], ['invalid_request', `the receipt's ${JSON.stringify(trail)} carries a NUL byte or a lone surrogate`, 'build'], label);
       }
     }
     assert.equal(fs.existsSync(created.path), true, 'nothing was removed');
@@ -158,6 +158,53 @@ test('Issue #142 an absent or non-string receipt path is refused in the boundary
         assert.deepEqual([built.error.code, built.error.phase], ['input_shape_mismatch', 'build'], `${label}: ${JSON.stringify(built.error)}`);
         assert.match(built.error.message, /receipt:workspace_create/, label);
       }
+    }
+  });
+});
+
+test('Issue #142 a stored identity field of the wrong type, or missing, is refused at build (pre-push pass on ab05722)', () => {
+  withWorkspace((repository, parent, created) => {
+    // Every key a genuine creation identity carries, taken from one rather than listed, each given a value of another
+    // type and then removed: the builder certifies only the shape workspace_create writes, which workspace_cleanup
+    // would otherwise refuse later as cleanup_not_authorized.
+    const identity = created.receipt.creationIdentity;
+    const keys = Object.keys(identity);
+    for (const key of ['kind', 'path', 'repository', 'head', 'tree', 'detached', 'gitDir', 'commonGitDir', 'registered', 'originFetch', 'originPush', 'repositoryCwd']) assert.ok(keys.includes(key), `a genuine identity carries ${key}`);
+    const wrong = (value) => (typeof value === 'string' ? 5 : 'wrong');
+    const cases = [];
+    for (const key of keys) {
+      cases.push([`${key} of another type`, { ...identity, [key]: wrong(identity[key]) }]);
+      const without = { ...identity }; delete without[key];
+      cases.push([`${key} absent`, without]);
+    }
+    for (const key of Object.keys(identity.registered)) {
+      cases.push([`registered.${key} of another type`, { ...identity, registered: { ...identity.registered, [key]: wrong(identity.registered[key]) } }]);
+    }
+    cases.push(['kind clone', { ...identity, kind: 'clone' }], ['registered null', { ...identity, registered: null }]);
+    for (const [label, changed] of cases) {
+      const built = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, creationIdentity: changed } } }, parent);
+      assert.equal(built.ok, false, `${label}: ${JSON.stringify(built.data)}`);
+      assert.deepEqual([built.error.code, built.error.phase], ['invalid_request', 'build'], `${label}: ${JSON.stringify(built.error)}`);
+    }
+    for (const id of [null, 5, '']) {
+      const built = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, id } } }, parent);
+      assert.deepEqual([built.ok, built.error?.code, built.error?.phase], [false, 'invalid_request', 'build'], `id ${JSON.stringify(id)}: ${JSON.stringify(built.error)}`);
+    }
+    assert.equal(fs.existsSync(created.path), true, 'nothing was removed');
+  });
+});
+
+test('Issue #142 a receipt nested beyond any genuine one, or with an unusable key, is refused at build', () => {
+  withWorkspace((repository, parent, created) => {
+    // A genuine receipt nests three levels; a deep one used to end in a raw stack-overflow message.
+    let deep = 'x'; for (let i = 0; i < 5000; i += 1) deep = [deep];
+    const nested = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, extra: deep } } }, parent);
+    assert.deepEqual([nested.ok, nested.error?.code, nested.error?.phase], [false, 'invalid_request', 'build'], JSON.stringify(nested.error));
+    assert.match(nested.error.message, /nests deeper than/);
+    for (const key of [`k${String.fromCharCode(0)}`, `k${String.fromCharCode(0xd800)}`]) {
+      const receipt = { ...created.receipt, creationIdentity: { ...created.receipt.creationIdentity, [key]: 'x' } };
+      const built = cli('build_workspace_cleanup', { created: { ...created, receipt } }, parent);
+      assert.deepEqual([built.ok, built.error?.code, built.error?.phase], [false, 'invalid_request', 'build'], `${JSON.stringify(key)}: ${JSON.stringify(built.error)}`);
     }
   });
 });
