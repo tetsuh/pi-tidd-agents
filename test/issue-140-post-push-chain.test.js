@@ -1,0 +1,111 @@
+'use strict';
+
+// Issue #140. The exact-autofix grant allows up to five correction pushes per run, but the post-push guard accepted
+// only a sole child of the operator baseline, so the run's second push ended it BLOCKED (PR #139, 2026-09-18). The
+// run now names the heads it pushed before the current one, oldest first, as `priorPushHeads`; the guard accepts the
+// chain only when each head is the sole child of the one before it, the first of the baseline, the last is the
+// tracking ref, and the chain is at most five long (owner choice, issues/140, recorded as CL-D79).
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+
+const helpers = require('../skills/closed-loop-pr/helpers');
+
+const oid = (character) => character.repeat(40);
+const temp = (prefix) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+const commitEnv = { GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' };
+function git(cwd, args, env = {}) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, ...env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' } }).trim();
+}
+
+function withOperator(run) {
+  const root = temp('issue-140-repo-'); const bare = temp('issue-140-origin-');
+  try {
+    git(root, ['init', '-b', 'main']); git(root, ['config', 'user.name', 'Issue 140 Test']); git(root, ['config', 'user.email', 'issue140@example.invalid']);
+    fs.writeFileSync(path.join(root, 'tracked.txt'), 'base' + String.fromCharCode(10));
+    git(root, ['add', 'tracked.txt']); git(root, ['commit', '-m', 'test: base']);
+    git(bare, ['init', '--bare']); git(root, ['remote', 'add', 'origin', bare]); git(root, ['push', '-u', 'origin', 'main']);
+    const head = git(root, ['rev-parse', 'HEAD']);
+    const identity = { repository: 'owner/repo', prNumber: 140, lifecycle: 'OPEN', baseOid: oid('a'), publicHead: head, headRepository: 'owner/repo', headBranch: 'main', originFetch: bare, originPush: bare };
+    const captured = helpers.captureOperatorCheckout({ cwd: root, identity });
+    assert.equal(captured.ok, true, JSON.stringify(captured));
+    // A commit on top of `parent` with the same tree, as a correction pushed from the workspace would be; the push
+    // itself is modelled by moving the remote-tracking ref the linked workspace shares with the operator checkout.
+    const child = (parent, ...extraParents) => git(root, ['commit-tree', 'HEAD^{tree}', '-p', parent, ...extraParents.flatMap((p) => ['-p', p]), '-m', 'fix: correction'], commitEnv);
+    const track = (commit) => git(root, ['update-ref', 'refs/remotes/origin/main', commit]);
+    const revalidate = (postPushHead, priorPushHeads) => helpers.revalidateOperatorCheckout(captured, { cwd: root, postPushHead, ...(priorPushHeads === undefined ? {} : { priorPushHeads }) });
+    run({ root, head, child, track, revalidate });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(bare, { recursive: true, force: true }); }
+}
+
+test('Issue #140 a second pushed correction is accepted when the run names the first', () => {
+  withOperator(({ head, child, track, revalidate }) => {
+    const first = child(head); const second = child(first);
+    track(second);
+    const accepted = revalidate(second, [first]);
+    assert.equal(accepted.ok, true, JSON.stringify(accepted.error));
+    // Without the run's record of its first push, the grandchild is still refused, as before.
+    const unnamed = revalidate(second);
+    assert.deepEqual([unnamed.ok, unnamed.error?.code], [false, 'operator_changed']);
+  });
+});
+
+test('Issue #140 the chain reaches the five-push cap and no further', () => {
+  withOperator(({ head, child, track, revalidate }) => {
+    const pushed = [];
+    let tip = head;
+    for (let i = 0; i < 6; i += 1) { tip = child(tip); pushed.push(tip); }
+    track(pushed[4]);
+    const fifth = revalidate(pushed[4], pushed.slice(0, 4));
+    assert.equal(fifth.ok, true, JSON.stringify(fifth.error));
+    track(pushed[5]);
+    const sixth = revalidate(pushed[5], pushed.slice(0, 5));
+    assert.deepEqual([sixth.ok, sixth.error?.code], [false, 'operator_changed'], JSON.stringify(sixth));
+  });
+});
+
+test('Issue #140 a head the run did not push breaks the chain', () => {
+  withOperator(({ head, child, track, revalidate }) => {
+    const first = child(head);
+    const foreign = child(first); // pushed by someone else between the run's two pushes
+    const second = child(foreign);
+    track(second);
+    for (const [label, prior] of [['the foreign head omitted', [first]], ['the list out of order', [foreign, first]], ['the first head not a child of the baseline', [foreign]]]) {
+      const refused = revalidate(second, prior);
+      assert.deepEqual([refused.ok, refused.error?.code], [false, 'operator_changed'], `${label}: ${JSON.stringify(refused)}`);
+    }
+  });
+});
+
+test('Issue #140 a merge anywhere in the chain is refused', () => {
+  withOperator(({ root, head, child, track, revalidate }) => {
+    const side = git(root, ['commit-tree', 'HEAD^{tree}', '-m', 'unrelated'], commitEnv);
+    const first = child(head, side); // two parents
+    const second = child(first);
+    track(second);
+    const refused = revalidate(second, [first]);
+    assert.deepEqual([refused.ok, refused.error?.code], [false, 'operator_changed'], JSON.stringify(refused));
+  });
+});
+
+test('Issue #140 the chain must end at the tracking ref and be well formed', () => {
+  withOperator(({ head, child, track, revalidate }) => {
+    const first = child(head); const second = child(first);
+    track(first);
+    const behind = revalidate(second, [first]);
+    assert.deepEqual([behind.ok, behind.error?.code], [false, 'operator_changed'], 'the tracking ref is not the last head');
+    track(second);
+    for (const [label, prior] of [['not an array', first], ['a non-OID entry', ['main']], ['a repeated head', [first, first]], ['the current head repeated', [first, second]]]) {
+      const refused = revalidate(second, prior);
+      assert.deepEqual([refused.ok, refused.error?.code], [false, 'operator_changed'], `${label}: ${JSON.stringify(refused)}`);
+    }
+    // Earlier pushes with no current one: the tracking ref back at the baseline would otherwise pass unchanged.
+    track(head);
+    const alone = revalidate(undefined, [first]);
+    assert.deepEqual([alone.ok, alone.error?.code], [false, 'operator_changed'], 'priorPushHeads without postPushHead is not a request');
+  });
+});
