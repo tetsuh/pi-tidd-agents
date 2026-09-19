@@ -4013,6 +4013,18 @@
       ]
     },
     {
+      "id": "CL-D79-record-keeping",
+      "marker": "CL-D79",
+      "title": "The run keeps its own record of the heads it pushed",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md",
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "The run records each `C` once `WORKSPACE_POST_PUSH(C, O)` holds, and takes `priorPushHeads` only from that run-local record, never from GitHub or `git log` (CL-D79)."
+      ]
+    },
+    {
       "id": "CL-D79-readme",
       "marker": "CL-D79",
       "title": "README names every push before the current one",
@@ -4037,8 +4049,8 @@
         "at most five",
         "Re-capturing the baseline after a push, or accepting a head the run did not push, requires a new owner decision",
         "issues/140#issuecomment-5742362840",
-        "The guard proves ancestry, not who pushed",
-        "provenance comes from `WORKSPACE_POST_PUSH(C, O)` and `AUTOFIX_WORKSPACE@C`"
+        "provenance comes from `WORKSPACE_POST_PUSH(C, O)` and `AUTOFIX_WORKSPACE@C`",
+        "The guard proves ancestry, not who pushed: any chain meeting those conditions passes it, whoever pushed it"
       ]
     },
     {
@@ -4051,7 +4063,7 @@
       "requires": [
         "Issue #140 a second pushed correction is accepted when the run names the first",
         "Issue #140 the chain reaches the five-push cap and no further",
-        "Issue #140 a head the run did not push breaks the chain",
+        "Issue #140 a chain that leaves out, reorders, or starts past a head is refused",
         "Issue #140 a merge anywhere in the chain is refused",
         "Issue #140 the chain must end at the tracking ref and be well formed",
         "Issue #140 the builder carries priorPushHeads beside postPushHead and refuses it otherwise",

@@ -68,7 +68,9 @@ test('Issue #140 the chain reaches the five-push cap and no further', () => {
   });
 });
 
-test('Issue #140 a head the run did not push breaks the chain', () => {
+// The guard checks the chain it is given, not who pushed it (CL-D79, owner choice B): these are the ways a chain
+// that omits, reorders, or starts past a head fails, whatever pushed that head.
+test('Issue #140 a chain that leaves out, reorders, or starts past a head is refused', () => {
   withOperator(({ head, child, track, revalidate }) => {
     const first = child(head);
     const foreign = child(first); // pushed by someone else between the run's two pushes
