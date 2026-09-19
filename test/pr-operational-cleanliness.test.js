@@ -584,8 +584,8 @@ test('artifact: Issue #42 isolated-workspace contract is present and single-chec
     assert.match(text, /(?:without (?:reading|following).*contents|never (?:read|follow).*contents|reads? no contents|contents.*never read)/i);
   }
   assert.match(invariants, /WORKSPACE_POST_COMMIT|POST_COMMIT.*workspace/i);
-  assert.match(invariants, /linked permits only the verified remote-tracking chain from `O` to `C` through this run's own pushes \(CL-D79\), clone operator stays `O`/);
-  for (const text of [CONTRACT, PR_AUTOFIX, README]) assert.match(text, /verified remote-tracking[^.\n]*(?:ref `C`|`O -> C`|chain from `O` to `C`)/);
+  assert.match(invariants, /linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads the parent names as its own pushes \(CL-D79\), clone operator stays `O`/);
+  for (const text of [CONTRACT, PR_AUTOFIX, README]) assert.match(text, /remote-tracking[^.\n]*(?:ref `C`|`O -> C`|chain from `O` to `C`)/);
   assert.match(PR_AUTOFIX, /After public\/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality/);
   assert.match(CONTRACT, /Only linked after public\/workspace verification may `operator_revalidate` receive `postPushHead: C`/);
   assert.match(README, /only then may `operator_revalidate` receive `postPushHead: C`/);

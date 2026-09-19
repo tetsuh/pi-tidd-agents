@@ -76,6 +76,8 @@ test('Issue #140 a chain that leaves out, reorders, or starts past a head is ref
     const foreign = child(first); // pushed by someone else between the run's two pushes
     const second = child(foreign);
     track(second);
+    // The known residual CL-D79 records: the guard proves ancestry, not who pushed, so naming the foreign head passes.
+    assert.equal(revalidate(second, [first, foreign]).ok, true, 'a supplied foreign linear child is accepted');
     for (const [label, prior] of [['the foreign head omitted', [first]], ['the list out of order', [foreign, first]], ['the first head not a child of the baseline', [foreign]]]) {
       const refused = revalidate(second, prior);
       assert.deepEqual([refused.ok, refused.error?.code], [false, 'operator_changed'], `${label}: ${JSON.stringify(refused)}`);

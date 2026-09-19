@@ -3987,7 +3987,7 @@
         "CONTRACT.md"
       ],
       "requires": [
-        "`WORKSPACE_POST_PUSH(C, O)` := public/workspace `C`, the no-replace sole child of the public head `P` it was pushed onto (`O` for the run's first push), with clean state; linked permits only the verified remote-tracking chain from `O` to `C` through this run's own pushes (CL-D79), clone operator stays `O`."
+        "`WORKSPACE_POST_PUSH(C, O)` := public/workspace `C`, the no-replace sole child of the public head `P` it was pushed onto (`O` for the run's first push), with clean state; linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads the parent names as its own pushes (CL-D79), clone operator stays `O`."
       ]
     },
     {
@@ -4004,7 +4004,7 @@
     {
       "id": "CL-D79-contract",
       "marker": "CL-D79",
-      "title": "The post-push invariant admits the run's own chain of pushes",
+      "title": "The post-push invariant admits a sole-child chain of pushes",
       "files": [
         "CONTRACT.md"
       ],
@@ -4032,7 +4032,7 @@
         "README.md"
       ],
       "requires": [
-        "with `priorPushHeads` naming every head the run pushed before `C`, oldest first (CL-D79)"
+        "with `priorPushHeads` naming every head the run pushed before `C`, oldest first, taken from the parent's own record, an obligation no check enforces (CL-D79)"
       ]
     },
     {
@@ -4042,12 +4042,12 @@
       "files": [
         "CONTRACT.md"
       ],
-      "section": "## CL-D79 — The post-push guard accepts the run's own chain of pushes",
+      "section": "## CL-D79 — The post-push guard accepts a sole-child chain of pushes",
       "requires": [
         "issues/140#issuecomment",
         "`priorPushHeads`",
         "at most five",
-        "Re-capturing the baseline after a push, or the workflow accepting a head the run did not push, requires a new owner decision",
+        "Re-capturing the baseline after a push, or binding every chain head to a packaged record of the run's pushes, requires a new owner decision",
         "issues/140#issuecomment-5742362840",
         "The guard proves ancestry, not who pushed: any chain meeting those conditions passes it, whoever pushed it",
         "issues/140#issuecomment-5742591079",

@@ -160,7 +160,7 @@ function revalidateOperatorCheckout(captured, input = process.cwd()) {
   const changed = (message) => createError('operator_checkout', 'operator_changed', message, 'operator_revalidate');
   if (priorPushHeads !== undefined && (postPushHead === undefined || !Array.isArray(priorPushHeads))) return changed('earlier pushed heads must be an array beside the current one');
   if (postPushHead !== undefined) {
-    // The run's own pushes, oldest first, ending at the current one: each the sole child of the one before it, the
+    // The heads the caller names as its pushes, oldest first, ending at the current one: each the sole child of the one before it, the
     // first of the baseline, at most the five a run may make (Issue #140, CL-D79).
     const chain = [...(priorPushHeads ?? []), postPushHead];
     if (chain.length > 5
