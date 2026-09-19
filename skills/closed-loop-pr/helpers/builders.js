@@ -17,9 +17,10 @@ const COMMIT_OID_PATTERN = /^[0-9a-f]{40}$/;
 const text = (value) => typeof value === 'string' && value.length > 0;
 const plainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 const bool = (value) => typeof value === 'boolean';
-// A linked creation identity as inspectWorkspace writes it.
-const IDENTITY_SHAPE = [...'path repository head tree gitDir commonGitDir originFetch originPush repositoryCwd'.split(' ').map((f) => [f, text]),
-  ['detached', bool], ['matches', bool], ['registered', (v) => keysExactly(v, ['worktree', 'HEAD', 'detached']) && text(v.worktree) && text(v.HEAD) && bool(v.detached)]];
+// A linked creation identity as inspectWorkspace writes it, keys in its order: the stored copy is compared as JSON.
+const IDENTITY_SHAPE = Object.entries({ kind: (v) => v === 'linked', path: text, repository: text, head: text, tree: text, detached: bool, gitDir: text,
+  commonGitDir: text, registered: (v) => plainObject(v) && `${Object.keys(v)}` === 'worktree,HEAD,detached' && text(v.worktree) && text(v.HEAD) && bool(v.detached),
+  originFetch: text, originPush: text, matches: bool, repositoryCwd: text });
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 function wrap(operation, construct) {
   try { return construct(); } catch (error) {
@@ -87,8 +88,7 @@ function buildWorkspaceCleanup(data) {
     const cwd = identity.repositoryCwd;
     if (!text(cwd)) fail('invalid_request', 'the receipt states no repository to run the cleanup from');
     if (!text(identity.path)) fail('invalid_request', 'the receipt states no workspace to remove');
-    if (identity.kind !== 'linked') fail('invalid_request', "the receipt's creationIdentity.kind must be linked");
-    if (!keysExactly(identity, ['kind', ...IDENTITY_SHAPE.map(([f]) => f)])) fail('invalid_request', "the receipt's creationIdentity has unknown or missing keys");
+    if (`${Object.keys(identity)}` !== `${IDENTITY_SHAPE.map(([f]) => f)}`) fail('invalid_request', "the receipt's creationIdentity keys are not workspace_create's");
     for (const [field, valid] of IDENTITY_SHAPE) {
       if (!valid(identity[field])) fail('invalid_request', `the receipt's creationIdentity.${field} is not what workspace_create writes`);
     }
