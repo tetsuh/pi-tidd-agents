@@ -74,11 +74,18 @@ function buildWorkspaceCleanup(data) {
     const cwd = identity.repositoryCwd;
     if (!text(cwd)) fail('invalid_request', 'the receipt states no repository to run the cleanup from');
     if (!text(identity.path)) fail('invalid_request', 'the receipt states no workspace to remove');
-    // Every path the request carries must name what it spells: no filesystem call accepts a NUL byte, and a lone
-    // surrogate is written as U+FFFD, another path (ADV-144-INVALID-REPOSITORY-NUL).
-    for (const [field, value] of [['creationIdentity.repositoryCwd', cwd], ['creationIdentity.path', identity.path], ['root', receipt.root], ['storedPath', receipt.storedPath]]) {
-      if (value.includes(String.fromCharCode(0)) || !value.isWellFormed()) fail('invalid_request', `the receipt's ${field} is not a path the filesystem can take`);
-    }
+    // Every string the request carries must name what it spells: no filesystem call accepts a NUL byte, and a lone
+    // surrogate is written as U+FFFD. The whole receipt is walked, not a list of fields, so a field added to the
+    // stored identity is covered too (ADV-144-INVALID-REPOSITORY-NUL, ADV-144-UNCHECKED-REQUEST-PATHS).
+    (function scan(value, trail) {
+      if (typeof value === 'string') {
+        if (value.includes(String.fromCharCode(0)) || !value.isWellFormed()) fail('invalid_request', `the receipt's ${trail.join('.')} carries a NUL byte or a lone surrogate`);
+      } else if (value !== null && typeof value === 'object') {
+        for (const [key, child] of Object.entries(value)) scan(child, [...trail, key]);
+      }
+      // Anything else is left to the boundary's own receipt shape check in built(), which names an absent or
+      // non-string root or storedPath in its vocabulary instead of crashing (ADV-144-RECEIPT-PATH-TYPE).
+    })(receipt, []);
     // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it
     // before the request exists (CL-D68), judged against the workspace the operation compares, not `created.path`.
     const cwdProblem = cleanupCwdProblem(cwd, identity.path);
