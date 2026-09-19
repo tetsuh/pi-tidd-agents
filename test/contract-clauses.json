@@ -3889,7 +3889,8 @@
         "the drafting is granted here, and CL-D33 still grants autofix no action",
         "issues/141#issuecomment-5738167081",
         "the report states `not_drafted(<reason>)`",
-        "refuses a draft pull request, and binds the base OID and the head repository and branch at its first identity read"
+        "refuses a draft pull request, and binds the base OID and the head repository and branch at its first identity read",
+        "A pull request whose head repository no longer exists, as after a fork is deleted, can then no longer be published by the generated script in either mode"
       ]
     }
   ]

@@ -90,17 +90,15 @@ if [[ "$1" == 'api' && "${'${2:-}'}" == "repos/$GH_EXPECTED_REPOSITORY/pulls/$GH
   current_head="$GH_HEAD"
   if [[ "$count" -gt 1 && -n "${'${GH_HEAD_SECOND:-}'}" ]]; then current_head="$GH_HEAD_SECOND"; fi
   if [[ "$count" == 1 && -n "${'${GH_MUTATE_ORIGINAL_ON_IDENTITY:-}'}" ]]; then printf 'tampered\\n' >> "$GH_ORIGINAL_FILE"; fi
-  # Issue #141: a template that asks for the draft state, base OID, and head repository and branch gets them, each
-  # with its own value for the second read.
-  if [[ "$4" == *'.draft'* ]]; then
-    draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_ref="${'${GH_HEAD_REF:-feature}'}"
-    if [[ "$count" -gt 1 ]]; then
-      draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"
-    fi
-    printf '%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' "$GH_REPOSITORY" "$GH_PR_NUMBER" "$GH_STATE" "$draft" "$current_head" "$GH_PR_URL" "$base" "$head_repo" "$head_ref"
-    exit 0
+  # Issue #141: the template's own filter runs, through the real jq, over a pull request shaped as the REST API
+  # returns it, so each field the template reads, its position, and its null handling are what the tests check.
+  draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_ref="${'${GH_HEAD_REF:-feature}'}"
+  if [[ "$count" -gt 1 ]]; then
+    draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"
   fi
-  printf '%s\\t%s\\t%s\\t%s\\t%s\\n' "$GH_REPOSITORY" "$GH_PR_NUMBER" "$GH_STATE" "$current_head" "$GH_PR_URL"
+  jq -nr --arg repo "$GH_REPOSITORY" --arg number "$GH_PR_NUMBER" --arg state "$GH_STATE" --arg draft "$draft" --arg head "$current_head" --arg url "$GH_PR_URL" --arg base "$base" --arg headRepo "$head_repo" --arg headRef "$head_ref" \
+    '{ number: ($number|tonumber), state: $state, draft: ($draft|fromjson), html_url: $url, base: { sha: $base, ref: "main", repo: { full_name: $repo } }, head: { sha: $head, ref: $headRef, repo: (if $headRepo == "" then null else { full_name: $headRepo } end) } }' \
+    | jq -r "$4"
   exit 0
 fi
 if [[ "$1 ${'${2:-}'}" == 'api --paginate' ]]; then
