@@ -398,7 +398,7 @@ test('Issue #141 rejects a pull request whose head repository no longer exists',
 
 test('Issue #141 rejects a pull request whose head branch is empty (CONV-145-HEADREF-GUARD-UNEXERCISED)', () => {
   const f = fixture();
-  assert.throws(() => runPublisher(f, { GH_HEAD_REF: '' }), /base or head branch evidence is malformed/);
+  assert.throws(() => runPublisher(f, { GH_HEAD_REF: '' }), /head branch is missing/);
   assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
   assert.equal(fs.existsSync(f.posted), false);
 });

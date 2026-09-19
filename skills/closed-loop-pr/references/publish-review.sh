@@ -131,16 +131,19 @@ command -v gh >/dev/null 2>&1 || fail 'gh is not installed'
 gh auth status >/dev/null 2>&1 || fail 'gh is not authenticated'
 
 # The first read binds the base OID and the head repository and branch; the read before POST must find them
-# unchanged, and both must find the pull request open and not a draft (CL-D77).
+# unchanged, and both must find the pull request open and not a draft (CL-D77). Fields are joined with the unit
+# separator, not a tab: tab is IFS whitespace, so an empty field would collapse and shift the rest (Issue #148).
 bound_target=''
 verify_pr_identity() {
   local phase="$1" identity actual_repo actual_number actual_state actual_draft actual_head actual_url actual_base actual_head_repo actual_head_ref
-  identity="$(gh api "repos/$REVIEW_REPOSITORY/pulls/$REVIEW_PR_NUMBER" --jq '[.base.repo.full_name, (.number|tostring), .state, (.draft|tostring), .head.sha, .html_url, .base.sha, (.head.repo.full_name // ""), .head.ref] | @tsv' 2>"$scratch/identity-$phase.err")" || fail "pull-request identity lookup failed at $phase"
+  identity="$(gh api "repos/$REVIEW_REPOSITORY/pulls/$REVIEW_PR_NUMBER" --jq '[.base.repo.full_name, (.number|tostring), .state, (.draft|tostring), .head.sha, .html_url, .base.sha, (.head.repo.full_name // ""), .head.ref] | map(. // "" | tostring) | join("\u001f")' 2>"$scratch/identity-$phase.err")" || fail "pull-request identity lookup failed at $phase"
   [[ "$identity" == *$'\n'* ]] && fail "pull-request identity evidence has multiple records at $phase"
-  IFS=$'\t' read -r actual_repo actual_number actual_state actual_draft actual_head actual_url actual_base actual_head_repo actual_head_ref <<< "$identity"
+  IFS=$'\x1f' read -r actual_repo actual_number actual_state actual_draft actual_head actual_url actual_base actual_head_repo actual_head_ref <<< "$identity"
   [[ -n "${actual_url:-}" && "$actual_repo" == "$REVIEW_REPOSITORY" && "$actual_number" == "$REVIEW_PR_NUMBER" && "$actual_state" == 'open' && "$actual_head" == "$REVIEW_HEAD" && "$actual_url" == "$REVIEW_PR_URL" ]] || fail "pull-request identity, lifecycle, or public head changed at $phase"
   [[ "$actual_draft" == 'false' ]] || fail "pull request is a draft at $phase"
-  [[ "$actual_base" =~ ^[0-9a-f]{40}$ && -n "${actual_head_repo:-}" && -n "${actual_head_ref:-}" ]] || fail "pull-request base or head branch evidence is malformed at $phase"
+  [[ "$actual_base" =~ ^[0-9a-f]{40}$ ]] || fail "pull-request base OID is malformed at $phase"
+  [[ -n "${actual_head_repo:-}" ]] || fail "pull-request head repository is missing at $phase"
+  [[ -n "${actual_head_ref:-}" ]] || fail "pull-request head branch is missing at $phase"
   local target="$actual_base"$'\t'"$actual_head_repo"$'\t'"$actual_head_ref"
   if [[ -z "$bound_target" ]]; then bound_target="$target"
   elif [[ "$target" != "$bound_target" ]]; then fail "pull-request base OID, head repository, or head branch changed at $phase"; fi
