@@ -621,6 +621,19 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Rationale:* The addendum already required a summary draft and already placed posting outside autofix as a one-shot owner action; CL-D33's artifacts are that action's packaged form, reviewed once and used by every review-only run. Drafting them costs the run no authority, and leaving a stopped run without them is what made the PR #139 outcomes recoverable only from the session's screen.
 *Validity and invalidation conditions:* Applies to the exact-autofix terminal report. The autofix grant does not widen: `aggregate summary posting` stays outside it, the run never executes the script, and CL-D33's template gains only the identity checks above. The mode-dispatch invariant is unchanged too: the addendum names the packaged template it copies, not the review-only reference. This widens the scope of CL-D33, which applied only to review-only, to the exact-autofix terminal report: the drafting is granted here, and CL-D33 still grants autofix no action. Letting a run execute the script, dropping the artifacts from a terminal outcome whose target is resolved, or loosening the template's identity checks, requires a new owner decision.
 
+## CL-D78 — A run reports the run roots it retained
+**Clauses:** CL-D78-addendum, CL-D78-record
+
+*Decision ID:* CL-D78
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#143` at its body, under the owner choice for Issue #132 part (b) https://github.com/tetsuh/pi-tidd-agents/issues/132#issuecomment-5731408176, which CL-D75 reserved
+*Question:* Runs that never call `workspace_cleanup`, or whose cleanup fails, leave their run roots behind; 2,543 had accumulated when the decision was taken. What, if anything, should bound that?
+*Options and trade-offs:* Report only; remove reliably, but only what the run itself created; expire sibling roots by age; or defer. Removal by age or by prefix is the authority whose absence kept the Issue #133 class of accident impossible, and a mutation of exactly that shape once destroyed 20,973 directories.
+*Recommendation:* Report only.
+*Owner choice:* Report only (https://github.com/tetsuh/pi-tidd-agents/issues/132#issuecomment-5731408176). At its terminal report, and in the CL-D77 artifacts when they are drafted, an exact-autofix run names each run root it created and did not see removed: the `root` of every `workspace_create` whose cleanup did not run, failed, or returned a non-null `retainedRoot` (CL-D75), with their count. The run takes those paths from results it already holds, so it removes nothing and lists nothing: no directory is scanned, and no root another run created is named or counted.
+*Rationale:* The leftover is invisible today unless someone reads the session's screen or lists the temporary directory; naming it where the run already reports makes the accumulation observable at the cost of one sentence, and adds no authority over anything the run did not create. Clearing the backlog stays an owner action outside the workflow.
+*Validity and invalidation conditions:* Applies to the exact-autofix terminal report. No packaged operation changes, so the Issue #133 regression is untouched and no operation gains removal or listing authority. Sweeping, expiring, or listing roots other runs created requires a new owner decision.
+
 ## CL-D38 — Review-only tolerates the validation sandbox delta it created
 **Clauses:** CL-D38-definition, CL-D38-review-only
 
