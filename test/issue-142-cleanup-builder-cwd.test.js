@@ -181,11 +181,17 @@ test('Issue #142 a stored identity field of the wrong type, or missing, is refus
       cases.push([`registered.${key} of another type`, { ...identity, registered: { ...identity.registered, [key]: wrong(identity.registered[key]) } }]);
     }
     cases.push(['kind clone', { ...identity, kind: 'clone' }], ['registered null', { ...identity, registered: null }]);
+    // Nor may either object carry a key workspace_create never writes (CONV-144-IDENTITY-EXTRA-KEY): the stored file is
+    // compared whole, so workspace_cleanup would refuse it.
+    cases.push(['identity extra key', { ...identity, extra: 'x' }], ['registered extra key', { ...identity, registered: { ...identity.registered, extra: 'x' } }]);
     for (const [label, changed] of cases) {
       const built = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, creationIdentity: changed } } }, parent);
       assert.equal(built.ok, false, `${label}: ${JSON.stringify(built.data)}`);
       assert.deepEqual([built.error.code, built.error.phase], ['invalid_request', 'build'], `${label}: ${JSON.stringify(built.error)}`);
     }
+    // A key beside the identity is not compared, and the request it builds removes the workspace, so it still builds.
+    const beside = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, extra: 'x' } } }, parent);
+    assert.equal(beside.ok, true, JSON.stringify(beside.error));
     for (const id of [null, 5, '']) {
       const built = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, id } } }, parent);
       assert.deepEqual([built.ok, built.error?.code, built.error?.phase], [false, 'invalid_request', 'build'], `id ${JSON.stringify(id)}: ${JSON.stringify(built.error)}`);
