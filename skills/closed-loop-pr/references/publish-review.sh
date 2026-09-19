@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CL-D33 Issue #41 template: aggregate-summary publication only; no Issue #40 source-reply authority.
-# `gh` authentication is required before any POST. Verify exact repository/PR/OPEN lifecycle/full URL, unchanged public head, complete paginated comment evidence, and absence of the exact marker; Missing, malformed, incomplete, stale, duplicate, or conflicting evidence fails closed.
+# `gh` authentication is required before any POST. Verify exact repository/PR/OPEN lifecycle/full URL, a non-draft pull request, unchanged public head, an unchanged base OID and head repository/branch, complete paginated comment evidence, and absence of the exact marker; Missing, malformed, incomplete, stale, duplicate, or conflicting evidence fails closed.
 # Generation contract: read this packaged template, validate canonical metadata,
 # create a fresh external directory with `mktemp -d "${TMPDIR:-/tmp}/..."`,
 # render a UTF-8/LF visible summary ending in LF that names review state, full PR
@@ -130,12 +130,20 @@ lock_owned=1
 command -v gh >/dev/null 2>&1 || fail 'gh is not installed'
 gh auth status >/dev/null 2>&1 || fail 'gh is not authenticated'
 
+# The first read binds the base OID and the head repository and branch; the read before POST must find them
+# unchanged, and both must find the pull request open and not a draft (CL-D77).
+bound_target=''
 verify_pr_identity() {
-  local phase="$1" identity actual_repo actual_number actual_state actual_head actual_url
-  identity="$(gh api "repos/$REVIEW_REPOSITORY/pulls/$REVIEW_PR_NUMBER" --jq '[.base.repo.full_name, (.number|tostring), .state, .head.sha, .html_url] | @tsv' 2>"$scratch/identity-$phase.err")" || fail "pull-request identity lookup failed at $phase"
+  local phase="$1" identity actual_repo actual_number actual_state actual_draft actual_head actual_url actual_base actual_head_repo actual_head_ref
+  identity="$(gh api "repos/$REVIEW_REPOSITORY/pulls/$REVIEW_PR_NUMBER" --jq '[.base.repo.full_name, (.number|tostring), .state, (.draft|tostring), .head.sha, .html_url, .base.sha, (.head.repo.full_name // ""), .head.ref] | @tsv' 2>"$scratch/identity-$phase.err")" || fail "pull-request identity lookup failed at $phase"
   [[ "$identity" == *$'\n'* ]] && fail "pull-request identity evidence has multiple records at $phase"
-  IFS=$'\t' read -r actual_repo actual_number actual_state actual_head actual_url <<< "$identity"
+  IFS=$'\t' read -r actual_repo actual_number actual_state actual_draft actual_head actual_url actual_base actual_head_repo actual_head_ref <<< "$identity"
   [[ -n "${actual_url:-}" && "$actual_repo" == "$REVIEW_REPOSITORY" && "$actual_number" == "$REVIEW_PR_NUMBER" && "$actual_state" == 'open' && "$actual_head" == "$REVIEW_HEAD" && "$actual_url" == "$REVIEW_PR_URL" ]] || fail "pull-request identity, lifecycle, or public head changed at $phase"
+  [[ "$actual_draft" == 'false' ]] || fail "pull request is a draft at $phase"
+  [[ "$actual_base" =~ ^[0-9a-f]{40}$ && -n "${actual_head_repo:-}" && -n "${actual_head_ref:-}" ]] || fail "pull-request base or head branch evidence is malformed at $phase"
+  local target="$actual_base"$'\t'"$actual_head_repo"$'\t'"$actual_head_ref"
+  if [[ -z "$bound_target" ]]; then bound_target="$target"
+  elif [[ "$target" != "$bound_target" ]]; then fail "pull-request base OID, head repository, or head branch changed at $phase"; fi
 }
 verify_pr_identity initial
 
