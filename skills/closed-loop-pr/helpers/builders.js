@@ -15,6 +15,12 @@ const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } 
 const TRANSITION_OID_PATTERN = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const COMMIT_OID_PATTERN = /^[0-9a-f]{40}$/;
 const text = (value) => typeof value === 'string' && value.length > 0;
+const plainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+const bool = (value) => typeof value === 'boolean';
+// A linked creation identity as inspectWorkspace writes it, keys in its order: the stored copy is compared as JSON.
+const IDENTITY_SHAPE = Object.entries({ kind: (v) => v === 'linked', path: text, repository: text, head: text, tree: text, detached: bool, gitDir: text,
+  commonGitDir: text, registered: (v) => plainObject(v) && `${Object.keys(v)}` === 'worktree,HEAD,detached' && text(v.worktree) && text(v.HEAD) && bool(v.detached),
+  originFetch: text, originPush: text, matches: bool, repositoryCwd: text });
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 function wrap(operation, construct) {
   try { return construct(); } catch (error) {
@@ -61,14 +67,36 @@ function buildWorkspaceVerify(data) {
 
 function buildWorkspaceCleanup(data) {
   return wrap('build_workspace_cleanup', () => {
-    if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
-    const shapeProblem = inputShapeProblem('workspace_verify', { cwd: data.cwd, expected: data.created });
+    // Refused here too, so a direct caller is told, not overridden (CL-D76).
+    if (Object.hasOwn(data, 'cwd')) fail('invalid_request', 'unknown request field: cwd');
+    const shapeProblem = inputShapeProblem('workspace_verify', { expected: data.created });
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem.replace('`expected`', '`created`'));
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
-    // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it before the request exists (CL-D68).
-    const cwdProblem = cleanupCwdProblem(data.cwd, data.created.path);
+    // The cwd is the receipt's repository, not the caller's (Issue #142): the copy workspace_cleanup checks.
+    const { receipt } = data.created;
+    // Every string and key, walked: no filesystem call takes a NUL, and a lone surrogate becomes U+FFFD
+    // (ADV-144-UNCHECKED-REQUEST-PATHS). Non-strings are left to the shape checks (ADV-144-RECEIPT-PATH-TYPE).
+    const bad = (value) => value.includes(String.fromCharCode(0)) || !value.isWellFormed();
+    (function scan(value, trail) {
+      if (trail.length > 32) fail('invalid_request', 'the receipt nests deeper than 32 levels');
+      if (typeof value === 'string' && bad(value)) fail('invalid_request', `the receipt's ${JSON.stringify(trail)} carries a NUL byte or a lone surrogate`);
+      if (value !== null && typeof value === 'object') for (const [key, child] of Object.entries(value)) scan(bad(key) ? '\0' : child, [...trail, key]);
+    })(receipt, []);
+    // Only the identity workspace_create writes; workspace_cleanup refuses any other.
+    if (!text(receipt.id)) fail('invalid_request', "the receipt's id must be a nonempty string");
+    const identity = plainObject(receipt.creationIdentity) ? receipt.creationIdentity : {};
+    const cwd = identity.repositoryCwd;
+    if (!text(cwd)) fail('invalid_request', 'the receipt states no repository to run the cleanup from');
+    if (!text(identity.path)) fail('invalid_request', 'the receipt states no workspace to remove');
+    if (`${Object.keys(identity)}` !== `${IDENTITY_SHAPE.map(([f]) => f)}`) fail('invalid_request', "the receipt's creationIdentity keys are not workspace_create's");
+    for (const [field, valid] of IDENTITY_SHAPE) {
+      if (!valid(identity[field])) fail('invalid_request', `the receipt's creationIdentity.${field} is not what workspace_create writes`);
+    }
+    // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it
+    // before the request exists (CL-D68), judged against the workspace the operation compares, not `created.path`.
+    const cwdProblem = cleanupCwdProblem(cwd, identity.path);
     if (cwdProblem !== null) fail(cwdProblem.subcheck === 'cleanup_cwd_relative' ? 'cleanup_cwd_relative' : 'cleanup_cwd_inside_workspace', cwdProblem.message);
-    return built('build_workspace_cleanup', 'workspace_cleanup', { receipt: data.created.receipt, cwd: data.cwd });
+    return built('build_workspace_cleanup', 'workspace_cleanup', { receipt, cwd });
   });
 }
 

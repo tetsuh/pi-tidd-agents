@@ -95,7 +95,7 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   for (const declaration of [
     '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |',
     '| `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |',
-    '| `build_workspace_cleanup` | `created` (data of `workspace_create`), `cwd` |',
+    '| `build_workspace_cleanup` | `created` (data of `workspace_create`); no `cwd`: the request runs from the repository the receipt states |',
     '| `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |',
     '| `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |',
   ]) assert.ok(map.includes(declaration), `map must declare ${declaration}`);
@@ -111,7 +111,7 @@ test('Issue #83 the CLI exposes exactly the seven builder operations with frozen
   const schemas = cliSchemas();
   assert.deepEqual(schemas.build_operator_revalidate, ['captured', 'cwd']);
   assert.deepEqual(schemas.build_workspace_verify, ['created', 'cwd']);
-  assert.deepEqual(schemas.build_workspace_cleanup, ['created', 'cwd']);
+  assert.deepEqual(schemas.build_workspace_cleanup, ['created']);
   assert.deepEqual(schemas.build_fingerprint_snapshot, ['snapshot']);
   assert.deepEqual(schemas.build_gate_expectation, ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence']);
   const cliSource = readText('skills/closed-loop-pr/helpers/cli.js');
@@ -141,7 +141,7 @@ test('Issue #83 the workspace chain round-trips: create, built verify, built cle
     const verified = cli('workspace_verify', builtVerify.data.request.data);
     assert.equal(verified.ok, true, JSON.stringify(verified.error));
 
-    const builtCleanup = cli('build_workspace_cleanup', { created: created.data, cwd: repository.root });
+    const builtCleanup = cli('build_workspace_cleanup', { created: created.data });
     assert.equal(builtCleanup.ok, true, JSON.stringify(builtCleanup.error));
     assert.equal(builtCleanup.data.request.operation, 'workspace_cleanup');
     const cleaned = cli('workspace_cleanup', builtCleanup.data.request.data);
@@ -218,7 +218,7 @@ test('Issue #83 builders reject with the boundary vocabulary, not new codes', ()
   assert.match(wrongCreate.error.message, /data:workspace_create/);
 
   // A retained clone has no receipt: cleanup is unbuildable, stated at build time.
-  const clone = cli('build_workspace_cleanup', { created: cloneData(), cwd: '/repo' });
+  const clone = cli('build_workspace_cleanup', { created: cloneData() });
   assert.equal(clone.ok, false);
   assert.equal(clone.error.code, 'invalid_request');
   assert.match(clone.error.message, /clone fallback workspace is retained/);

@@ -195,7 +195,7 @@ test('Issue #125 workspace_cleanup removes the workspace from its own path, with
   assert.match(readText('skills/closed-loop-pr/helpers/workspace.js'), /const STATED_IDENTITY = 'kind path detached gitDir commonGitDir originFetch originPush head tree registered'\.split\(' '\);/, 'the stated-identity list is pinned exactly');
 
   // Run 3's stop: the cleanup request built from creation data the run had lost.
-  const lost = cli('build_workspace_cleanup', { created: null, cwd: '/tmp' });
+  const lost = cli('build_workspace_cleanup', { created: null });
   assert.deepEqual([lost.ok, lost.error.code], [false, 'input_shape_mismatch'], JSON.stringify(lost.error));
 
   const repository = fixtureRepository();

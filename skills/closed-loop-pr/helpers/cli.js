@@ -29,7 +29,7 @@ const SCHEMAS = Object.freeze({
   manifest_compare: { required: ['cwd', 'parent'], optional: ['authorizedPaths', 'manifest'] },
   build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead'] },
   build_workspace_verify: { required: ['created', 'cwd'], optional: ['transition'] },
-  build_workspace_cleanup: { required: ['created', 'cwd'], optional: [] },
+  build_workspace_cleanup: { required: ['created'], optional: [] },
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
   build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },
   build_gate_assignments: { required: ['findings', 'settledKeys'], optional: ['reopens'] },
