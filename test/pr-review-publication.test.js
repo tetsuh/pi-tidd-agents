@@ -403,6 +403,21 @@ test('Issue #141 rejects a pull request whose head branch is empty (CONV-145-HEA
   assert.equal(fs.existsSync(f.posted), false);
 });
 
+// Issue #148: each identity field is refused by its own clause. With a tab-separated read an empty field collapsed
+// and the next value shifted into it, so a missing head repository was only ever refused by the head-branch clause.
+for (const [label, extra, reason] of [
+  ['only the head repository is empty', { GH_HEAD_REPO: '' }, /head repository is missing/],
+  ['only the head branch is empty', { GH_HEAD_REF: '' }, /head branch is missing/],
+  ['only the base OID is malformed', { GH_BASE: 'not-an-oid' }, /base OID is malformed/],
+]) {
+  test(`Issue #148 ${label}: refused by that field's own clause, before any POST`, () => {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, extra), (error) => reason.test(String(error.stderr)), label);
+    assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+    assert.equal(fs.existsSync(f.posted), false);
+  });
+}
+
 test('Issue #141 rejects a malformed base OID', () => {
   const f = fixture();
   assert.throws(() => runPublisher(f, { GH_BASE: 'not-an-oid' }));
