@@ -90,6 +90,16 @@ if [[ "$1" == 'api' && "${'${2:-}'}" == "repos/$GH_EXPECTED_REPOSITORY/pulls/$GH
   current_head="$GH_HEAD"
   if [[ "$count" -gt 1 && -n "${'${GH_HEAD_SECOND:-}'}" ]]; then current_head="$GH_HEAD_SECOND"; fi
   if [[ "$count" == 1 && -n "${'${GH_MUTATE_ORIGINAL_ON_IDENTITY:-}'}" ]]; then printf 'tampered\\n' >> "$GH_ORIGINAL_FILE"; fi
+  # Issue #141: a template that asks for the draft state, base OID, and head repository and branch gets them, each
+  # with its own value for the second read.
+  if [[ "$4" == *'.draft'* ]]; then
+    draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_ref="${'${GH_HEAD_REF:-feature}'}"
+    if [[ "$count" -gt 1 ]]; then
+      draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"
+    fi
+    printf '%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\t%s\\n' "$GH_REPOSITORY" "$GH_PR_NUMBER" "$GH_STATE" "$draft" "$current_head" "$GH_PR_URL" "$base" "$head_repo" "$head_ref"
+    exit 0
+  fi
   printf '%s\\t%s\\t%s\\t%s\\t%s\\n' "$GH_REPOSITORY" "$GH_PR_NUMBER" "$GH_STATE" "$current_head" "$GH_PR_URL"
   exit 0
 fi
@@ -364,6 +374,33 @@ test('Issue #41 rechecks exact head immediately before POST', () => {
   const f = fixture();
   assert.throws(() => runPublisher(f, { GH_HEAD_SECOND: 'c'.repeat(40) }));
   assert.equal(callCount(f), 4, 'second identity read must happen after duplicate scan and before POST');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #141 rejects a draft pull request before any POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, { GH_DRAFT: 'true' }), /draft|identity/);
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #141 rechecks the draft state, base OID, and head repository and branch immediately before POST', () => {
+  for (const [name, value] of [['GH_DRAFT_SECOND', 'true'], ['GH_BASE_SECOND', 'c'.repeat(40)], ['GH_HEAD_REF_SECOND', 'retargeted'], ['GH_HEAD_REPO_SECOND', 'someone/fork']]) {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, { [name]: value }), undefined, name);
+    assert.equal(callCount(f), 4, `${name}: the second identity read happens after the duplicate scan and before POST`);
+    assert.equal(fs.existsSync(f.posted), false, `${name}: nothing was posted`);
+  }
+});
+
+test('Issue #141 rejects a pull request whose head repository no longer exists', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, { GH_HEAD_REPO: '' }));
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #141 rejects a malformed base OID', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, { GH_BASE: 'not-an-oid' }));
   assert.equal(fs.existsSync(f.posted), false);
 });
 

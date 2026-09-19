@@ -215,7 +215,10 @@ test('Issue #41 publication authority remains review-only-owned and aggregate-on
   // executing the script stays the owner's grant.
   const drafting = autofix.split(/(?<=\.)\s+/).filter((sentence) => /publish-review\.sh|review-publication:v1/.test(sentence));
   assert.equal(drafting.length, 1, drafting.join('\n'));
-  assert.match(drafting[0], /never executes it \(CL-D77\)\.$/);
+  assert.match(drafting[0], /^When the repository, PR, and public head are resolved and unambiguous, /);
+  assert.match(drafting[0], /never executes it; otherwise it reports `not_drafted\(<reason>\)` \(CL-D77\)\.$/);
+  // Nothing inside that sentence may run the script either (ADV pre-push review of 18ad483).
+  assert.doesNotMatch(drafting[0], /\b(?:runs|executes|invokes|calls) (?!it;)/);
   assert.doesNotMatch(autofix, /review-publication:v1/);
   assert.doesNotMatch(shared, /publish-review\.sh|review-publication:v1/);
 });
