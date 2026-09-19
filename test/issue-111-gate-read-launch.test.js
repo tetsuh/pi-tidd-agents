@@ -318,7 +318,7 @@ test('Issue #111 workspace_cleanup and its builder refuse a cwd inside the works
     // ADV-123-RELATIVE-CLEANUP-CWD-BYPASS: a relative cwd has no identity a pure builder can judge; it is refused as such.
     for (const cwd of ['sub', './sub', `${path.basename(ws)}/sub`, '../elsewhere']) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.equal(problem?.subcheck, 'cleanup_cwd_relative', `${cwd}: ${JSON.stringify(problem)}`); const builtRelative = helpers.buildWorkspaceCleanup({ created: stating(cwd) }); assert.equal(builtRelative.error?.code, 'cleanup_cwd_relative', `${cwd}: ${JSON.stringify(builtRelative.error)}`); }
     for (const cwd of [ws, `${ws}/`, path.join(ws, 'sub'), `${ws}//sub/`]) { const problem = helpers.cleanupCwdProblem(cwd, ws); assert.ok(problem && problem.subcheck === 'cleanup_cwd' && problem.observed === cwd, `${cwd}: ${JSON.stringify(problem)}`); }
-    assert.match(readText('skills/closed-loop-pr/helpers/builders.js'), /cleanupCwdProblem\(cwd, data\.created\.path\)/, 'the builder applies the shared predicate');
+    assert.match(readText('skills/closed-loop-pr/helpers/builders.js'), /cleanupCwdProblem\(cwd, identity\.path\)/, 'the builder applies the shared predicate');
     assert.match(readText('skills/closed-loop-pr/helpers/workspace.js'), /cleanupCwdProblem\(resolvedCwd, workspaceRoot\)/, 'the operation applies the shared predicate to canonical identities');
     const proper = helpers.buildWorkspaceCleanup({ created: created.data });
     assert.equal(proper.ok, true, JSON.stringify(proper.error));

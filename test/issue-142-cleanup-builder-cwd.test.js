@@ -150,6 +150,12 @@ test('Issue #142 the cwd is judged against the workspace the receipt states, the
     const refused = cli('build_workspace_cleanup', { created: { ...created, path: '/', receipt: inside } }, parent);
     assert.equal(refused.ok, false, JSON.stringify(refused.data));
     assert.deepEqual([refused.error.code, refused.error.phase], ['cleanup_cwd_inside_workspace', 'build']);
+    // A stored identity naming no workspace leaves nothing to judge the cwd against, and is refused as such.
+    for (const path of [undefined, '']) {
+      const unnamed = { ...created.receipt, creationIdentity: { ...created.receipt.creationIdentity, path } };
+      const built = cli('build_workspace_cleanup', { created: { ...created, receipt: unnamed } }, parent);
+      assert.deepEqual([built.ok, built.error?.code, built.error?.message, built.error?.phase], [false, 'invalid_request', 'the receipt states no workspace to remove', 'build'], JSON.stringify(path));
+    }
   });
 });
 

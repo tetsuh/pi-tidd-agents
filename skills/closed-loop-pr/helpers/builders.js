@@ -15,6 +15,7 @@ const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } 
 const TRANSITION_OID_PATTERN = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
 const COMMIT_OID_PATTERN = /^[0-9a-f]{40}$/;
 const text = (value) => typeof value === 'string' && value.length > 0;
+const plainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 function wrap(operation, construct) {
   try { return construct(); } catch (error) {
@@ -68,14 +69,21 @@ function buildWorkspaceCleanup(data) {
     if (data.created.kind !== 'linked') fail('invalid_request', 'clone fallback workspace is retained and carries no receipt; there is no cleanup request to build');
     // The cwd is the repository the receipt states, not the caller's: a run standing in the workspace handed that in and
     // ended BLOCKED (Issue #142). It is the copy workspace_cleanup holds against the stored receipt, not the one beside it.
-    const cwd = data.created.receipt.creationIdentity?.repositoryCwd;
+    const { receipt } = data.created;
+    const identity = plainObject(receipt.creationIdentity) ? receipt.creationIdentity : {};
+    const cwd = identity.repositoryCwd;
     if (!text(cwd)) fail('invalid_request', 'the receipt states no repository to run the cleanup from');
-    // No filesystem call accepts a NUL byte, so such a request could never run (ADV-144-INVALID-REPOSITORY-NUL).
-    if (cwd.includes(String.fromCharCode(0))) fail('invalid_request', 'the repository the receipt states contains a NUL byte');
-    // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it before the request exists (CL-D68).
-    const cwdProblem = cleanupCwdProblem(cwd, data.created.path);
+    if (!text(identity.path)) fail('invalid_request', 'the receipt states no workspace to remove');
+    // Every path the request carries must name what it spells: no filesystem call accepts a NUL byte, and a lone
+    // surrogate is written as U+FFFD, another path (ADV-144-INVALID-REPOSITORY-NUL).
+    for (const [field, value] of [['creationIdentity.repositoryCwd', cwd], ['creationIdentity.path', identity.path], ['root', receipt.root], ['storedPath', receipt.storedPath]]) {
+      if (value.includes(String.fromCharCode(0)) || !value.isWellFormed()) fail('invalid_request', `the receipt's ${field} is not a path the filesystem can take`);
+    }
+    // A cwd at or inside the workspace being removed is the CL-D49 caller error; the boundary's own predicate refuses it
+    // before the request exists (CL-D68), judged against the workspace the operation compares, not `created.path`.
+    const cwdProblem = cleanupCwdProblem(cwd, identity.path);
     if (cwdProblem !== null) fail(cwdProblem.subcheck === 'cleanup_cwd_relative' ? 'cleanup_cwd_relative' : 'cleanup_cwd_inside_workspace', cwdProblem.message);
-    return built('build_workspace_cleanup', 'workspace_cleanup', { receipt: data.created.receipt, cwd });
+    return built('build_workspace_cleanup', 'workspace_cleanup', { receipt, cwd });
   });
 }
 
