@@ -244,8 +244,8 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
   assert.match(boundary, /CL-D73 reset it a fifth time to 260,000 bytes for the packaged gate-step compositions, on the same terms\./);
 
   // Every guard that carries the alarm literal carries the new one.
-  assert.match(readText('test/issue-59-helper-surface.test.js'), /const AGGREGATE_SMOKE_ALARM = 260000; \/\/ CL-D73 reviewed reset from 240,000 \(CL-D72\)/);
-  assert.match(readText('test/package.test.js'), /helperBytes < 260000/);
+  assert.match(readText('test/issue-59-helper-surface.test.js'), /const AGGREGATE_SMOKE_ALARM = 270000; \/\/ CL-D78 reviewed reset from 260,000 \(CL-D73\) so a failed create names its run root/);
+  assert.match(readText('test/package.test.js'), /helperBytes < 270000/);
   assert.equal(readText('test/package.test.js').includes('helperBytes < 240000'), false, 'the superseded alarm must not survive');
 
   const manifest = JSON.parse(readText('test/contract-clauses.json'));

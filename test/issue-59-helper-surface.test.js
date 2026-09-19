@@ -60,8 +60,8 @@ const APPROVED_FS_SITES = [
   "skills/closed-loop-pr/helpers/workspace.js|try { return JSON.parse(fs.readFileSync(target, 'utf8')); } catch (error) { if (error instanceof SyntaxError) return null; throw error; }",
   "skills/closed-loop-pr/helpers/inspect.js|const fs = require('node:fs');",
   'skills/closed-loop-pr/helpers/inspect.js|function canon(file) { return fs.realpathSync.native(file); }',
-  "skills/closed-loop-pr/helpers/workspace.js|try { root = fs.mkdtempSync(path.join(canonicalParent, 'pi-autofix-helper-')); }",
-  'skills/closed-loop-pr/helpers/workspace.js|try { fs.mkdirSync(root, { recursive: false, mode: 0o700 }); }',
+  "skills/closed-loop-pr/helpers/workspace.js|try { root = made.root = fs.mkdtempSync(path.join(canonicalParent, 'pi-autofix-helper-')); }",
+  'skills/closed-loop-pr/helpers/workspace.js|try { fs.mkdirSync(root, { recursive: false, mode: 0o700 }); made.root = root; }',
   'skills/closed-loop-pr/helpers/workspace.js|if (!fs.existsSync(worktrees)) return [];',
   'skills/closed-loop-pr/helpers/workspace.js|return fs.readdirSync(worktrees).sort((a, b) => Buffer.from(a).compare(Buffer.from(b))).map((name) => ({ name, kind: lstatKind(path.join(worktrees, name)) }));',
   "skills/closed-loop-pr/helpers/workspace.js|} catch (error) { return createError('workspace', 'clone_fallback_failed', error.message, 'workspace_clone', { retainedPath: fs.existsSync(clonePath) ? clonePath : null }); }",
@@ -84,7 +84,7 @@ const PROVENANCE_ANCHORS = [
   [`${HELPER_DIR}/process.js`, "const emptySystem = path.join(root, 'system.gitconfig');"],
   [`${HELPER_DIR}/workspace.js`, "function receiptPath(root) { return path.join(root, '.cleanup-receipt.json'); }"],
   [`${HELPER_DIR}/workspace.js`, 'const target = receiptPath(root);', 2],
-  [`${HELPER_DIR}/workspace.js`, 'const root = allocateRoot(runRoot, repository);'],
+  [`${HELPER_DIR}/workspace.js`, 'const root = allocateRoot(runRoot, repository, made);'],
 ];
 const ROOT_GUARDS = [
   [
@@ -106,7 +106,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
-const AGGREGATE_SMOKE_ALARM = 260000; // CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions
+const AGGREGATE_SMOKE_ALARM = 270000; // CL-D78 reviewed reset from 260,000 (CL-D73) so a failed create names its run root
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -241,6 +241,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'CL-D71 reset it a third time to 220,000 bytes',
     'CL-D72 reset it a fourth time to 240,000 bytes',
     'CL-D73 reset it a fifth time to 260,000 bytes',
+    'CL-D78 reset it a sixth time to 270,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);

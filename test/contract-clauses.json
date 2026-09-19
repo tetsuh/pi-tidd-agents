@@ -2772,8 +2772,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 260000;",
-        "CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions"
+        "const AGGREGATE_SMOKE_ALARM = 270000;",
+        "CL-D78 reviewed reset from 260,000 (CL-D73) so a failed create names its run root"
       ]
     },
     {
@@ -3571,8 +3571,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 260000;",
-        "CL-D73 reviewed reset from 240,000 (CL-D72) for the packaged gate-step compositions"
+        "const AGGREGATE_SMOKE_ALARM = 270000;",
+        "CL-D78 reviewed reset from 260,000 (CL-D73) so a failed create names its run root"
       ]
     },
     {
@@ -3893,7 +3893,8 @@
         "A pull request whose head repository no longer exists, as after a fork is deleted, can then no longer be published by the generated script in either mode",
         "That binding brackets the script's own run, from its first identity read to the read before POST; it does not compare those values with the ones the review saw",
         "which the artifacts do not carry",
-        "The head the artifacts are bound to, the reviewed head in review-only, is checked through the script's own metadata as before, and carrying the reviewed base or head branch too would need a new owner decision"
+        "The head the artifacts are bound to, the reviewed head in review-only, is checked through the script's own metadata as before, and carrying the reviewed base or head branch too would need a new owner decision",
+        "Duplicate detection keys on the exact generated summary"
       ]
     },
     {
@@ -3917,7 +3918,64 @@
         "README.md"
       ],
       "requires": [
-        "The generated publisher rechecks the exact repository, an open non-draft PR, the reviewed head, the base OID and head repository and branch it first read, complete body digest"
+        "The generated publisher rechecks the exact repository, an open non-draft PR, the reviewed head, the base OID and head repository and branch it first read, complete body digest",
+        "Review-only keeps its own no-publication grant; its generated publisher carries the same CL-D77 identity checks."
+      ]
+    },
+    {
+      "id": "CL-D77-cl-d33-note",
+      "marker": "CL-D77",
+      "title": "CL-D33 states what CL-D77 changed in it",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D33 — Review-only drafts guarded owner-executed PR publication artifacts",
+      "requires": [
+        "CL-D77 later extended the drafting of these artifacts to every exact-autofix terminal outcome whose repository, pull request, and public head are resolved, and strengthened the template's identity checks for both modes, under its own decision."
+      ]
+    },
+    {
+      "id": "CL-D78-addendum",
+      "marker": "CL-D78",
+      "title": "The terminal report names the run roots the run retained",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "section": "### Source-finding replies and final readiness",
+      "requires": [
+        "After any cleanup, the report and any drafted artifacts name each run root this run created and did not see removed",
+        "a `workspace_create` `root` or error `details.root` whose cleanup did not run, failed, or returned a non-null `retainedRoot`",
+        "and their count; no other root is listed or counted (CL-D78)"
+      ]
+    },
+    {
+      "id": "CL-D78-record",
+      "marker": "CL-D78",
+      "title": "CL-D78 records report-only handling of retained run roots",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D78 — A run reports the run roots it retained",
+      "requires": [
+        "issues/132#issuecomment-5731408176",
+        "removes nothing and lists nothing",
+        "Sweeping, expiring, or listing roots other runs created requires a new owner decision",
+        "issues/143#issuecomment-5740766919",
+        "names the root as `details.root`",
+        "The list is taken after any cleanup",
+        "resets from 260,000 to 270,000 bytes on the CL-D37 review recorded here"
+      ]
+    },
+    {
+      "id": "CL-D78-tests",
+      "marker": "CL-D78",
+      "title": "A failed create names the run root it kept",
+      "files": [
+        "test/issue-143-failed-create-root.test.js"
+      ],
+      "requires": [
+        "Issue #143 a failed create under an explicit run root names that root",
+        "Issue #143 a create refused before any root exists names none"
       ]
     }
   ]
