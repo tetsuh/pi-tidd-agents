@@ -3890,7 +3890,32 @@
         "issues/141#issuecomment-5738167081",
         "the report states `not_drafted(<reason>)`",
         "refuses a draft pull request, and binds the base OID and the head repository and branch at its first identity read",
-        "A pull request whose head repository no longer exists, as after a fork is deleted, can then no longer be published by the generated script in either mode"
+        "A pull request whose head repository no longer exists, as after a fork is deleted, can then no longer be published by the generated script in either mode",
+        "That binding brackets the script's own run, from its first identity read to the read before POST; it does not compare those values with the ones the review saw"
+      ]
+    },
+    {
+      "id": "CL-D77-publisher",
+      "marker": "CL-D77",
+      "title": "The publisher refuses a draft pull request and a moved base or head branch",
+      "files": [
+        "skills/closed-loop-pr/references/publish-review.sh"
+      ],
+      "requires": [
+        "[.base.repo.full_name, (.number|tostring), .state, (.draft|tostring), .head.sha, .html_url, .base.sha, (.head.repo.full_name // \"\"), .head.ref] | @tsv",
+        "[[ \"$actual_draft\" == 'false' ]] || fail \"pull request is a draft at $phase\"",
+        "fail \"pull-request base OID, head repository, or head branch changed at $phase\""
+      ]
+    },
+    {
+      "id": "CL-D77-readme",
+      "marker": "CL-D77",
+      "title": "README names what the generated publisher rechecks",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "The generated publisher rechecks the exact repository, an open non-draft PR, the reviewed head, the base OID and head repository and branch it first read, complete body digest"
       ]
     }
   ]
