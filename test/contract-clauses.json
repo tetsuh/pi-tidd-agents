@@ -3977,6 +3977,58 @@
         "Issue #143 a failed create under an explicit run root names that root",
         "Issue #143 a create refused before any root exists names none"
       ]
+    },
+    {
+      "id": "CL-D79-autofix",
+      "marker": "CL-D79",
+      "title": "The invocation map names the chain a later push passes",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "After an earlier push in the same run, linked also passes `priorPushHeads`, the heads it pushed before `C`, oldest first; the chain from `O` to `C` must run through only those heads, each the sole child of the one before, at most five in all (CL-D79)."
+      ]
+    },
+    {
+      "id": "CL-D79-contract",
+      "marker": "CL-D79",
+      "title": "The post-push invariant admits the run's own chain of pushes",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "After an earlier push in the same run, linked also passes `priorPushHeads`, the heads it pushed before `C`, oldest first; the chain from `O` to `C` must run through only those heads, each the sole child of the one before, at most five in all (CL-D79)."
+      ]
+    },
+    {
+      "id": "CL-D79-record",
+      "marker": "CL-D79",
+      "title": "CL-D79 records the chain the post-push guard accepts",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D79 — The post-push guard accepts the run's own chain of pushes",
+      "requires": [
+        "issues/140#issuecomment",
+        "`priorPushHeads`",
+        "at most five",
+        "Re-capturing the baseline after a push, or accepting a head the run did not push, requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D79-tests",
+      "marker": "CL-D79",
+      "title": "The chain rule is pinned by its own regression",
+      "files": [
+        "test/issue-140-post-push-chain.test.js"
+      ],
+      "requires": [
+        "Issue #140 a second pushed correction is accepted when the run names the first",
+        "Issue #140 the chain reaches the five-push cap and no further",
+        "Issue #140 a head the run did not push breaks the chain",
+        "Issue #140 a merge anywhere in the chain is refused",
+        "Issue #140 the chain must end at the tracking ref and be well formed"
+      ]
     }
   ]
 }
