@@ -635,7 +635,7 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Validity and invalidation conditions:* Applies to the exact-autofix terminal report and to `workspace_create`'s error results. The one packaged change adds `details.root` to errors the operation already returns, creating `details` where an error had none; no operation gains removal or listing authority, and the Issue #133 regression is untouched. The aggregate helper smoke alarm resets from 260,000 to 270,000 bytes on the CL-D37 review recorded here: the field is the owner's choice, and no prose was trimmed to avoid the reset. Sweeping, expiring, or listing roots other runs created requires a new owner decision.
 
 ## CL-D79 — The post-push guard accepts the run's own chain of pushes
-**Clauses:** CL-D79-definition, CL-D79-autofix, CL-D79-contract, CL-D79-record, CL-D79-tests
+**Clauses:** CL-D79-definition, CL-D79-autofix, CL-D79-contract, CL-D79-readme, CL-D79-record, CL-D79-tests
 
 *Decision ID:* CL-D79
 *Kind:* contract

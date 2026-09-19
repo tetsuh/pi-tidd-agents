@@ -163,7 +163,7 @@ function revalidateOperatorCheckout(captured, input = process.cwd()) {
     // The run's own pushes, oldest first, ending at the current one: each the sole child of the one before it, the
     // first of the baseline, at most the five a run may make (Issue #140, CL-D79).
     const chain = [...(priorPushHeads ?? []), postPushHead];
-    if (!chain.length || chain.length > 5
+    if (chain.length > 5
       || !chain.every((head) => typeof head === 'string' && /^[0-9a-f]{40}$/.test(head))
       || captured?.data?.trackingRef !== captured?.data?.head) return changed('invalid post-push tracking transition');
     let parent = captured.data.head;
