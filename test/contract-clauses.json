@@ -3894,7 +3894,8 @@
         "That binding brackets the script's own run, from its first identity read to the read before POST; it does not compare those values with the ones the review saw",
         "which the artifacts do not carry",
         "The head the artifacts are bound to, the reviewed head in review-only, is checked through the script's own metadata as before, and carrying the reviewed base or head branch too would need a new owner decision",
-        "Duplicate detection keys on the exact generated summary"
+        "Duplicate detection keys on the exact generated summary",
+        "Issue #148 joined the identity fields with the unit separator"
       ]
     },
     {
@@ -3905,9 +3906,11 @@
         "skills/closed-loop-pr/references/publish-review.sh"
       ],
       "requires": [
-        "[.base.repo.full_name, (.number|tostring), .state, (.draft|tostring), .head.sha, .html_url, .base.sha, (.head.repo.full_name // \"\"), .head.ref] | @tsv",
+        "[.base.repo.full_name, (.number|tostring), .state, (.draft|tostring), .head.sha, .html_url, .base.sha, (.head.repo.full_name // \"\"), .head.ref] | map(. // \"\" | tostring) | join(\"\\u001f\")",
         "[[ \"$actual_draft\" == 'false' ]] || fail \"pull request is a draft at $phase\"",
-        "fail \"pull-request base OID, head repository, or head branch changed at $phase\""
+        "fail \"pull-request base OID, head repository, or head branch changed at $phase\"",
+        "fail \"pull-request head repository is missing at $phase\"",
+        "IFS=$'\\x1f' read -r"
       ]
     },
     {
