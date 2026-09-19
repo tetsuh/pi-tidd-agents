@@ -3919,6 +3919,34 @@
       "requires": [
         "The generated publisher rechecks the exact repository, an open non-draft PR, the reviewed head, the base OID and head repository and branch it first read, complete body digest"
       ]
+    },
+    {
+      "id": "CL-D78-addendum",
+      "marker": "CL-D78",
+      "title": "The terminal report names the run roots the run retained",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "section": "### Source-finding replies and final readiness",
+      "requires": [
+        "The report, and those artifacts when drafted, name each run root this run created and did not see removed",
+        "the `root` of every `workspace_create` whose cleanup did not run, failed, or returned a non-null `retainedRoot`",
+        "and their count; no other root is listed or counted (CL-D78)"
+      ]
+    },
+    {
+      "id": "CL-D78-record",
+      "marker": "CL-D78",
+      "title": "CL-D78 records report-only handling of retained run roots",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D78 — A run reports the run roots it retained",
+      "requires": [
+        "issues/132#issuecomment-5731408176",
+        "removes nothing and lists nothing",
+        "Sweeping, expiring, or listing roots other runs created requires a new owner decision"
+      ]
     }
   ]
 }
