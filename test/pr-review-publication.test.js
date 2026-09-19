@@ -92,7 +92,7 @@ if [[ "$1" == 'api' && "${'${2:-}'}" == "repos/$GH_EXPECTED_REPOSITORY/pulls/$GH
   if [[ "$count" == 1 && -n "${'${GH_MUTATE_ORIGINAL_ON_IDENTITY:-}'}" ]]; then printf 'tampered\\n' >> "$GH_ORIGINAL_FILE"; fi
   # Issue #141: the template's own filter runs, through the real jq, over a pull request shaped as the REST API
   # returns it, so each field the template reads, its position, and its null handling are what the tests check.
-  draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_ref="${'${GH_HEAD_REF:-feature}'}"
+  draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_ref="${'${GH_HEAD_REF-feature}'}"
   if [[ "$count" -gt 1 ]]; then
     draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"
   fi
@@ -393,6 +393,13 @@ test('Issue #141 rechecks the draft state, base OID, and head repository and bra
 test('Issue #141 rejects a pull request whose head repository no longer exists', () => {
   const f = fixture();
   assert.throws(() => runPublisher(f, { GH_HEAD_REPO: '' }));
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #141 rejects a pull request whose head branch is empty (CONV-145-HEADREF-GUARD-UNEXERCISED)', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, { GH_HEAD_REF: '' }), /base or head branch evidence is malformed/);
+  assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
   assert.equal(fs.existsSync(f.posted), false);
 });
 
