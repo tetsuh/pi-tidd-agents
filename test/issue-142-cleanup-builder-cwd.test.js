@@ -196,8 +196,9 @@ test('Issue #142 a stored identity field of the wrong type, or missing, is refus
 
 test('Issue #142 a receipt nested beyond any genuine one, or with an unusable key, is refused at build', () => {
   withWorkspace((repository, parent, created) => {
-    // A genuine receipt nests three levels; a deep one used to end in a raw stack-overflow message.
-    let deep = 'x'; for (let i = 0; i < 5000; i += 1) deep = [deep];
+    // A genuine receipt nests three levels; one nested thousands deep used to end in a raw stack-overflow message.
+    // The bound refuses far earlier, so a modest depth past it shows the refusal.
+    let deep = 'x'; for (let i = 0; i < 200; i += 1) deep = [deep];
     const nested = cli('build_workspace_cleanup', { created: { ...created, receipt: { ...created.receipt, extra: deep } } }, parent);
     assert.deepEqual([nested.ok, nested.error?.code, nested.error?.phase], [false, 'invalid_request', 'build'], JSON.stringify(nested.error));
     assert.match(nested.error.message, /nests deeper than/);
