@@ -7,7 +7,7 @@ const { createError, createResult, isResult } = require('./protocol');
 
 const SCHEMAS = Object.freeze({
   operator_capture: { required: ['cwd', 'identity'], optional: [] },
-  operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead'] },
+  operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead', 'priorPushHeads'] },
   writability: { required: ['owner', 'repo', 'branchRef', 'enterprisePolicyComplete', 'enterpriseRulesets'], optional: ['cwd'] },
   snapshot: { required: ['owner', 'repo', 'number'], optional: ['cwd'] },
   fingerprint_issue_spec: { required: ['body', 'comments'], optional: [] },
@@ -27,7 +27,7 @@ const SCHEMAS = Object.freeze({
   overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
   overlay_compare: { required: ['cwd', 'overlay'], optional: [] },
   manifest_compare: { required: ['cwd', 'parent'], optional: ['authorizedPaths', 'manifest'] },
-  build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead'] },
+  build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead', 'priorPushHeads'] },
   build_workspace_verify: { required: ['created', 'cwd'], optional: ['transition'] },
   build_workspace_cleanup: { required: ['created'], optional: [] },
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
@@ -122,7 +122,7 @@ async function dispatch(request) {
   const { operation, data } = request;
   switch (operation) {
     case 'operator_capture': return wrap(operation, helpers.captureOperatorCheckout(data));
-    case 'operator_revalidate': return wrap(operation, helpers.revalidateOperatorCheckout(data.captured, { cwd: data.cwd, postPushHead: data.postPushHead }));
+    case 'operator_revalidate': return wrap(operation, helpers.revalidateOperatorCheckout(data.captured, { cwd: data.cwd, postPushHead: data.postPushHead, priorPushHeads: data.priorPushHeads }));
     case 'writability': return wrap(operation, await helpers.collectWritability(data));
     case 'snapshot': return wrap(operation, await helpers.collectSnapshot(data));
     case 'fingerprint_issue_spec': return fingerprintResult(operation, 'issue_spec', fingerprints.issueSpecFingerprint(data));

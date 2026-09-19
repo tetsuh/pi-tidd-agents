@@ -38,7 +38,7 @@ function withOperator(run) {
     const child = (parent, ...extraParents) => git(root, ['commit-tree', 'HEAD^{tree}', '-p', parent, ...extraParents.flatMap((p) => ['-p', p]), '-m', 'fix: correction'], commitEnv);
     const track = (commit) => git(root, ['update-ref', 'refs/remotes/origin/main', commit]);
     const revalidate = (postPushHead, priorPushHeads) => helpers.revalidateOperatorCheckout(captured, { cwd: root, postPushHead, ...(priorPushHeads === undefined ? {} : { priorPushHeads }) });
-    run({ root, head, child, track, revalidate });
+    run({ root, head, child, track, revalidate, captured });
   } finally { fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(bare, { recursive: true, force: true }); }
 }
 
@@ -99,7 +99,7 @@ test('Issue #140 the chain must end at the tracking ref and be well formed', () 
     const behind = revalidate(second, [first]);
     assert.deepEqual([behind.ok, behind.error?.code], [false, 'operator_changed'], 'the tracking ref is not the last head');
     track(second);
-    for (const [label, prior] of [['not an array', first], ['a non-OID entry', ['main']], ['a repeated head', [first, first]], ['the current head repeated', [first, second]]]) {
+    for (const [label, prior] of [['not an array', first], ['an object', { 0: first }], ['a non-OID entry', ['main']], ['a repeated head', [first, first]], ['the current head repeated', [first, second]]]) {
       const refused = revalidate(second, prior);
       assert.deepEqual([refused.ok, refused.error?.code], [false, 'operator_changed'], `${label}: ${JSON.stringify(refused)}`);
     }
@@ -107,5 +107,24 @@ test('Issue #140 the chain must end at the tracking ref and be well formed', () 
     track(head);
     const alone = revalidate(undefined, [first]);
     assert.deepEqual([alone.ok, alone.error?.code], [false, 'operator_changed'], 'priorPushHeads without postPushHead is not a request');
+  });
+});
+
+test('Issue #140 the builder carries priorPushHeads beside postPushHead and refuses it otherwise', () => {
+  withOperator(({ root, head, child, track, captured }) => {
+    const first = child(head); const second = child(first);
+    track(second);
+    const built = helpers.buildOperatorRevalidate({ captured: captured.data, cwd: root, postPushHead: second, priorPushHeads: [first] });
+    assert.equal(built.ok, true, JSON.stringify(built.error));
+    assert.deepEqual(built.data.request.data.priorPushHeads, [first]);
+    for (const [label, data] of [
+      ['without postPushHead', { priorPushHeads: [first] }],
+      ['five earlier heads', { postPushHead: second, priorPushHeads: [oid('1'), oid('2'), oid('3'), oid('4'), oid('5')] }],
+      ['not an array', { postPushHead: second, priorPushHeads: first }],
+      ['a non-OID entry', { postPushHead: second, priorPushHeads: ['main'] }],
+    ]) {
+      const refused = helpers.buildOperatorRevalidate({ captured: captured.data, cwd: root, ...data });
+      assert.deepEqual([refused.ok, refused.error?.code, refused.error?.phase], [false, 'invalid_request', 'build'], label);
+    }
   });
 });

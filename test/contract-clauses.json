@@ -4027,7 +4027,8 @@
         "Issue #140 the chain reaches the five-push cap and no further",
         "Issue #140 a head the run did not push breaks the chain",
         "Issue #140 a merge anywhere in the chain is refused",
-        "Issue #140 the chain must end at the tracking ref and be well formed"
+        "Issue #140 the chain must end at the tracking ref and be well formed",
+        "Issue #140 the builder carries priorPushHeads beside postPushHead and refuses it otherwise"
       ]
     }
   ]
