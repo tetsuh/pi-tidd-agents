@@ -3846,8 +3846,9 @@
         "Issue #142 the cleanup builder accepts no cwd, the workspace included",
         "Issue #142 a receipt whose repository is the workspace is still refused before any request exists",
         "Issue #142 the unchecked copy beside the stored identity does not choose the cwd",
-        "Issue #142 a receipt path the filesystem cannot take is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL)",
-        "Issue #142 the cwd is judged against the workspace the receipt states, the one the operation compares"
+        "Issue #142 a receipt string the filesystem cannot take is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL, ADV-144-UNCHECKED-REQUEST-PATHS)",
+        "Issue #142 the cwd is judged against the workspace the receipt states, the one the operation compares",
+        "Issue #142 an absent or non-string receipt path is refused in the boundary vocabulary, not as a crash (ADV-144-RECEIPT-PATH-TYPE)"
       ]
     }
   ]

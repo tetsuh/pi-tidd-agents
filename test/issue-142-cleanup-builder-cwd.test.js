@@ -115,28 +115,50 @@ test('Issue #142 a receipt whose repository is the workspace is still refused be
   });
 });
 
-test('Issue #142 a receipt path the filesystem cannot take is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL)', () => {
+test('Issue #142 a receipt string the filesystem cannot take is refused at build, never certified (ADV-144-INVALID-REPOSITORY-NUL, ADV-144-UNCHECKED-REQUEST-PATHS)', () => {
   withWorkspace((repository, parent, created) => {
-    // Every path the built request carries, one at a time, in an otherwise genuine creation result. No filesystem
-    // call accepts a NUL byte, and a lone surrogate is written as U+FFFD, a different path from the one spelled, so a
-    // request carrying either could never do what it names; the builder refuses it rather than certifying it.
-    const identity = created.receipt.creationIdentity;
+    // Every string the receipt carries, found by walking a genuine one rather than listed, so a field added to the
+    // stored identity later is covered without anyone remembering to add it here. No filesystem call accepts a NUL
+    // byte, and a lone surrogate is written as U+FFFD, so a request carrying either could never do what it names.
+    const strings = [];
+    (function walk(value, trail) {
+      if (typeof value === 'string') strings.push(trail);
+      else if (value !== null && typeof value === 'object') for (const [key, child] of Object.entries(value)) walk(child, [...trail, key]);
+    })(created.receipt, []);
+    for (const field of ['root', 'storedPath', 'repositoryCwd', 'creationIdentity.repositoryCwd', 'creationIdentity.path', 'creationIdentity.repository', 'creationIdentity.gitDir', 'creationIdentity.commonGitDir', 'creationIdentity.registered.worktree']) {
+      assert.ok(strings.some((trail) => trail.join('.') === field), `the walk reaches ${field}`);
+    }
     const variants = [String.fromCharCode(0), `${String.fromCharCode(0)}/elsewhere`, String.fromCharCode(0xd800), String.fromCharCode(0xdc00)];
-    const fields = {
-      'creationIdentity.repositoryCwd': (bad) => ({ ...created.receipt, creationIdentity: { ...identity, repositoryCwd: `${identity.repositoryCwd}${bad}` } }),
-      'creationIdentity.path': (bad) => ({ ...created.receipt, creationIdentity: { ...identity, path: `${identity.path}${bad}` } }),
-      root: (bad) => ({ ...created.receipt, root: `${created.receipt.root}${bad}` }),
-      storedPath: (bad) => ({ ...created.receipt, storedPath: `${created.receipt.storedPath}${bad}` }),
-    };
-    for (const [field, alter] of Object.entries(fields)) {
+    for (const trail of strings) {
       for (const bad of variants) {
-        const built = cli('build_workspace_cleanup', { created: { ...created, receipt: alter(bad) } }, parent);
+        const receipt = structuredClone(created.receipt);
+        let holder = receipt;
+        for (const key of trail.slice(0, -1)) holder = holder[key];
+        holder[trail[trail.length - 1]] += bad;
+        const field = trail.join('.');
+        const built = cli('build_workspace_cleanup', { created: { ...created, receipt } }, parent);
         const label = `${field} + ${JSON.stringify(bad)}`;
         assert.equal(built.ok, false, `${label}: ${JSON.stringify(built.data)}`);
-        assert.deepEqual([built.error.code, built.error.message, built.error.phase], ['invalid_request', `the receipt's ${field} is not a path the filesystem can take`, 'build'], label);
+        assert.deepEqual([built.error.code, built.error.message, built.error.phase], ['invalid_request', `the receipt's ${field} carries a NUL byte or a lone surrogate`, 'build'], label);
       }
     }
     assert.equal(fs.existsSync(created.path), true, 'nothing was removed');
+  });
+});
+
+test('Issue #142 an absent or non-string receipt path is refused in the boundary vocabulary, not as a crash (ADV-144-RECEIPT-PATH-TYPE)', () => {
+  withWorkspace((repository, parent, created) => {
+    for (const field of ['root', 'storedPath']) {
+      for (const value of [undefined, 5, null, {}]) {
+        const receipt = { ...created.receipt, [field]: value };
+        const built = cli('build_workspace_cleanup', { created: { ...created, receipt } }, parent);
+        const label = `${field} = ${JSON.stringify(value)}`;
+        assert.equal(built.ok, false, `${label}: ${JSON.stringify(built.data)}`);
+        // The code base 79f4f90 returned for the same input, from the boundary's own receipt shape check.
+        assert.deepEqual([built.error.code, built.error.phase], ['input_shape_mismatch', 'build'], `${label}: ${JSON.stringify(built.error)}`);
+        assert.match(built.error.message, /receipt:workspace_create/, label);
+      }
+    }
   });
 });
 
