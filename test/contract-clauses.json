@@ -4051,7 +4051,7 @@
         "issues/140#issuecomment-5742362840",
         "The guard proves ancestry, not who pushed: any chain meeting those conditions passes it, whoever pushed it",
         "issues/140#issuecomment-5742591079",
-        "binds only the current head to the run's own workspace",
+        "bind only the current head to the run's own workspace",
         "a known residual, not a defect"
       ]
     },
