@@ -4013,6 +4013,17 @@
       ]
     },
     {
+      "id": "CL-D79-readme",
+      "marker": "CL-D79",
+      "title": "README names every push before the current one",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "with `priorPushHeads` naming every head the run pushed before `C`, oldest first (CL-D79)"
+      ]
+    },
+    {
       "id": "CL-D79-record",
       "marker": "CL-D79",
       "title": "CL-D79 records the chain the post-push guard accepts",

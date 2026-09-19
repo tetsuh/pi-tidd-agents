@@ -122,6 +122,8 @@ test('Issue #140 the builder carries priorPushHeads beside postPushHead and refu
       ['five earlier heads', { postPushHead: second, priorPushHeads: [oid('1'), oid('2'), oid('3'), oid('4'), oid('5')] }],
       ['not an array', { postPushHead: second, priorPushHeads: first }],
       ['a non-OID entry', { postPushHead: second, priorPushHeads: ['main'] }],
+      // A hole is skipped by every(); the boundary would refuse the list it produces (CONV-147-BUILDER-SPARSE-CHAIN-GAP).
+      ['a sparse array', { postPushHead: second, priorPushHeads: [, first] }], // eslint-disable-line no-sparse-arrays
     ]) {
       const refused = helpers.buildOperatorRevalidate({ captured: captured.data, cwd: root, ...data });
       assert.deepEqual([refused.ok, refused.error?.code, refused.error?.phase], [false, 'invalid_request', 'build'], label);
