@@ -3891,7 +3891,9 @@
         "the report states `not_drafted(<reason>)`",
         "refuses a draft pull request, and binds the base OID and the head repository and branch at its first identity read",
         "A pull request whose head repository no longer exists, as after a fork is deleted, can then no longer be published by the generated script in either mode",
-        "That binding brackets the script's own run, from its first identity read to the read before POST; it does not compare those values with the ones the review saw"
+        "That binding brackets the script's own run, from its first identity read to the read before POST; it does not compare those values with the ones the review saw",
+        "which the artifacts do not carry",
+        "The head the artifacts are bound to, the reviewed head in review-only, is checked through the script's own metadata as before, and carrying the reviewed base or head branch too would need a new owner decision"
       ]
     },
     {
