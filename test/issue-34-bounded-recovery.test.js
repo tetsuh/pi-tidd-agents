@@ -14,7 +14,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readText, readJson, sectionOf, cliSchemas, repoPath } = require('./helpers');
+const { readAutofixProcedure, readText, readJson, sectionOf, cliSchemas, repoPath } = require('./helpers');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
@@ -28,7 +28,7 @@ const RECOVERY_HEADING = '### Bounded pre-writer recovery (CL-D39)';
 
 
 test('Issue #34 the recovery is bounded to the pre-writer region', () => {
-  const section = sectionOf((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
+  const section = sectionOf((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
   assert.ok(section, `${PR_AUTOFIX} must own the bounded recovery rule`);
   assert.match(section, /One recovery is permitted for either a deterministic local tooling failure under the original CL-D39 rows or the CL-D51 pure gate transport failure with zero designated output bytes/);
   assert.match(section, /no Luna task, commit, push, or reply exists/);
@@ -99,7 +99,7 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
 // home/helper-extra changes the tree and fails here even though no declared name changed.
 const PROCESS_HELPER = 'skills/closed-loop-pr/helpers/process.js';
 function exemptedIsolationNames() {
-  const section = sectionOf((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
+  const section = sectionOf((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
   const clause = section.match(/process-isolation root `([^`]+)\*` with its ((?:`[^`]+`(?:, and | and |, )?)+)/);
   assert.ok(clause, 'the exemption must name the isolation root prefix and its writes');
   return { prefix: clause[1], names: [...clause[2].matchAll(/`([^`]+)`/g)].map((m) => m[1]).sort() };
@@ -167,7 +167,7 @@ test('Issue #34 writes outside the temp parent are the CL-D37 boundary\'s job, a
 });
 
 test('Issue #34 the stop rule keeps its wording and names its exceptions', () => {
-  const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
+  const text = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above and the CL-D51 zero-output relaunch\./);
   // The invocation-map sentence must not contradict the recovery it now defers to.
   assert.match(text, /no retry beyond the CL-D39 recovery defined above/);
@@ -243,7 +243,7 @@ test('Issue #34 the partial-narrowing evidence in the record still matches the c
   const sharingOid = Object.entries(cliSchemas()).filter(([name, fields]) => name.startsWith('fingerprint_') && fields.length === 1 && fields[0] === 'oid').map(([name]) => name).sort();
   assert.deepEqual(sharingOid, ['fingerprint_pr_base', 'fingerprint_pr_head', 'fingerprint_pr_tree'],
     'the record cites these three as sharing an oid input; a change here invalidates that rationale');
-  assert.match((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/);
+  assert.match((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/);
 });
 
 // Executable decision model. Review-driven regression: the CL-D39 rule expressed as code so the
@@ -255,7 +255,7 @@ const GUARDS = ['noMutationAttempted', 'noLunaTask', 'operatorUnchanged', 'works
 const CL_D39_GUARDS = GUARDS.filter((guard) => guard !== 'deterministicLocal');
 const allGuardsTrue = () => Object.fromEntries(GUARDS.map((guard) => [guard, true]));
 function mappingOutcomes() {
-  const section = sectionOf((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
+  const section = sectionOf((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
   const rows = section.split('\n').filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
     .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()));
   // `fingerprint_<op>` expands only to the fingerprint operations the packaged CLI actually

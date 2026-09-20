@@ -223,7 +223,7 @@ A finding requires an actual cited counterexample disproving the claim, or a ver
 Both Skills bind the full procedure to every initial and re-invocation Sol payload because `inheritSkills: false`. The separate agent's primary benefit is model-family diversity; it may also add independent context, system-prompt, and failure boundaries. This is an existing Sol gate only: CL-D29 adds no gate, agent, mode, verdict, status token, round budget, prompt, package, or agent-file change. CL-D34 bounds the severity and disposition of the findings this procedure produces without narrowing the search.
 
 ## CL-D30 — Exact PR autofix publishes one bounded correction per public head
-**Clauses:** CL-D30-loop, CL-D30-publication, CL-D30-circuit, CL-D30-replies, CL-D30-clean-boundaries, CL-D30-readme-mode, CL-D30-mode-safety, CL-D30-language-boundary, CL-D30-precondition, CL-D30-readiness, CL-D30-gate-correlation, CL-D30-preconditions, CL-D30-luna-authorization, CL-D30-manifest, CL-D30-source-schema, CL-D30-snapshot-routing, CL-D30-reply-safety, CL-D30-summary-safety, CL-D30-breaker-boundaries, CL-D30-pi-contract, CL-D30-pi-boundaries, CL-D30-pi-publication, CL-D30-pi-replies, CL-D30-pi-readme, CL-D30-pi-fixtures, CL-D30-pi-packaging, CL-D30-isolated-workspace
+**Clauses:** CL-D30-loop, CL-D30-publication, CL-D30-circuit, CL-D30-replies, CL-D30-clean-boundaries, CL-D30-readme-mode, CL-D30-mode-safety, CL-D30-language-boundary, CL-D30-precondition, CL-D30-readiness, CL-D30-gate-correlation, CL-D30-preconditions, CL-D30-luna-authorization, CL-D30-manifest, CL-D30-source-schema, CL-D30-snapshot-routing, CL-D30-reply-safety, CL-D30-summary-safety, CL-D30-breaker-boundaries, CL-D30-pi-contract, CL-D30-pi-boundaries, CL-D30-pi-publication, CL-D30-pi-replies, CL-D30-pi-readme, CL-D30-pi-fixtures, CL-D30-pi-packaging, CL-D30-isolated-workspace, CL-D30-isolated-workspace-map
 
 *Decision ID:* CL-D30
 *Kind:* contract
@@ -546,7 +546,7 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Validity and invalidation conditions:* Applies to the aggregate alarm value alone. No structural assertion, per-file alarm, or operation allowlist is relaxed, and no validation rule is removed or compressed to fit. A further firing requires a new review and decision; trimming code merely to silence the alarm remains the recorded anti-pattern, not compliance.
 
 ## CL-D72 — The focused validation is packaged and the alarm is reset for it
-**Clauses:** CL-D72-map, CL-D72-route-review-only, CL-D72-route-shared, CL-D72-route-autofix, CL-D72-record, CL-D72-tests
+**Clauses:** CL-D72-map, CL-D72-map-moved, CL-D72-route-review-only, CL-D72-route-shared, CL-D72-route-autofix, CL-D72-record, CL-D72-tests
 
 *Decision ID:* CL-D72
 *Kind:* contract
@@ -660,8 +660,21 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Rationale:* The writer launch was the last hand-composed request in the exact-autofix flow, and the failure it caused cost a whole run after the gates had already produced a finding. Stating the one field that broke is the smallest change that makes the run reach its writer; if the parent gets another field wrong, CL-D68's builder shape is the answer, and this record says so.
 *Validity and invalidation conditions:* Applies to the `tidd-autofix-worker` launch. It grants the writer nothing: the grant, the one-commit and one-push bounds, and every guard are unchanged, and no review-gate launch changes. `false` is pi-subagents' deprecated shorthand for `{ level: "none" }`; if a release removes it, this record is invalidated and the setting must be restated. Packaging the writer launch as a builder, or giving it any other acceptance setting or time bound, requires a new owner decision. That builder is CL-D81, taken four days later after the parent composed another field wrongly: the three settings are unchanged and now emitted by `build_writer_launch`, so this record is superseded in form only, and CL-D80-autofix's sentence in `references/autofix.md` is replaced by CL-D81's map row and builder sentence.
 
+## CL-D83 — The packaged helper invocation map is its own reference
+**Clauses:** CL-D83-map, CL-D83-autofix, CL-D83-record, CL-D83-tests
+
+*Decision ID:* CL-D83
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#164` at its body, whose "Owner decision (2026-09-20)" section records the choice (working session of 2026-09-20)
+*Question:* `references/autofix.md` may not exceed the addendum, because Issue #73 requires the addendum to be among the two largest authority files, and the addendum may not reach 29,000 bytes. Both sat at those limits, so one 48-byte map row — the documentation a new packaged operation requires — no longer fitted, and three decisions taken the same day each add at least one. What gives?
+*Options and trade-offs:* Option A splits the invocation map into its own reference, which is the split Issue #73's guard exists to signal and which frees the file that grows fastest; it costs one more file a run reads. Option B raises the addendum's guard, which is a number, changes no shape, and returns to the same wall the next time the map grows. Option C trims existing prose for bytes, which removes content reviewers asked for and makes the budget a reason to say less.
+*Recommendation:* Option A.
+*Owner choice:* Option A. The packaged helper invocation map and the CL-D44 cross-operation input shapes move to `references/helper-map.md`, which `references/autofix.md` names once and which is read with it. The move carries every sentence unchanged: no rule is dropped, reworded, or added by it, and each clause pinned to a moved sentence names the file it moved to, splitting into two clauses where a record's sentences now live in both files. The new file carries no grant, boundary, or rule that its rows' own decisions do not already state.
+*Rationale:* The map is the part that grows with the package: every packaged operation adds a row, and the rows are what a parent reads when it composes a request. Keeping it in the file that also states the run's boundaries made the boundaries compete with the documentation for bytes, and the budget started deciding what could be written down.
+*Validity and invalidation conditions:* Applies to where these two sections live and to the clauses pinned to them. It grants nothing, changes no boundary, and leaves both modes' rules as they were; review-only is untouched, since it carries no map. Moving a rule into the new file, or adding one there that its rows' decisions do not state, requires a new owner decision.
+
 ## CL-D81 — The exact-autofix writer launch is composed by a packaged builder
-**Clauses:** CL-D81-autofix, CL-D81-readme, CL-D81-record, CL-D81-tests
+**Clauses:** CL-D81-autofix, CL-D81-autofix-map, CL-D81-readme, CL-D81-record, CL-D81-tests
 
 *Decision ID:* CL-D81
 *Kind:* contract

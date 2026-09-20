@@ -25,7 +25,7 @@ const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, readJson, repoPath, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readJson, repoPath, sectionOf, cliSchemas } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64), RUN = '7305b50a-2708-4e55-8364-d72f11197fbe';
@@ -337,7 +337,7 @@ test('Issue #111 an unknown operation names the nearest known operations', () =>
 });
 
 test('Issue #111 the invocation map, the transport section, and the README name the operations and the host-trust rule', () => {
-  const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
+  const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map);
   assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |'));
   assert.ok(map.includes('| Every gate result; with `expectationPath` it is the validation too (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |'));

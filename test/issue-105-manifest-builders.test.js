@@ -20,10 +20,10 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
-const AUTOFIX = readText('skills/closed-loop-pr/references/autofix.md');
+const AUTOFIX = readAutofixProcedure();
 const SHA = '1'.repeat(64);
 
 function cli(operation, data) {

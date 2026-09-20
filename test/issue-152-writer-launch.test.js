@@ -16,7 +16,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, repoPath, sectionOf } = require('./helpers');
+const { readAutofixProcedure, readText, repoPath, sectionOf } = require('./helpers');
 
 const CREATED = Object.freeze({
   kind: 'linked',
@@ -461,6 +461,6 @@ test('Issue #152 an installed receiver missing its sources fails naming the mini
 });
 
 test('Issue #152 the map states that the builder composes the writer launch', () => {
-  const map = readText('skills/closed-loop-pr/references/autofix.md');
+  const map = readAutofixProcedure();
   assert.match(map, /\| Construct the writer launch from the workspace the run created \(CL-D81\) \| `build_writer_launch` \| `created` \(data of `workspace_create`\), `task` \|/);
 });
