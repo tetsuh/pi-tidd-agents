@@ -74,7 +74,7 @@ test('Issue #105 the CLI exposes the two builders and the check with frozen inpu
   assert.deepEqual(schemas.build_manifest_capture, ['overlay', 'cwd']);
   assert.deepEqual(schemas.build_manifest_compare, ['captured', 'cwd']);
   assert.deepEqual(schemas.required_evidence_check, ['cwd', 'requiredEvidence']);
-  assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 9, 'CL-D56 five plus the CL-D61 two plus the CL-D68 launch composer plus the CL-D73 assignments builder');
+  assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 10, 'CL-D56 five plus the CL-D61 two plus the CL-D68 launch composer plus the CL-D73 assignments builder plus the CL-D81 writer launch');
 });
 
 test('Issue #105 a request carrying both mode fields cannot be produced by a builder', () => {

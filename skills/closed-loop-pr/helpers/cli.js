@@ -34,6 +34,7 @@ const SCHEMAS = Object.freeze({
   build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },
   build_gate_assignments: { required: ['findings', 'settledKeys'], optional: ['reopens'] },
   build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: [] },
+  build_writer_launch: { required: ['created', 'task'], optional: [] },
   build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },
   build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },
   message_verify: { required: ['cwd', 'expected'], optional: [] },
@@ -154,6 +155,7 @@ async function dispatch(request) {
     case 'build_gate_expectation': return wrap(operation, helpers.buildGateExpectation(data));
     case 'build_gate_assignments': return wrap(operation, helpers.buildGateAssignments(data));
     case 'build_gate_launch': return wrap(operation, helpers.buildGateLaunch(data));
+    case 'build_writer_launch': return wrap(operation, helpers.buildWriterLaunch(data));
     case 'build_manifest_capture': return wrap(operation, helpers.buildManifestCapture(data));
     case 'build_manifest_compare': return wrap(operation, helpers.buildManifestCompare(data));
     case 'message_verify': return wrap(operation, helpers.messageVerify(data));
