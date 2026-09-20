@@ -647,6 +647,19 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Rationale:* The parent names the chain from its own record of what it pushed, so a merge, a reordering, or a head the record leaves out breaks it, as the sole-child rule broke the second push; the baseline keeps meaning the checkout the run started from, and the five-push cap in the grant becomes reachable.
 *Validity and invalidation conditions:* Applies to the post-push form of `operator_revalidate` and its builder. The immutable baseline, the clone form, and every pre-push boundary are unchanged. Re-capturing the baseline after a push, or binding every chain head to a packaged record of the run's pushes, requires a new owner decision.
 
+## CL-D80 — The exact-autofix writer launch carries no pi-subagents acceptance gate
+**Clauses:** CL-D80-autofix, CL-D80-record
+
+*Decision ID:* CL-D80
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#150` at its body and the owner choice https://github.com/tetsuh/pi-tidd-agents/issues/150#issuecomment-5746333486 (working session of 2026-09-20)
+*Question:* The package builds every review-gate launch and fixes `acceptance: false` there, but nothing states what the `tidd-autofix-worker` launch carries. The first exact-autofix run after #140, #141, and #142 invented an `acceptance.evidence` list, pi-subagents rejected the launch, and the run ended `BLOCKED` with Sol's finding unfixed. What does the writer launch carry, and who decides it?
+*Options and trade-offs:* Option A states the setting in the procedure the parent reads and pins it with a clause; the parent still composes the request, so it can still get another field wrong. Option B packages a writer-launch builder, as CL-D68 did for the gate launch, which removes the parent's room for error at the cost of a new operation and its own contract surface. Omitting `acceptance` is not an option: pi-subagents then infers checked evidence plus a required reviewer of its own for an async writer, and a checked writer refuses staged files by default, which the bounded batch produces.
+*Recommendation:* Option A.
+*Owner choice:* `acceptance: false`, stated in `references/autofix.md` beside the writer's own paragraph and pinned by CL-D80-autofix. The bounded batch's verification is this package's own guards — `guard_before_edit`, `overlay_freeze`, `manifest_compare`, `message_verify`, and the post-commit and post-push guards — and a second, unreviewed grader inside pi-subagents would both duplicate them and refuse the staged index the batch commits.
+*Rationale:* The writer launch was the last hand-composed request in the exact-autofix flow, and the failure it caused cost a whole run after the gates had already produced a finding. Stating the one field that broke is the smallest change that makes the run reach its writer; if the parent gets another field wrong, CL-D68's builder shape is the answer, and this record says so.
+*Validity and invalidation conditions:* Applies to the `tidd-autofix-worker` launch. It grants the writer nothing: the grant, the one-commit and one-push bounds, and every guard are unchanged, and no review-gate launch changes. Packaging the writer launch as a builder, or giving it any other acceptance setting, requires a new owner decision.
+
 ## CL-D38 — Review-only tolerates the validation sandbox delta it created
 **Clauses:** CL-D38-definition, CL-D38-review-only
 
