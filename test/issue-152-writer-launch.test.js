@@ -143,11 +143,25 @@ test('Issue #152 an installed receiver below the contracted minimum is a failure
   for (const source of RECEIVER_SOURCES) {
     assert.equal(fs.existsSync(path.join(RECEIVER, source)), true, `pi-subagents ${installed} carries no ${source}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
   }
-  // The comparison itself, since the installed version exercises only one side of it.
-  for (const [version, below] of [['0.36.0', true], ['0.7.0', true], ['0.69.0', false], ['0.69.0-rc1', true], ['0.69.1-rc1', false], ['0.70.0', false], ['0.690.0', false], ['1.0.0', false], [undefined, true], ['0.69', true],
-    // SemVer build metadata carries no precedence, so it neither raises nor lowers a version
+});
+
+// The comparison itself, in a case of its own: it needs no receiver, and inside the case above it was skipped wherever
+// pi-subagents is not installed — which is every CI run (ADV158E-TABLE-SKIPPED-IN-CI).
+test('Issue #152 the version comparison is SemVer precedence, and fail-closed', () => {
+  for (const [version, below] of [
+    ['0.36.0', true], ['0.7.0', true], ['0.69.0', false], ['0.70.0', false], ['0.690.0', false], ['1.0.0', false], ['0.69.1', false],
+    // A prerelease is below its own release; a prerelease of a higher version is not below the minimum.
+    ['0.69.0-rc1', true], ['0.69.0-rc.1', true], ['0.69.0-0', true], ['0.69.1-rc1', false],
+    // Build metadata carries no precedence at all, so it neither raises nor lowers a version
     // (ADV-158-SEMVER-BUILD-METADATA).
-    ['0.69.0+build.1', false], ['0.70.0+build.1', false], ['0.69.0-rc.1+build.1', true], ['0.36.0+build.1', true], ['0.69.0+', true]]) {
+    ['0.69.0+build.1', false], ['0.70.0+build.1', false], ['0.69.0+build-1', false], ['0.69.0-rc.1+build.1', true], ['0.36.0+build.1', true],
+    // Not SemVer, so not readable, so below everything: the refusal side, which a widened pattern would quietly open
+    // (ADV158E-PRERELEASE-CLASS-UNPINNED, ADV158E-BUILD-CLASS-UNPINNED, ADV158E-LEADING-ZERO-ACCEPTED).
+    [undefined, true], ['0.69', true], ['0.69.0+', true], ['0.69.0-', true], ['0.69.0+a+b', true], ['0.69.1-rc_1', true],
+    ['v0.69.0', true], [' 0.69.0', true], ['0.69.0\n', true], ['00.69.0', true], ['0.069.0', true], ['0.69.0+.', true],
+    // A lone hyphen is a build identifier SemVer allows, so this one is readable and not below.
+    ['0.69.0+-', false],
+  ]) {
     assert.equal(belowMinimum(version), below, `${JSON.stringify(version)} against ${RECEIVER_MINIMUM}`);
   }
 });
