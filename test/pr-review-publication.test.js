@@ -434,6 +434,18 @@ for (const [field, type, extra] of [
   });
 }
 
+test('Issue #149 rejects a unit-separator collision across identity reads before POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REPO: `owner\x1frepo`,
+    GH_HEAD_REF: 'feature',
+    GH_HEAD_REPO_SECOND: 'owner',
+    GH_HEAD_REF_SECOND: `repo\x1ffeature`,
+  }), /unit separator|identity/);
+  assert.equal(callCount(f), 2, 'the delimiter-bearing collision pair is refused on the first identity read before POST');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
 test('Issue #141 rejects a malformed base OID', () => {
   const f = fixture();
   assert.throws(() => runPublisher(f, { GH_BASE: 'not-an-oid' }));
