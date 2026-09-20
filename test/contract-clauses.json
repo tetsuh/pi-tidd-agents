@@ -306,8 +306,22 @@
         "README.md"
       ],
       "requires": [
-        "0.36.0 or newer",
+        "0.69.0 or newer",
         "do not assume support for older versions"
+      ]
+    },
+    {
+      "id": "CL-D25-minimum",
+      "marker": "CL-D25",
+      "title": "CL-D25 records the raised minimum and the release that forced it",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is",
+      "requires": [
+        "The validated minimum is `0.69.0`",
+        "`checkpointBeforeDeadlineMs` arrived in `0.68.0`",
+        "https://github.com/tetsuh/pi-tidd-agents/pull/158#issuecomment-5748636592"
       ]
     },
     {

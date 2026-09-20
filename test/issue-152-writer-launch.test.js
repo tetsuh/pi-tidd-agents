@@ -107,9 +107,36 @@ test('Issue #152 the parent cannot add a field to the built request', () => {
 // it is present. They are the check that matters: this package's own predicates said yes to both requests pi-subagents
 // then refused — a `preflight` outside a workflow (PR #149 run 1) and an unknown acceptance evidence kind (#150).
 const RECEIVER = path.join(os.homedir(), '.pi', 'agent', 'npm', 'node_modules', 'pi-subagents');
-const receiverSkip = fs.existsSync(path.join(RECEIVER, 'src/extension/schemas.ts'))
+// The minimum this package contracts (CL-D25). The surfaces these cases drive arrived after 0.36.0, and CL-D80's
+// `checkpointBeforeDeadlineMs` arrived in 0.68.0, so an install below the minimum is a refusal, never a skip: only a
+// missing package skips (ADV-158-RECEIVER-MINIMUM-DRIFT, owner decision on PR #158).
+const RECEIVER_MINIMUM = '0.69.0';
+const RECEIVER_SOURCES = ['src/extension/schemas.ts', 'src/extension/public-execution.ts', 'src/runs/shared/acceptance.ts'];
+const receiverSkip = fs.existsSync(path.join(RECEIVER, 'package.json'))
   ? false
   : 'pi-subagents is not installed in this environment';
+
+test('Issue #152 an installed receiver below the contracted minimum is a failure, not a skip', { skip: receiverSkip }, () => {
+  const installed = JSON.parse(fs.readFileSync(path.join(RECEIVER, 'package.json'), 'utf8')).version;
+  const order = (version) => version.split('.').map(Number);
+  const [major, minor, patch] = order(installed); const [lowMajor, lowMinor, lowPatch] = order(RECEIVER_MINIMUM);
+  const atLeastMinimum = major > lowMajor || (major === lowMajor && (minor > lowMinor || (minor === lowMinor && patch >= lowPatch)));
+  assert.equal(atLeastMinimum, true, `pi-subagents ${installed} is below the contracted minimum ${RECEIVER_MINIMUM} (CL-D25)`);
+  for (const source of RECEIVER_SOURCES) {
+    assert.equal(fs.existsSync(path.join(RECEIVER, source)), true, `pi-subagents ${installed} carries no ${source}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
+  }
+});
+
+test('Issue #152 the contracted minimum is the one the package documents', () => {
+  // One minimum, stated in three places: the record, the README, and the regression that drives the receiver.
+  const record = sectionOf(readText('CONTRACT.md'), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
+  assert.ok(record, 'CL-D25 must exist');
+  assert.match(record, new RegExp(`The validated minimum is \`${RECEIVER_MINIMUM.replace(/\./g, '\\.')}\``));
+  assert.match(record, /`checkpointBeforeDeadlineMs` arrived in `0\.68\.0`/, 'the record states why the old minimum could not stand');
+  const readme = readText('README.md');
+  assert.match(readme, new RegExp(`\\*\\*${RECEIVER_MINIMUM.replace(/\./g, '\\.')} or newer\\*\\*`));
+  assert.equal(readme.includes('0.36.0'), false, 'the superseded minimum must not survive in the README');
+});
 
 // Node refuses to strip types from a file under `node_modules`, and pi-subagents 0.69.0 ships TypeScript only, so the
 // receiver's own sources are copied out once and driven there. The copy is read only; the symlinked `node_modules`
