@@ -143,7 +143,10 @@ test('Issue #152 an installed receiver below the contracted minimum is a failure
     assert.equal(fs.existsSync(path.join(RECEIVER, source)), true, `pi-subagents ${installed} carries no ${source}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
   }
   // The comparison itself, since the installed version exercises only one side of it.
-  for (const [version, below] of [['0.36.0', true], ['0.7.0', true], ['0.69.0', false], ['0.69.0-rc1', true], ['0.69.1-rc1', false], ['0.70.0', false], ['0.690.0', false], ['1.0.0', false], [undefined, true], ['0.69', true]]) {
+  for (const [version, below] of [['0.36.0', true], ['0.7.0', true], ['0.69.0', false], ['0.69.0-rc1', true], ['0.69.1-rc1', false], ['0.70.0', false], ['0.690.0', false], ['1.0.0', false], [undefined, true], ['0.69', true],
+    // SemVer build metadata carries no precedence, so it neither raises nor lowers a version
+    // (ADV-158-SEMVER-BUILD-METADATA).
+    ['0.69.0+build.1', false], ['0.70.0+build.1', false], ['0.69.0-rc.1+build.1', true], ['0.36.0+build.1', true], ['0.69.0+', true]]) {
     assert.equal(belowMinimum(version), below, `${JSON.stringify(version)} against ${RECEIVER_MINIMUM}`);
   }
 });
