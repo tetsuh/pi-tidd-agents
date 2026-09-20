@@ -14,7 +14,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
 const { SCHEMA, ROOT_GATES, expectedState, validateGateResult } = require('./gate-result');
-const { inputShapeProblem } = require('./composition');
+const { inputShapeProblem, absoluteSpelling } = require('./composition');
 const { VOLATILE_FIELDS, volatileRequired, volatileEmptiness, nestedProblem, citedRecords } = require('./envelope');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -237,7 +237,15 @@ function buildWriterLaunch(data) {
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem);
     if (data.created.kind !== 'linked') fail('invalid_request', 'the writer edits the run-owned linked workspace; a clone fallback is retained and never written to');
     if (!text(data.task) || data.task.trim().length === 0) fail('invalid_request', 'task must be a nonempty string');
-    return createResult(operation, { request: { ...WRITER_LAUNCH, task: data.task, cwd: data.created.path } });
+    // The declared shape takes any nonempty string, and a hand-made object satisfying a predicate passes (CL-D44), so
+    // the two spellings no filesystem call survives are refused here as they are in `builders.js`
+    // (ADV-144-UNCHECKED-REQUEST-PATHS), and a relative cwd, which the receiver would resolve against its own
+    // directory rather than the run's workspace, with it.
+    const cwd = data.created.path;
+    if (cwd.includes(String.fromCharCode(0)) || !cwd.isWellFormed()) fail('invalid_request', 'the workspace path carries a NUL byte or a lone surrogate');
+    if (!absoluteSpelling(cwd)) fail('invalid_request', 'the workspace path must be absolute; a relative cwd resolves against the receiver, not the run');
+    if (data.task.includes(String.fromCharCode(0)) || !data.task.isWellFormed()) fail('invalid_request', 'the task carries a NUL byte or a lone surrogate');
+    return createResult(operation, { request: { ...WRITER_LAUNCH, task: data.task, cwd } });
   } catch (error) {
     return createError(operation, error.code || 'build_failed', error.message, 'build', error.details);
   }
