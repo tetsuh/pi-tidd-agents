@@ -244,7 +244,8 @@ function buildWriterLaunch(data) {
     const cwd = data.created.path;
     if (cwd.includes(String.fromCharCode(0)) || !cwd.isWellFormed()) fail('invalid_request', 'the workspace path carries a NUL byte or a lone surrogate');
     // `path.isAbsolute`, not the lexical spelling test: the receiver runs on this platform, and a drive spelling is
-    // not absolute here (ADV152B-ABSOLUTE-SPELLING-NOT-PROCESS-CWD). The other process-cwd screens read the same.
+    // not absolute here (ADV152B-ABSOLUTE-SPELLING-NOT-PROCESS-CWD). The screens on a cwd a process is given read
+    // the same predicate; the lexical test stays where a request field's spelling is what is judged.
     if (!path.isAbsolute(cwd)) fail('invalid_request', 'the workspace path must be absolute; a relative cwd resolves against the receiver, not the run');
     if (data.task.includes(String.fromCharCode(0)) || !data.task.isWellFormed()) fail('invalid_request', 'the task carries a NUL byte or a lone surrogate');
     return createResult(operation, { request: { ...WRITER_LAUNCH, task: data.task, cwd } });

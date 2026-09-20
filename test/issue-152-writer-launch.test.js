@@ -266,7 +266,12 @@ test('Issue #152 the record states the fields the builder emits', () => {
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D81 — The exact-autofix writer launch is composed by a packaged builder');
   assert.ok(record, 'CL-D81 must exist');
   const choice = record.split(String.fromCharCode(10)).find((line) => line.startsWith('*Owner choice:*'));
-  const stated = new Map([...choice.matchAll(/`([A-Za-z]+): ("?[A-Za-z0-9_-]+"?)`/g)].map((match) => [match[1], JSON.parse(match[2])]));
+  // A pair the pattern misses is not read as agreement: the key drops out, and the completeness assertion below
+  // fails. A value that is not JSON is compared as the text it is, rather than thrown out of the test.
+  const read = (value) => { try { return JSON.parse(value); } catch { return value; } };
+  const pairs = [...choice.matchAll(/`([A-Za-z]+): ("?[A-Za-z0-9_-]+"?)`/g)].map((match) => [match[1], read(match[2])]);
+  const stated = new Map(pairs);
+  assert.equal(stated.size, pairs.length, 'the record states each field once');
   const request = build({}).data.request;
   for (const [field, value] of stated) assert.deepEqual(request[field], value, `the record states ${field}: ${JSON.stringify(value)}`);
   // The statement is complete as well as true: every emitted field except the two the parent supplies is stated.

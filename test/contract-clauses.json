@@ -4097,8 +4097,8 @@
       ],
       "requires": [
         "| Construct the writer launch from the workspace the run created (CL-D81) | `build_writer_launch` | `created` (data of `workspace_create`), `task` |",
-        "Its launch request is built by `build_writer_launch` and passed to the subagent tool unchanged, never typed: the parent supplies the created workspace and the task, the builder the rest (CL-D81).",
-        "exactly the route the two launch composers' fields took (CL-D68, CL-D81)"
+        "Its launch request is built by `build_writer_launch` and passed to the subagent tool unchanged: the parent supplies the created workspace and the task, the builder the rest (CL-D81).",
+        "exactly the route `build_gate_launch.expectation` (CL-D68) and `build_writer_launch.created` (CL-D81) took"
       ]
     },
     {
@@ -4109,7 +4109,7 @@
         "README.md"
       ],
       "requires": [
-        "CL-D81 packages the last hand-composed request, the exact-autofix writer launch (`build_writer_launch`): the parent supplies the created workspace and the task, the builder emits every field the request carries, and the regression drives the installed pi-subagents' own schema and validators over the built request."
+        "CL-D81 packages the last hand-composed request, the exact-autofix writer launch (`build_writer_launch`): the parent supplies the created workspace and the task, the builder emits the agent, the cwd, the transport settings, and CL-D80's acceptance and time bounds, the built request goes to the subagent tool unchanged, and the regression drives the installed pi-subagents' own schema and validators over it."
       ]
     },
     {
@@ -4123,6 +4123,7 @@
       "requires": [
         "tetsuh/pi-tidd-agents#152",
         "`build_writer_launch` takes `created` — data of `workspace_create`, declared as a CL-D44 cross-operation field — and the `task` the parent decides",
+        "`agent: \"tidd-autofix-worker\"`, a role name and never a model, `task`, `cwd` at the created workspace",
         "The built request goes to the subagent tool unchanged, as `build_gate_launch`'s does; nothing outside the builder may add a field to it, and no check enforces that, so it is stated where the parent reads it.",
         "the `SubagentParams` schema, run over the document and not only read for the names it declares",
         "Changing a field the builder emits, accepting another input from the parent, or dropping the receiver-side check requires a new owner decision"
