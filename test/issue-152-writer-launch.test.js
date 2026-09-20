@@ -152,10 +152,12 @@ test('Issue #152 the contracted minimum is the one the package documents', () =>
   // One minimum, stated in three places: the record, the README, and the regression that drives the receiver.
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
   assert.ok(record, 'CL-D25 must exist');
-  assert.match(record, new RegExp(`The validated minimum is \`${RECEIVER_MINIMUM.replace(/\./g, '\\.')}\``));
+  // Compared as text, not as a pattern built from it: a version is a literal here, and a regex assembled from data is
+  // the incomplete-sanitization shape CodeQL refuses (js/incomplete-sanitization, PR #158).
+  assert.ok(record.includes(`The validated minimum is \`${RECEIVER_MINIMUM}\``), `CL-D25 must state ${RECEIVER_MINIMUM}`);
   assert.match(record, /`checkpointBeforeDeadlineMs` arrived in `0\.68\.0`/, 'the record states why the old minimum could not stand');
   const readme = readText('README.md');
-  assert.match(readme, new RegExp(`\\*\\*${RECEIVER_MINIMUM.replace(/\./g, '\\.')} or newer\\*\\*`));
+  assert.ok(readme.includes(`**${RECEIVER_MINIMUM} or newer**`), `the README must require ${RECEIVER_MINIMUM} or newer`);
   // Not only the superseded minimum: any version the README names is a claim about what this package supports, and a
   // version below the minimum is the same drift the minimum was raised for (ADV158D-README-OLDER-FLOORS).
   for (const [version] of readText('README.md').matchAll(/\b(\d+\.\d+\.\d+)\b/g)) {
