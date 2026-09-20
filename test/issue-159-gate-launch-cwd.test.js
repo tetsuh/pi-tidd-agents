@@ -84,16 +84,38 @@ test('Issue #159 a gate launch built without a workspace carries no cwd', () => 
   });
 });
 
+test('Issue #159 a child sent to the workspace is given no path it must resolve there', () => {
+  // The task interpolates `expectationPath`, and the child validates its draft against that file. While the child
+  // inherited the parent's cwd a relative path resolved; sent to the workspace it would resolve inside the worked
+  // tree, or not at all. With a workspace, the path must be absolute (ADV159-EXPECTATION-PATH-RELATIVE).
+  withExpectationFile('adversarial', (data) => {
+    const relative = path.relative(process.cwd(), data.expectationPath);
+    assert.equal(path.isAbsolute(relative), false, 'the fixture is relative, or this case proves nothing');
+    const refused = helpers.buildGateLaunch({ ...data, expectationPath: relative, created: CREATED });
+    assert.deepEqual([refused.ok, refused.error?.code, refused.error?.phase], [false, 'invalid_request', 'build'], JSON.stringify(refused));
+    assert.match(refused.error.message, /expectationPath must be absolute/);
+    // Without a workspace the child stays where the parent is, and a relative path still resolves there.
+    const built = helpers.buildGateLaunch({ ...data, expectationPath: relative });
+    assert.equal(built.ok, true, JSON.stringify(built.error));
+    assert.ok(built.data.request.task.includes(`Expectation file: ${relative}`));
+  });
+});
+
 test('Issue #159 the workspace the builder takes is producer output, and a written one is refused', () => {
   withExpectationFile('adversarial', (data) => {
-    for (const [label, created] of [
-      ['a hand-made object', { path: '/tmp/w' }],
-      ['a clone fallback', { ...CREATED, kind: 'clone', cleanupAllowed: false, retained: true, fallbackReason: 'linked_unavailable', receipt: undefined }],
-      ['null', null],
+    // A clone as `workspace_create` returns it carries no `receipt` key at all; spelling it `receipt: undefined`
+    // leaves an own key, and the declared shape then refuses the object one layer before the builder's clone rule,
+    // which would never run (ADV159-CLONE-CASE-NOT-DISCRIMINATING, the same trap as ADV-152).
+    const CLONE = { kind: 'clone', path: '/tmp/pi-autofix-helper-test/clone', root: '/tmp/pi-autofix-helper-test', head: OID, tree: 'b'.repeat(40), cleanupAllowed: false, retained: true, fallbackReason: 'linked_unavailable' };
+    assert.equal(helpers.inputShapeProblem('build_gate_launch', { ...data, created: CLONE }), null, 'the shape accepts a clone; the builder is what refuses it');
+    for (const [label, code, created] of [
+      ['a hand-made object', 'input_shape_mismatch', { path: '/tmp/w' }],
+      ['null', 'input_shape_mismatch', null],
+      ['a clone fallback', 'invalid_request', CLONE],
     ]) {
       const refused = helpers.buildGateLaunch({ ...data, created });
       assert.equal(refused.ok, false, `${label}: ${JSON.stringify(refused.data)}`);
-      assert.equal(refused.error.phase, 'build', label);
+      assert.deepEqual([refused.error.code, refused.error.phase], [code, 'build'], label);
     }
     // A relative or control-bearing workspace path is refused as the writer launch refuses it (CL-D81).
     for (const candidate of ['relative/workspace', `/tmp/w${String.fromCharCode(0)}`, '/tmp/w\ud800']) {
@@ -125,7 +147,7 @@ test('Issue #159 the procedure states where each mode runs its gates', () => {
   // The map gains the input; the addendum's own cwd sentence, true only now, names how a gate child gets there. The
   // two authority files sit at their ceilings, so the statement is carried where it already belonged.
   const map = readText('skills/closed-loop-pr/references/autofix.md');
-  assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`) |'), 'the map declares the new input');
+  assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (optional; data of `workspace_create`, autofix only) |'), 'the map declares the new input');
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.ok(addendum.includes('uses exact workspace cwd/identity, gate children via `created` (CL-D82)'), 'the addendum names how a gate child reaches the workspace');
   const record = readText('CONTRACT.md');

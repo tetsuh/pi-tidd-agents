@@ -159,6 +159,11 @@ function buildGateLaunch(data) {
   const operation = 'build_gate_launch';
   try {
     if (!plain(data)) fail('invalid_request', 'request data must be a plain object');
+    // A field this composer does not know is a request it cannot honour, and a misspelt `created` would silently
+    // leave the child in the parent's cwd (CL-D82). The CLI refuses one too; this is the in-process boundary.
+    for (const key of Object.keys(data)) {
+      if (!GATE_LAUNCH_INPUTS.includes(key)) fail('invalid_request', `unknown request field: ${key}`);
+    }
     // The boundary's own predicate table judges the cross-operation field first (CL-D44, CL-D68).
     const shapeProblem = inputShapeProblem('build_gate_launch', data);
     if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem);
@@ -166,6 +171,9 @@ function buildGateLaunch(data) {
     // The path is interpolated into the task, so a delimiter in it would append prose to the payload
     // (ADV-123-EXPECTATION-PATH-INJECTION).
     if (/[\r\n`]/.test(data.expectationPath)) fail('invalid_request', 'expectationPath must not contain a line break or a backtick');
+    // The child validates its draft against this file (CL-D65). While it inherited the parent's cwd a relative path
+    // resolved; sent to the workspace under CL-D82 it would resolve inside the worked tree, or nowhere.
+    if (Object.hasOwn(data, 'created') && !path.isAbsolute(data.expectationPath)) fail('invalid_request', 'expectationPath must be absolute when the child runs in the workspace');
     if (!plain(data.volatile)) fail('invalid_request', 'volatile must be a plain object');
     for (const key of Object.keys(data.volatile)) if (!Object.hasOwn(VOLATILE_FIELDS, key)) fail('volatile_unknown_field', `volatile carries an unknown field: ${key}`, { field: key, allowed: Object.keys(VOLATILE_FIELDS) });
     for (const [key, kind] of Object.entries(VOLATILE_FIELDS)) {
@@ -230,6 +238,8 @@ function gateWorkspaceCwd(created) {
   if (!path.isAbsolute(cwd)) fail('invalid_request', 'the workspace path must be absolute; a relative cwd resolves against the receiver, not the run');
   return cwd;
 }
+
+const GATE_LAUNCH_INPUTS = Object.freeze(['expectation', 'expectationPath', 'volatile', 'created']);
 
 // CL-D81 (Issue #152): the writer launch, composed here rather than by the parent. Two runs of PR #149 died on a
 // field the parent typed: `preflight`, which pi-subagents takes only beside a workflow script, and an

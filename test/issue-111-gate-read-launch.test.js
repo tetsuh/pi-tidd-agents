@@ -341,7 +341,7 @@ test('Issue #111 an unknown operation names the nearest known operations', () =>
 test('Issue #111 the invocation map, the transport section, and the README name the operations and the host-trust rule', () => {
   const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map);
-  assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`) |'));
+  assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (optional; data of `workspace_create`, autofix only) |'));
   assert.ok(map.includes('| Every gate result; with `expectationPath` it is the validation too (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |'));
   assert.match(map, /Run the CLI from the installed package, never from the reviewed checkout: `operator_capture` records `helperPath` and fails closed with `helper_inside_target` \(CL-D68\)\./);
   assert.match(map, /`build_gate_launch` reads the payload blocks from that package and emits no `output` field: pass its request to the subagent tool unchanged and read the result with `gate_result_read` by run id/);
