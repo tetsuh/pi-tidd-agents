@@ -92,12 +92,12 @@ if [[ "$1" == 'api' && "${'${2:-}'}" == "repos/$GH_EXPECTED_REPOSITORY/pulls/$GH
   if [[ "$count" == 1 && -n "${'${GH_MUTATE_ORIGINAL_ON_IDENTITY:-}'}" ]]; then printf 'tampered\\n' >> "$GH_ORIGINAL_FILE"; fi
   # Issue #141: the template's own filter runs, through the real jq, over a pull request shaped as the REST API
   # returns it, so each field the template reads, its position, and its null handling are what the tests check.
-  draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_ref="${'${GH_HEAD_REF-feature}'}"
+  draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; base_json="${'${GH_BASE_JSON:-}'}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_repo_json="${'${GH_HEAD_REPO_JSON:-}'}"; head_ref="${'${GH_HEAD_REF-feature}'}"; head_ref_json="${'${GH_HEAD_REF_JSON:-}'}"
   if [[ "$count" -gt 1 ]]; then
-    draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"
+    draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; base_json="${'${GH_BASE_JSON_SECOND:-$base_json}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_repo_json="${'${GH_HEAD_REPO_JSON_SECOND:-$head_repo_json}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"; head_ref_json="${'${GH_HEAD_REF_JSON_SECOND:-$head_ref_json}'}"
   fi
-  jq -nr --arg repo "$GH_REPOSITORY" --arg number "$GH_PR_NUMBER" --arg state "$GH_STATE" --arg draft "$draft" --arg head "$current_head" --arg url "$GH_PR_URL" --arg base "$base" --arg headRepo "$head_repo" --arg headRef "$head_ref" \
-    '{ number: ($number|tonumber), state: $state, draft: ($draft|fromjson), html_url: $url, base: { sha: $base, ref: "main", repo: { full_name: $repo } }, head: { sha: $head, ref: $headRef, repo: (if $headRepo == "" then null else { full_name: $headRepo } end) } }' \
+  jq -nr --arg repo "$GH_REPOSITORY" --arg number "$GH_PR_NUMBER" --arg state "$GH_STATE" --arg draft "$draft" --arg head "$current_head" --arg url "$GH_PR_URL" --arg base "$base" --arg baseJson "$base_json" --arg headRepo "$head_repo" --arg headRepoJson "$head_repo_json" --arg headRef "$head_ref" --arg headRefJson "$head_ref_json" \
+    '{ number: ($number|tonumber), state: $state, draft: ($draft|fromjson), html_url: $url, base: { sha: (if $baseJson == "" then $base else ($baseJson|fromjson) end), ref: "main", repo: { full_name: $repo } }, head: { sha: $head, ref: (if $headRefJson == "" then $headRef else ($headRefJson|fromjson) end), repo: (if $headRepoJson == "" then (if $headRepo == "" then null else { full_name: $headRepo } end) else { full_name: ($headRepoJson|fromjson) } end) } }' \
     | jq -r "$4"
   exit 0
 fi
@@ -414,6 +414,22 @@ for (const [label, extra, reason] of [
     const f = fixture();
     assert.throws(() => runPublisher(f, extra), (error) => reason.test(String(error.stderr)), label);
     assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+    assert.equal(fs.existsSync(f.posted), false);
+  });
+}
+
+for (const [field, type, extra] of [
+  ['head repository', 'object', { GH_HEAD_REPO_JSON: '{}' }],
+  ['head repository', 'array', { GH_HEAD_REPO_JSON: '[]' }],
+  ['head branch', 'object', { GH_HEAD_REF_JSON: '{}' }],
+  ['head branch', 'array', { GH_HEAD_REF_JSON: '[]' }],
+  ['base OID', 'null', { GH_BASE_JSON: 'null' }],
+  ['head branch', 'null', { GH_HEAD_REF_JSON: 'null' }],
+]) {
+  test(`Issue #149 rejects a ${type} ${field} identity value before any POST`, () => {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, extra));
+    assert.equal(callCount(f), 2, 'malformed identity is refused at the first read, after authentication');
     assert.equal(fs.existsSync(f.posted), false);
   });
 }
