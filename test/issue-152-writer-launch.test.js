@@ -14,7 +14,7 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, repoPath } = require('./helpers');
+const { readText, repoPath, sectionOf } = require('./helpers');
 
 const CREATED = Object.freeze({
   kind: 'linked',
@@ -46,9 +46,10 @@ test('Issue #152 the builder composes the writer launch, and the parent states o
   assert.deepEqual(Object.keys(request).sort(), ['acceptance', 'agent', 'async', 'checkpointBeforeDeadlineMs', 'context', 'cwd', 'outputMode', 'task', 'timeoutMs']);
 });
 
-// A clone fallback as `workspace_create` returns it: `receipt` is absent, not present and undefined. A spread of
-// `receipt: undefined` leaves an own key behind, and the declared shape then refuses the object one layer earlier,
-// so the clone rule itself would never run (ADV-152-CLONE-CASE-NOT-DISCRIMINATING).
+// The fields the declared shape reads of a clone fallback, not the whole `workspace_create` clone result, which also
+// carries its inspection. What matters here is that `receipt` is absent rather than present and undefined: a spread of
+// `receipt: undefined` leaves an own key behind, the declared shape then refuses the object one layer earlier, and the
+// builder's clone rule never runs (ADV-152-CLONE-CASE-NOT-DISCRIMINATING).
 const CLONE = Object.freeze({
   kind: 'clone',
   path: '/tmp/pi-autofix-helper-test/clone',
@@ -82,6 +83,12 @@ test('Issue #152 the builder refuses what it cannot compose from, each for its o
   }
   // The clone object is a workspace the shape accepts: the refusal above is the builder's rule, not the shape's.
   assert.equal(helpers.inputShapeProblem('build_writer_launch', { created: CLONE, task: TASK }), null);
+  // A drive spelling is absolute on Windows and relative here, and the screen is the platform's own predicate, so the
+  // expectation is read from it rather than written down (ADV152B-ABSOLUTE-SPELLING-NOT-PROCESS-CWD).
+  for (const candidate of ['../../etc', 'workspace', 'C:/tmp/ws', '\\\\server\\share']) {
+    const built = helpers.buildWriterLaunch({ created: { ...CREATED, path: candidate }, task: TASK });
+    assert.equal(built.ok, path.isAbsolute(candidate), `${candidate}: ${JSON.stringify(built.error ?? built.data)}`);
+  }
 });
 
 test('Issue #152 the parent cannot add a field to the built request', () => {
@@ -147,7 +154,8 @@ function askReceiver(request) {
 test('Issue #152 the receiver accepts the built request, and its schema declares every key', { skip: receiverSkip }, () => {
   const request = build({}).data.request;
   const answer = askReceiver(request);
-  assert.ok(answer.declared.includes('agent') && answer.declared.includes('task') && answer.declared.includes('cwd'), 'the receiver schema was read, not guessed');
+  // The declared names come from the receiver's schema object; the validation below runs that schema over the request.
+  assert.ok(answer.declared.includes('agent') && answer.declared.includes('task') && answer.declared.includes('cwd'), 'the receiver schema was loaded, not guessed');
   for (const key of Object.keys(request)) assert.equal(answer.declared.includes(key), true, `the receiver declares ${key}`);
   assert.deepEqual([answer.schema.valid, answer.schema.errors], [true, []], 'the receiver schema validates the built request');
   assert.equal(answer.normalized.ok, true, `the receiver normalizes the built request without an error: ${answer.normalized.error}`);
@@ -236,21 +244,33 @@ test('Issue #152 the packaged CLI builds the launch from a workspace the CLI cre
 });
 
 test('Issue #152 the packaged CLI takes the two inputs and no others', () => {
-  withCreatedWorkspace((created) => {
-    // `preflight` is the field that killed PR #149's first run; the CLI's own input table must refuse it, not only
-    // the builder behind it.
-    for (const [label, data] of [
-      ['preflight', { created, task: TASK, preflight: { lanes: [] } }],
-      ['an unknown field', { created, task: TASK, model: 'sol' }],
-      ['no task', { created }],
-      ['no workspace', { task: TASK }],
-    ]) {
-      const refused = cli('build_writer_launch', data);
-      assert.equal(refused.ok, false, `${label}: ${JSON.stringify(refused.data)}`);
-      // `cli` is the CLI's own input table refusing the request before the builder is reached.
-      assert.deepEqual([refused.error.code, refused.error.phase], ['invalid_request', 'cli'], label);
-    }
-  });
+  // These are refused by the CLI's own input table before `created` is read, so the fixture workspace is the frozen
+  // one: a repository would prove nothing the table does not (ADV152B-CLI-TABLE-FIXTURE-UNUSED). `preflight` is the
+  // field that killed PR #149's first run, and it must be refused here as well as in the builder behind it.
+  for (const [label, data] of [
+    ['preflight', { created: CREATED, task: TASK, preflight: { lanes: [] } }],
+    ['an unknown field', { created: CREATED, task: TASK, model: 'sol' }],
+    ['no task', { created: CREATED }],
+    ['no workspace', { task: TASK }],
+  ]) {
+    const refused = cli('build_writer_launch', data);
+    assert.equal(refused.ok, false, `${label}: ${JSON.stringify(refused.data)}`);
+    // `cli` is the CLI's own input table refusing the request before the builder is reached.
+    assert.deepEqual([refused.error.code, refused.error.phase], ['invalid_request', 'cli'], label);
+  }
+});
+
+// M2 of the second adversarial pass: CL-D81 states the emitted fields, and nothing compared that statement with the
+// builder. Rewriting every value in the record left the suite green. The record is now read and compared.
+test('Issue #152 the record states the fields the builder emits', () => {
+  const record = sectionOf(readText('CONTRACT.md'), '## CL-D81 — The exact-autofix writer launch is composed by a packaged builder');
+  assert.ok(record, 'CL-D81 must exist');
+  const choice = record.split(String.fromCharCode(10)).find((line) => line.startsWith('*Owner choice:*'));
+  const stated = new Map([...choice.matchAll(/`([A-Za-z]+): ("?[A-Za-z0-9_-]+"?)`/g)].map((match) => [match[1], JSON.parse(match[2])]));
+  const request = build({}).data.request;
+  for (const [field, value] of stated) assert.deepEqual(request[field], value, `the record states ${field}: ${JSON.stringify(value)}`);
+  // The statement is complete as well as true: every emitted field except the two the parent supplies is stated.
+  assert.deepEqual([...stated.keys()].sort(), Object.keys(request).filter((key) => key !== 'task' && key !== 'cwd').sort());
 });
 
 test('Issue #152 the map states that the builder composes the writer launch', () => {

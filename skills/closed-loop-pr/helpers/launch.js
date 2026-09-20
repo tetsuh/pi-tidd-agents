@@ -14,7 +14,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
 const { SCHEMA, ROOT_GATES, expectedState, validateGateResult } = require('./gate-result');
-const { inputShapeProblem, absoluteSpelling } = require('./composition');
+const { inputShapeProblem } = require('./composition');
 const { VOLATILE_FIELDS, volatileRequired, volatileEmptiness, nestedProblem, citedRecords } = require('./envelope');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -243,7 +243,9 @@ function buildWriterLaunch(data) {
     // directory rather than the run's workspace, with it.
     const cwd = data.created.path;
     if (cwd.includes(String.fromCharCode(0)) || !cwd.isWellFormed()) fail('invalid_request', 'the workspace path carries a NUL byte or a lone surrogate');
-    if (!absoluteSpelling(cwd)) fail('invalid_request', 'the workspace path must be absolute; a relative cwd resolves against the receiver, not the run');
+    // `path.isAbsolute`, not the lexical spelling test: the receiver runs on this platform, and a drive spelling is
+    // not absolute here (ADV152B-ABSOLUTE-SPELLING-NOT-PROCESS-CWD). The other process-cwd screens read the same.
+    if (!path.isAbsolute(cwd)) fail('invalid_request', 'the workspace path must be absolute; a relative cwd resolves against the receiver, not the run');
     if (data.task.includes(String.fromCharCode(0)) || !data.task.isWellFormed()) fail('invalid_request', 'the task carries a NUL byte or a lone surrogate');
     return createResult(operation, { request: { ...WRITER_LAUNCH, task: data.task, cwd } });
   } catch (error) {
