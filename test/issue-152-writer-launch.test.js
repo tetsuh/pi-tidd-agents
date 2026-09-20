@@ -115,13 +115,16 @@ const RECEIVER_SOURCES = ['src/extension/schemas.ts', 'src/extension/public-exec
 const receiverSkip = fs.existsSync(path.join(RECEIVER, 'package.json'))
   ? false
   : 'pi-subagents is not installed in this environment';
-// An installed receiver missing the sources is reported by the case below, which names the minimum. The cases that
-// drive those sources skip instead of failing on a copy that cannot be made, so one problem is reported once and the
-// cases that never touch the receiver are unaffected (ADV158D-BEFORE-HOOK-UNGUARDED).
-const driverSkip = receiverSkip
-  || (RECEIVER_SOURCES.every((source) => fs.existsSync(path.join(RECEIVER, source)))
-    ? false
-    : `the installed pi-subagents carries none of ${RECEIVER_SOURCES.join(', ')}; the minimum case reports it`);
+// Only an absent package skips (CL-D25, CL-D81). An installed receiver missing a source the run drives fails, and
+// fails naming the minimum: the copy that would throw a bare ENOENT is not attempted, and each case that drives the
+// receiver says which source is missing (ADV-158-INSTALLED-RECEIVER-SOURCE-SKIPS, ADV158D-BEFORE-HOOK-UNGUARDED).
+const receiverSources = () => RECEIVER_SOURCES.every((source) => fs.existsSync(path.join(RECEIVER, source)));
+function requireReceiverSources() {
+  const installed = JSON.parse(fs.readFileSync(path.join(RECEIVER, 'package.json'), 'utf8')).version;
+  for (const source of RECEIVER_SOURCES) {
+    assert.equal(fs.existsSync(path.join(RECEIVER, source)), true, `pi-subagents ${installed} carries no ${source}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
+  }
+}
 
 // `0.69.0-rc1` is below `0.69.0`, and a version this cannot read is below everything: the comparison is fail-closed
 // in both directions rather than producing NaN (ADV158D-PRERELEASE-NAN).
@@ -207,7 +210,7 @@ console.log(JSON.stringify({
 
 let receiverRoot;
 test.before(() => {
-  if (driverSkip) return;
+  if (receiverSkip || !receiverSources()) return;
   receiverRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-152-receiver-'));
   fs.cpSync(path.join(RECEIVER, 'src'), path.join(receiverRoot, 'src'), { recursive: true });
   fs.symlinkSync(path.dirname(RECEIVER), path.join(receiverRoot, 'node_modules'));
@@ -227,7 +230,8 @@ function askReceiver(request) {
   }
 }
 
-test('Issue #152 the receiver accepts the built request, and its schema declares every key', { skip: driverSkip }, () => {
+test('Issue #152 the receiver accepts the built request, and its schema declares every key', { skip: receiverSkip }, () => {
+  requireReceiverSources();
   const request = build({}).data.request;
   const answer = askReceiver(request);
   // The declared names come from the receiver's schema object; the validation below runs that schema over the request.
@@ -240,7 +244,8 @@ test('Issue #152 the receiver accepts the built request, and its schema declares
   assert.deepEqual(answer.normalized.params, { ...request, output: true });
 });
 
-test('Issue #152 the receiver schema is run, not merely read', { skip: driverSkip }, () => {
+test('Issue #152 the receiver schema is run, not merely read', { skip: receiverSkip }, () => {
+  requireReceiverSources();
   // `SubagentParams` declares no `additionalProperties: false`, and `normalizePublicSubagentExecution` type-checks
   // only a few fields, so reading the declared names alone would accept a request with every value wrong
   // (ADV-152-RECEIVER-SCHEMA-NOT-DRIVEN). The schema itself is what refuses this one.
@@ -252,7 +257,8 @@ test('Issue #152 the receiver schema is run, not merely read', { skip: driverSki
   assert.equal(answer.schema.errors.length, 5, JSON.stringify(answer.schema.errors));
 });
 
-test('Issue #152 the receiver refuses what the parent composed by hand', { skip: driverSkip }, () => {
+test('Issue #152 the receiver refuses what the parent composed by hand', { skip: receiverSkip }, () => {
+  requireReceiverSources();
   const request = build({}).data.request;
   // PR #149 run 1: `preflight` beside a one-child launch. The builder emits no such key; here the receiver says why.
   const withPreflight = askReceiver({ ...request, preflight: { lanes: [] } });
@@ -264,7 +270,8 @@ test('Issue #152 the receiver refuses what the parent composed by hand', { skip:
   assert.deepEqual(askReceiver(request).acceptanceErrors, [], 'the built request is the control for both refusals');
 });
 
-test('Issue #152 the receiver refuses the built request with its required field removed', { skip: driverSkip }, () => {
+test('Issue #152 the receiver refuses the built request with its required field removed', { skip: receiverSkip }, () => {
+  requireReceiverSources();
   // Of the fields the builder emits, `agent` is the one the receiver itself requires; the rest are optional there, so
   // the exact key set above is what fails when one of them is dropped. Measured, not assumed.
   const { agent, ...withoutAgent } = build({}).data.request;
@@ -312,7 +319,7 @@ test('Issue #152 the packaged CLI builds the launch from a workspace the CLI cre
     assert.equal(built.data.request.cwd, created.path);
     assert.equal(built.data.request.agent, 'tidd-autofix-worker');
     assert.equal(built.data.request.acceptance, false);
-    if (!driverSkip) {
+    if (!receiverSkip && receiverSources()) {
       const answer = askReceiver(built.data.request);
       assert.deepEqual([answer.schema.valid, answer.normalized.ok, answer.acceptanceErrors], [true, true, []], JSON.stringify(answer));
     }
@@ -352,6 +359,33 @@ test('Issue #152 the record states the fields the builder emits', () => {
   for (const [field, value] of stated) assert.deepEqual(request[field], value, `the record states ${field}: ${JSON.stringify(value)}`);
   // The statement is complete as well as true: every emitted field except the two the parent supplies is stated.
   assert.deepEqual([...stated.keys()].sort(), Object.keys(request).filter((key) => key !== 'task' && key !== 'cwd').sort());
+});
+
+// The behaviour CL-D25 and CL-D81 state, measured rather than asserted about this machine: this file is run again
+// against a fake installed receiver — a manifest below the minimum with no sources — and must fail naming the
+// minimum, skipping nothing that drives the receiver (ADV-158-INSTALLED-RECEIVER-SOURCE-SKIPS). The child is told it
+// is the fixture, so it does not run this case again.
+const FIXTURE = 'ISSUE_152_RECEIVER_FIXTURE';
+test('Issue #152 an installed receiver missing its sources fails naming the minimum, and skips nothing', { skip: process.env[FIXTURE] ? 'this run is the fixture child' : false }, () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-152-fakehome-'));
+  try {
+    const fake = path.join(home, '.pi', 'agent', 'npm', 'node_modules', 'pi-subagents');
+    fs.mkdirSync(fake, { recursive: true });
+    fs.writeFileSync(path.join(fake, 'package.json'), JSON.stringify({ name: 'pi-subagents', version: '0.36.0' }));
+    // HOME and USERPROFILE together, since `os.homedir()` reads the one its platform uses. `NODE_TEST_CONTEXT` is
+    // dropped: inherited, it tells the child it is already inside a test run and its report never arrives.
+    const env = { ...process.env, HOME: home, USERPROFILE: home, [FIXTURE]: '1' };
+    delete env.NODE_TEST_CONTEXT;
+    const child = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
+      encoding: 'utf8', timeout: 300000, cwd: repoPath('.'), env,
+    });
+    assert.notEqual(child.status, 0, `the fixture run must fail: ${child.stdout.slice(-400)}`);
+    assert.match(child.stdout, /is below the contracted minimum 0\.69\.0 \(CL-D25\)/, 'the version is reported against the minimum');
+    assert.match(child.stdout, /carries no src\/extension\/schemas\.ts; the contracted minimum is 0\.69\.0 \(CL-D25\)/, 'each receiver case names the missing source');
+    // Nothing skipped but this case, which the child was told to leave alone.
+    const skipped = Number(/^# skipped (\d+)$/m.exec(child.stdout)?.[1]);
+    assert.equal(skipped, 1, `only the fixture case may be skipped: ${child.stdout.slice(-400)}`);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
 test('Issue #152 the map states that the builder composes the writer launch', () => {
