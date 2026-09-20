@@ -200,6 +200,8 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
       // the freeze names — and are pinned exactly the same way.
       // CL-D68 declared the launch composer's cross-operation field the same way.
       ['build_gate_launch', 'expectation', 'data:build_gate_expectation'],
+      // CL-D81 declared the writer launch's workspace field the same way.
+      ['build_writer_launch', 'created', 'data:workspace_create'],
       ['fingerprint_snapshot', 'snapshot', 'data:snapshot'],
       ['gate_result_validate', 'result', 'structured:gate_result'],
       ['guard_before_edit', 'expected', 'data:workspace_create'],

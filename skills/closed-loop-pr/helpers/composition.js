@@ -22,6 +22,7 @@ const INPUT_SHAPES = Object.freeze({
   gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),
   // CL-D68: the composer's cross-operation field, the data of build_gate_expectation.
   build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation' }),
+  build_writer_launch: Object.freeze({ created: 'data:workspace_create' }),
 });
 
 const { RUNTIME_ROOTS, OPERATOR_CAPTURE_PAYLOAD_KEYS } = require('./operator');

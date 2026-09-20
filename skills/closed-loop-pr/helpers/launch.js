@@ -218,4 +218,29 @@ function buildGateLaunch(data) {
   }
 }
 
-module.exports = { readGateResult, buildGateLaunch, runsRoot, ROLE_BY_GATE };
+// CL-D81 (Issue #152): the writer launch, composed here rather than by the parent. Two runs of PR #149 died on a
+// field the parent typed: `preflight`, which pi-subagents takes only beside a workflow script, and an
+// `acceptance.evidence` list of kinds it does not know (#150). The parent states the task; every other field is this.
+const WRITER_LAUNCH = Object.freeze({ agent: 'tidd-autofix-worker', context: 'fork', async: true, outputMode: 'inline',
+  // CL-D80's settings, now emitted: no receiver-side grading of the batch this package's guards verify, a bound well
+  // above a batch and below an unbounded run, and a checkpoint request that stops it between guarded steps.
+  acceptance: false, timeoutMs: 3600000, checkpointBeforeDeadlineMs: 600000 });
+const WRITER_INPUTS = Object.freeze(['created', 'task']);
+function buildWriterLaunch(data) {
+  const operation = 'build_writer_launch';
+  try {
+    if (!plain(data)) fail('invalid_request', 'request data must be a plain object');
+    for (const key of Object.keys(data)) {
+      if (!WRITER_INPUTS.includes(key)) fail('invalid_request', `unknown request field: ${key}`);
+    }
+    const shapeProblem = inputShapeProblem('build_writer_launch', data);
+    if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem);
+    if (data.created.kind !== 'linked') fail('invalid_request', 'the writer edits the run-owned linked workspace; a clone fallback is retained and never written to');
+    if (!text(data.task) || data.task.trim().length === 0) fail('invalid_request', 'task must be a nonempty string');
+    return createResult(operation, { request: { ...WRITER_LAUNCH, task: data.task, cwd: data.created.path } });
+  } catch (error) {
+    return createError(operation, error.code || 'build_failed', error.message, 'build', error.details);
+  }
+}
+
+module.exports = { readGateResult, buildGateLaunch, buildWriterLaunch, runsRoot, ROLE_BY_GATE };

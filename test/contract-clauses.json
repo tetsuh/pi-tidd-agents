@@ -2853,7 +2853,7 @@
       ],
       "requires": [
         "the invocation map offers every builder and the builder paragraph",
-        "the CLI exposes exactly the seven builder operations with frozen inputs",
+        "the CLI exposes exactly the ten builder operations with frozen inputs",
         "builders are pure: no filesystem, process, network, or Git reach",
         "the workspace chain round-trips: create, built verify, built cleanup",
         "builders reject with the boundary vocabulary, not new codes",
@@ -4073,17 +4073,6 @@
       ]
     },
     {
-      "id": "CL-D80-autofix",
-      "marker": "CL-D80",
-      "title": "The writer launch states its acceptance setting",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "requires": [
-        "Its launch request passes `acceptance: false`, `timeoutMs: 3600000`, and `checkpointBeforeDeadlineMs: 600000`: this package's own guards verify the batch, pi-subagents' inferred policy for an async writer would hold the run at `review-required`, and an omitted bound is 30 minutes whose elapse is terminal (CL-D80)."
-      ]
-    },
-    {
       "id": "CL-D80-record",
       "marker": "CL-D80",
       "title": "CL-D80 records the writer launch's acceptance setting",
@@ -4097,6 +4086,52 @@
         "Packaging the writer launch as a builder, or giving it any other acceptance setting or time bound, requires a new owner decision",
         "`false` is pi-subagents' deprecated shorthand for `{ level: \"none\" }`",
         "an elapsed deadline is terminal and not a mutation-safe boundary"
+      ]
+    },
+    {
+      "id": "CL-D81-autofix",
+      "marker": "CL-D81",
+      "title": "The map and the writer section state that the writer launch is built, not typed",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "| Construct the writer launch from the workspace the run created (CL-D81) | `build_writer_launch` | `created` (data of `workspace_create`), `task` |",
+        "Its launch request is built by `build_writer_launch`, never typed: the builder emits every field the receiver validates, the fields CL-D80 fixed among them (CL-D81).",
+        "exactly the route `build_gate_launch.expectation` (CL-D68) and `build_writer_launch.created` (CL-D81) took"
+      ]
+    },
+    {
+      "id": "CL-D81-record",
+      "marker": "CL-D81",
+      "title": "CL-D81 records the packaged writer launch and its receiver-side check",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D81 — The exact-autofix writer launch is composed by a packaged builder",
+      "requires": [
+        "tetsuh/pi-tidd-agents#152",
+        "`build_writer_launch` takes `created` — data of `workspace_create`, declared as a CL-D44 cross-operation field — and the `task` the parent decides",
+        "The parent states the task and nothing else: a request carrying any other field is refused at phase `build`",
+        "The regression drives the installed pi-subagents' own validators over the built request — `normalizePublicSubagentExecution`, the `SubagentParams` schema, and `validateAcceptanceInput` — and skips only where pi-subagents is not installed.",
+        "Changing a field the builder emits, accepting another input from the parent, or dropping the receiver-side check requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D81-tests",
+      "marker": "CL-D81",
+      "title": "The packaged writer launch is pinned by its own regression",
+      "files": [
+        "test/issue-152-writer-launch.test.js"
+      ],
+      "requires": [
+        "Issue #152 the builder composes the writer launch, and the parent states only the task",
+        "Issue #152 the builder refuses what it cannot compose from",
+        "Issue #152 the parent cannot add a field to the built request",
+        "Issue #152 the receiver accepts the built request, and its schema declares every key",
+        "Issue #152 the receiver refuses what the parent composed by hand",
+        "Issue #152 the receiver refuses the built request with its required field removed",
+        "Issue #152 the map states that the builder composes the writer launch"
       ]
     }
   ]
