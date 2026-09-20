@@ -9,7 +9,7 @@ This package is intentionally small. It does not define a TiDD standard and it d
 ## Requirements
 
 - Pi
-- [pi-subagents](https://github.com/nicobailon/pi-subagents) **0.36.0 or newer** (0.36.0 validated for this package)
+- [pi-subagents](https://github.com/nicobailon/pi-subagents) **0.69.0 or newer** (0.69.0 validated for this package)
 - Access to the model identifiers used by the selected agents
 
 Requirements differ between the two ways of using this package:
@@ -25,7 +25,7 @@ Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer`, `tidd-drift-r
 
 The skills name agents by role name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and `tidd-convergence-reviewer`, or disabling `tidd-convergence-reviewer` when no model is available for it.
 
-Install `pi-subagents` first (the package was validated with 0.36.0; do not assume support for older versions):
+Install `pi-subagents` first (the package was validated with 0.69.0; do not assume support for older versions):
 
 ```bash
 pi install npm:pi-subagents
@@ -156,7 +156,7 @@ Exact PR `autofix` separates `OPERATOR_CHECKOUT@H` from `AUTOFIX_WORKSPACE@H`; i
 
 CL-D40: A missing path does not prove a stale worktree registration. Fresh workspace creation ignores unrelated missing registrations and reports an exact collision or partial creation with read-only identity evidence; it must never recommend `git worktree prune`. Only evidence proving the intended repository, exact missing non-symlink path, detached expected HEAD, unlocked state, and registration permits a drafted non-force `git worktree remove <exact-path>` as a separate owner action. Ambiguous identity yields no mutation command, and any completed external removal requires a fresh run.
 
-`pi-subagents` 0.36.0+ accepts `artifactDir: "session"` and `artifactDir: "temp"`; these are optional ways to move artifact and chain-run output outside the working directory. They do **not** guarantee that `.pi-subagents/` is absent: beginning with supported `pi-subagents` 0.41.0 (verified against installed 0.42.1), default-on project missions may persist records under `.pi-subagents/missions` independently of `artifactDir`. The default configuration must work, and these options are not a substitute for the runtime-root contract.
+`pi-subagents` accepts `artifactDir: "session"` and `artifactDir: "temp"`; these are optional ways to move artifact and chain-run output outside the working directory. They do **not** guarantee that `.pi-subagents/` is absent: beginning with supported `pi-subagents` 0.41.0 (verified against installed 0.42.1), default-on project missions may persist records under `.pi-subagents/missions` independently of `artifactDir`. The default configuration must work, and these options are not a substitute for the runtime-root contract.
 
 Autofix selects the bounded public-head loop in the Skill. `tidd-autofix-worker` is always the mandatory sole writer/publisher: it performs at most one correction batch per reviewed public head, one normal commit, and one non-force push. A request for any other worker stops before mutation, ends the exact-autofix run, and has no resume because it would change the CL-D30 contract. Every push restarts at convergence, then Sol. Standalone explicit worker delegation outside this `/tidd-pr ... autofix` workflow remains separate and receives no CL-D30 authority. `terra-worker` is excluded because its model also grades the Terra gate, and `glm-worker`, whose model does not grade a gate either, would add a second model family to the requirement. Exact identity guards, immutable run-local records, finding replies, circuit breakers, and fail-stop behavior are defined only by the Skill.
 

@@ -182,9 +182,9 @@ Before the first Sol invocation, take exactly one external-review snapshot for t
 External evidence is not carried across runs. A resumed or later run takes its own snapshot, reprocesses what it sees, and reports the window for that run's observation only. An undeterminable state is reported as unknown rather than complete. Findings the workflow raises itself do carry, since their identities are assigned here rather than by a provider.
 
 ## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is
-**Clauses:** CL-D25, CL-D25-commit
+**Clauses:** CL-D25, CL-D25-minimum, CL-D25-commit
 
-The validated minimum is `0.36.0`, verified as the version installed in the validating environment. A normal commit follows Conventional Commits, carries the issue number, and states test provenance in its body when covered behaviour changes. The commit convention is not machine-checked.
+The validated minimum is `0.69.0`, verified as the version installed in the validating environment. It was `0.36.0` until 2026-09-20, when Sol raised ADV-158-RECEIVER-MINIMUM-DRIFT on PR #158 and the owner raised the minimum (https://github.com/tetsuh/pi-tidd-agents/pull/158#issuecomment-5748636592). The old minimum had already stopped being true: `checkpointBeforeDeadlineMs` arrived in `0.68.0`, and CL-D80 fixed it in the writer launch, so this package required more than `0.36.0` from that record onward. The rule is unchanged — the minimum is the version this package is validated against, raised when a record requires a newer receiver — and a run on an installed receiver below it fails naming this minimum rather than skipping its receiver checks. A normal commit follows Conventional Commits, carries the issue number, and states test provenance in its body when covered behaviour changes. The commit convention is not machine-checked.
 
 ## CL-D26 — The authoritative contract record lives in this file
 **Clauses:** none — structural
