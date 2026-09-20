@@ -119,8 +119,13 @@ const receiverSkip = fs.existsSync(path.join(RECEIVER, 'package.json'))
 // fails naming the minimum: the copy that would throw a bare ENOENT is not attempted, and each case that drives the
 // receiver says which source is missing (ADV-158-INSTALLED-RECEIVER-SOURCE-SKIPS, ADV158D-BEFORE-HOOK-UNGUARDED).
 const receiverSources = () => RECEIVER_SOURCES.every((source) => fs.existsSync(path.join(RECEIVER, source)));
+// A manifest that cannot be read states no version, and a version that is not there is below every minimum: the state
+// is reported like any other unusable receiver rather than as a parser error (ADV158F-UNREADABLE-MANIFEST-OPAQUE).
+function installedVersion() {
+  try { return JSON.parse(fs.readFileSync(path.join(RECEIVER, 'package.json'), 'utf8')).version; } catch { return undefined; }
+}
 function requireReceiverSources() {
-  const installed = JSON.parse(fs.readFileSync(path.join(RECEIVER, 'package.json'), 'utf8')).version;
+  const installed = installedVersion() ?? 'with an unreadable package.json';
   for (const source of RECEIVER_SOURCES) {
     assert.equal(fs.existsSync(path.join(RECEIVER, source)), true, `pi-subagents ${installed} carries no ${source}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
   }
@@ -145,11 +150,9 @@ function belowMinimum(version) {
 }
 
 test('Issue #152 an installed receiver below the contracted minimum is a failure, not a skip', { skip: receiverSkip }, () => {
-  const installed = JSON.parse(fs.readFileSync(path.join(RECEIVER, 'package.json'), 'utf8')).version;
+  const installed = installedVersion();
   assert.equal(belowMinimum(installed), false, `pi-subagents ${JSON.stringify(installed)} is below the contracted minimum ${RECEIVER_MINIMUM} (CL-D25)`);
-  for (const source of RECEIVER_SOURCES) {
-    assert.equal(fs.existsSync(path.join(RECEIVER, source)), true, `pi-subagents ${installed} carries no ${source}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
-  }
+  requireReceiverSources();
 });
 
 // The comparison itself, in a case of its own: it needs no receiver, and inside the case above it was skipped wherever
@@ -319,7 +322,8 @@ test('Issue #152 the packaged CLI builds the launch from a workspace the CLI cre
     assert.equal(built.data.request.cwd, created.path);
     assert.equal(built.data.request.agent, 'tidd-autofix-worker');
     assert.equal(built.data.request.acceptance, false);
-    if (!receiverSkip && receiverSources()) {
+    if (!receiverSkip) {
+      requireReceiverSources();
       const answer = askReceiver(built.data.request);
       assert.deepEqual([answer.schema.valid, answer.normalized.ok, answer.acceptanceErrors], [true, true, []], JSON.stringify(answer));
     }
@@ -385,6 +389,19 @@ test('Issue #152 an installed receiver missing its sources fails naming the mini
     // Nothing skipped but this case, which the child was told to leave alone.
     const skipped = Number(/^# skipped (\d+)$/m.exec(child.stdout)?.[1]);
     assert.equal(skipped, 1, `only the fixture case may be skipped: ${child.stdout.slice(-400)}`);
+    // Including the case that reaches the receiver inside a wider one: a dropped assertion is not a skip, and would
+    // otherwise report green here (ADV158F-CLI-CASE-DROPS-ITS-RECEIVER-ASSERTION).
+    assert.match(child.stdout, /^not ok \d+ - Issue \\#152 the packaged CLI builds the launch from a workspace the CLI created$/m, `the CLI case must fail too: ${child.stdout.slice(-400)}`);
+
+    // A manifest that cannot be read is the same state as a version below the minimum, and must be reported the same
+    // way rather than as a parser error (ADV158F-UNREADABLE-MANIFEST-OPAQUE).
+    fs.writeFileSync(path.join(fake, 'package.json'), 'not json at all');
+    const corrupt = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
+      encoding: 'utf8', timeout: 300000, env,
+    });
+    assert.notEqual(corrupt.status, 0, 'an unreadable manifest fails the run');
+    assert.match(corrupt.stdout, /is below the contracted minimum 0\.69\.0 \(CL-D25\)/, 'an unreadable manifest is reported against the minimum');
+    assert.doesNotMatch(corrupt.stdout, /SyntaxError/, `no parser error reaches the report: ${corrupt.stdout.slice(-400)}`);
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
