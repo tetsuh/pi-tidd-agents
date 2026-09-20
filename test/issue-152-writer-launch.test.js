@@ -126,8 +126,12 @@ const driverSkip = receiverSkip
 // `0.69.0-rc1` is below `0.69.0`, and a version this cannot read is below everything: the comparison is fail-closed
 // in both directions rather than producing NaN (ADV158D-PRERELEASE-NAN).
 function belowMinimum(version) {
-  // SemVer: an optional prerelease, then optional build metadata that carries no precedence at all.
-  const parsed = /^(\d+)\.(\d+)\.(\d+)(-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.exec(typeof version === 'string' ? version : '');
+  // SemVer 2.0.0: numeric identifiers without leading zeros, an optional dot-separated prerelease, and optional build
+  // metadata, which carries no precedence at all. Anything else is unreadable, and unreadable is below everything.
+  const IDENTIFIER = '(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)';
+  const NUMBER = '(?:0|[1-9]\\d*)';
+  const SEMVER = new RegExp(`^(${NUMBER})\\.(${NUMBER})\\.(${NUMBER})(-${IDENTIFIER}(?:\\.${IDENTIFIER})*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$`);
+  const parsed = SEMVER.exec(typeof version === 'string' ? version : '');
   if (!parsed) return true;
   const [major, minor, patch] = parsed.slice(1, 4).map(Number);
   const [lowMajor, lowMinor, lowPatch] = RECEIVER_MINIMUM.split('.').map(Number);
