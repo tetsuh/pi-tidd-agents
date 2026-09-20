@@ -115,15 +115,36 @@ const RECEIVER_SOURCES = ['src/extension/schemas.ts', 'src/extension/public-exec
 const receiverSkip = fs.existsSync(path.join(RECEIVER, 'package.json'))
   ? false
   : 'pi-subagents is not installed in this environment';
+// An installed receiver missing the sources is reported by the case below, which names the minimum. The cases that
+// drive those sources skip instead of failing on a copy that cannot be made, so one problem is reported once and the
+// cases that never touch the receiver are unaffected (ADV158D-BEFORE-HOOK-UNGUARDED).
+const driverSkip = receiverSkip
+  || (RECEIVER_SOURCES.every((source) => fs.existsSync(path.join(RECEIVER, source)))
+    ? false
+    : `the installed pi-subagents carries none of ${RECEIVER_SOURCES.join(', ')}; the minimum case reports it`);
+
+// `0.69.0-rc1` is below `0.69.0`, and a version this cannot read is below everything: the comparison is fail-closed
+// in both directions rather than producing NaN (ADV158D-PRERELEASE-NAN).
+function belowMinimum(version) {
+  const parsed = /^(\d+)\.(\d+)\.(\d+)(-.+)?$/.exec(typeof version === 'string' ? version : '');
+  if (!parsed) return true;
+  const [major, minor, patch] = parsed.slice(1, 4).map(Number);
+  const [lowMajor, lowMinor, lowPatch] = RECEIVER_MINIMUM.split('.').map(Number);
+  if (major !== lowMajor) return major < lowMajor;
+  if (minor !== lowMinor) return minor < lowMinor;
+  if (patch !== lowPatch) return patch < lowPatch;
+  return parsed[4] !== undefined; // a prerelease of the minimum itself
+}
 
 test('Issue #152 an installed receiver below the contracted minimum is a failure, not a skip', { skip: receiverSkip }, () => {
   const installed = JSON.parse(fs.readFileSync(path.join(RECEIVER, 'package.json'), 'utf8')).version;
-  const order = (version) => version.split('.').map(Number);
-  const [major, minor, patch] = order(installed); const [lowMajor, lowMinor, lowPatch] = order(RECEIVER_MINIMUM);
-  const atLeastMinimum = major > lowMajor || (major === lowMajor && (minor > lowMinor || (minor === lowMinor && patch >= lowPatch)));
-  assert.equal(atLeastMinimum, true, `pi-subagents ${installed} is below the contracted minimum ${RECEIVER_MINIMUM} (CL-D25)`);
+  assert.equal(belowMinimum(installed), false, `pi-subagents ${JSON.stringify(installed)} is below the contracted minimum ${RECEIVER_MINIMUM} (CL-D25)`);
   for (const source of RECEIVER_SOURCES) {
     assert.equal(fs.existsSync(path.join(RECEIVER, source)), true, `pi-subagents ${installed} carries no ${source}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
+  }
+  // The comparison itself, since the installed version exercises only one side of it.
+  for (const [version, below] of [['0.36.0', true], ['0.7.0', true], ['0.69.0', false], ['0.69.0-rc1', true], ['0.69.1-rc1', false], ['0.70.0', false], ['0.690.0', false], ['1.0.0', false], [undefined, true], ['0.69', true]]) {
+    assert.equal(belowMinimum(version), below, `${JSON.stringify(version)} against ${RECEIVER_MINIMUM}`);
   }
 });
 
@@ -135,7 +156,11 @@ test('Issue #152 the contracted minimum is the one the package documents', () =>
   assert.match(record, /`checkpointBeforeDeadlineMs` arrived in `0\.68\.0`/, 'the record states why the old minimum could not stand');
   const readme = readText('README.md');
   assert.match(readme, new RegExp(`\\*\\*${RECEIVER_MINIMUM.replace(/\./g, '\\.')} or newer\\*\\*`));
-  assert.equal(readme.includes('0.36.0'), false, 'the superseded minimum must not survive in the README');
+  // Not only the superseded minimum: any version the README names is a claim about what this package supports, and a
+  // version below the minimum is the same drift the minimum was raised for (ADV158D-README-OLDER-FLOORS).
+  for (const [version] of readText('README.md').matchAll(/\b(\d+\.\d+\.\d+)\b/g)) {
+    assert.equal(belowMinimum(version), false, `the README names ${version}, below the contracted minimum ${RECEIVER_MINIMUM}`);
+  }
 });
 
 // Node refuses to strip types from a file under `node_modules`, and pi-subagents 0.69.0 ships TypeScript only, so the
@@ -158,7 +183,7 @@ console.log(JSON.stringify({
 
 let receiverRoot;
 test.before(() => {
-  if (receiverSkip) return;
+  if (driverSkip) return;
   receiverRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-152-receiver-'));
   fs.cpSync(path.join(RECEIVER, 'src'), path.join(receiverRoot, 'src'), { recursive: true });
   fs.symlinkSync(path.dirname(RECEIVER), path.join(receiverRoot, 'node_modules'));
@@ -178,7 +203,7 @@ function askReceiver(request) {
   }
 }
 
-test('Issue #152 the receiver accepts the built request, and its schema declares every key', { skip: receiverSkip }, () => {
+test('Issue #152 the receiver accepts the built request, and its schema declares every key', { skip: driverSkip }, () => {
   const request = build({}).data.request;
   const answer = askReceiver(request);
   // The declared names come from the receiver's schema object; the validation below runs that schema over the request.
@@ -191,7 +216,7 @@ test('Issue #152 the receiver accepts the built request, and its schema declares
   assert.deepEqual(answer.normalized.params, { ...request, output: true });
 });
 
-test('Issue #152 the receiver schema is run, not merely read', { skip: receiverSkip }, () => {
+test('Issue #152 the receiver schema is run, not merely read', { skip: driverSkip }, () => {
   // `SubagentParams` declares no `additionalProperties: false`, and `normalizePublicSubagentExecution` type-checks
   // only a few fields, so reading the declared names alone would accept a request with every value wrong
   // (ADV-152-RECEIVER-SCHEMA-NOT-DRIVEN). The schema itself is what refuses this one.
@@ -203,7 +228,7 @@ test('Issue #152 the receiver schema is run, not merely read', { skip: receiverS
   assert.equal(answer.schema.errors.length, 5, JSON.stringify(answer.schema.errors));
 });
 
-test('Issue #152 the receiver refuses what the parent composed by hand', { skip: receiverSkip }, () => {
+test('Issue #152 the receiver refuses what the parent composed by hand', { skip: driverSkip }, () => {
   const request = build({}).data.request;
   // PR #149 run 1: `preflight` beside a one-child launch. The builder emits no such key; here the receiver says why.
   const withPreflight = askReceiver({ ...request, preflight: { lanes: [] } });
@@ -215,7 +240,7 @@ test('Issue #152 the receiver refuses what the parent composed by hand', { skip:
   assert.deepEqual(askReceiver(request).acceptanceErrors, [], 'the built request is the control for both refusals');
 });
 
-test('Issue #152 the receiver refuses the built request with its required field removed', { skip: receiverSkip }, () => {
+test('Issue #152 the receiver refuses the built request with its required field removed', { skip: driverSkip }, () => {
   // Of the fields the builder emits, `agent` is the one the receiver itself requires; the rest are optional there, so
   // the exact key set above is what fails when one of them is dropped. Measured, not assumed.
   const { agent, ...withoutAgent } = build({}).data.request;
@@ -263,7 +288,7 @@ test('Issue #152 the packaged CLI builds the launch from a workspace the CLI cre
     assert.equal(built.data.request.cwd, created.path);
     assert.equal(built.data.request.agent, 'tidd-autofix-worker');
     assert.equal(built.data.request.acceptance, false);
-    if (!receiverSkip) {
+    if (!driverSkip) {
       const answer = askReceiver(built.data.request);
       assert.deepEqual([answer.schema.valid, answer.normalized.ok, answer.acceptanceErrors], [true, true, []], JSON.stringify(answer));
     }
