@@ -135,7 +135,7 @@ function requireReceiverSources() {
   }
 }
 
-// `0.69.0-rc1` is below `0.69.0`, and a version this cannot read is below everything: the comparison is fail-closed
+// `0.70.0-rc1` is below `0.70.0`, and a version this cannot read is below everything: the comparison is fail-closed
 // in both directions rather than producing NaN (ADV158D-PRERELEASE-NAN).
 function belowMinimum(version) {
   // SemVer 2.0.0: numeric identifiers without leading zeros, an optional dot-separated prerelease, and optional build
@@ -204,12 +204,21 @@ test('Issue #152 the contracted minimum is the one the package documents', () =>
 let receiverApi;
 async function receiver() {
   if (!receiverApi) {
-    const load = (relative) => import(pathToFileURL(path.join(RECEIVER, relative)).href);
-    const [schemas, execution, acceptance, typebox] = await Promise.all([
-      ...RECEIVER_MODULES.map(load),
-      import(pathToFileURL(createRequire(path.join(RECEIVER, 'package.json')).resolve('typebox/value')).href),
-    ]);
-    receiverApi = { SubagentParams: schemas.SubagentParams, normalize: execution.normalizePublicSubagentExecution, validateAcceptanceInput: acceptance.validateAcceptanceInput, Value: typebox.Value };
+    // Loaded one at a time, and every failure named: a receiver that cannot be driven says so with the minimum, and
+    // no import is left in flight to land after the case ends (ADV160-LOADER-ORPHANS-ON-RESOLVE-FAILURE).
+    const unusable = (what, error) => assert.fail(`the installed pi-subagents ${installedVersion() ?? 'with an unreadable package.json'} ${what}${error ? `: ${error.message}` : ''}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
+    const load = async (relative) => {
+      try { return await import(pathToFileURL(path.join(RECEIVER, relative)).href); } catch (error) { return unusable(`cannot load ${relative}`, error); }
+    };
+    const [schemas, execution, acceptance] = [await load(RECEIVER_MODULES[0]), await load(RECEIVER_MODULES[1]), await load(RECEIVER_MODULES[2])];
+    let typebox;
+    try {
+      typebox = await import(pathToFileURL(createRequire(path.join(RECEIVER, 'package.json')).resolve('typebox/value')).href);
+    } catch (error) { return unusable('cannot resolve its own typebox', error); }
+    const api = { SubagentParams: schemas.SubagentParams, normalize: execution.normalizePublicSubagentExecution, validateAcceptanceInput: acceptance.validateAcceptanceInput, Value: typebox.Value };
+    // A dynamic import yields a namespace, so a renamed export is `undefined` rather than a link error.
+    for (const [name, value] of Object.entries(api)) if (value === undefined) unusable(`exports no ${name}`);
+    receiverApi = api;
   }
   return receiverApi;
 }
@@ -395,6 +404,22 @@ test('Issue #152 an installed receiver missing its sources fails naming the mini
     assert.notEqual(corrupt.status, 0, 'an unreadable manifest fails the run');
     assert.match(corrupt.stdout, /is below the contracted minimum 0\.70\.0 \(CL-D25\)/, 'an unreadable manifest is reported against the minimum');
     assert.doesNotMatch(corrupt.stdout, /SyntaxError/, `no parser error reaches the report: ${corrupt.stdout.slice(-400)}`);
+
+    // A receiver whose module files exist but whose dependencies do not: the presence check passes and the loader is
+    // what must name the state, with nothing left in flight to land after the case ends
+    // (ADV160-LOADER-ORPHANS-ON-RESOLVE-FAILURE).
+    fs.writeFileSync(path.join(fake, 'package.json'), JSON.stringify({ name: 'pi-subagents', version: '0.70.0' }));
+    for (const module of RECEIVER_MODULES) {
+      fs.mkdirSync(path.join(fake, path.dirname(module)), { recursive: true });
+      fs.writeFileSync(path.join(fake, module), 'export const nothing = 1;' + String.fromCharCode(10));
+    }
+    const undrivable = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
+      encoding: 'utf8', timeout: 300000, env,
+    });
+    assert.notEqual(undrivable.status, 0, 'a receiver that cannot be driven fails the run');
+    assert.match(undrivable.stdout, /cannot resolve its own typebox/, `the loader names the state: ${undrivable.stdout.slice(-400)}`);
+    assert.match(undrivable.stdout, /the contracted minimum is 0\.70\.0 \(CL-D25\)/, 'and names the minimum with it');
+    assert.doesNotMatch(undrivable.stdout, /unhandledRejection|asynchronous activity after the test ended/, `no import is left in flight: ${undrivable.stdout.slice(-400)}`);
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
