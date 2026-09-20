@@ -116,9 +116,11 @@ const RECEIVER_MINIMUM = '0.70.0';
 // The modules pi itself loads. 0.70.0 ships compiled JavaScript where 0.69.0 shipped TypeScript, so these are driven
 // from the installation directly rather than copied out and type-stripped (#160).
 const RECEIVER_MODULES = ['src/extension/schemas.js', 'src/extension/public-execution.js', 'src/runs/shared/acceptance.js'];
-const receiverSkip = fs.existsSync(path.join(RECEIVER, 'package.json'))
-  ? false
-  : 'pi-subagents is not installed in this environment';
+// Absence is the installation root's own absence, observed without following a link: a root that is there but
+// carries no readable manifest is an installation this run cannot drive, and CL-D25 says that fails naming the
+// minimum rather than skipping (ADV-163-MISSING-MANIFEST-SKIPS).
+const receiverPresent = (() => { try { fs.lstatSync(RECEIVER); return true; } catch { return false; } })();
+const receiverSkip = receiverPresent ? false : 'pi-subagents is not installed in this environment';
 // Only an absent package skips (CL-D25, CL-D81). An installed receiver missing a source the run drives fails, and
 // fails naming the minimum: the copy that would throw a bare ENOENT is not attempted, and each case that drives the
 // receiver says which source is missing (ADV-158-INSTALLED-RECEIVER-SOURCE-SKIPS, ADV158D-BEFORE-HOOK-UNGUARDED).
@@ -155,7 +157,7 @@ function belowMinimum(version) {
 
 test('Issue #152 an installed receiver below the contracted minimum is a failure, not a skip', { skip: receiverSkip }, () => {
   const installed = installedVersion();
-  assert.equal(belowMinimum(installed), false, `pi-subagents ${JSON.stringify(installed)} is below the contracted minimum ${RECEIVER_MINIMUM} (CL-D25)`);
+  assert.equal(belowMinimum(installed), false, `pi-subagents ${installed === undefined ? 'with no readable package.json' : JSON.stringify(installed)} is below the contracted minimum ${RECEIVER_MINIMUM} (CL-D25)`);
   requireReceiverSources();
 });
 
@@ -420,6 +422,17 @@ test('Issue #152 an installed receiver missing its sources fails naming the mini
     assert.match(undrivable.stdout, /cannot resolve its own typebox/, `the loader names the state: ${undrivable.stdout.slice(-400)}`);
     assert.match(undrivable.stdout, /the contracted minimum is 0\.70\.0 \(CL-D25\)/, 'and names the minimum with it');
     assert.doesNotMatch(undrivable.stdout, /unhandledRejection|asynchronous activity after the test ended/, `no import is left in flight: ${undrivable.stdout.slice(-400)}`);
+
+    // An installation root that is there and carries no manifest at all: present, unusable, and reported as such
+    // rather than treated as absent (ADV-163-MISSING-MANIFEST-SKIPS).
+    fs.rmSync(fake, { recursive: true, force: true });
+    fs.mkdirSync(fake, { recursive: true });
+    const manifestless = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
+      encoding: 'utf8', timeout: 300000, env,
+    });
+    assert.notEqual(manifestless.status, 0, 'a present installation root without a manifest fails the run');
+    assert.match(manifestless.stdout, /pi-subagents with no readable package\.json is below the contracted minimum 0\.70\.0 \(CL-D25\)/, `the state is named: ${manifestless.stdout.slice(-400)}`);
+    assert.equal(Number(/^# skipped (\d+)$/m.exec(manifestless.stdout)?.[1]), 1, 'only the fixture case may be skipped');
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
