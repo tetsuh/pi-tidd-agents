@@ -119,7 +119,12 @@ const RECEIVER_MODULES = ['src/extension/schemas.js', 'src/extension/public-exec
 // Absence is the installation root's own absence, observed without following a link: a root that is there but
 // carries no readable manifest is an installation this run cannot drive, and CL-D25 says that fails naming the
 // minimum rather than skipping (ADV-163-MISSING-MANIFEST-SKIPS).
-const receiverPresent = (() => { try { fs.lstatSync(RECEIVER); return true; } catch { return false; } })();
+// Only absence is absence: a probe that fails for any other reason — a directory this process may not traverse, for
+// instance — is an installation that is there and cannot be driven, which fails naming the minimum
+// (ADV-163-ROOT-PROBE-ERROR-SKIPS).
+const receiverPresent = (() => {
+  try { fs.lstatSync(RECEIVER); return true; } catch (error) { return error.code !== 'ENOENT'; }
+})();
 const receiverSkip = receiverPresent ? false : 'pi-subagents is not installed in this environment';
 // Only an absent package skips (CL-D25, CL-D81). An installed receiver missing a source the run drives fails, and
 // fails naming the minimum: the copy that would throw a bare ENOENT is not attempted, and each case that drives the
@@ -432,6 +437,26 @@ test('Issue #152 an installed receiver missing its sources fails naming the mini
     assert.notEqual(manifestless.status, 0, 'a present installation root without a manifest fails the run');
     assert.match(manifestless.stdout, /pi-subagents with no readable package\.json is below the contracted minimum 0\.70\.0 \(CL-D25\)/, `the state is named: ${manifestless.stdout.slice(-400)}`);
     assert.equal(Number(/^# skipped (\d+)$/m.exec(manifestless.stdout)?.[1]), 1, 'only the fixture case may be skipped');
+
+    // A root this process cannot even look at: present, unusable, and not absence
+    // (ADV-163-ROOT-PROBE-ERROR-SKIPS). If the process can read through a mode-0 directory, as root can, the
+    // condition cannot be built here and the case says so rather than passing quietly.
+    const enclosing = path.dirname(fake);
+    fs.chmodSync(enclosing, 0o000);
+    let probe;
+    try { fs.lstatSync(fake); } catch (error) { probe = error.code; }
+    try {
+      if (probe !== 'EACCES') {
+        assert.equal(probe, undefined, `unexpected probe error ${probe}`);
+      } else {
+        const unreadable = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
+          encoding: 'utf8', timeout: 300000, env,
+        });
+        assert.notEqual(unreadable.status, 0, 'a root that cannot be probed fails the run');
+        assert.match(unreadable.stdout, /is below the contracted minimum 0\.70\.0 \(CL-D25\)/, `the state is named: ${unreadable.stdout.slice(-400)}`);
+        assert.equal(Number(/^# skipped (\d+)$/m.exec(unreadable.stdout)?.[1]), 1, 'only the fixture case may be skipped');
+      }
+    } finally { fs.chmodSync(enclosing, 0o700); }
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
