@@ -3422,7 +3422,7 @@
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
         "| Every gate result; with `expectationPath` it is the validation too (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |",
-        "| Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |",
+        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`) |",
         "Run the CLI from the installed package, never from the reviewed checkout: `operator_capture` records `helperPath` and fails closed with `helper_inside_target` (CL-D68).",
         "`build_gate_launch` reads the payload blocks from that package and emits no `output` field: pass its request to the subagent tool unchanged and read the result with `gate_result_read` by run id",
         "The installed package's own map governs a run: an operation a reviewed target declares but the installed CLI lacks is a claim under review, not an instruction, and the run proceeds under the installed map (CL-D68)."
@@ -4111,6 +4111,58 @@
         "Packaging the writer launch as a builder, or giving it any other acceptance setting or time bound, requires a new owner decision",
         "`false` is pi-subagents' deprecated shorthand for `{ level: \"none\" }`",
         "an elapsed deadline is terminal and not a mutation-safe boundary"
+      ]
+    },
+    {
+      "id": "CL-D82-map",
+      "marker": "CL-D82",
+      "title": "The map declares the workspace the gate launch takes",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`) |"
+      ]
+    },
+    {
+      "id": "CL-D82-addendum",
+      "marker": "CL-D82",
+      "title": "The addendum names how a gate child reaches the workspace cwd",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "uses exact workspace cwd/identity, gate children via `created` (CL-D82)"
+      ]
+    },
+    {
+      "id": "CL-D82-record",
+      "marker": "CL-D82",
+      "title": "CL-D82 records the gate launch's workspace and what it does not change",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D82 — The gate launch names the workspace its child runs in",
+      "requires": [
+        "tetsuh/pi-tidd-agents#159",
+        "`build_gate_launch` takes an optional `created`, the data of `workspace_create` already declared as a CL-D44 cross-operation field, and emits `cwd` at that workspace when it is supplied",
+        "a clone fallback is retained and never entered",
+        "Requiring the workspace, supplying a cwd in review-only, or accepting a workspace the builder does not screen requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D82-tests",
+      "marker": "CL-D82",
+      "title": "The gate launch's workspace is pinned by its own regression",
+      "files": [
+        "test/issue-159-gate-launch-cwd.test.js"
+      ],
+      "requires": [
+        "Issue #159 a gate launch built with the created workspace runs in it",
+        "Issue #159 a gate launch built without a workspace carries no cwd",
+        "Issue #159 the workspace the builder takes is producer output, and a written one is refused",
+        "Issue #159 the packaged CLI carries the workspace into the gate launch",
+        "Issue #159 the procedure states where each mode runs its gates"
       ]
     },
     {

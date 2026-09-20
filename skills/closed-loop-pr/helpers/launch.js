@@ -212,10 +212,23 @@ function buildGateLaunch(data) {
     parts.push(`## Evidence records (copy each; set readCompletely true after reading)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: false })), null, 2)}\n\`\`\``);
     parts.push(`Expectation file: ${data.expectationPath}\nPackaged validator: node ${CLI_PATH} (operation gate_result_validate, CL-D65)`);
     const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false, outputSchema: JSON.parse(JSON.stringify(SCHEMA)) };
+    // CL-D82: an exact-autofix gate reads the tree the run works in, so the launch names it. Review-only supplies
+    // no workspace and its child inherits the operator checkout, which is the tree it reviews.
+    if (Object.hasOwn(data, 'created')) request.cwd = gateWorkspaceCwd(data.created);
     return createResult(operation, { request, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });
   } catch (error) {
     return createError(operation, error.code || 'build_failed', error.message, 'build', error.details);
   }
+}
+
+// The workspace path a launch may carry as its child's cwd: producer output by the declared shape, and a spelling
+// a process can be given (CL-D81's screen, applied to the gate launch under CL-D82).
+function gateWorkspaceCwd(created) {
+  if (created.kind !== 'linked') fail('invalid_request', 'a gate child runs in the run-owned linked workspace; a clone fallback is retained and never entered');
+  const cwd = created.path;
+  if (cwd.includes(String.fromCharCode(0)) || !cwd.isWellFormed()) fail('invalid_request', 'the workspace path carries a NUL byte or a lone surrogate');
+  if (!path.isAbsolute(cwd)) fail('invalid_request', 'the workspace path must be absolute; a relative cwd resolves against the receiver, not the run');
+  return cwd;
 }
 
 // CL-D81 (Issue #152): the writer launch, composed here rather than by the parent. Two runs of PR #149 died on a

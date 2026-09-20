@@ -122,9 +122,12 @@ test('Issue #159 the packaged CLI carries the workspace into the gate launch', (
 });
 
 test('Issue #159 the procedure states where each mode runs its gates', () => {
+  // The map gains the input; the addendum's own cwd sentence, true only now, names how a gate child gets there. The
+  // two authority files sit at their ceilings, so the statement is carried where it already belonged.
   const map = readText('skills/closed-loop-pr/references/autofix.md');
-  assert.match(map, /\| Gate launch request \(CL-D2, CL-D68, CL-D82\) \| `build_gate_launch` \| `expectation` \(data of `build_gate_expectation`\), `expectationPath`, `volatile`, `created` \(data of `workspace_create`\) \|/);
-  assert.match(map, /gates run where the run works: in exact autofix the created workspace, which `build_gate_launch` emits as the child's `cwd` \(CL-D82\), and in review-only the operator checkout/);
+  assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`) |'), 'the map declares the new input');
+  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
+  assert.ok(addendum.includes('uses exact workspace cwd/identity, gate children via `created` (CL-D82)'), 'the addendum names how a gate child reaches the workspace');
   const record = readText('CONTRACT.md');
-  assert.match(record, /## CL-D82 — The gate launch names the workspace its child runs in/);
+  assert.ok(record.includes('## CL-D82 — The gate launch names the workspace its child runs in'), 'CL-D82 must exist');
 });

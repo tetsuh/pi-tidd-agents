@@ -21,7 +21,8 @@ const INPUT_SHAPES = Object.freeze({
   fingerprint_snapshot: Object.freeze({ snapshot: 'data:snapshot' }),
   gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),
   // CL-D68: the composer's cross-operation field, the data of build_gate_expectation.
-  build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation' }),
+  // CL-D82: the workspace an exact-autofix gate child runs in, optional because review-only has none.
+  build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation', created: 'data:workspace_create' }),
   build_writer_launch: Object.freeze({ created: 'data:workspace_create' }),
 });
 
@@ -81,7 +82,7 @@ const SNAPSHOT_DATA_KEYS = Object.freeze([
 // so it is validated only when supplied (CL-D57).
 // CL-D73: cleanup accepts the receipt or the run's own workspace path, so an absent receipt is a shape the
 // operation itself judges, not a declared-shape violation. A present receipt is checked exactly as before.
-const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manifest']), workspace_cleanup: Object.freeze(['receipt']) });
+const OPTIONAL_INPUTS = Object.freeze({ manifest_compare: Object.freeze(['manifest']), workspace_cleanup: Object.freeze(['receipt']), build_gate_launch: Object.freeze(['created']) });
 const PREDICATES = Object.freeze({
   // The two guard producers carry the same envelope keys, so each predicate states its own
   // producer's exact key set. Exactness is what makes them mutually exclusive: a value

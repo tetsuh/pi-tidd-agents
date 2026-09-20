@@ -39,7 +39,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Construct the snapshot-fingerprint request (CL-D56) | `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |
 | Construct the gate expectation and the canonical result schema (CL-D36, CL-D56) | `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |
 | Construct the assigned-finding tuples from the validated result and the ledger (CL-D73) | `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |
-| Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |
+| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (optional; data of `workspace_create`, autofix only) |
 | Construct the `AFTER_STAGING` capture request from the frozen overlay (CL-D61) | `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |
 | Construct the `BEFORE_COMMIT` compare request from the capture it compares against (CL-D61) | `build_manifest_compare` | `captured` (data of `manifest_compare`), `cwd` |
 | Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |

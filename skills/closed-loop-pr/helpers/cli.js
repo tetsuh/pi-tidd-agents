@@ -33,7 +33,7 @@ const SCHEMAS = Object.freeze({
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
   build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },
   build_gate_assignments: { required: ['findings', 'settledKeys'], optional: ['reopens'] },
-  build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: [] },
+  build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: ['created'] },
   build_writer_launch: { required: ['created', 'task'], optional: [] },
   build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },
   build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },

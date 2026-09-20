@@ -47,7 +47,7 @@ For exact autofix, preserve CL-D9 byte-stable fingerprints: `issue_spec` is the 
 
 ### Exact identity and Luna publication phases
 
-Every Sol, Terra, Luna, validation, manifest, commit, post-push gate, and Git operation uses exact workspace cwd/identity; every terminal success/failure performs a terminal operator recheck.
+Every Sol, Terra, Luna, validation, manifest, commit, post-push gate, and Git operation uses exact workspace cwd/identity, gate children via `created` (CL-D82); every terminal success/failure performs a terminal operator recheck.
 
 Before the first gate or mutation, resolve repository, PR number, base OID, public head OID, head repository, head branch, open/non-draft state, and local checkout identity. Immediately before delegating Luna, re-resolve them and require `AUTOFIX_WORKSPACE@P` for public parent `P`. All three local dimensions remain independently guarded: tracked worktree, index, and untracked state outside `RUNTIME_ROOTS`; a pre-existing tracked unstaged edit is rejected even on an otherwise authorized path. The parent Luna payload contains the complete identity, finding IDs and authorized corrections, permitted scope and paths, validation and commit-message requirements, maximum one commit and one push, and every forbidden action. Luna repeats `AUTOFIX_WORKSPACE@P` immediately before its first edit. Any mismatch stops before mutation; never switch, stash, reset, clean, delete, or restore.
 
