@@ -4080,7 +4080,7 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "Its launch request passes `acceptance: false`: the bounded batch's verification is this package's own guards, and pi-subagents' inferred alternative for an async writer — checked evidence plus a required reviewer of its own — would grade the fixes a second time and can refuse the staged index the batch commits (CL-D80)."
+        "Its launch request passes `acceptance: false`, `timeoutMs: 3600000`, and `checkpointBeforeDeadlineMs: 600000`: this package's own guards verify the batch, pi-subagents' inferred policy for an async writer would hold the run at `review-required`, and an omitted bound is 30 minutes whose elapse is terminal (CL-D80)."
       ]
     },
     {
@@ -4093,8 +4093,10 @@
       "section": "## CL-D80 — The exact-autofix writer launch carries no pi-subagents acceptance gate",
       "requires": [
         "issues/150",
-        "*Owner choice:* `acceptance: false`",
-        "Packaging the writer launch as a builder, or giving it any other acceptance setting, requires a new owner decision"
+        "*Owner choice:* `acceptance: false`, with `timeoutMs: 3600000` and `checkpointBeforeDeadlineMs: 600000`",
+        "Packaging the writer launch as a builder, or giving it any other acceptance setting or time bound, requires a new owner decision",
+        "`false` is pi-subagents' deprecated shorthand for `{ level: \"none\" }`",
+        "an elapsed deadline is terminal and not a mutation-safe boundary"
       ]
     }
   ]
