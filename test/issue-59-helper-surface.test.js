@@ -17,7 +17,7 @@ const HELPER_FILES = [
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
   'build_fingerprint_snapshot', 'build_gate_assignments', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
-  'build_workspace_verify', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
+  'build_workspace_verify', 'build_writer_launch', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
   'marker_create', 'marker_reconcile', 'message_verify', 'required_evidence_check', 'required_evidence_set', 'validation_run',
   'operator_capture', 'operator_revalidate', 'snapshot', 'workspace_cleanup', 'workspace_create',
