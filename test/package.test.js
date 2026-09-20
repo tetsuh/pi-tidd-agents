@@ -30,6 +30,7 @@ const PR_MODE_REFERENCES = {
   autofix: 'skills/closed-loop-pr/references/autofix.md',
 };
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
+const PR_HELPER_MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const PR_HELPER_FILES = ['validation.js', 'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
@@ -115,7 +116,7 @@ function normalizedSentences(text) {
     .filter((sentence) => [...sentence].length >= 60);
 }
 
-const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, PR_PUBLICATION_TEMPLATE, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
+const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, PR_HELPER_MAP, PR_PUBLICATION_TEMPLATE, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
 const GENERIC_FALSIFICATION_EVIDENCE = 'authoritative files of the repository under review';
 const ABSENT_RECORD_RULE = 'that absence is not itself a finding';
 

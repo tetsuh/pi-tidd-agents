@@ -28,6 +28,7 @@ A missing path does not prove a stale worktree registration. `workspace_create` 
 ### Packaged helpers (CL-D30, CL-D44, CL-D83)
 
 The packaged helper invocation map and the CL-D44 input shapes are in `references/helper-map.md`; read it with this reference (CL-D83).
+
 ### Bounded pre-writer recovery (CL-D39)
 
 One recovery is permitted for either a deterministic local tooling failure under the original CL-D39 rows or the CL-D51 pure gate transport failure with zero designated output bytes, and only when all hold: no repository, Git, GitHub, provider, or external mutation was attempted other than the already-authorized setup effects, namely `workspace_create`'s external run root, linked-worktree registration or clone, and receipt, and the packaged helpers' ephemeral process-isolation root `pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`; no correction, publication, provider, target, or operator mutation exists; no Luna task, commit, push, or reply exists; `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved; identity and every applicable fingerprint are unchanged; the failure was either local parsing, rendering, schema access, or report verification, or the CL-D51 pure gate transport failure with zero designated output bytes; the failed operation is replaced by a prevalidated one, never repeated blindly; and the budget is exactly one per key, tracked run-locally.

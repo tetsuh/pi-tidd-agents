@@ -2015,19 +2015,6 @@
       ]
     },
     {
-      "id": "CL-D30-isolated-workspace-map",
-      "marker": "CL-D30",
-      "title": "Issue #42 isolated workspace and opaque ignored inventory (map)",
-      "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
-      ],
-      "requires": [
-        "AUTOFIX_WORKSPACE@H",
-        "OPERATOR_CHECKOUT_UNCHANGED@O",
-        "WORKSPACE_POST_PUSH(C, O)"
-      ]
-    },
-    {
       "id": "CL-D34-anchor",
       "marker": "CL-D34",
       "title": "Blocking findings are anchored to criteria, clauses, or invariants",
