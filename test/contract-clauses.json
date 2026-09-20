@@ -4071,6 +4071,31 @@
         "Issue #140 the builder carries priorPushHeads beside postPushHead and refuses it otherwise",
         "Issue #140 the packaged CLI carries the chain from the builder to the guard"
       ]
+    },
+    {
+      "id": "CL-D80-autofix",
+      "marker": "CL-D80",
+      "title": "The writer launch states its acceptance setting",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "Its launch request passes `acceptance: false`: the bounded batch's verification is this package's own guards, and pi-subagents' inferred alternative for an async writer — checked evidence plus a required reviewer of its own — would grade the fixes a second time and can refuse the staged index the batch commits (CL-D80)."
+      ]
+    },
+    {
+      "id": "CL-D80-record",
+      "marker": "CL-D80",
+      "title": "CL-D80 records the writer launch's acceptance setting",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D80 — The exact-autofix writer launch carries no pi-subagents acceptance gate",
+      "requires": [
+        "issues/150",
+        "*Owner choice:* `acceptance: false`",
+        "Packaging the writer launch as a builder, or giving it any other acceptance setting, requires a new owner decision"
+      ]
     }
   ]
 }
