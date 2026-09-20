@@ -124,7 +124,6 @@ const receiverSkip = receiverPresent ? false : 'pi-subagents is not installed in
 // Only an absent package skips (CL-D25, CL-D81). An installed receiver missing a source the run drives fails, and
 // fails naming the minimum: the copy that would throw a bare ENOENT is not attempted, and each case that drives the
 // receiver says which source is missing (ADV-158-INSTALLED-RECEIVER-SOURCE-SKIPS, ADV158D-BEFORE-HOOK-UNGUARDED).
-const receiverSources = () => RECEIVER_MODULES.every((module) => fs.existsSync(path.join(RECEIVER, module)));
 // A manifest that cannot be read states no version, and a version that is not there is below every minimum: the state
 // is reported like any other unusable receiver rather than as a parser error (ADV158F-UNREADABLE-MANIFEST-OPAQUE).
 function installedVersion() {
