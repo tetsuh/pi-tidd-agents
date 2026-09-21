@@ -19,8 +19,8 @@ const { AUTHORITY_FILES, readText, repoPath, sectionOf } = require('./helpers');
 const BASE = 'skills/closed-loop-pr/references/autofix.md';
 const ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 
-test('Issue #87 the addendum is its own authority file and the aggregate set has seven entries', () => {
-  assert.equal(AUTHORITY_FILES.length, 7);
+test('Issue #87 the addendum is its own authority file and the aggregate set has eight entries', () => {
+  assert.equal(AUTHORITY_FILES.length, 8);
   assert.ok(AUTHORITY_FILES.includes(ADDENDUM), 'the addendum file must be inside the measured aggregate');
   assert.ok(AUTHORITY_FILES.includes(BASE));
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);

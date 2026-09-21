@@ -47,7 +47,7 @@ test('Issue #58 the guard measures exactly the files the byte guard measures', (
   assert.match(packageTest, /AUTHORITY_FILES \} = require\('\.\/helpers'\)/, 'the byte guard must import the shared authority list');
   assert.doesNotMatch(packageTest, /const AUTHORITY_FILES = \[/, 'the byte guard must not redeclare the authority list');
   assert.match(packageTest, /AUTHORITY_FILES\.reduce/, 'the byte guard must measure the shared list');
-  assert.equal(AUTHORITY_FILES.length, 7);
+  assert.equal(AUTHORITY_FILES.length, 8);
   for (const file of AUTHORITY_FILES) assert.ok(readText(file).length > 0, `${file} must exist`);
 });
 

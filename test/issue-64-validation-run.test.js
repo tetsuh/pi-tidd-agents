@@ -16,7 +16,7 @@ const crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, sectionOf, cliSchemas, spawnCalls, spawnReferenceProblems } = require('./helpers');
+const { readAutofixProcedure, readText, sectionOf, cliSchemas, spawnCalls, spawnReferenceProblems } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const NODE = process.execPath;
@@ -328,7 +328,7 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
 });
 
 test('Issue #64 the map, the README, the recovery key, and the record name the packaged validation run', () => {
-  const autofix = readText('skills/closed-loop-pr/references/autofix.md');
+  const autofix = readAutofixProcedure();
   const map = sectionOf(autofix, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map.includes("| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |"), 'the map offers validation_run with its fields');
   assert.ok(autofix.includes('| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |'), 'the recovery row names the packaged operation');
@@ -341,7 +341,7 @@ test('Issue #64 the map, the README, the recovery key, and the record name the p
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D72 — The focused validation is packaged and the alarm is reset for it');
   for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654184082', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5654208805', 'Option A on all three', "exactly one spawn site whose program is neither `git` nor the gh transports' literal `'gh'`, in `validation.js`", 'resets from 220,000 to 240,000 bytes', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5662628859', 'the owner chose the step name', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5663434628', 'a changed symlink or submodule pointer is excluded and named with its mode', 'https://github.com/tetsuh/pi-tidd-agents/issues/64#issuecomment-5670651510', 'a form outside this bound is not a finding against the guard', 'are refused as references of any form', "read from the syntax tree that Node's own bundled parser builds", 'A changed path whose bytes are not valid UTF-8 fails closed as `path_encoding`', 'a literal name counts as a reference wherever it is written', 'The timeout is enforced by SIGKILL and decides the outcome', 'a read beyond its bound fails closed as `output_limit` naming it', "the child's error stream goes to a file of its own in the package's isolation root, measured after the read and refused beyond 64 KiB", 'a threshold on what a read may carry rather than a cap on what Git may write', 'a read whose warnings pass that bound fails closed naming the error stream', 'the process spawner forwards a few Windows system variables of its own', '`absent` names only a file the head does not carry', "Each of the request's own fields is read once and the command runs as that copy", 'the argv holds at most 65,536 elements', 'a request that throws while it is read is refused at the request', 'an own field left undefined is absent', 'the child runs under an explicit environment allowlist rather than the inherited environment', 'whether an interpreter or loader hook, a credential, an agent socket, or a command-resolution control, is dropped', "while `git` and `gh` keep the package's sanitized environment", 'the validation environment carries the name itself and undefined', 'pinned to the system defaults rather than inherited', 'a subdirectory whose name begins with a newline is not mistaken for the toplevel', "a spawn error Node throws at once still carries the system's own code as its reason", 'every later argument is any string, the empty string included', 'which could not reach the child as written, is refused at the request']) assert.ok(record.includes(phrase), `CL-D72 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D72').map((clause) => clause.id), ['CL-D72-map', 'CL-D72-map-moved', 'CL-D72-record', 'CL-D72-tests', 'CL-D72-route-review-only', 'CL-D72-route-shared', 'CL-D72-route-autofix']);
   // The structural rule the record states, read from the complete spawn call surface rather than a marker
   // (ADV-124-SPAWN-SITE-CHECK-MARKER-ONLY): every run/runSync call whose program is not the literal 'git' is
   // one of the two gh transports or the single validation site, and no site spawns through a shell.
@@ -567,7 +567,7 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     assert.deepEqual(cliSchemas().required_evidence_set, ['cwd', 'baseOid', 'headOid', 'identities']);
     const viaCli = cli('required_evidence_set', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });
     assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error)); assert.deepEqual(viaCli.data.requiredEvidence, derived.data.requiredEvidence);
-    const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
+    const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
     assert.ok(map.includes("| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |"), 'the map offers required_evidence_set with its fields');
   } finally { fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(bare.root, { recursive: true, force: true }); }
 });

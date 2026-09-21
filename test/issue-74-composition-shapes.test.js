@@ -20,9 +20,9 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
 
-const AUTOFIX = (readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
+const AUTOFIX = (readAutofixProcedure() + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
 const CONTRACT = readText('CONTRACT.md');
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
@@ -448,7 +448,7 @@ test('Issue #111 the captured field accepts the operator_capture envelope or its
 });
 
 test('Issue #111 the map and the record state what the captured field accepts (CL-D70)', () => {
-  const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
+  const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
   for (const row of ['`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)']) {
     assert.ok(map.includes(row), `the map must declare ${row}`);
   }

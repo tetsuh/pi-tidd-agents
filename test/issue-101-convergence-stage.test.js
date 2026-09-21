@@ -19,7 +19,7 @@ const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, sectionOf, parseFrontmatter, exists } = require('./helpers');
+const { readAutofixProcedure, readText, sectionOf, parseFrontmatter, exists } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -204,7 +204,7 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(addendum, /^FINAL_CHECK: new actionable evidence -> CONVERGENCE; missing\/pending\/failed policy -> STOP; stable evidence -> replies -> MERGE_READY$/m);
   assert.match(addendum, /Convergence runs first, then Sol, and Terra starts only after Sol returns `MERGE` for the exact current public head/);
   assert.doesNotMatch(addendum, /LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> SOL;|new actionable evidence -> SOL;/, 'no route may return directly to Sol');
-  const autofix = readText('skills/closed-loop-pr/references/autofix.md');
+  const autofix = readAutofixProcedure();
   assert.match(autofix, /\| Snapshot refresh — before each convergence\/Sol\/Terra invocation, before the first reply, each reply batch, final classification, post-reply, summary mutation \| `snapshot` \|/);
   assert.match(autofix, /\| Every convergence, Sol, or Terra result, before it is read as a verdict \(CL-D36, CL-D62\) \| `gate_result_validate` \|/);
   assert.doesNotMatch(autofix, /before each Sol\/Terra invocation|Every Sol or Terra result/, 'no helper boundary may name only Sol and Terra');
