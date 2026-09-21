@@ -2730,7 +2730,7 @@
         "test/issue-87-addendum-split.test.js"
       ],
       "requires": [
-        "the addendum is its own authority file and the aggregate set has seven entries",
+        "the addendum is its own authority file and the aggregate set has eight entries",
         "the addendum content moved whole and the base directs to it",
         "the disclosure stages are bounded per stage",
         "CL-D50 records the third disclosure stage"

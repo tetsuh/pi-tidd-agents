@@ -8,6 +8,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 
 const os = require('node:os');
@@ -28,6 +29,21 @@ test('Issue #164 the map and the declared shapes live in one file of their own',
   // The move is byte-preserving, so a sentence that reads as a location — the one the composed reading places after
   // `autofix.md`, where CL-D39 is defined — keeps its own words (ADV-165-UNCHANGED-001).
   assert.ok(map.includes('no retry beyond the CL-D39 recovery defined above'), 'the migrated sentence is unchanged');
+});
+
+// The whole moved block, not a sentence of it. `MOVED_BLOCK_SHA256` is the digest of lines 28-84 of
+// `references/autofix.md` as they stood before the split, blank line included, measured at the move: 12,814 bytes.
+// The map grows by design, so a commit that adds a row updates this digest in the same commit and says so — the
+// point is that no edit to the moved text can pass unnoticed (CONV-165-VERBATIM-002).
+const MOVED_BLOCK_SHA256 = '46b67d5c3e10910092a468316dfc5d2f08271e6473e526bb4b5676619933566f';
+
+test('Issue #164 the moved block is the moved block, byte for byte', () => {
+  const map = readText(MAP);
+  const start = map.indexOf('### Packaged helper invocation map (CL-D30, Issue #47)');
+  assert.notEqual(start, -1, 'the map section must be there');
+  const moved = map.slice(start);
+  assert.equal(Buffer.byteLength(moved), 12814, 'the moved block is the size it was moved at');
+  assert.equal(crypto.createHash('sha256').update(moved).digest('hex'), MOVED_BLOCK_SHA256, 'and byte for byte the same');
 });
 
 test('Issue #164 the autofix reference points at it once and carries the table no longer', () => {
