@@ -31,19 +31,23 @@ test('Issue #164 the map and the declared shapes live in one file of their own',
   assert.ok(map.includes('no retry beyond the CL-D39 recovery defined above'), 'the migrated sentence is unchanged');
 });
 
-// The whole moved block, not a sentence of it. `MOVED_BLOCK_SHA256` is the digest of lines 28-84 of
-// `references/autofix.md` as they stood before the split, blank line included, measured at the move: 12,814 bytes.
-// The map grows by design, so a commit that adds a row updates this digest in the same commit and says so — the
-// point is that no edit to the moved text can pass unnoticed (CONV-165-VERBATIM-002).
-const MOVED_BLOCK_SHA256 = '46b67d5c3e10910092a468316dfc5d2f08271e6473e526bb4b5676619933566f';
+// The whole moved block, not a sentence of it. `MOVED_RULE_TEXT_SHA256` is the digest of the rule text of lines
+// 28-84 of `references/autofix.md` as they stood before the split — every byte of it, and not the blank line that
+// separated the next section there, because a file may not end in one: `git diff --check` refuses a new blank line
+// at EOF, and the owner settled that EOF normalization is not a change to a rule (CONV-165-VERBATIM-002, and the
+// validation blocker it caused). The map grows by design, so a commit that adds a row updates this digest in the
+// same commit and says so; the point is that no edit to the moved text can pass unnoticed.
+const MOVED_RULE_TEXT_SHA256 = '806f52664b512a34c4ab9d34c9175040d2af9c5847ae369770e032ea53b6ca1e';
 
-test('Issue #164 the moved block is the moved block, byte for byte', () => {
+test('Issue #164 the moved rule text is the moved rule text, byte for byte', () => {
   const map = readText(MAP);
   const start = map.indexOf('### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.notEqual(start, -1, 'the map section must be there');
   const moved = map.slice(start);
-  assert.equal(Buffer.byteLength(moved), 12814, 'the moved block is the size it was moved at');
-  assert.equal(crypto.createHash('sha256').update(moved).digest('hex'), MOVED_BLOCK_SHA256, 'and byte for byte the same');
+  assert.equal(moved.endsWith(String.fromCharCode(10)), true, 'the file ends with one newline');
+  assert.equal(moved.endsWith(String.fromCharCode(10, 10)), false, 'and not with a blank line, which validation refuses');
+  assert.equal(Buffer.byteLength(moved), 12813, 'the moved rule text is the size it was moved at');
+  assert.equal(crypto.createHash('sha256').update(moved).digest('hex'), MOVED_RULE_TEXT_SHA256, 'and byte for byte the same');
 });
 
 test('Issue #164 the autofix reference points at it once and carries the table no longer', () => {
