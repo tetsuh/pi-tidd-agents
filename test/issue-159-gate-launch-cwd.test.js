@@ -146,7 +146,7 @@ test('Issue #159 the packaged CLI carries the workspace into the gate launch', (
 test('Issue #159 the procedure states where each mode runs its gates', () => {
   // The map gains the input; the addendum's own cwd sentence, true only now, names how a gate child gets there. The
   // two authority files sit at their ceilings, so the statement is carried where it already belonged.
-  const map = readText('skills/closed-loop-pr/references/autofix.md');
+  const map = readText('skills/closed-loop-pr/references/helper-map.md');
   assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (optional; data of `workspace_create`, autofix only) |'), 'the map declares the new input');
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.ok(addendum.includes('uses exact workspace cwd/identity, gate children via `created` (CL-D82)'), 'the addendum names how a gate child reaches the workspace');

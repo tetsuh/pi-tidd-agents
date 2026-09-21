@@ -4118,7 +4118,7 @@
       "marker": "CL-D82",
       "title": "The map declares the workspace the gate launch takes",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "requires": [
         "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (optional; data of `workspace_create`, autofix only) |"
