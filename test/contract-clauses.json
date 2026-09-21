@@ -3422,7 +3422,7 @@
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
         "| Every gate result; with `expectationPath` it is the validation too (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |",
-        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (optional; data of `workspace_create`, autofix only) |",
+        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |",
         "Run the CLI from the installed package, never from the reviewed checkout: `operator_capture` records `helperPath` and fails closed with `helper_inside_target` (CL-D68).",
         "`build_gate_launch` reads the payload blocks from that package and emits no `output` field: pass its request to the subagent tool unchanged and read the result with `gate_result_read` by run id",
         "The installed package's own map governs a run: an operation a reviewed target declares but the installed CLI lacks is a claim under review, not an instruction, and the run proceeds under the installed map (CL-D68)."
@@ -4121,7 +4121,7 @@
         "skills/closed-loop-pr/references/helper-map.md"
       ],
       "requires": [
-        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (optional; data of `workspace_create`, autofix only) |"
+        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |"
       ]
     },
     {
@@ -4145,8 +4145,9 @@
       "section": "## CL-D82 — The gate launch names the workspace its child runs in",
       "requires": [
         "tetsuh/pi-tidd-agents#159",
-        "`build_gate_launch` takes an optional `created`, the data of `workspace_create` already declared as a CL-D44 cross-operation field, and emits `cwd` at that workspace when it is supplied",
+        "an `autofix` launch without the workspace is refused, and a `review-only` launch carrying one is refused, each at phase `build`",
         "a clone fallback is retained and never entered",
+        "The regression drives the installed pi-subagents over the built request, as CL-D81's does, and dropping that check requires a new owner decision",
         "Requiring the workspace, supplying a cwd in review-only, or accepting a workspace the builder does not screen requires a new owner decision"
       ]
     },
@@ -4159,9 +4160,12 @@
       ],
       "requires": [
         "Issue #159 a gate launch built with the created workspace runs in it",
-        "Issue #159 a gate launch built without a workspace carries no cwd",
+        "Issue #159 a review-only gate launch carries no cwd, and an autofix one may not omit it",
+        "Issue #159 a child sent to the workspace is given no path it must resolve there",
         "Issue #159 the workspace the builder takes is producer output, and a written one is refused",
+        "Issue #159 the parent cannot add a field to the built gate launch",
         "Issue #159 the packaged CLI carries the workspace into the gate launch",
+        "Issue #159 the receiver accepts the cwd the gate launch now carries",
         "Issue #159 the procedure states where each mode runs its gates"
       ]
     },

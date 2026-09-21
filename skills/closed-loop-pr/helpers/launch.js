@@ -220,8 +220,13 @@ function buildGateLaunch(data) {
     parts.push(`## Evidence records (copy each; set readCompletely true after reading)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: false })), null, 2)}\n\`\`\``);
     parts.push(`Expectation file: ${data.expectationPath}\nPackaged validator: node ${CLI_PATH} (operation gate_result_validate, CL-D65)`);
     const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false, outputSchema: JSON.parse(JSON.stringify(SCHEMA)) };
-    // CL-D82: an exact-autofix gate reads the tree the run works in, so the launch names it. Review-only supplies
-    // no workspace and its child inherits the operator checkout, which is the tree it reviews.
+    // CL-D82: an exact-autofix gate reads the tree the run works in, so the launch names it; review-only has no
+    // workspace and its child inherits the operator checkout, which is the tree it reviews. The envelope already
+    // states which mode this is, so the two are related here rather than left to the parent's memory: an autofix
+    // launch without the workspace is the very hazard this record closed (ADV159B-MODE-AND-WORKSPACE-UNRELATED).
+    const autofix = data.volatile.target.mode === 'autofix';
+    if (autofix && !Object.hasOwn(data, 'created')) fail('invalid_request', 'an autofix gate runs in the run-owned workspace; pass the workspace_create data as created');
+    if (!autofix && Object.hasOwn(data, 'created')) fail('invalid_request', 'a review-only gate reviews the operator checkout; it takes no workspace');
     if (Object.hasOwn(data, 'created')) request.cwd = gateWorkspaceCwd(data.created);
     return createResult(operation, { request, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });
   } catch (error) {
