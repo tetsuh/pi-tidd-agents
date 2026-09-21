@@ -10,7 +10,11 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, readJson, repoPath } = require('./helpers');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+
+const { readText, readJson, repoPath, AUTHORITY_FILES } = require('./helpers');
 
 const MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
@@ -50,6 +54,31 @@ test('Issue #164 every clause pinned to a moved sentence names the file it moved
       }
     }
   }
+});
+
+test('Issue #164 the moved file is measured where the moved bytes were measured', () => {
+  // The bytes did not leave the procedure, so they must not leave the measurements: the aggregate ceiling and the
+  // Issue #58 duplication scan read `AUTHORITY_FILES`, and the packed-authority guard reads
+  // `FALSIFICATION_ARTIFACTS` (ADV164-REGISTRIES-MISSING-THE-NEW-FILE, CONV-165-REG-002).
+  assert.ok(AUTHORITY_FILES.includes(MAP), 'the new reference is inside the measured authority set');
+  assert.equal(AUTHORITY_FILES.length, 8, 'and the set is exactly the eight shipped authority files');
+  const packageTest = readText('test/package.test.js');
+  assert.match(packageTest, /const PR_HELPER_MAP = 'skills\/closed-loop-pr\/references\/helper-map\.md';/);
+  assert.match(packageTest, /const FALSIFICATION_ARTIFACTS = \[[^\]]*PR_HELPER_MAP/, 'the packed-authority guard covers it');
+  // Both guards bite on it, measured rather than asserted: a duplicated authority sentence, and a reference to the
+  // unpackaged record as falsification evidence.
+  const duplicated = [...readText('skills/closed-loop-shared/references/gate-contract.md').split(String.fromCharCode(10))].find((line) => line.length > 140);
+  assert.ok(duplicated, 'the fixture sentence must exist');
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-164-registries-'));
+  try {
+    for (const [label, addition, file] of [['a duplicated authority sentence', duplicated, 'test/issue-58-authority-duplication.test.js'], ['an unpackaged record as evidence', 'Falsify this against CONTRACT.md.', 'test/package.test.js']]) {
+      const copy = path.join(scratch, label.replace(/ /g, '-'));
+      fs.cpSync(repoPath('.'), copy, { recursive: true, filter: (source) => !source.includes(`${path.sep}.git`) && !source.includes('node_modules') });
+      fs.appendFileSync(path.join(copy, MAP), `${String.fromCharCode(10)}${addition}${String.fromCharCode(10)}`);
+      const run = spawnSync(process.execPath, ['--test', file], { cwd: copy, encoding: 'utf8', timeout: 300000, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
+      assert.notEqual(run.status, 0, `${label} must fail ${file}: ${run.stdout.slice(-300)}`);
+    }
+  } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
 });
 
 test('Issue #164 CL-D83 records the split and what it did not change', () => {
