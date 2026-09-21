@@ -21,7 +21,7 @@ const ALLOWED_OPERATIONS = [
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
   'marker_create', 'marker_reconcile', 'message_verify', 'required_evidence_check', 'required_evidence_set', 'validation_run',
   'operator_capture', 'operator_revalidate', 'snapshot', 'workspace_cleanup', 'workspace_create',
-  'workspace_verify', 'writability',
+  'workspace_cleanup_created', 'workspace_verify', 'writability',
 ].sort();
 const FORBIDDEN_OPERATION = /(?:^|_)(?:commit|push|merge|reply|approve|thread_resolve|schedule|state_write)(?:_|$)/;
 const SCHEDULING_OR_STATE = /\b(?:setInterval|setTimeout|setImmediate|queueMicrotask|scheduler|node-schedule|cron|node:timers|node:sqlite|sqlite3|level|lmdb|globalThis)\b/;
@@ -71,7 +71,7 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|const retainedRoot = fs.existsSync(rootPath) ? rootPath : null;',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './builders': 1, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
+  './builders': 2, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
   './paths': 5, './process': 7, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
   'node:child_process': 1, 'node:crypto': 8, 'node:fs': 7, 'node:os': 3, 'node:path': 8,
 };

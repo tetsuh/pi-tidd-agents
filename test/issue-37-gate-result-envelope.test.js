@@ -9,7 +9,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 
-const { readText, readJson, repoPath, sectionOf } = require('./helpers');
+const { readAutofixProcedure, readText, readJson, repoPath, sectionOf } = require('./helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
@@ -500,7 +500,7 @@ test('Issue #37 the shared gate contract requires the structured transport for b
   assert.match(section, /Sol returns at least one complete adversarial-result record/);
   assert.match(section, /semantic-validation[^.]*tool failure that consumes no counter and is never a verdict/);
   for (const root of ['skills/closed-loop-issue/SKILL.md', 'skills/closed-loop-pr/SKILL.md']) assert.match(readText(root), /\.\.\/closed-loop-shared\/references\/gate-contract\.md/, `${root} must load the shared validator binding`);
-  const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
+  const autofix = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   assert.match(autofix, /`gate_result_validate`/, 'the exact-autofix invocation map must retain the operation');
   assert.doesNotMatch(autofix, /outputSchema` alone is insufficient/, 'the normative all-route rule must not be restated by one mode');
 });

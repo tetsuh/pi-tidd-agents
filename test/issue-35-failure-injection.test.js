@@ -16,7 +16,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const { readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
 const protocol = require('../skills/closed-loop-pr/helpers/protocol');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 const fingerprints = require('../skills/closed-loop-pr/helpers/fingerprints');
@@ -47,7 +47,7 @@ const pull = (over = {}) => ({ number: 7, state: 'open', draft: false, base: { s
 
 // Recovery outcome for a key, read from the shipped CL-D39 mapping (never restated here).
 function mappedOutcome(key) {
-  const section = sectionOf((readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)), '### Bounded pre-writer recovery (CL-D39)');
+  const section = sectionOf((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), '### Bounded pre-writer recovery (CL-D39)');
   const rows = section.split('\n').filter((l) => l.startsWith('|') && !/^\|\s*-+/.test(l) && !/\| Failure \|/.test(l))
     .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
   const row = rows.find(([, k]) => new RegExp('^' + k.replace(/`/g, '').replace('fingerprint_<op>', 'fingerprint_[a-z_]+') + '$').test(key));
@@ -115,7 +115,7 @@ const INCIDENTS = [
     // that every mapped operation is a packaged CLI operation; the sibling is a row naming an
     // operation the CLI does not expose, which the map regression rejects.
     positive: () => {
-      const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
+      const text = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM));
       return /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/.test(text) ? ok() : fail('normalize', 'CL-D30 invocation map', 'shell_generation_permitted');
     },
     sibling: () => Object.hasOwn(cliSchemas(), 'run_shell') ? ok() : fail('normalize', 'CL-D30 invocation map: no run-time shell, jq, Python, or GraphQL', 'no_such_operation'),

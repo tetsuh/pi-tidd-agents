@@ -17,6 +17,13 @@ function exists(relativePath) {
   return fs.existsSync(repoPath(relativePath));
 }
 
+// The exact-autofix procedure a run reads is two files since CL-D83: the reference and the invocation map it names.
+// Cases that ask what the procedure says read both; cases that ask where a sentence lives name the file themselves,
+// and the clause manifest pins each sentence to its own file.
+function readAutofixProcedure() {
+  return `${readText('skills/closed-loop-pr/references/autofix.md')}\n${readText('skills/closed-loop-pr/references/helper-map.md')}`;
+}
+
 function readJson(relativePath) {
   return JSON.parse(readText(relativePath));
 }
@@ -62,6 +69,7 @@ const AUTHORITY_FILES = [
   'skills/closed-loop-pr/SKILL.md',
   'skills/closed-loop-pr/references/review-only.md',
   'skills/closed-loop-pr/references/autofix.md',
+  'skills/closed-loop-pr/references/helper-map.md',
   'skills/closed-loop-pr/references/autofix-addendum.md',
   'skills/closed-loop-shared/references/gate-contract.md',
   'skills/closed-loop-shared/references/records.md',
@@ -260,4 +268,5 @@ function spawnReferenceProblems(file, source) {
 // Parse every source of a model in one child process before the per-file checks read the cache.
 function primeSpawnFacts(sources) { parseFacts(sources); }
 
-module.exports = { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES };
+module.exports = {
+  readAutofixProcedure, repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES };

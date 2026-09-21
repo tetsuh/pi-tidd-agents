@@ -149,7 +149,7 @@ function roleSurfaceGaps(read) {
   const canonical = ROLES.filter((role) => role.alias).map((role) => role.name), preliminary = ROLES.filter((role) => role.kind === 'preliminary').map((role) => role.name);
   expect(readme.includes(`The closed-loop workflow uses ${NUMBER_WORDS[ROLES.length]} roles: ${canonical.map(code).join(', ')}, and the non-authoritative ${code(preliminary[0])} (CL-D62).`), 'README role paragraph derives from the source');
   const prDisplay = VOCAB.gateOrder.pr.map(display);
-  const autofix = read('skills/closed-loop-pr/references/autofix.md');
+  const autofix = `${read('skills/closed-loop-pr/references/autofix.md')}\n${read('skills/closed-loop-pr/references/helper-map.md')}`;
   expect(autofix.includes(`| Snapshot refresh — before each ${prDisplay.join('/')} invocation, before the first reply`), 'helper map snapshot row derives from the PR gate order');
   expect(autofix.includes(`| Every ${prDisplay[0]}, ${prDisplay[1]}, or ${prDisplay[2]} result, before it is read as a verdict (CL-D36, CL-D62) | \`gate_result_validate\` |`), 'helper map validate row derives from the PR gate order');
   return gaps;

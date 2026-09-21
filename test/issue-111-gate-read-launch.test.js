@@ -25,7 +25,7 @@ const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, readJson, repoPath, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readJson, repoPath, sectionOf, cliSchemas } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64), RUN = '7305b50a-2708-4e55-8364-d72f11197fbe';
@@ -193,6 +193,7 @@ test('Issue #111 build_gate_launch composes the request from the package and can
       assert.equal(built.ok, true, `${workflow}/${gate}: ${JSON.stringify(built.error)}`);
       const { request, blocks } = built.data;
       assert.equal(request.agent, role, `${workflow}/${gate} role`);
+      // No `cwd` here: this composition supplies no workspace, which is review-only's shape (CL-D82).
       assert.deepEqual(Object.keys(request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'outputSchema', 'task'], `${workflow}/${gate}: exactly the launch fields, no output file`);
       assert.deepEqual({ context: request.context, async: request.async, outputMode: request.outputMode, acceptance: request.acceptance }, { context: 'fresh', async: true, outputMode: 'inline', acceptance: false });
       assert.deepEqual(request.outputSchema, gateResult.SCHEMA, 'the builder schema byte for byte');
@@ -239,7 +240,8 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     assert.deepEqual(cliSchemas().build_gate_launch, ['expectation', 'expectationPath', 'volatile']);
     // ADV-123-CLD44-LAUNCH-EXPECTATION-UNDECLARED: the cross-operation field is declared in the CL-D44 table and
     // judged by its one predicate at the request boundary, before the composer runs.
-    assert.deepEqual(helpers.INPUT_SHAPES.build_gate_launch, { expectation: 'data:build_gate_expectation' });
+    // CL-D82 declared the second field, the workspace an exact-autofix gate child runs in.
+    assert.deepEqual(helpers.INPUT_SHAPES.build_gate_launch, { expectation: 'data:build_gate_expectation', created: 'data:workspace_create' });
     assert.equal(helpers.inputShapeProblem('build_gate_launch', { expectation, expectationPath, volatile }), null);
     const wrongShape = cli('build_gate_launch', { expectation: expectation.expected, expectationPath, volatile });
     assert.equal(wrongShape.ok, false); assert.equal(wrongShape.error.code, 'input_shape_mismatch', JSON.stringify(wrongShape.error)); assert.match(wrongShape.error.message, /`expectation` must be data:build_gate_expectation/);
@@ -337,9 +339,9 @@ test('Issue #111 an unknown operation names the nearest known operations', () =>
 });
 
 test('Issue #111 the invocation map, the transport section, and the README name the operations and the host-trust rule', () => {
-  const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
+  const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map);
-  assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |'));
+  assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |'));
   assert.ok(map.includes('| Every gate result; with `expectationPath` it is the validation too (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |'));
   assert.match(map, /Run the CLI from the installed package, never from the reviewed checkout: `operator_capture` records `helperPath` and fails closed with `helper_inside_target` \(CL-D68\)\./);
   assert.match(map, /`build_gate_launch` reads the payload blocks from that package and emits no `output` field: pass its request to the subagent tool unchanged and read the result with `gate_result_read` by run id/);
@@ -599,8 +601,12 @@ test('Issue #111 the target names the mode and the gate, correlated with the exp
         assert.match(refused.error.message, /target/, `${workflow}/${gate}/${label}`);
         assert.match(refused.error.message, new RegExp(named), `${workflow}/${gate}/${label}: the message names ${named}`);
       }
-      // The exact-autofix mode composes the same gates; only the two declared modes do.
-      assert.equal(withTarget({ ...complete.target, mode: 'autofix' }).ok, true, `${workflow}/${gate}: autofix is a declared mode`);
+      // The exact-autofix mode composes the same gates; only the two declared modes do. Since CL-D82 an autofix
+      // launch also names the workspace its child runs in, so the mode alone is refused for the missing workspace,
+      // not for the mode.
+      const asAutofix = withTarget({ ...complete.target, mode: 'autofix' });
+      assert.equal(asAutofix.ok, false, `${workflow}/${gate}: autofix is a declared mode, and needs its workspace`);
+      assert.match(asAutofix.error.message, /pass the workspace_create data as created/, `${workflow}/${gate}: ${JSON.stringify(asAutofix.error)}`);
       // An identity the target does not repeat is the expectation's alone, and stays optional.
       assert.equal(withTarget({ ...complete.target, headRepository: expectation.expected.correlation.headRepository }).ok, true, `${workflow}/${gate}: a target repeating the head repository composes`);
     }

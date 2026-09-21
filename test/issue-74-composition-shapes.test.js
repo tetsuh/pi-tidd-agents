@@ -20,9 +20,9 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
 
-const AUTOFIX = (readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
+const AUTOFIX = (readAutofixProcedure() + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
 const CONTRACT = readText('CONTRACT.md');
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
@@ -199,7 +199,9 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
       // The three guard fields joined the table under CL-D57 — the new-owner-decision route
       // the freeze names — and are pinned exactly the same way.
       // CL-D68 declared the launch composer's cross-operation field the same way.
-      ['build_gate_launch', 'expectation', 'data:build_gate_expectation'],
+      // CL-D82 added the launch composer's second field, the workspace its child runs in, optional as
+      // `manifest_compare.manifest` is: review-only has no workspace and supplies none.
+      ['build_gate_launch', 'expectation', 'data:build_gate_expectation', 'created', 'data:workspace_create'],
       // CL-D81 declared the writer launch's workspace field the same way.
       ['build_writer_launch', 'created', 'data:workspace_create'],
       ['fingerprint_snapshot', 'snapshot', 'data:snapshot'],
@@ -209,6 +211,8 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
       ['operator_revalidate', 'captured', 'envelope:operator_capture'],
       ['overlay_compare', 'overlay', 'data:overlay_freeze'],
       ['workspace_cleanup', 'receipt', 'receipt:workspace_create'],
+      // CL-D84 declared the packaged terminal cleanup's only input.
+      ['workspace_cleanup_created', 'created', 'data:workspace_create'],
       ['workspace_verify', 'expected', 'data:workspace_create'],
     ],
   );
@@ -448,7 +452,7 @@ test('Issue #111 the captured field accepts the operator_capture envelope or its
 });
 
 test('Issue #111 the map and the record state what the captured field accepts (CL-D70)', () => {
-  const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
+  const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
   for (const row of ['`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)']) {
     assert.ok(map.includes(row), `the map must declare ${row}`);
   }

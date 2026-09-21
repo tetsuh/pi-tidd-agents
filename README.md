@@ -9,7 +9,7 @@ This package is intentionally small. It does not define a TiDD standard and it d
 ## Requirements
 
 - Pi
-- [pi-subagents](https://github.com/nicobailon/pi-subagents) **0.69.0 or newer** (0.69.0 validated for this package)
+- [pi-subagents](https://github.com/nicobailon/pi-subagents) **0.70.0 or newer** (0.70.0 validated for this package)
 - Access to the model identifiers used by the selected agents
 
 Requirements differ between the two ways of using this package:
@@ -25,7 +25,7 @@ Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer`, `tidd-drift-r
 
 The skills name agents by role name and never by model ID. User and project agent definitions take discovery precedence over package-provided definitions with the same runtime name, so if your environment does not offer these models you can still run the workflow by defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and `tidd-convergence-reviewer`, or disabling `tidd-convergence-reviewer` when no model is available for it.
 
-Install `pi-subagents` first (the package was validated with 0.69.0; do not assume support for older versions):
+Install `pi-subagents` first (the package was validated with 0.70.0; do not assume support for older versions):
 
 ```bash
 pi install npm:pi-subagents

@@ -9,6 +9,8 @@ const { createResult, createError } = require('./protocol');
 const { cleanupCwdProblem, absoluteSpelling, isCreationReceipt } = require('./composition');
 const { assertSymlinkFreePath, lstatKind, classifyRuntimeRoots, normalizeCheckoutPath } = require('./paths');
 const { canon, git, gitRaw, parseWorktrees, symlinkFreePathKey, registrationAtPath, remoteIdentity, inspectWorkspace } = require('./inspect');
+// CL-D84: the terminal cleanup composes its own request with the packaged builder, so no caller assembles one.
+const { buildWorkspaceCleanup } = require('./builders');
 
 function nonce() { return crypto.randomBytes(32).toString('base64url'); }
 function text(value) { return typeof value === 'string' && value.length > 0; }
@@ -348,4 +350,25 @@ async function cleanupWorkspace(input, cwd) {
   }
 }
 
-module.exports = { createWorkspace, verifyWorkspace, cleanupWorkspace, inspectWorkspace, parseWorktrees, adminInventory };
+// CL-D84 (Issue #161): the terminal cleanup, composed and run inside the package. The parent supplies the result
+// `workspace_create` gave it and nothing else, so the request it used to assemble — and the `cwd` it once added to
+// that request, which CL-D76 refuses — has no caller-visible existence.
+async function cleanupCreatedWorkspace(data) {
+  // The builder sees the whole request, so a caller who adds a `cwd` beside `created` is told rather than
+  // overridden — CL-D76's rule, which this operation exists to make unavoidable (ADV161-SILENT-OVERRIDE).
+  if (data === null || typeof data !== 'object' || Array.isArray(data)) return createError('workspace_cleanup_created', 'invalid_request', 'request data must be a plain object', 'build');
+  // `cwd` reaches the builder, which refuses it in CL-D76's own words; anything else is refused here, so no field a
+  // caller adds is silently dropped on the way to a removal.
+  for (const key of Object.keys(data)) {
+    if (key !== 'created' && key !== 'cwd') return createError('workspace_cleanup_created', 'invalid_request', `unknown request field: ${key}`, 'build');
+  }
+  const built = buildWorkspaceCleanup(data);
+  if (!built.ok) return createError('workspace_cleanup_created', built.error.code, built.error.message, built.error.phase, built.error.details);
+  const request = built.data.request.data;
+  const cleaned = await cleanupWorkspace(request, request.cwd);
+  return cleaned.ok
+    ? createResult('workspace_cleanup_created', cleaned.data)
+    : createError('workspace_cleanup_created', cleaned.error.code, cleaned.error.message, cleaned.error.phase, cleaned.error.details);
+}
+
+module.exports = { createWorkspace, verifyWorkspace, cleanupWorkspace, cleanupCreatedWorkspace, inspectWorkspace, parseWorktrees, adminInventory };

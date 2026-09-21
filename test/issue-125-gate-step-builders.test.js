@@ -21,7 +21,7 @@ const crypto = require('node:crypto');
 const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, repoPath, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, repoPath, sectionOf, cliSchemas } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40);
@@ -257,7 +257,7 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
 });
 
 test('Issue #125 the invocation map offers the packaged compositions', () => {
-  const map = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### Packaged helper invocation map (CL-D30, Issue #47)');
+  const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map.includes('| `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |'), 'the map offers the read with its optional expectation path');
   assert.ok(map.includes('| `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |'), 'the map offers the assignments builder');
   assert.ok(map.includes('| `workspace_cleanup` | `cwd`, and either `receipt` (receipt inside `workspace_create` data) or `workspace` (the run workspace path) |'), 'the map offers cleanup from the workspace path');

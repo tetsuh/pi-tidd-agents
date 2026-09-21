@@ -20,6 +20,7 @@ const SCHEMAS = Object.freeze({
   workspace_create: { required: ['cwd', 'head', 'tree'], optional: ['runRoot', 'allowCloneFallback'] },
   workspace_verify: { required: ['cwd', 'expected'], optional: ['transition'] },
   workspace_cleanup: { required: ['cwd'], optional: ['receipt', 'workspace'] },
+  workspace_cleanup_created: { required: ['created'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   gate_result_read: { required: ['runId'], optional: ['expectationPath'] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
@@ -33,7 +34,7 @@ const SCHEMAS = Object.freeze({
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
   build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },
   build_gate_assignments: { required: ['findings', 'settledKeys'], optional: ['reopens'] },
-  build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: [] },
+  build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: ['created'] },
   build_writer_launch: { required: ['created', 'task'], optional: [] },
   build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },
   build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },
@@ -141,6 +142,7 @@ async function dispatch(request) {
     case 'workspace_create': return wrap(operation, helpers.createWorkspace(data));
     case 'workspace_verify': return wrap(operation, helpers.verifyWorkspace(data.cwd, data.expected, data.transition));
     case 'workspace_cleanup': return wrap(operation, await helpers.cleanupWorkspace(data, data.cwd));
+    case 'workspace_cleanup_created': return wrap(operation, await helpers.cleanupCreatedWorkspace(data));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
     case 'gate_result_read': return wrap(operation, helpers.readGateResult(data));
     case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));

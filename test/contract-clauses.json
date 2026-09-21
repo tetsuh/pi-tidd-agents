@@ -306,7 +306,7 @@
         "README.md"
       ],
       "requires": [
-        "0.69.0 or newer",
+        "0.70.0 or newer",
         "do not assume support for older versions"
       ]
     },
@@ -319,8 +319,9 @@
       ],
       "section": "## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is",
       "requires": [
-        "The validated minimum is `0.69.0`",
+        "The validated minimum is `0.70.0`",
         "`checkpointBeforeDeadlineMs` arrived in `0.68.0`",
+        "`0.70.0` ships compiled JavaScript where `0.69.0` shipped TypeScript",
         "https://github.com/tetsuh/pi-tidd-agents/pull/158#issuecomment-5748636592"
       ]
     },
@@ -2405,7 +2406,7 @@
       "marker": "CL-D42",
       "title": "The packaged helper map carries the preflight verifier",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
@@ -2487,7 +2488,7 @@
       "marker": "CL-D44",
       "title": "Exact autofix declares and checks cross-operation input shapes",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Cross-operation input shapes (CL-D44)",
       "requires": [
@@ -2509,7 +2510,7 @@
       "marker": "CL-D44",
       "title": "The invocation map publishes each field's declared shape",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
@@ -2577,7 +2578,7 @@
       "marker": "CL-D45",
       "title": "The invocation map carries both reply operations",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
@@ -2692,7 +2693,7 @@
       ],
       "section": "### Isolated exact-autofix invariants (CL-D10, CL-D30)",
       "requires": [
-        "a successful `workspace_cleanup` result is the terminal workspace evidence",
+        "a successful cleanup result — from `workspace_cleanup_created` or `workspace_cleanup` — is the terminal workspace evidence",
         "no `workspace_*` operation may target the removed path afterwards",
         "the terminal recheck after removal is operator-side only",
         "a post-removal verification failure is a caller error, never evidence about the target"
@@ -2729,7 +2730,7 @@
         "test/issue-87-addendum-split.test.js"
       ],
       "requires": [
-        "the addendum is its own authority file and the aggregate set has seven entries",
+        "the addendum is its own authority file and the aggregate set has eight entries",
         "the addendum content moved whole and the base directs to it",
         "the disclosure stages are bounded per stage",
         "CL-D50 records the third disclosure stage"
@@ -2850,7 +2851,7 @@
       "marker": "CL-D56",
       "title": "The invocation map offers the builder family",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "requires": [
         "validates the construction with the boundary's own predicates before returning it, so a builder output the boundary would reject is unrepresentable",
@@ -2879,7 +2880,7 @@
       "marker": "CL-D57",
       "title": "The invocation map offers the packaged guard family",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "requires": [
         "authorized paths are a maximum set: the overlay must stay inside them and must not be empty, but no authorized path is required to change",
@@ -3013,7 +3014,7 @@
       "marker": "CL-D61",
       "title": "The invocation map offers the manifest builders and the required-evidence check",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
@@ -3138,7 +3139,7 @@
       "marker": "CL-D62",
       "title": "The packaged helper map covers the convergence stage",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "requires": [
         "before each convergence/Sol/Terra invocation",
@@ -3416,12 +3417,12 @@
       "marker": "CL-D68",
       "title": "The invocation map names the composer, the reader, and the host-trust rule",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
         "| Every gate result; with `expectationPath` it is the validation too (CL-D58, CL-D68, CL-D73) | `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |",
-        "| Gate launch request (CL-D2, CL-D68) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile` |",
+        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |",
         "Run the CLI from the installed package, never from the reviewed checkout: `operator_capture` records `helperPath` and fails closed with `helper_inside_target` (CL-D68).",
         "`build_gate_launch` reads the payload blocks from that package and emits no `output` field: pass its request to the subagent tool unchanged and read the result with `gate_result_read` by run id",
         "The installed package's own map governs a run: an operation a reviewed target declares but the installed CLI lacks is a claim under review, not an instruction, and the run proceeds under the installed map (CL-D68)."
@@ -3530,7 +3531,7 @@
       "marker": "CL-D70",
       "title": "The invocation map states what the captured field accepts",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
@@ -3597,9 +3598,19 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
-        "| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |",
-        "| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |",
         "| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |"
+      ]
+    },
+    {
+      "id": "CL-D72-map-moved",
+      "marker": "CL-D72",
+      "title": "The invocation map offers the packaged validation run and names the recovery key (map)",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |",
+        "| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |"
       ]
     },
     {
@@ -3689,7 +3700,7 @@
       "marker": "CL-D73",
       "title": "The invocation map offers the three packaged gate-step compositions",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
@@ -3758,7 +3769,7 @@
       "marker": "CL-D74",
       "title": "The invocation map carries the packaged post-commit message check",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
@@ -4012,7 +4023,7 @@
       "marker": "CL-D79",
       "title": "The invocation map names the chain a later push passes",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "requires": [
         "After an earlier push in the same run, linked also passes `priorPushHeads`, the heads it pushed before `C`, oldest first; the chain from `O` to `C` must run through only those heads, each the sole child of the one before, at most five in all (CL-D79)."
@@ -4034,7 +4045,7 @@
       "marker": "CL-D79",
       "title": "The parent's record of its pushes is an obligation, not a check",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md",
+        "skills/closed-loop-pr/references/helper-map.md",
         "CONTRACT.md"
       ],
       "requires": [
@@ -4106,6 +4117,64 @@
       ]
     },
     {
+      "id": "CL-D82-map",
+      "marker": "CL-D82",
+      "title": "The map declares the workspace the gate launch takes",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |"
+      ]
+    },
+    {
+      "id": "CL-D82-addendum",
+      "marker": "CL-D82",
+      "title": "The addendum names how a gate child reaches the workspace cwd",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "uses exact workspace cwd/identity, gate children via `created` (CL-D82)"
+      ]
+    },
+    {
+      "id": "CL-D82-record",
+      "marker": "CL-D82",
+      "title": "CL-D82 records the gate launch's workspace and what it does not change",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D82 — The gate launch names the workspace its child runs in",
+      "requires": [
+        "tetsuh/pi-tidd-agents#159",
+        "an `autofix` launch without the workspace is refused, and a `review-only` launch carrying one is refused, each at phase `build`",
+        "a clone fallback is retained and never entered",
+        "Those three screens are the whole of it, and what the builder judges is structure",
+        "The regression drives the installed pi-subagents over the built request, as CL-D81's does, and dropping that check requires a new owner decision",
+        "Requiring the workspace, supplying a cwd in review-only, or accepting a workspace the builder does not screen requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D82-tests",
+      "marker": "CL-D82",
+      "title": "The gate launch's workspace is pinned by its own regression",
+      "files": [
+        "test/issue-159-gate-launch-cwd.test.js"
+      ],
+      "requires": [
+        "Issue #159 a gate launch built with the created workspace runs in it",
+        "Issue #159 a review-only gate launch carries no cwd, and an autofix one may not omit it",
+        "Issue #159 a child sent to the workspace is given no path it must resolve there",
+        "Issue #159 the workspace must satisfy the declared shape, and an unusable path is refused",
+        "Issue #159 what the screens do not judge is stated, not assumed",
+        "Issue #159 the builder and the packaged CLI answer every CL-D82 path the same way",
+        "Issue #159 the parent cannot add a field to the built gate launch",
+        "Issue #159 the receiver accepts the cwd the gate launch now carries",
+        "Issue #159 the procedure states where each mode runs its gates"
+      ]
+    },
+    {
       "id": "CL-D81-autofix",
       "marker": "CL-D81",
       "title": "The map and the writer section state that the writer launch is built, not typed",
@@ -4113,9 +4182,19 @@
         "skills/closed-loop-pr/references/autofix.md"
       ],
       "requires": [
+        "Its launch request is built by `build_writer_launch` and passed to the subagent tool unchanged: the parent supplies the created workspace and the task, the builder the rest (CL-D81)."
+      ]
+    },
+    {
+      "id": "CL-D81-autofix-map",
+      "marker": "CL-D81",
+      "title": "The map and the writer section state that the writer launch is built, not typed (map)",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
         "| Construct the writer launch from the workspace the run created (CL-D81) | `build_writer_launch` | `created` (data of `workspace_create`), `task` |",
-        "Its launch request is built by `build_writer_launch` and passed to the subagent tool unchanged: the parent supplies the created workspace and the task, the builder the rest (CL-D81).",
-        "exactly the route `build_gate_launch.expectation` (CL-D68) and `build_writer_launch.created` (CL-D81) took"
+        "exactly the route the three launch fields and the packaged cleanup's took (CL-D68, CL-D81, CL-D82, CL-D84)"
       ]
     },
     {
@@ -4165,6 +4244,97 @@
         "Issue #152 the packaged CLI takes the two inputs and no others",
         "Issue #152 the record states the fields the builder emits",
         "Issue #152 the map states that the builder composes the writer launch"
+      ]
+    },
+    {
+      "id": "CL-D83-map",
+      "marker": "CL-D83",
+      "title": "The moved reference names itself and what it carries",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "This reference is read with `references/autofix.md` (CL-D83)."
+      ]
+    },
+    {
+      "id": "CL-D83-autofix",
+      "marker": "CL-D83",
+      "title": "The exact-autofix reference points at the map once",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "The packaged helper invocation map and the CL-D44 input shapes are in `references/helper-map.md`; read it with this reference (CL-D83)."
+      ]
+    },
+    {
+      "id": "CL-D83-record",
+      "marker": "CL-D83",
+      "title": "CL-D83 records the split and its limits",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D83 — The packaged helper invocation map is its own reference",
+      "requires": [
+        "tetsuh/pi-tidd-agents#164",
+        "The move carries every sentence unchanged: no rule is dropped, reworded, or added by it",
+        "Moving a rule into the new file, or adding one there that its rows' decisions do not state, requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D83-tests",
+      "marker": "CL-D83",
+      "title": "The split is pinned by its own regression",
+      "files": [
+        "test/issue-164-map-split.test.js"
+      ],
+      "requires": [
+        "Issue #164 the map and the declared shapes live in one file of their own",
+        "Issue #164 the autofix reference points at it once and carries the table no longer",
+        "Issue #164 the move frees the budget it was taken for",
+        "Issue #164 every clause pinned to a moved sentence names the file it moved to",
+        "Issue #164 CL-D83 records the split and what it did not change"
+      ]
+    },
+    {
+      "id": "CL-D84-map",
+      "marker": "CL-D84",
+      "title": "The map declares the packaged terminal cleanup",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "| Terminal cleanup of the run-owned linked workspace (CL-D84) | `workspace_cleanup_created` | `created` (data of `workspace_create`); the request is composed inside the package |"
+      ]
+    },
+    {
+      "id": "CL-D84-record",
+      "marker": "CL-D84",
+      "title": "CL-D84 records the packaged terminal cleanup and its limits",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D84 — The terminal cleanup is one packaged operation",
+      "requires": [
+        "tetsuh/pi-tidd-agents#161",
+        "`workspace_cleanup_created` takes `created`, the data of `workspace_create`, and nothing else",
+        "a refused cleanup removes nothing",
+        "Accepting another input, performing the cleanup anywhere but the repository the receipt states, or continuing a run past a refused cleanup requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D84-tests",
+      "marker": "CL-D84",
+      "title": "The packaged terminal cleanup is pinned by its own regression",
+      "files": [
+        "test/issue-161-terminal-cleanup.test.js"
+      ],
+      "requires": [
+        "Issue #161 the packaged terminal cleanup removes the workspace from the receipt alone",
+        "Issue #161 the parent supplies the created workspace and nothing else",
+        "Issue #161 a workspace it must not remove is refused, with the boundary it belongs to",
+        "Issue #161 the map and the record name the packaged terminal cleanup"
       ]
     }
   ]

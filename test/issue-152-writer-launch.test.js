@@ -12,9 +12,11 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
+const { createRequire } = require('node:module');
+const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, repoPath, sectionOf } = require('./helpers');
+const { readAutofixProcedure, readText, repoPath, sectionOf } = require('./helpers');
 
 const CREATED = Object.freeze({
   kind: 'linked',
@@ -110,15 +112,23 @@ const RECEIVER = path.join(os.homedir(), '.pi', 'agent', 'npm', 'node_modules', 
 // The minimum this package contracts (CL-D25). The surfaces these cases drive arrived after 0.36.0, and CL-D80's
 // `checkpointBeforeDeadlineMs` arrived in 0.68.0, so an install below the minimum is a refusal, never a skip: only a
 // missing package skips (ADV-158-RECEIVER-MINIMUM-DRIFT, owner decision on PR #158).
-const RECEIVER_MINIMUM = '0.69.0';
-const RECEIVER_SOURCES = ['src/extension/schemas.ts', 'src/extension/public-execution.ts', 'src/runs/shared/acceptance.ts'];
-const receiverSkip = fs.existsSync(path.join(RECEIVER, 'package.json'))
-  ? false
-  : 'pi-subagents is not installed in this environment';
+const RECEIVER_MINIMUM = '0.70.0';
+// The modules pi itself loads. 0.70.0 ships compiled JavaScript where 0.69.0 shipped TypeScript, so these are driven
+// from the installation directly rather than copied out and type-stripped (#160).
+const RECEIVER_MODULES = ['src/extension/schemas.js', 'src/extension/public-execution.js', 'src/runs/shared/acceptance.js'];
+// Absence is the installation root's own absence, observed without following a link: a root that is there but
+// carries no readable manifest is an installation this run cannot drive, and CL-D25 says that fails naming the
+// minimum rather than skipping (ADV-163-MISSING-MANIFEST-SKIPS).
+// Only absence is absence: a probe that fails for any other reason — a directory this process may not traverse, for
+// instance — is an installation that is there and cannot be driven, which fails naming the minimum
+// (ADV-163-ROOT-PROBE-ERROR-SKIPS).
+const receiverPresent = (() => {
+  try { fs.lstatSync(RECEIVER); return true; } catch (error) { return error.code !== 'ENOENT'; }
+})();
+const receiverSkip = receiverPresent ? false : 'pi-subagents is not installed in this environment';
 // Only an absent package skips (CL-D25, CL-D81). An installed receiver missing a source the run drives fails, and
 // fails naming the minimum: the copy that would throw a bare ENOENT is not attempted, and each case that drives the
 // receiver says which source is missing (ADV-158-INSTALLED-RECEIVER-SOURCE-SKIPS, ADV158D-BEFORE-HOOK-UNGUARDED).
-const receiverSources = () => RECEIVER_SOURCES.every((source) => fs.existsSync(path.join(RECEIVER, source)));
 // A manifest that cannot be read states no version, and a version that is not there is below every minimum: the state
 // is reported like any other unusable receiver rather than as a parser error (ADV158F-UNREADABLE-MANIFEST-OPAQUE).
 function installedVersion() {
@@ -126,12 +136,12 @@ function installedVersion() {
 }
 function requireReceiverSources() {
   const installed = installedVersion() ?? 'with an unreadable package.json';
-  for (const source of RECEIVER_SOURCES) {
-    assert.equal(fs.existsSync(path.join(RECEIVER, source)), true, `pi-subagents ${installed} carries no ${source}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
+  for (const module of RECEIVER_MODULES) {
+    assert.equal(fs.existsSync(path.join(RECEIVER, module)), true, `pi-subagents ${installed} carries no ${module}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
   }
 }
 
-// `0.69.0-rc1` is below `0.69.0`, and a version this cannot read is below everything: the comparison is fail-closed
+// `0.70.0-rc1` is below `0.70.0`, and a version this cannot read is below everything: the comparison is fail-closed
 // in both directions rather than producing NaN (ADV158D-PRERELEASE-NAN).
 function belowMinimum(version) {
   // SemVer 2.0.0: numeric identifiers without leading zeros, an optional dot-separated prerelease, and optional build
@@ -151,7 +161,7 @@ function belowMinimum(version) {
 
 test('Issue #152 an installed receiver below the contracted minimum is a failure, not a skip', { skip: receiverSkip }, () => {
   const installed = installedVersion();
-  assert.equal(belowMinimum(installed), false, `pi-subagents ${JSON.stringify(installed)} is below the contracted minimum ${RECEIVER_MINIMUM} (CL-D25)`);
+  assert.equal(belowMinimum(installed), false, `pi-subagents ${installed === undefined ? 'with no readable package.json' : JSON.stringify(installed)} is below the contracted minimum ${RECEIVER_MINIMUM} (CL-D25)`);
   requireReceiverSources();
 });
 
@@ -159,18 +169,18 @@ test('Issue #152 an installed receiver below the contracted minimum is a failure
 // pi-subagents is not installed — which is every CI run (ADV158E-TABLE-SKIPPED-IN-CI).
 test('Issue #152 the version comparison is SemVer precedence, and fail-closed', () => {
   for (const [version, below] of [
-    ['0.36.0', true], ['0.7.0', true], ['0.69.0', false], ['0.70.0', false], ['0.690.0', false], ['1.0.0', false], ['0.69.1', false],
+    ['0.36.0', true], ['0.7.0', true], ['0.69.0', true], ['0.69.9', true], ['0.70.0', false], ['0.700.0', false], ['1.0.0', false], ['0.70.1', false],
     // A prerelease is below its own release; a prerelease of a higher version is not below the minimum.
-    ['0.69.0-rc1', true], ['0.69.0-rc.1', true], ['0.69.0-0', true], ['0.69.1-rc1', false],
+    ['0.70.0-rc1', true], ['0.70.0-rc.1', true], ['0.70.0-0', true], ['0.70.1-rc1', false],
     // Build metadata carries no precedence at all, so it neither raises nor lowers a version
     // (ADV-158-SEMVER-BUILD-METADATA).
-    ['0.69.0+build.1', false], ['0.70.0+build.1', false], ['0.69.0+build-1', false], ['0.69.0-rc.1+build.1', true], ['0.36.0+build.1', true],
+    ['0.70.0+build.1', false], ['0.71.0+build.1', false], ['0.70.0+build-1', false], ['0.70.0-rc.1+build.1', true], ['0.36.0+build.1', true],
     // Not SemVer, so not readable, so below everything: the refusal side, which a widened pattern would quietly open
     // (ADV158E-PRERELEASE-CLASS-UNPINNED, ADV158E-BUILD-CLASS-UNPINNED, ADV158E-LEADING-ZERO-ACCEPTED).
-    [undefined, true], ['0.69', true], ['0.69.0+', true], ['0.69.0-', true], ['0.69.0+a+b', true], ['0.69.1-rc_1', true],
-    ['v0.69.0', true], [' 0.69.0', true], ['0.69.0\n', true], ['00.69.0', true], ['0.069.0', true], ['0.69.0+.', true],
+    [undefined, true], ['0.70', true], ['0.70.0+', true], ['0.70.0-', true], ['0.70.0+a+b', true], ['0.70.1-rc_1', true],
+    ['v0.70.0', true], [' 0.70.0', true], ['0.70.0\n', true], ['00.70.0', true], ['0.070.0', true], ['0.70.0+.', true],
     // A lone hyphen is a build identifier SemVer allows, so this one is readable and not below.
-    ['0.69.0+-', false],
+    ['0.70.0+-', false],
   ]) {
     assert.equal(belowMinimum(version), below, `${JSON.stringify(version)} against ${RECEIVER_MINIMUM}`);
   }
@@ -184,6 +194,7 @@ test('Issue #152 the contracted minimum is the one the package documents', () =>
   // the incomplete-sanitization shape CodeQL refuses (js/incomplete-sanitization, PR #158).
   assert.ok(record.includes(`The validated minimum is \`${RECEIVER_MINIMUM}\``), `CL-D25 must state ${RECEIVER_MINIMUM}`);
   assert.match(record, /`checkpointBeforeDeadlineMs` arrived in `0\.68\.0`/, 'the record states why the old minimum could not stand');
+  assert.match(record, /`0\.70\.0` ships compiled JavaScript where `0\.69\.0` shipped TypeScript/, 'the record states why the minimum moved again');
   const readme = readText('README.md');
   assert.ok(readme.includes(`**${RECEIVER_MINIMUM} or newer**`), `the README must require ${RECEIVER_MINIMUM} or newer`);
   // Not only the superseded minimum: any version the README names is a claim about what this package supports, and a
@@ -193,50 +204,47 @@ test('Issue #152 the contracted minimum is the one the package documents', () =>
   }
 });
 
-// Node refuses to strip types from a file under `node_modules`, and pi-subagents 0.69.0 ships TypeScript only, so the
-// receiver's own sources are copied out once and driven there. The copy is read only; the symlinked `node_modules`
-// resolves the receiver's own dependencies (`typebox`) exactly as pi resolves them.
-const DRIVER = `import { SubagentParams } from './src/extension/schemas.ts';
-import { normalizePublicSubagentExecution } from './src/extension/public-execution.ts';
-import { validateAcceptanceInput } from './src/runs/shared/acceptance.ts';
-import { Value } from 'typebox/value';
-const request = JSON.parse(process.argv[2]);
-const properties = SubagentParams.properties ?? {};
-const normalized = normalizePublicSubagentExecution(request);
-console.log(JSON.stringify({
-  declared: Object.keys(properties),
-  schema: { valid: Value.Check(SubagentParams, request), errors: [...Value.Errors(SubagentParams, request)].map((error) => error.message) },
-  normalized: normalized.ok === false ? { ok: false, error: normalized.error } : { ok: true, params: normalized.params },
-  acceptanceErrors: validateAcceptanceInput(request.acceptance),
-}));
-`;
-
-let receiverRoot;
-test.before(() => {
-  if (receiverSkip || !receiverSources()) return;
-  receiverRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-152-receiver-'));
-  fs.cpSync(path.join(RECEIVER, 'src'), path.join(receiverRoot, 'src'), { recursive: true });
-  fs.symlinkSync(path.dirname(RECEIVER), path.join(receiverRoot, 'node_modules'));
-  fs.writeFileSync(path.join(receiverRoot, 'driver.ts'), DRIVER);
-});
-test.after(() => { if (receiverRoot) fs.rmSync(receiverRoot, { recursive: true, force: true }); });
-
-// What the installed pi-subagents says about one launch request, from its own schema and validators.
-function askReceiver(request) {
-  const driver = spawnSync(process.execPath, [path.join(receiverRoot, 'driver.ts'), JSON.stringify(request)], { encoding: 'utf8', timeout: 120000 });
-  assert.equal(driver.status, 0, `the receiver's validators did not run: ${driver.error?.message ?? ''} ${driver.stderr}`);
-  // A driver that exits 0 with anything but its one JSON line has not answered, and must not be read as agreement.
-  try {
-    return JSON.parse(driver.stdout);
-  } catch (error) {
-    assert.fail(`the receiver's answer was not readable (${error.message}): ${JSON.stringify(driver.stdout.slice(0, 400))}`);
+// The receiver's own modules, loaded from the installation the run will use: no copy, no type stripping, no child
+// process. `typebox` is resolved through the receiver's own manifest, so this package assumes no dependency of its
+// own (#160).
+let receiverApi;
+async function receiver() {
+  if (!receiverApi) {
+    // Loaded one at a time, and every failure named: a receiver that cannot be driven says so with the minimum, and
+    // no import is left in flight to land after the case ends (ADV160-LOADER-ORPHANS-ON-RESOLVE-FAILURE).
+    const unusable = (what, error) => assert.fail(`the installed pi-subagents ${installedVersion() ?? 'with an unreadable package.json'} ${what}${error ? `: ${error.message}` : ''}; the contracted minimum is ${RECEIVER_MINIMUM} (CL-D25)`);
+    const load = async (relative) => {
+      try { return await import(pathToFileURL(path.join(RECEIVER, relative)).href); } catch (error) { return unusable(`cannot load ${relative}`, error); }
+    };
+    const [schemas, execution, acceptance] = [await load(RECEIVER_MODULES[0]), await load(RECEIVER_MODULES[1]), await load(RECEIVER_MODULES[2])];
+    let typebox;
+    try {
+      typebox = await import(pathToFileURL(createRequire(path.join(RECEIVER, 'package.json')).resolve('typebox/value')).href);
+    } catch (error) { return unusable('cannot resolve its own typebox', error); }
+    const api = { SubagentParams: schemas.SubagentParams, normalize: execution.normalizePublicSubagentExecution, validateAcceptanceInput: acceptance.validateAcceptanceInput, Value: typebox.Value };
+    // A dynamic import yields a namespace, so a renamed export is `undefined` rather than a link error.
+    for (const [name, value] of Object.entries(api)) if (value === undefined) unusable(`exports no ${name}`);
+    receiverApi = api;
   }
+  return receiverApi;
 }
 
-test('Issue #152 the receiver accepts the built request, and its schema declares every key', { skip: receiverSkip }, () => {
+// What the installed pi-subagents says about one launch request, from its own schema and validators.
+async function askReceiver(request) {
+  const { SubagentParams, normalize, validateAcceptanceInput, Value } = await receiver();
+  const normalized = normalize(request);
+  return {
+    declared: Object.keys(SubagentParams.properties ?? {}),
+    schema: { valid: Value.Check(SubagentParams, request), errors: [...Value.Errors(SubagentParams, request)].map((error) => error.message) },
+    normalized: normalized.ok === false ? { ok: false, error: normalized.error } : { ok: true, params: normalized.params },
+    acceptanceErrors: validateAcceptanceInput(request.acceptance),
+  };
+}
+
+test('Issue #152 the receiver accepts the built request, and its schema declares every key', { skip: receiverSkip }, async () => {
   requireReceiverSources();
   const request = build({}).data.request;
-  const answer = askReceiver(request);
+  const answer = await askReceiver(request);
   // The declared names come from the receiver's schema object; the validation below runs that schema over the request.
   assert.ok(answer.declared.includes('agent') && answer.declared.includes('task') && answer.declared.includes('cwd'), 'the receiver schema was loaded, not guessed');
   for (const key of Object.keys(request)) assert.equal(answer.declared.includes(key), true, `the receiver declares ${key}`);
@@ -247,39 +255,39 @@ test('Issue #152 the receiver accepts the built request, and its schema declares
   assert.deepEqual(answer.normalized.params, { ...request, output: true });
 });
 
-test('Issue #152 the receiver schema is run, not merely read', { skip: receiverSkip }, () => {
+test('Issue #152 the receiver schema is run, not merely read', { skip: receiverSkip }, async () => {
   requireReceiverSources();
   // `SubagentParams` declares no `additionalProperties: false`, and `normalizePublicSubagentExecution` type-checks
   // only a few fields, so reading the declared names alone would accept a request with every value wrong
   // (ADV-152-RECEIVER-SCHEMA-NOT-DRIVEN). The schema itself is what refuses this one.
   const wrong = { ...build({}).data.request, context: 'bogus', async: 'yes', outputMode: 'nope', timeoutMs: '3600000', checkpointBeforeDeadlineMs: -5 };
-  const answer = askReceiver(wrong);
+  const answer = await askReceiver(wrong);
   assert.equal(answer.normalized.ok, true, 'the normalizer alone accepts it, which is why the schema is run');
   assert.deepEqual(answer.acceptanceErrors, [], 'the acceptance validator alone accepts it too');
   assert.equal(answer.schema.valid, false, JSON.stringify(answer.schema));
   assert.equal(answer.schema.errors.length, 5, JSON.stringify(answer.schema.errors));
 });
 
-test('Issue #152 the receiver refuses what the parent composed by hand', { skip: receiverSkip }, () => {
+test('Issue #152 the receiver refuses what the parent composed by hand', { skip: receiverSkip }, async () => {
   requireReceiverSources();
   const request = build({}).data.request;
   // PR #149 run 1: `preflight` beside a one-child launch. The builder emits no such key; here the receiver says why.
-  const withPreflight = askReceiver({ ...request, preflight: { lanes: [] } });
+  const withPreflight = await askReceiver({ ...request, preflight: { lanes: [] } });
   assert.deepEqual([withPreflight.normalized.ok, withPreflight.normalized.error], [false, 'preflight requires workflowScript or workflowScriptPath.']);
   // Issue #150: an evidence kind pi-subagents does not know. The builder emits `acceptance: false`, which it accepts.
-  const invented = askReceiver({ ...request, acceptance: { level: 'checked', evidence: ['tests-pass'] } });
+  const invented = await askReceiver({ ...request, acceptance: { level: 'checked', evidence: ['tests-pass'] } });
   assert.equal(invented.acceptanceErrors.length, 1, JSON.stringify(invented.acceptanceErrors));
   assert.match(invented.acceptanceErrors[0], /^acceptance\.evidence\[0\] "tests-pass" is not a supported evidence kind\./);
-  assert.deepEqual(askReceiver(request).acceptanceErrors, [], 'the built request is the control for both refusals');
+  assert.deepEqual((await askReceiver(request)).acceptanceErrors, [], 'the built request is the control for both refusals');
 });
 
-test('Issue #152 the receiver refuses the built request with its required field removed', { skip: receiverSkip }, () => {
+test('Issue #152 the receiver refuses the built request with its required field removed', { skip: receiverSkip }, async () => {
   requireReceiverSources();
   // Of the fields the builder emits, `agent` is the one the receiver itself requires; the rest are optional there, so
   // the exact key set above is what fails when one of them is dropped. Measured, not assumed.
   const { agent, ...withoutAgent } = build({}).data.request;
   assert.equal(agent, 'tidd-autofix-worker');
-  const answer = askReceiver(withoutAgent);
+  const answer = await askReceiver(withoutAgent);
   assert.deepEqual([answer.normalized.ok, answer.normalized.error], [false, 'Structured single-child execution requires agent to be a non-empty string.']);
 });
 
@@ -295,7 +303,7 @@ function cli(operation, data, env = {}) {
   return JSON.parse(run.stdout);
 }
 
-function withCreatedWorkspace(run) {
+async function withCreatedWorkspace(run) {
   const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' } }).trim();
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-152-repo-'));
   const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-152-origin-'));
@@ -307,14 +315,14 @@ function withCreatedWorkspace(run) {
     git(bare, ['init', '--bare']); git(root, ['remote', 'add', 'origin', bare]); git(root, ['push', '-q', 'origin', 'main']);
     const created = cli('workspace_create', { cwd: root, head: git(root, ['rev-parse', 'HEAD']), tree: git(root, ['rev-parse', 'HEAD^{tree}']) }, { TMPDIR: parent, TEMP: parent, TMP: parent });
     assert.equal(created.ok, true, JSON.stringify(created.error));
-    run(created.data);
+    await run(created.data);
   } finally {
     for (const dir of [parent, root, bare]) fs.rmSync(dir, { recursive: true, force: true });
   }
 }
 
-test('Issue #152 the packaged CLI builds the launch from a workspace the CLI created', () => {
-  withCreatedWorkspace((created) => {
+test('Issue #152 the packaged CLI builds the launch from a workspace the CLI created', async () => {
+  await withCreatedWorkspace(async (created) => {
     const built = cli('build_writer_launch', { created, task: TASK });
     assert.equal(built.ok, true, JSON.stringify(built.error));
     // Producer output, not a fixture: the request the CLI returns is the one the builder emits for it.
@@ -324,7 +332,7 @@ test('Issue #152 the packaged CLI builds the launch from a workspace the CLI cre
     assert.equal(built.data.request.acceptance, false);
     if (!receiverSkip) {
       requireReceiverSources();
-      const answer = askReceiver(built.data.request);
+      const answer = await askReceiver(built.data.request);
       assert.deepEqual([answer.schema.valid, answer.normalized.ok, answer.acceptanceErrors], [true, true, []], JSON.stringify(answer));
     }
   });
@@ -384,8 +392,8 @@ test('Issue #152 an installed receiver missing its sources fails naming the mini
       encoding: 'utf8', timeout: 300000, cwd: repoPath('.'), env,
     });
     assert.notEqual(child.status, 0, `the fixture run must fail: ${child.stdout.slice(-400)}`);
-    assert.match(child.stdout, /is below the contracted minimum 0\.69\.0 \(CL-D25\)/, 'the version is reported against the minimum');
-    assert.match(child.stdout, /carries no src\/extension\/schemas\.ts; the contracted minimum is 0\.69\.0 \(CL-D25\)/, 'each receiver case names the missing source');
+    assert.match(child.stdout, /is below the contracted minimum 0\.70\.0 \(CL-D25\)/, 'the version is reported against the minimum');
+    assert.match(child.stdout, /carries no src\/extension\/schemas\.js; the contracted minimum is 0\.70\.0 \(CL-D25\)/, 'each receiver case names the missing module');
     // Nothing skipped but this case, which the child was told to leave alone.
     const skipped = Number(/^# skipped (\d+)$/m.exec(child.stdout)?.[1]);
     assert.equal(skipped, 1, `only the fixture case may be skipped: ${child.stdout.slice(-400)}`);
@@ -400,12 +408,59 @@ test('Issue #152 an installed receiver missing its sources fails naming the mini
       encoding: 'utf8', timeout: 300000, env,
     });
     assert.notEqual(corrupt.status, 0, 'an unreadable manifest fails the run');
-    assert.match(corrupt.stdout, /is below the contracted minimum 0\.69\.0 \(CL-D25\)/, 'an unreadable manifest is reported against the minimum');
+    assert.match(corrupt.stdout, /is below the contracted minimum 0\.70\.0 \(CL-D25\)/, 'an unreadable manifest is reported against the minimum');
     assert.doesNotMatch(corrupt.stdout, /SyntaxError/, `no parser error reaches the report: ${corrupt.stdout.slice(-400)}`);
+
+    // A receiver whose module files exist but whose dependencies do not: the presence check passes and the loader is
+    // what must name the state, with nothing left in flight to land after the case ends
+    // (ADV160-LOADER-ORPHANS-ON-RESOLVE-FAILURE).
+    fs.writeFileSync(path.join(fake, 'package.json'), JSON.stringify({ name: 'pi-subagents', version: '0.70.0' }));
+    for (const module of RECEIVER_MODULES) {
+      fs.mkdirSync(path.join(fake, path.dirname(module)), { recursive: true });
+      fs.writeFileSync(path.join(fake, module), 'export const nothing = 1;' + String.fromCharCode(10));
+    }
+    const undrivable = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
+      encoding: 'utf8', timeout: 300000, env,
+    });
+    assert.notEqual(undrivable.status, 0, 'a receiver that cannot be driven fails the run');
+    assert.match(undrivable.stdout, /cannot resolve its own typebox/, `the loader names the state: ${undrivable.stdout.slice(-400)}`);
+    assert.match(undrivable.stdout, /the contracted minimum is 0\.70\.0 \(CL-D25\)/, 'and names the minimum with it');
+    assert.doesNotMatch(undrivable.stdout, /unhandledRejection|asynchronous activity after the test ended/, `no import is left in flight: ${undrivable.stdout.slice(-400)}`);
+
+    // An installation root that is there and carries no manifest at all: present, unusable, and reported as such
+    // rather than treated as absent (ADV-163-MISSING-MANIFEST-SKIPS).
+    fs.rmSync(fake, { recursive: true, force: true });
+    fs.mkdirSync(fake, { recursive: true });
+    const manifestless = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
+      encoding: 'utf8', timeout: 300000, env,
+    });
+    assert.notEqual(manifestless.status, 0, 'a present installation root without a manifest fails the run');
+    assert.match(manifestless.stdout, /pi-subagents with no readable package\.json is below the contracted minimum 0\.70\.0 \(CL-D25\)/, `the state is named: ${manifestless.stdout.slice(-400)}`);
+    assert.equal(Number(/^# skipped (\d+)$/m.exec(manifestless.stdout)?.[1]), 1, 'only the fixture case may be skipped');
+
+    // A root this process cannot even look at: present, unusable, and not absence
+    // (ADV-163-ROOT-PROBE-ERROR-SKIPS). If the process can read through a mode-0 directory, as root can, the
+    // condition cannot be built here and the case says so rather than passing quietly.
+    const enclosing = path.dirname(fake);
+    fs.chmodSync(enclosing, 0o000);
+    let probe;
+    try { fs.lstatSync(fake); } catch (error) { probe = error.code; }
+    try {
+      if (probe !== 'EACCES') {
+        assert.equal(probe, undefined, `unexpected probe error ${probe}`);
+      } else {
+        const unreadable = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
+          encoding: 'utf8', timeout: 300000, env,
+        });
+        assert.notEqual(unreadable.status, 0, 'a root that cannot be probed fails the run');
+        assert.match(unreadable.stdout, /is below the contracted minimum 0\.70\.0 \(CL-D25\)/, `the state is named: ${unreadable.stdout.slice(-400)}`);
+        assert.equal(Number(/^# skipped (\d+)$/m.exec(unreadable.stdout)?.[1]), 1, 'only the fixture case may be skipped');
+      }
+    } finally { fs.chmodSync(enclosing, 0o700); }
   } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });
 
 test('Issue #152 the map states that the builder composes the writer launch', () => {
-  const map = readText('skills/closed-loop-pr/references/autofix.md');
+  const map = readAutofixProcedure();
   assert.match(map, /\| Construct the writer launch from the workspace the run created \(CL-D81\) \| `build_writer_launch` \| `created` \(data of `workspace_create`\), `task` \|/);
 });
