@@ -4165,8 +4165,8 @@
         "Issue #159 a child sent to the workspace is given no path it must resolve there",
         "Issue #159 the workspace must satisfy the declared shape, and an unusable path is refused",
         "Issue #159 what the screens do not judge is stated, not assumed",
+        "Issue #159 the builder and the packaged CLI answer every CL-D82 path the same way",
         "Issue #159 the parent cannot add a field to the built gate launch",
-        "Issue #159 the packaged CLI carries the workspace into the gate launch",
         "Issue #159 the receiver accepts the cwd the gate launch now carries",
         "Issue #159 the procedure states where each mode runs its gates"
       ]

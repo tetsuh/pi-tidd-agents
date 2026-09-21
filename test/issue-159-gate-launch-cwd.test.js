@@ -180,19 +180,56 @@ test('Issue #159 the parent cannot add a field to the built gate launch', () => 
   });
 });
 
-test('Issue #159 the packaged CLI carries the workspace into the gate launch', () => {
+// Every CL-D82 path, through both interfaces a parent can use: the builder in process, and the packaged CLI the run
+// actually invokes (CL-D30). One table, two drivers, and the same answer required of each
+// (ADV-167-CLI-PATH-COVERAGE).
+const NUL = String.fromCharCode(0);
+function cl82Cases(data) {
+  const created = CREATED;
+  const clone = { kind: 'clone', path: '/tmp/pi-autofix-helper-test/clone', root: '/tmp/pi-autofix-helper-test', head: OID, tree: 'b'.repeat(40), cleanupAllowed: false, retained: true, fallbackReason: 'linked_unavailable' };
+  const fabricated = { kind: 'linked', path: '/tmp/not-a-run/workspace', root: '/tmp/not-a-run', head: OID, tree: 'b'.repeat(40), cleanupAllowed: true, receipt: {} };
+  const withPath = (path) => ({ ...created, path });
+  return [
+    ['autofix with its workspace', { ...data, created }, { ok: true, cwd: created.path }],
+    ['autofix without it', { ...data }, { ok: false, code: 'invalid_request', phase: 'build' }],
+    ['review-only without one', { ...data, volatile: completeVolatile('adversarial', 'review-only') }, { ok: true, cwd: undefined }],
+    ['review-only carrying one', { ...data, volatile: completeVolatile('adversarial', 'review-only'), created }, { ok: false, code: 'invalid_request', phase: 'build' }],
+    ['a clone fallback', { ...data, created: clone }, { ok: false, code: 'invalid_request', phase: 'build' }],
+    // The declared-shape check runs at the request boundary, so the CLI names the operation as the phase where the
+    // builder names `build`; the refusal is the same one.
+    ['a workspace that is not producer-shaped', { ...data, created: { path: '/tmp/w' } }, { ok: false, code: 'input_shape_mismatch', phase: 'build', cliPhase: 'build_gate_launch' }],
+    ['a NUL in the path', { ...data, created: withPath(`/tmp/w${NUL}x`) }, { ok: false, code: 'invalid_request', phase: 'build' }],
+    ['a lone surrogate in the path', { ...data, created: withPath('/tmp/w\ud800') }, { ok: false, code: 'invalid_request', phase: 'build' }],
+    ['a relative path', { ...data, created: withPath('relative/w') }, { ok: false, code: 'invalid_request', phase: 'build' }],
+    ['a tab in the path', { ...data, created: withPath(`/tmp/w${String.fromCharCode(9)}x`) }, { ok: true, cwd: `/tmp/w${String.fromCharCode(9)}x` }],
+    ['a line feed in the path', { ...data, created: withPath(`/tmp/w${String.fromCharCode(10)}x`) }, { ok: true, cwd: `/tmp/w${String.fromCharCode(10)}x` }],
+    ['a fabricated workspace', { ...data, created: fabricated }, { ok: true, cwd: fabricated.path }],
+    ['a relative expectationPath beside a workspace', { ...data, created, expectationPath: 'relative.json' }, { ok: false, code: 'invalid_request', phase: 'build' }],
+    // The CLI's own input table refuses an unknown field before the builder sees it, so the phase differs by design.
+    ['an unknown field', { ...data, created, model: 'sol' }, { ok: false, code: 'invalid_request', phase: 'build', cliPhase: 'cli' }],
+  ];
+}
+
+test('Issue #159 the builder and the packaged CLI answer every CL-D82 path the same way', () => {
   withExpectationFile('adversarial', (data) => {
-    const run = (extra) => {
-      const result = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation: 'build_gate_launch', data: { ...data, ...extra } }), encoding: 'utf8' });
+    const cli = (input) => {
+      const result = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation: 'build_gate_launch', data: input }), encoding: 'utf8' });
+      assert.match(result.stdout, /^\{"version":1,/, `the CLI did not answer: ${result.stderr}`);
       return JSON.parse(result.stdout);
     };
-    const withWorkspace = run({ created: CREATED });
-    assert.equal(withWorkspace.ok, true, JSON.stringify(withWorkspace.error));
-    assert.equal(withWorkspace.data.request.cwd, CREATED.path);
-    // The same CLI, the same request without the workspace: refused, because the envelope says autofix.
-    const without = run({});
-    assert.deepEqual([without.ok, without.error?.code], [false, 'invalid_request'], JSON.stringify(without));
-    // The CLI's own input table names it optional, beside the three CL-D68 inputs.
+    for (const [label, input, expected] of cl82Cases(data)) {
+      for (const [driver, answer, phase] of [['builder', helpers.buildGateLaunch(input), expected.phase], ['CLI', cli(input), expected.cliPhase ?? expected.phase]]) {
+        assert.equal(answer.ok, expected.ok, `${label} via the ${driver}: ${JSON.stringify(answer.error ?? answer.data?.request?.cwd)}`);
+        if (expected.ok) {
+          assert.equal(answer.data.request.cwd, expected.cwd, `${label} via the ${driver}: the cwd`);
+          const keys = ['acceptance', 'agent', 'async', 'context', 'outputMode', 'outputSchema', 'task'];
+          assert.deepEqual(Object.keys(answer.data.request).sort(), expected.cwd === undefined ? keys : [...keys, 'cwd'].sort(), `${label} via the ${driver}: the key set`);
+        } else {
+          assert.deepEqual([answer.error.code, answer.error.phase], [expected.code, phase], `${label} via the ${driver}: ${JSON.stringify(answer.error)}`);
+        }
+      }
+    }
+    // The CLI's own input table names the workspace beside the three CL-D68 inputs.
     assert.deepEqual(cliSchemas().build_gate_launch, ['expectation', 'expectationPath', 'volatile']);
     assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /build_gate_launch: \{ required: \['expectation', 'expectationPath', 'volatile'\], optional: \['created'\] \}/);
   });
