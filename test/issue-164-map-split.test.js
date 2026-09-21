@@ -31,13 +31,12 @@ test('Issue #164 the map and the declared shapes live in one file of their own',
   assert.ok(map.includes('no retry beyond the CL-D39 recovery defined above'), 'the migrated sentence is unchanged');
 });
 
-// The whole moved block, not a sentence of it. `MOVED_RULE_TEXT_SHA256` is the digest of the rule text of lines
-// 28-84 of `references/autofix.md` as they stood before the split — every byte of it, and not the blank line that
-// separated the next section there, because a file may not end in one: `git diff --check` refuses a new blank line
-// at EOF, and the owner settled that EOF normalization is not a change to a rule (CONV-165-VERBATIM-002, and the
-// validation blocker it caused). The map grows by design, so a commit that adds a row updates this digest in the
-// same commit and says so; the point is that no edit to the moved text can pass unnoticed.
-const MOVED_RULE_TEXT_SHA256 = '806f52664b512a34c4ab9d34c9175040d2af9c5847ae369770e032ea53b6ca1e';
+// The whole map, not a sentence of it. At the split (CL-D83) this digest was the moved rule text byte for byte,
+// 12,813 bytes of lines 28-84 of `references/autofix.md` without the blank line that separated the next section
+// there, because a file may not end in one and `git diff --check` refuses a new blank line at EOF. The map grows by
+// design, so a commit that adds a row updates this digest in the same commit and says which row it added; the point
+// is that no edit to this text can pass unnoticed. Last updated by CL-D82's `created` row (#159).
+const MOVED_RULE_TEXT_SHA256 = '9c65798d26e8bcb04360bb6e02d3da4ea2006018eea0f5c186f0d801bf0d30ff';
 
 test('Issue #164 the moved rule text is the moved rule text, byte for byte', () => {
   const map = readText(MAP);
@@ -46,7 +45,7 @@ test('Issue #164 the moved rule text is the moved rule text, byte for byte', () 
   const moved = map.slice(start);
   assert.equal(moved.endsWith(String.fromCharCode(10)), true, 'the file ends with one newline');
   assert.equal(moved.endsWith(String.fromCharCode(10, 10)), false, 'and not with a blank line, which validation refuses');
-  assert.equal(Buffer.byteLength(moved), 12813, 'the moved rule text is the size it was moved at');
+  assert.equal(Buffer.byteLength(moved), 12871, 'the map is the size this commit left it');
   assert.equal(crypto.createHash('sha256').update(moved).digest('hex'), MOVED_RULE_TEXT_SHA256, 'and byte for byte the same');
 });
 
