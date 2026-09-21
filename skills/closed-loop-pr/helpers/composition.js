@@ -18,6 +18,8 @@ const INPUT_SHAPES = Object.freeze({
   operator_revalidate: Object.freeze({ captured: 'envelope:operator_capture' }),
   workspace_verify: Object.freeze({ expected: 'data:workspace_create' }),
   workspace_cleanup: Object.freeze({ receipt: 'receipt:workspace_create' }),
+  // CL-D84: the terminal cleanup's only input is the creation result itself.
+  workspace_cleanup_created: Object.freeze({ created: 'data:workspace_create' }),
   fingerprint_snapshot: Object.freeze({ snapshot: 'data:snapshot' }),
   gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),
   // CL-D68: the composer's cross-operation field, the data of build_gate_expectation.
