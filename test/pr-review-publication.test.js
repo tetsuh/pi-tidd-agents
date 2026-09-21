@@ -446,6 +446,26 @@ test('Issue #149 rejects a unit-separator collision across identity reads before
   assert.equal(fs.existsSync(f.posted), false);
 });
 
+test('Issue #149 rejects a NUL-removal collision across identity reads before POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REPO: 'ownerrepo',
+    GH_HEAD_REPO_JSON_SECOND: '"owner\\u0000repo"',
+  }), /control character|identity/);
+  assert.equal(callCount(f), 4, 'the NUL-bearing second identity is refused before POST');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #149 rejects a trailing-LF collision across identity reads before POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REF: 'feature',
+    GH_HEAD_REF_JSON_SECOND: '"feature\\n"',
+  }), /control character|identity/);
+  assert.equal(callCount(f), 4, 'the trailing-LF second identity is refused before POST');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
 test('Issue #141 rejects a malformed base OID', () => {
   const f = fixture();
   assert.throws(() => runPublisher(f, { GH_BASE: 'not-an-oid' }));
