@@ -42,8 +42,8 @@ async function withCreatedWorkspace(run) {
   }
 }
 
-test('Issue #161 the packaged terminal cleanup removes the workspace from the receipt alone', () => {
-  withCreatedWorkspace(({ created }) => {
+test('Issue #161 the packaged terminal cleanup removes the workspace from the receipt alone', async () => {
+  await withCreatedWorkspace(async ({ created }) => {
     assert.equal(fs.existsSync(created.path), true, 'the workspace exists before the cleanup');
     const cleaned = cli('workspace_cleanup_created', { created });
     assert.equal(cleaned.ok, true, JSON.stringify(cleaned.error));
@@ -58,8 +58,8 @@ test('Issue #161 the packaged terminal cleanup removes the workspace from the re
   });
 });
 
-test('Issue #161 the parent supplies the created workspace and nothing else', () => {
-  withCreatedWorkspace(({ created, root }) => {
+test('Issue #161 the parent supplies the created workspace and nothing else', async () => {
+  await withCreatedWorkspace(async ({ created, root }) => {
     // The failure this closes: PR #149's run added a `cwd`, which CL-D76 refuses, and the run ended there.
     for (const [label, data] of [
       ['a cwd beside it', { created, cwd: root }],
@@ -95,10 +95,10 @@ test('Issue #161 a cwd beside the workspace is refused in process, not overridde
   });
 });
 
-test('Issue #161 a workspace that is not workspace_create data is refused by the declared shape', () => {
+test('Issue #161 a workspace that is not workspace_create data is refused by the declared shape', async () => {
   // The CL-D44 entry is the reason a hand-assembled document cannot reach the cleanup; every one of these is the
   // declared-shape refusal, and none of them removes anything (ADV161-SHAPE-REFUSAL-UNTESTED).
-  withCreatedWorkspace(({ created }) => {
+  await withCreatedWorkspace(async ({ created }) => {
     const envelope = { version: 1, ok: true, operation: 'workspace_create', data: created };
     for (const [label, value] of [
       ['an empty object', {}],
@@ -115,11 +115,11 @@ test('Issue #161 a workspace that is not workspace_create data is refused by the
   });
 });
 
-test('Issue #161 a cleanup the identity rules refuse removes nothing, and names what it saw', () => {
+test('Issue #161 a cleanup the identity rules refuse removes nothing, and names what it saw', async () => {
   // The refusals above are build-phase, before any removal code runs. This one reaches the cleanup itself: the
   // workspace's origin is moved, so the identity reverification fails where the removal would have happened
   // (ADV161-REFUSAL-ONE-LAYER-EARLY).
-  withCreatedWorkspace(({ created, root }) => {
+  await withCreatedWorkspace(async ({ created, root }) => {
     const git = (cwd, args) => execFileSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' } }).trim();
     git(root, ['remote', 'set-url', 'origin', temp('issue-161-elsewhere-')]);
     const refused = cli('workspace_cleanup_created', { created });
@@ -131,8 +131,8 @@ test('Issue #161 a cleanup the identity rules refuse removes nothing, and names 
   });
 });
 
-test('Issue #161 a workspace it must not remove is refused, with the boundary it belongs to', () => {
-  withCreatedWorkspace(({ created }) => {
+test('Issue #161 a workspace it must not remove is refused, with the boundary it belongs to', async () => {
+  await withCreatedWorkspace(async ({ created }) => {
     const clone = { kind: 'clone', path: created.path, root: created.root, head: created.head, tree: created.tree, cleanupAllowed: false, retained: true, fallbackReason: 'linked_unavailable' };
     const refusedClone = cli('workspace_cleanup_created', { created: clone });
     assert.deepEqual([refusedClone.ok, refusedClone.error.code, refusedClone.error.phase], [false, 'invalid_request', 'build'], JSON.stringify(refusedClone.error));
