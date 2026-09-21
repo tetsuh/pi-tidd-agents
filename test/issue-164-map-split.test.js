@@ -25,6 +25,9 @@ test('Issue #164 the map and the declared shapes live in one file of their own',
   assert.ok(map.includes('### Packaged helper invocation map (CL-D30, Issue #47)'), 'the map section moved');
   assert.ok(map.includes('### Cross-operation input shapes (CL-D44)'), 'the declared shapes moved with it');
   assert.ok(map.includes('| Phase | Operation | Required data |'), 'the table itself is here');
+  // The move is byte-preserving, so a sentence that reads as a location — the one the composed reading places after
+  // `autofix.md`, where CL-D39 is defined — keeps its own words (ADV-165-UNCHANGED-001).
+  assert.ok(map.includes('no retry beyond the CL-D39 recovery defined above'), 'the migrated sentence is unchanged');
 });
 
 test('Issue #164 the autofix reference points at it once and carries the table no longer', () => {

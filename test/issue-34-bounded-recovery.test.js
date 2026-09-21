@@ -170,8 +170,7 @@ test('Issue #34 the stop rule keeps its wording and names its exceptions', () =>
   const text = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above and the CL-D51 zero-output relaunch\./);
   // The invocation-map sentence must not contradict the recovery it now defers to.
-  // The map is its own reference since CL-D83, so the sentence names the file that defines the recovery.
-  assert.match(text, /no retry beyond the CL-D39 recovery `references\/autofix\.md` defines/);
+  assert.match(text, /no retry beyond the CL-D39 recovery defined above/);
   // The recovery section really is above the stop rule.
   assert.ok(text.indexOf('### Bounded pre-writer recovery (CL-D39)') < text.indexOf('except for the CL-D39 recovery defined above'));
 });
