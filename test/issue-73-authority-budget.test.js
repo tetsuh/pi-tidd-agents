@@ -63,6 +63,11 @@ test('Issue #73 the live measurements sit inside the raised guards', () => {
   const addendumBytes = fs.statSync(repoPath('skills/closed-loop-pr/references/autofix-addendum.md')).size;
   const largest = AUTHORITY_FILES.map((file) => fs.statSync(repoPath(file)).size).sort((a, b) => b - a);
   assert.equal(addendumBytes === largest[0] || addendumBytes === largest[1], true, 'the addendum is expected to be among the two largest authority files');
+  // CL-D83 moved the invocation map into `references/helper-map.md`, which is measured with the rest. It has no
+  // ceiling of its own: it is bounded by the aggregate above and by this rule, which keeps the addendum among the
+  // two largest, so the map may grow until it would displace the addendum — the same signal, one file later.
+  const mapBytes = fs.statSync(repoPath('skills/closed-loop-pr/references/helper-map.md')).size;
+  assert.ok(mapBytes < addendumBytes, `helper-map.md ${mapBytes} must stay under the addendum ${addendumBytes}, or the split has to happen again`);
 });
 
 test('Issue #73 CL-D43 records what the guards protect and when raising is wrong', () => {

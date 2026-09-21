@@ -38,7 +38,8 @@ test('Issue #164 the move frees the budget it was taken for', () => {
   const size = (file) => fs.statSync(repoPath(file)).size;
   const addendum = size('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.ok(size(AUTOFIX) < addendum - 5000, `autofix.md ${size(AUTOFIX)} must sit well under the addendum ${addendum} again`);
-  assert.ok(size(MAP) < addendum, 'the new file is not the largest either');
+  // What the new file may grow to is a budget rule, and the budget rules are stated together in
+  // test/issue-73-authority-budget.test.js (ADV-165-CEILING-002).
 });
 
 test('Issue #164 every clause pinned to a moved sentence names the file it moved to', () => {
