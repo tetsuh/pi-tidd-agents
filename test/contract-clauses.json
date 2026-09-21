@@ -4147,6 +4147,7 @@
         "tetsuh/pi-tidd-agents#159",
         "an `autofix` launch without the workspace is refused, and a `review-only` launch carrying one is refused, each at phase `build`",
         "a clone fallback is retained and never entered",
+        "Those three screens are the whole of it, and what the builder judges is structure",
         "The regression drives the installed pi-subagents over the built request, as CL-D81's does, and dropping that check requires a new owner decision",
         "Requiring the workspace, supplying a cwd in review-only, or accepting a workspace the builder does not screen requires a new owner decision"
       ]
@@ -4162,7 +4163,8 @@
         "Issue #159 a gate launch built with the created workspace runs in it",
         "Issue #159 a review-only gate launch carries no cwd, and an autofix one may not omit it",
         "Issue #159 a child sent to the workspace is given no path it must resolve there",
-        "Issue #159 the workspace the builder takes is producer output, and a written one is refused",
+        "Issue #159 the workspace must satisfy the declared shape, and an unusable path is refused",
+        "Issue #159 what the screens do not judge is stated, not assumed",
         "Issue #159 the parent cannot add a field to the built gate launch",
         "Issue #159 the packaged CLI carries the workspace into the gate launch",
         "Issue #159 the receiver accepts the cwd the gate launch now carries",

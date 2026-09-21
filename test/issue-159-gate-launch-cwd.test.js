@@ -117,7 +117,7 @@ test('Issue #159 a child sent to the workspace is given no path it must resolve 
   }, 'review-only');
 });
 
-test('Issue #159 the workspace the builder takes is producer output, and a written one is refused', () => {
+test('Issue #159 the workspace must satisfy the declared shape, and an unusable path is refused', () => {
   withExpectationFile('adversarial', (data) => {
     // A clone as `workspace_create` returns it carries no `receipt` key at all; spelling it `receipt: undefined`
     // leaves an own key, and the declared shape then refuses the object one layer before the builder's clone rule,
@@ -137,6 +137,30 @@ test('Issue #159 the workspace the builder takes is producer output, and a writt
     for (const candidate of ['relative/workspace', `/tmp/w${String.fromCharCode(0)}`, '/tmp/w\ud800']) {
       const refused = helpers.buildGateLaunch({ ...data, created: { ...CREATED, path: candidate } });
       assert.deepEqual([refused.ok, refused.error?.code], [false, 'invalid_request'], JSON.stringify(candidate));
+    }
+  });
+});
+
+test('Issue #159 what the screens do not judge is stated, not assumed', () => {
+  // CL-D44 says an object constructed by hand to satisfy a declared predicate passes: detecting fabricated producer
+  // output is outside this boundary. The three screens are the whole of what CL-D82 adds, so the residual is pinned
+  // here rather than left to be discovered as a surprise (DEC-PR167-WORKSPACE-INPUT-CLAIMS, option A).
+  withExpectationFile('adversarial', (data) => {
+    const fabricated = { kind: 'linked', path: '/tmp/not-a-run/workspace', root: '/tmp/not-a-run', head: OID, tree: 'b'.repeat(40), cleanupAllowed: true, receipt: {} };
+    const built = helpers.buildGateLaunch({ ...data, created: fabricated });
+    assert.equal(built.ok, true, `a hand-made workspace that satisfies the shape passes: ${JSON.stringify(built.error)}`);
+    assert.equal(built.data.request.cwd, fabricated.path);
+    // And the screens are the three the record names, not a control-character class: a tab or a line feed inside an
+    // absolute path is emitted as given, because nothing here interpolates the cwd into text.
+    for (const control of [String.fromCharCode(9), String.fromCharCode(10)]) {
+      const odd = helpers.buildGateLaunch({ ...data, created: { ...CREATED, path: `/tmp/w${control}x` } });
+      assert.equal(odd.ok, true, `${JSON.stringify(control)}: ${JSON.stringify(odd.error)}`);
+      assert.equal(odd.data.request.cwd, `/tmp/w${control}x`);
+    }
+    // The three that are screened stay screened.
+    for (const path of [`/tmp/w${String.fromCharCode(0)}x`, '/tmp/w\ud800', 'relative/w']) {
+      const refused = helpers.buildGateLaunch({ ...data, created: { ...CREATED, path } });
+      assert.deepEqual([refused.ok, refused.error?.code], [false, 'invalid_request'], JSON.stringify(path));
     }
   });
 });
