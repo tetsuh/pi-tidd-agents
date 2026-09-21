@@ -211,6 +211,8 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
       ['operator_revalidate', 'captured', 'envelope:operator_capture'],
       ['overlay_compare', 'overlay', 'data:overlay_freeze'],
       ['workspace_cleanup', 'receipt', 'receipt:workspace_create'],
+      // CL-D84 declared the packaged terminal cleanup's only input.
+      ['workspace_cleanup_created', 'created', 'data:workspace_create'],
       ['workspace_verify', 'expected', 'data:workspace_create'],
     ],
   );

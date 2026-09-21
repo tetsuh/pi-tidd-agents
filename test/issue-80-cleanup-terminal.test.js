@@ -20,7 +20,7 @@ const AUTOFIX = readText('skills/closed-loop-pr/references/autofix.md');
 test('Issue #80 the cleanup result is named terminal and post-removal workspace calls are forbidden', () => {
   const invariants = sectionOf(AUTOFIX, '### Isolated exact-autofix invariants (CL-D10, CL-D30)');
   assert.ok(invariants, 'the invariants section must exist');
-  assert.match(invariants, /a successful `workspace_cleanup` result is the terminal workspace evidence/);
+  assert.match(invariants, /a successful cleanup result — from `workspace_cleanup_created` or `workspace_cleanup` — is the terminal workspace evidence/);
   assert.match(invariants, /no `workspace_\*` operation may target the removed path afterwards/);
   assert.match(invariants, /the terminal recheck after removal is operator-side only/);
   // The failure mode this closes must be named, so a later reader cannot rediscover it by

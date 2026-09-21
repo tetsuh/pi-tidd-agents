@@ -2693,7 +2693,7 @@
       ],
       "section": "### Isolated exact-autofix invariants (CL-D10, CL-D30)",
       "requires": [
-        "a successful `workspace_cleanup` result is the terminal workspace evidence",
+        "a successful cleanup result — from `workspace_cleanup_created` or `workspace_cleanup` — is the terminal workspace evidence",
         "no `workspace_*` operation may target the removed path afterwards",
         "the terminal recheck after removal is operator-side only",
         "a post-removal verification failure is a caller error, never evidence about the target"
@@ -4191,7 +4191,7 @@
       ],
       "requires": [
         "| Construct the writer launch from the workspace the run created (CL-D81) | `build_writer_launch` | `created` (data of `workspace_create`), `task` |",
-        "exactly the route the three launch fields took (CL-D68, CL-D81, CL-D82)"
+        "exactly the route the three launch fields and the packaged cleanup's took (CL-D68, CL-D81, CL-D82, CL-D84)"
       ]
     },
     {
@@ -4292,6 +4292,46 @@
         "Issue #164 the move frees the budget it was taken for",
         "Issue #164 every clause pinned to a moved sentence names the file it moved to",
         "Issue #164 CL-D83 records the split and what it did not change"
+      ]
+    },
+    {
+      "id": "CL-D84-map",
+      "marker": "CL-D84",
+      "title": "The map declares the packaged terminal cleanup",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "| Terminal cleanup of the run-owned linked workspace (CL-D84) | `workspace_cleanup_created` | `created` (data of `workspace_create`); the request is composed inside the package |"
+      ]
+    },
+    {
+      "id": "CL-D84-record",
+      "marker": "CL-D84",
+      "title": "CL-D84 records the packaged terminal cleanup and its limits",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D84 — The terminal cleanup is one packaged operation",
+      "requires": [
+        "tetsuh/pi-tidd-agents#161",
+        "`workspace_cleanup_created` takes `created`, the data of `workspace_create`, and nothing else",
+        "a refused cleanup removes nothing",
+        "Accepting another input, performing the cleanup anywhere but the repository the receipt states, or continuing a run past a refused cleanup requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D84-tests",
+      "marker": "CL-D84",
+      "title": "The packaged terminal cleanup is pinned by its own regression",
+      "files": [
+        "test/issue-161-terminal-cleanup.test.js"
+      ],
+      "requires": [
+        "Issue #161 the packaged terminal cleanup removes the workspace from the receipt alone",
+        "Issue #161 the parent supplies the created workspace and nothing else",
+        "Issue #161 a workspace it must not remove is refused, with the boundary it belongs to",
+        "Issue #161 the map and the record name the packaged terminal cleanup"
       ]
     }
   ]
