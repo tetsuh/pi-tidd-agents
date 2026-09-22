@@ -29,14 +29,14 @@ test('Issue #73 the raised guards are the ones the suite actually asserts', () =
   // re-raise in either file fails here as well as there.
   assert.match(PACKAGE_TEST, /assert\.ok\(total < 150000,/);
   assert.equal(PACKAGE_TEST.includes('total < 116000'), false, 'the superseded six-file ceiling must not survive');
-  assert.match(CLEANLINESS_TEST, /Buffer\.byteLength\(addendum\) < 29000,/);
+  assert.match(CLEANLINESS_TEST, /Buffer\.byteLength\(addendum\) < 30000,/);
   assert.equal(CLEANLINESS_TEST.includes('byteLength(addendum) < 25022'), false, 'the superseded addendum ceiling must not survive');
   // The regex above names one file, so a site deleted elsewhere is a guard silently gone. Every other file that
   // asserts this guard is listed here, and removing the assertion from any of them fails here (CL-D74).
   for (const file of ['test/issue-87-addendum-split.test.js', 'test/issue-115-writer-pre-guard.test.js',
     'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js',
     'test/issue-126-sol-component-sweep.test.js', 'test/pr-operational-cleanliness.test.js']) {
-    assert.match(readText(file), /< 29000/, `${file} must carry the CL-D30 addendum guard`);
+    assert.match(readText(file), /< 30000/, `${file} must carry the CL-D30 addendum guard`);
   }
 
   // The disclosure guard is not a budget and is deliberately not raised.
@@ -55,7 +55,7 @@ test('Issue #73 the live measurements sit inside the raised guards', () => {
 
   const addendum = sectionOf((readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md')), '## Exact PR `autofix` addendum (CL-D30)');
   assert.ok(addendum, 'the CL-D30 addendum must exist');
-  assert.ok(Buffer.byteLength(addendum) < 29000, 'the addendum must sit inside its raised guard');
+  assert.ok(Buffer.byteLength(addendum) < 30000, 'the addendum must sit inside its raised guard');
 
   // The exact-autofix prose absorbs each new decision. Before CL-D50 that was autofix.md;
   // after the split it is the addendum stage, and its growth signals when a further split —

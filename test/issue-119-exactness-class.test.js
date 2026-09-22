@@ -27,7 +27,7 @@ test('Issue #119 the adversarial gate names every same-class rigor gap in one re
   // The addendum is untouched: it sits inside its own byte guard.
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.doesNotMatch(addendum, /CL-D66/);
-  assert.ok(Buffer.byteLength(addendum) < 29000, 'the CL-D30 addendum stays inside its recorded guard');
+  assert.ok(Buffer.byteLength(addendum) < 30000, 'the CL-D30 addendum stays inside its recorded guard');
 });
 
 test('Issue #119 CL-D66 records the placement, the declined alternatives, and the boundary', () => {

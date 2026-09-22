@@ -68,12 +68,15 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
 test('Issue #153 the reset guard is the one every suite asserts', () => {
   const addendum = readText(ADDENDUM);
   assert.ok(Buffer.byteLength(addendum) < 30000, `the CL-D30 addendum stays inside its reset guard: ${Buffer.byteLength(addendum)}`);
+  const SELF = 'issue-153-wording-only-minors.test.js';  // this file names the superseded figure on purpose
+  const carriers = [];
   for (const file of fs.readdirSync(repoPath('test'))) {
-    if (!file.endsWith('.test.js')) continue;
-    assert.equal(readText(`test/${file}`).includes('< 29000'), false, `${file} must not keep the superseded addendum guard`);
+    if (!file.endsWith('.test.js') || file === SELF) continue;
+    const text = readText(`test/${file}`);
+    assert.equal(text.includes('< 29000'), false, `${file} must not keep the superseded addendum guard`);
+    if (text.includes('< 30000')) carriers.push(file);
   }
-  const carriers = ['test/issue-115-writer-pre-guard.test.js', 'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js', 'test/issue-126-sol-component-sweep.test.js'];
-  for (const file of carriers) assert.match(readText(file), /< 30000/, `${file} asserts the reset guard`);
+  assert.ok(carriers.length >= 7, `every suite that guards the addendum carries the reset figure: ${carriers.length}`);
   // The aggregate ceiling is untouched by this issue and still holds.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + Buffer.byteLength(readText(file)), 0);
   assert.ok(total < 150000, `authority files total ${total}`);

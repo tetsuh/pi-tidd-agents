@@ -117,7 +117,7 @@ ABORTED
 
 In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**; this means a readiness-relevant correction candidate and stops at `WAITING_FOR_OWNER`. Once published, a fresh run revalidates the target and external evidence, then reruns Sol, Terra, external state, and exact-head checks.
 
-Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself.
+Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself. A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` (CL-D85).
 
 Whenever a PR review-only run stops, emit the resumable block below:
 
@@ -132,6 +132,7 @@ fingerprints: issue_spec <d> base <d> tree <d> diff <d> commits <d> head <sha>
 rounds: convergence <used>/3, sol <used>/3, terra <used>/3
 resolved: <role provider/model:thinking, one per role that ran; convergence: disabled when skipped>
 findings: <internal finding id: disposition, one per line>
+review_misses: <finding class: the round that did not raise it, one per line, or none>
 pending_decisions: <decision ids or none>
 publication_grant: review-only not-applicable
 external_observation: head <sha> observed_from <timestamp>, this run only

@@ -3382,8 +3382,8 @@
       ],
       "section": "### PR body template (CL-D67)",
       "requires": [
-        "A pull-request body under this workflow carries four parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; the AC-TDD classification of the RED with its command and counts; and a chronology of review rounds, followed at most by one tooling attribution footer.",
-        "Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology is appended after each review round (CL-D67)."
+        "A pull-request body under this workflow carries three parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; and the AC-TDD classification of the RED with its command and counts, followed at most by one tooling attribution footer.",
+        "Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology of review rounds lives on the target's timeline, so a round edits no body and invalidates no snapshot by doing so (CL-D67, CL-D85)."
       ]
     },
     {
@@ -4335,6 +4335,85 @@
         "Issue #161 the parent supplies the created workspace and nothing else",
         "Issue #161 a workspace it must not remove is refused, with the boundary it belongs to",
         "Issue #161 the map and the record name the packaged terminal cleanup"
+      ]
+    },
+    {
+      "id": "CL-D85-classes",
+      "marker": "CL-D85",
+      "title": "A Minor that changes no file of the head is recorded, not blocking",
+      "files": [
+        "skills/closed-loop-shared/references/records.md"
+      ],
+      "section": "## Finding anchoring classes (AC-ANCHOR, CL-D34)",
+      "requires": [
+        "A Minor whose correction changes no file of the head",
+        "is recorded with its anchoring class and its disposition and does not stop the run, and readiness may be reported with such Minors recorded",
+        "A finding that corrects a false safety claim changes what the contract promises, so it is not wording only and keeps its severity (CL-D85)"
+      ]
+    },
+    {
+      "id": "CL-D85-readiness",
+      "marker": "CL-D85",
+      "title": "Readiness counts a recorded wording-only Minor as dispositioned",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "section": "### Source-finding replies and final readiness",
+      "requires": [
+        "every finding has final disposition, a Minor whose correction changes no file of the head counting as dispositioned once recorded (CL-D85)"
+      ]
+    },
+    {
+      "id": "CL-D85-misses",
+      "marker": "CL-D85",
+      "title": "A repeat of a settled class is recorded as the earlier round's review miss",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "section": "### Findings, no-progress, and deterministic status",
+      "requires": [
+        "the run also records it in the status block as a review miss of the round that did not raise it (CL-D85)"
+      ]
+    },
+    {
+      "id": "CL-D85-status",
+      "marker": "CL-D85",
+      "title": "The review-only status block carries the review misses and the non-blocking Minor",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "review_misses: <finding class: the round that did not raise it, one per line, or none>",
+        "A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` (CL-D85)."
+      ]
+    },
+    {
+      "id": "CL-D85-record",
+      "marker": "CL-D85",
+      "title": "CL-D85 records the three rules and the addendum guard reset",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D85 — Wording-only Minors do not stop a run",
+      "requires": [
+        "*Owner choice:* Option A",
+        "issues/153#issuecomment-5777454006",
+        "The addendum's recorded guard resets from 29,000 to 30,000 bytes for the three rules recorded here",
+        "Existing pull-request bodies are not rewritten; the three-part body applies from the next pull request"
+      ]
+    },
+    {
+      "id": "CL-D85-tests",
+      "marker": "CL-D85",
+      "title": "The CL-D85 fixtures pin the three rules and the reset guard",
+      "files": [
+        "test/issue-153-wording-only-minors.test.js"
+      ],
+      "requires": [
+        "Issue #153 rule 1",
+        "Issue #153 rule 2",
+        "Issue #153 rule 3",
+        "Issue #153 the reset guard is the one every suite asserts"
       ]
     }
   ]
