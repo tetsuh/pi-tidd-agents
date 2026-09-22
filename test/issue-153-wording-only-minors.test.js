@@ -143,3 +143,33 @@ test('Issue #153 the new pins survive a mutation of what they pin', () => {
     assert.match(readText(file), /assert\.ok\([^\n]*addendum[^\n]*< 30000/, `${file} asserts the reset addendum guard itself`);
   }
 });
+
+// ADV-171-CLD85-ROUTING-AND-RECORD-CONTRADICTIONS: relaxing readiness is not enough while every FIX verdict is a
+// correction path and Terra waits for a literal Sol `MERGE`. The exception was unreachable in both modes, and the
+// record still carried the two sentences the carriers had already corrected.
+
+const ADVANCE = "A gate result whose only open findings are Minors recorded under CL-D85 advances as `MERGE` at every transition — convergence to Sol, Sol to Terra, and Terra to the final check — and is not a correction path; those findings stay recorded and dispositioned, and the head does not move for them.";
+
+test('Issue #153 a qualifying gate result advances at every transition, in both modes', () => {
+  for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/review-only.md']) {
+    assert.ok(readText(file).includes(ADVANCE), `${file} states the transition rule`);
+  }
+  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
+  assert.match(reviewOnly, /\*\*Never start the Terra gate before the Sol gate returns `MERGE`, counting a result whose only open findings are Minors recorded under CL-D85 as `MERGE` \(CL-D85\)\.\*\*/);
+  assert.match(reviewOnly, /→ preliminary disposition \(a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol, unless its only open findings are Minors recorded under CL-D85\)/);
+});
+
+test('Issue #153 the CL-D85 record says what its carriers say', () => {
+  const record = sectionOf(readText('CONTRACT.md'), '## CL-D85 — Wording-only Minors do not stop a run');
+  assert.ok(record.includes('a Minor whose correction changes no file of the head, or changes only wording that alters no obligation — no sentence the clause manifest pins and no behaviour a test asserts — is recorded'),
+    'the record states the two disjuncts the carriers state');
+  assert.equal(record.includes('— a target-body edit, or a wording change that alters no obligation —'), false,
+    'the superseded gloss must not survive in the authoritative record');
+  assert.match(record, /records it in its terminal report, and in review-only in the status block's `review_misses`, as a review miss of the gate and invocation that did not raise it/);
+  assert.equal(record.includes('records it in the status block as a review miss of the round'), false,
+    'exact autofix emits no status block, so the record may not send it there');
+  assert.ok(record.includes(ADVANCE), 'the record carries the transition rule its carriers state');
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D85').flatMap((clause) => clause.requires);
+  assert.ok(pins.some((sentence) => sentence.includes('advances as `MERGE` at every transition')), 'the manifest pins the transition rule');
+});
