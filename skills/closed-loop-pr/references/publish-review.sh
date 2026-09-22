@@ -141,6 +141,9 @@ verify_pr_identity() {
   identity="$(gh api "repos/$REVIEW_REPOSITORY/pulls/$REVIEW_PR_NUMBER" --jq 'if any([.base.sha, .head.repo.full_name, .head.ref][]; . != null and (type == "object" or type == "array")) then error("identity field has invalid type") else [.base.repo.full_name, (.number|tostring), .state, (.draft|tostring), .head.sha, .html_url, .base.sha, (.head.repo.full_name // ""), .head.ref] | map(. // "" | tostring) as $fields | if any($fields[]; contains("\u001f") or contains("\u0000") or contains("\n")) then error("identity field contains a forbidden control character") else ($fields | join("\u001f")) end end' 2>"$scratch/identity-$phase.err")" || fail "pull-request identity lookup failed at $phase"
   [[ "$identity" == *$'\n'* ]] && fail "pull-request identity evidence has multiple records at $phase"
   IFS=$'\x1f' read -r actual_repo actual_number actual_state actual_draft actual_head actual_url actual_base actual_head_repo actual_head_ref <<< "$identity"
+  # `read` puts every field past the last name into that name, separator included, so a longer record would
+  # otherwise become a head branch that both reads agree on.
+  [[ "$actual_head_ref" == *$'\x1f'* ]] && fail "pull-request identity evidence has unexpected fields at $phase"
   [[ -n "${actual_url:-}" && "$actual_repo" == "$REVIEW_REPOSITORY" && "$actual_number" == "$REVIEW_PR_NUMBER" && "$actual_state" == 'open' && "$actual_head" == "$REVIEW_HEAD" && "$actual_url" == "$REVIEW_PR_URL" ]] || fail "pull-request identity, lifecycle, or public head changed at $phase"
   [[ "$actual_draft" == 'false' ]] || fail "pull request is a draft at $phase"
   [[ "$actual_base" =~ ^[0-9a-f]{40}$ ]] || fail "pull-request base OID is malformed at $phase"
