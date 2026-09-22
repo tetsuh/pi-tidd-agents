@@ -543,6 +543,15 @@ test('Issue #149 refuses a private snapshot tampered with between validation and
   assert.equal(fs.existsSync(f.posted), false);
 });
 
+test('Issue #149 refuses identity evidence that carries more fields than the filter produces', () => {
+  const f = fixture();
+  const fields = [REPOSITORY, PR, 'open', 'false', f.head, URL, 'b'.repeat(40), REPOSITORY, 'feature', 'EXTRA'];
+  assert.throws(() => runPublisher(f, { GH_RAW_IDENTITY: `${fields.join('\\x1f')}\\n` }),
+    (error) => /identity evidence has unexpected fields/.test(String(error.stderr)));
+  assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+  assert.equal(fs.existsSync(f.posted), false, 'the trailing field must not ride into the head branch and POST');
+});
+
 test('Issue #149 refuses identity evidence that carries more than one record', () => {
   const f = fixture();
   assert.throws(() => runPublisher(f, { GH_RAW_IDENTITY: 'one\\ntwo\\n' }),
