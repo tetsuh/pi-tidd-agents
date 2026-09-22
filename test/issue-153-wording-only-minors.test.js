@@ -63,7 +63,7 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
   assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D67 — Pull-request bodies carry no per-head facts') || '', /CL-D85/);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D85').map((clause) => clause.id).sort(),
-    ['CL-D85-classes', 'CL-D85-misses', 'CL-D85-order', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-routing', 'CL-D85-status', 'CL-D85-tests']);
+    ['CL-D85-classes', 'CL-D85-gates', 'CL-D85-misses', 'CL-D85-order', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-routing', 'CL-D85-status', 'CL-D85-tests']);
   assert.ok(fs.existsSync(repoPath('test/issue-153-wording-only-minors.test.js')));
 });
 
@@ -112,7 +112,7 @@ test('Issue #153 rule 3 is stated where the artifact that carries it exists', ()
   assert.match(addendum, /the run also records it in its terminal report as a review miss of the gate and invocation that did not raise it \(CL-D85\)\./);
   assert.equal(addendum.includes('records it in the status block as a review miss'), false, 'exact autofix emits no status block');
   const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
-  assert.match(reviewOnly, /When a gate raises a finding of the same counterexample class as one raised on an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it \(CL-D85\)\./);
+  assert.match(reviewOnly, /When a gate raises a finding of the same counterexample class as one this run's ledger already carries for an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it \(CL-D85\)\./);
   assert.match(reviewOnly, /^review_misses: <counterexample class: the gate and invocation that did not raise it, one per line, or none>$/m);
   assert.equal(reviewOnly.includes('<finding class:'), false, 'the derived vocabulary is `counterexample class`, as CL-D34 states it');
 });
@@ -194,4 +194,28 @@ test('Issue #153 AC-GATES carries the CL-D85 counting rule', () => {
 test('Issue #153 the ceiling diagnostic names the ceiling it enforces', () => {
   assert.equal(readText('test/package.test.js').includes('expected less than 150000'), false);
   assert.match(readText('test/package.test.js'), /expected less than 156000/);
+});
+
+// Three mutations survived the pass on this branch: a sentence appended to AC-GATES cancelling the counting rule,
+// and deletion of each of the two bars CL-D85 sets. Positive substring pins cannot see either, so AC-GATES is
+// pinned whole and the bars are pinned by text.
+test('Issue #153 AC-GATES carries those two sentences and nothing else', () => {
+  const gates = sectionOf(readText('CONTRACT.md'), '## AC-GATES — Sequential Sol then Terra');
+  const body = gates.split('\n').slice(1).join('\n').trim();
+  assert.equal(body, '**Clauses:** AC-GATES\n\nThe Terra gate never starts before the Sol gate returns `MERGE`. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite (CL-D85).',
+    'a sentence added here can cancel the counting rule while every positive pin still passes');
+});
+
+test('Issue #153 the bars CL-D85 sets are pinned, not only its permissions', () => {
+  const record = sectionOf(readText('CONTRACT.md'), '## CL-D85 — Wording-only Minors do not stop a run');
+  assert.match(record, /Treating a `Blocker` or `Major` as wording only, reporting readiness with an undispositioned finding, or returning the chronology to the body requires a new owner decision\./);
+  assert.match(record, /A finding that corrects a false safety claim changes what the contract promises, so it is not wording only and keeps its severity\./);
+  // What the packaged validator can represent today, and where the rest is being decided.
+  assert.match(record, /The packaged validator does not yet represent this class: `checkVerdict` treats a fresh Minor with an anchoring class and a no-code disposition as unresolved/);
+  assert.match(record, /Until that is decided \(Issue #172\)/);
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D85').flatMap((clause) => clause.requires);
+  for (const bar of ['Treating a `Blocker` or `Major` as wording only', 'it is not wording only and keeps its severity']) {
+    assert.ok(pins.some((sentence) => sentence.includes(bar)), `the manifest pins the bar: ${bar}`);
+  }
 });

@@ -182,7 +182,7 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(pr, /Every convergence invocation in either mode composes the shared Every-gate invariant payload block verbatim and the volatile envelope\/history projection, requests the packaged schema through `outputSchema`, and receives neither the Sol-only adversarial block nor a formal role-authority block \(CL-D62\)/);
   const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
   assert.match(reviewOnly, /→ tidd-convergence-reviewer stage \(non-authoritative, CL-D62\)\n→ preliminary disposition \(a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol, unless its only open findings are Minors recorded under CL-D85\)\n→ tidd-adversarial-reviewer gate/);
-  assert.match(reviewOnly, /a preliminary `FIX BEFORE MERGE` is reported through the disposition\/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol/);
+  assert.match(reviewOnly, /a preliminary `FIX BEFORE MERGE` is reported through the disposition\/draft path as `WAITING_FOR_OWNER` before Sol runs, unless its only open findings are Minors recorded under CL-D85 \(CL-D85\), and open convergence findings are assigned to Sol/);
   assert.match(reviewOnly, /Convergence rounds are accounted separately as `convergence <used>\/3`, one per candidate identity and snapshot fingerprint; at the cap the candidate goes to Sol with open convergence findings assigned \(CL-D62\)/);
   assert.match(reviewOnly, /runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage/);
   assert.match(reviewOnly, /active_gate: <convergence\|sol\|terra\|external\|none>/);

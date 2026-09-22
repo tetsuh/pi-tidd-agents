@@ -302,7 +302,7 @@ const MANIFEST = (() => {
     ],
     'CL-D62-pr': [
       `→ ${roleOf(gate.convergence)} stage (non-authoritative, CL-D62)`,
-      `a preliminary \`FIX BEFORE MERGE\` is reported through the disposition/draft path as \`WAITING_FOR_OWNER\` before ${S} runs`,
+      `a preliminary \`FIX BEFORE MERGE\` is reported through the disposition/draft path as \`WAITING_FOR_OWNER\` before ${S} runs, unless its only open findings are Minors recorded under CL-D85 (CL-D85)`,
       `${cap(C)} rounds are accounted separately as \`${C} <used>/3\`, one per candidate identity and snapshot fingerprint`,
       VOCAB.statusLines.rounds,
     ],

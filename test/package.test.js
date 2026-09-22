@@ -282,10 +282,12 @@ test('Issue #24 the authority files remain below the published baseline', () => 
   // 128,618 bytes on that change, 618 bytes over 128,000.
   // CL-D68 raises it to 150,000 for the packaged gate launch and read: the seven files measured
   // 140,311 bytes on that change, 311 bytes over 140,000.
+  // CL-D85 raises it to 156,000 for the three wording-only rules: the eight files measured
+  // 149,602 bytes at f71077f, leaving 6,398 asserted at the raise.
   // The assertion below is the live measurement; the figures here are revision-qualified and
   // are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 156000, `authority files total ${total} bytes, expected less than 150000`);
+  assert.ok(total < 156000, `authority files total ${total} bytes, expected less than 156000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.
