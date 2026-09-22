@@ -28,7 +28,7 @@ const SCHEMAS = Object.freeze({
   overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
   overlay_compare: { required: ['cwd', 'overlay'], optional: [] },
   manifest_compare: { required: ['cwd', 'parent'], optional: ['authorizedPaths', 'manifest'] },
-  build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead', 'priorPushHeads'] },
+  build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['pushes'] },
   build_workspace_verify: { required: ['created', 'cwd'], optional: ['transition'] },
   build_workspace_cleanup: { required: ['created'], optional: [] },
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },

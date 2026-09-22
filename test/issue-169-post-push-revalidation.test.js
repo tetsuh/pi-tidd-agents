@@ -26,7 +26,8 @@ function snapshotAt(head) {
     annotations: [], checkSuites: [], checks: [], comments: [], inline: [], reviews: [], statuses: [], threads: [],
   };
 }
-function captured() { return { root: '/repo', head: OID('a'), tree: OID('b'), identity: { repository: 'tetsuh/pi-tidd-agents' }, clean: true }; }
+// the `operator_capture` envelope, which is what a run holds; its payload has its own 22-key shape
+function captured() { return { version: 1, ok: true, operation: 'operator_capture', data: { root: '/repo', head: OID('a') } }; }
 function cli(operation, data) {
   const run = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' });
   return JSON.parse(run.stdout);
@@ -96,7 +97,7 @@ test('Issue #169 CL-D86 records both choices and the helper alarm reset', () => 
   assert.match(record, /The packaged-helper alarm resets from 270,000 to 280,000 bytes/);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D86').map((clause) => clause.id).sort(),
-    ['CL-D86-addendum', 'CL-D86-map', 'CL-D86-record', 'CL-D86-tests']);
+    ['CL-D86-builder', 'CL-D86-map', 'CL-D86-record', 'CL-D86-tests']);
 });
 
 test('Issue #169 the reset helper alarm is the one every suite asserts', () => {

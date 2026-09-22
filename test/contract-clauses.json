@@ -2787,8 +2787,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 270000;",
-        "CL-D78 reviewed reset from 260,000 (CL-D73) so a failed create names its run root"
+        "const AGGREGATE_SMOKE_ALARM = 280000;",
+        "CL-D86 reviewed reset from 270,000 (CL-D78) so the post-push revalidation is derived"
       ]
     },
     {
@@ -3586,8 +3586,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 270000;",
-        "CL-D78 reviewed reset from 260,000 (CL-D73) so a failed create names its run root"
+        "const AGGREGATE_SMOKE_ALARM = 280000;",
+        "CL-D86 reviewed reset from 270,000 (CL-D78) so the post-push revalidation is derived"
       ]
     },
     {
@@ -4043,13 +4043,12 @@
     {
       "id": "CL-D79-record-keeping",
       "marker": "CL-D79",
-      "title": "The parent's record of its pushes is an obligation, not a check",
+      "title": "The parent's record of its pushes became a derivation",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md",
-        "CONTRACT.md"
+        "skills/closed-loop-pr/references/helper-map.md"
       ],
       "requires": [
-        "The parent supplies `priorPushHeads` from its own record of each `C` for which `WORKSPACE_POST_PUSH(C, O)` held; that is a procedural obligation no check enforces, and a linear child someone else pushed passes the helper if supplied, a known residual of CL-D79."
+        "A linear child someone else pushed still passes the helper if the run's snapshots name it, a residual of CL-D79 this decision does not remove."
       ]
     },
     {
@@ -4460,6 +4459,61 @@
       "section": "## AC-GATES — Sequential Sol then Terra",
       "requires": [
         "In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite (CL-D85)."
+      ]
+    },
+    {
+      "id": "CL-D86-map",
+      "marker": "CL-D86",
+      "title": "The map declares the derived post-push input and what a refusal costs",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "and after a push `pushes`, this run's snapshots oldest first (CL-D86)",
+        "The pre-writer `operator_revalidate` after a push is composed by `build_operator_revalidate` from the run's own snapshots, oldest first; the parent supplies no head by hand (CL-D86).",
+        "A refused post-push revalidation is recomposed once from those snapshots and retried; a second refusal stops the run (CL-D86)."
+      ]
+    },
+    {
+      "id": "CL-D86-builder",
+      "marker": "CL-D86",
+      "title": "The builder derives the transition and refuses a head beside it",
+      "files": [
+        "skills/closed-loop-pr/helpers/builders.js"
+      ],
+      "requires": [
+        "is derived from pushes; it is not an input",
+        "pushes must be one to five snapshots of this run, oldest first",
+        "each push must be a snapshot result of this run",
+        "each push snapshot must name its public head as a commit OID"
+      ]
+    },
+    {
+      "id": "CL-D86-record",
+      "marker": "CL-D86",
+      "title": "CL-D86 records both choices and the alarm reset",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D86 — The post-push revalidation is composed from the run's own snapshots",
+      "requires": [
+        "*Owner choice:* Option A for both",
+        "issues/169#issuecomment-5786110213",
+        "The packaged-helper alarm resets from 270,000 to 280,000 bytes",
+        "retrying a refused revalidation more than once requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D86-tests",
+      "marker": "CL-D86",
+      "title": "The CL-D86 fixtures pin the derivation, the refusals, and the alarm",
+      "files": [
+        "test/issue-169-post-push-revalidation.test.js"
+      ],
+      "requires": [
+        "Issue #169 the transition is derived from the run",
+        "a head supplied by hand beside the snapshots is refused",
+        "the reset helper alarm is the one every suite asserts"
       ]
     }
   ]

@@ -118,16 +118,22 @@ test('Issue #140 the builder carries priorPushHeads beside postPushHead and refu
   withOperator(({ root, head, child, track, captured }) => {
     const first = child(head); const second = child(first);
     track(second);
-    const built = helpers.buildOperatorRevalidate({ captured: captured.data, cwd: root, postPushHead: second, priorPushHeads: [first] });
+    // CL-D86 (Issue #169) derives both heads from the run's own snapshots; the hand-supplied pair is no longer an input.
+    const snapshotAt = (head) => ({ before: { head }, after: { head }, pull: {}, completeness: {}, policies: {},
+      annotations: [], checkSuites: [], checks: [], comments: [], inline: [], reviews: [], statuses: [], threads: [] });
+    const built = helpers.buildOperatorRevalidate({ captured: captured.data, cwd: root, pushes: [snapshotAt(first), snapshotAt(second)] });
     assert.equal(built.ok, true, JSON.stringify(built.error));
     assert.deepEqual(built.data.request.data.priorPushHeads, [first]);
+    assert.equal(built.data.request.data.postPushHead, second);
     for (const [label, data] of [
-      ['without postPushHead', { priorPushHeads: [first] }],
-      ['five earlier heads', { postPushHead: second, priorPushHeads: [oid('1'), oid('2'), oid('3'), oid('4'), oid('5')] }],
-      ['not an array', { postPushHead: second, priorPushHeads: first }],
-      ['a non-OID entry', { postPushHead: second, priorPushHeads: ['main'] }],
+      ['a head supplied by hand', { postPushHead: second, priorPushHeads: [first] }],
+      ['earlier heads supplied by hand', { pushes: [snapshotAt(second)], priorPushHeads: [first] }],
+      ['six pushes', { pushes: [first, first, first, first, second, second].map(snapshotAt) }],
+      ['not an array', { pushes: snapshotAt(second) }],
+      ['a non-snapshot entry', { pushes: [{ after: { head: second } }] }],
+      ['a non-OID head', { pushes: [snapshotAt('main')] }],
       // A hole is skipped by every(); the boundary would refuse the list it produces (CONV-147-BUILDER-SPARSE-CHAIN-GAP).
-      ['a sparse array', { postPushHead: second, priorPushHeads: [, first] }], // eslint-disable-line no-sparse-arrays
+      ['a sparse array', { pushes: [, snapshotAt(second)] }], // eslint-disable-line no-sparse-arrays
     ]) {
       const refused = helpers.buildOperatorRevalidate({ captured: captured.data, cwd: root, ...data });
       assert.deepEqual([refused.ok, refused.error?.code, refused.error?.phase], [false, 'invalid_request', 'build'], label);
@@ -146,14 +152,17 @@ test('Issue #140 the packaged CLI carries the chain from the builder to the guar
     assert.equal(capture.ok, true, JSON.stringify(capture.error));
     const first = child(head); const second = child(first);
     track(second);
+    const snapshotAt = (head) => ({ before: { head }, after: { head }, pull: {}, completeness: {}, policies: {},
+      annotations: [], checkSuites: [], checks: [], comments: [], inline: [], reviews: [], statuses: [], threads: [] });
     const run = (extra) => {
-      const built = cli('build_operator_revalidate', { captured: capture, cwd: root, postPushHead: second, ...extra });
+      const built = cli('build_operator_revalidate', { captured: capture, cwd: root, ...extra });
       assert.equal(built.ok, true, JSON.stringify(built.error));
       return cli(built.data.request.operation, built.data.request.data);
     };
-    const accepted = run({ priorPushHeads: [first] });
+    // CL-D86 (Issue #169): the chain the run takes is snapshots in, transition out, guard run.
+    const accepted = run({ pushes: [snapshotAt(first), snapshotAt(second)] });
     assert.equal(accepted.ok, true, JSON.stringify(accepted.error));
-    const refused = run({});
+    const refused = run({ pushes: [snapshotAt(second)] });
     assert.deepEqual([refused.ok, refused.error?.code], [false, 'operator_changed'], JSON.stringify(refused));
     // A null list is not an empty one: the direct operation refuses it as the builder does.
     track(first);

@@ -93,7 +93,7 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map, 'the invocation map must exist');
   for (const declaration of [
-    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd` |',
+    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd`, and after a push `pushes`, this run\'s snapshots oldest first (CL-D86) |',
     '| `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |',
     '| `build_workspace_cleanup` | `created` (data of `workspace_create`); no `cwd`: the request runs from the repository the receipt states |',
     '| `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |',
@@ -115,7 +115,8 @@ test('Issue #83 the CLI exposes exactly the ten builder operations with frozen i
   assert.deepEqual(schemas.build_fingerprint_snapshot, ['snapshot']);
   assert.deepEqual(schemas.build_gate_expectation, ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence']);
   const cliSource = readText('skills/closed-loop-pr/helpers/cli.js');
-  assert.match(cliSource, /build_operator_revalidate: \{ required: \['captured', 'cwd'\], optional: \['postPushHead', 'priorPushHeads'\] \}/);
+  // CL-D86 (Issue #169) replaced the hand-supplied heads with the run's own snapshots.
+  assert.match(cliSource, /build_operator_revalidate: \{ required: \['captured', 'cwd'\], optional: \['pushes'\] \}/);
   assert.match(cliSource, /build_workspace_verify: \{ required: \['created', 'cwd'\], optional: \['transition'\] \}/);
   assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 10, 'the builder family is exactly the five CL-D56 compositions, the two CL-D61 manifest builders, the CL-D68 launch composer, the CL-D73 assignments builder, and the CL-D81 writer launch');
 });
@@ -155,7 +156,7 @@ test('Issue #83 the workspace chain round-trips: create, built verify, built cle
 
 test('Issue #83 built operator and snapshot requests satisfy the boundary by construction', () => {
   const helpers = require('../skills/closed-loop-pr/helpers');
-  const builtRevalidate = cli('build_operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo', postPushHead: OID });
+  const builtRevalidate = cli('build_operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo', pushes: [producerSnapshotHeaded(OID)] });
   assert.equal(builtRevalidate.ok, true, JSON.stringify(builtRevalidate.error));
   assert.equal(builtRevalidate.data.request.operation, 'operator_revalidate');
   assert.equal(helpers.inputShapeProblem('operator_revalidate', builtRevalidate.data.request.data), null);
@@ -190,20 +191,22 @@ test('Issue #83 the returned schema is detached: mutating it moves no boundary',
   assert.equal(clean.ok, true, JSON.stringify(clean.error));
 });
 
+function producerSnapshotHeaded(head) { return { ...producerSnapshotData(), before: { head }, after: { head } }; }
+
 test('Issue #83 builders reject with the boundary vocabulary, not new codes', () => {
-  // Review-driven (SOL-98-OID-WIDTH): postPushHead follows operator_revalidate's exact
-  // 40-hex commit rule, so a 64-hex object name is rejected at build time.
-  const wide = cli('build_operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo', postPushHead: 'a'.repeat(64) });
+  // Review-driven (SOL-98-OID-WIDTH): the derived head follows operator_revalidate's exact
+  // 40-hex commit rule, so a 64-hex object name in the snapshot is rejected at build time (CL-D86).
+  const wide = cli('build_operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo', pushes: [producerSnapshotHeaded('a'.repeat(64))] });
   assert.equal(wide.ok, false);
   assert.equal(wide.error.code, 'invalid_request');
-  assert.match(wide.error.message, /postPushHead/);
+  assert.match(wide.error.message, /public head/);
   // Review-driven (SOL-98-OID-WIDTH, round 2): String() coercion let a one-element array
   // holding a 40-hex string pass the pattern while the consumer requires an actual string.
-  const arrayed = cli('build_operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo', postPushHead: ['a'.repeat(40)] });
+  const arrayed = cli('build_operator_revalidate', { captured: envelopeOf('operator_capture', captureData()), cwd: '/repo', pushes: [producerSnapshotHeaded(['a'.repeat(40)])] });
   assert.equal(arrayed.ok, false);
   assert.equal(arrayed.error.code, 'invalid_request');
   assert.equal(arrayed.error.phase, 'build');
-  assert.match(arrayed.error.message, /postPushHead/);
+  assert.match(arrayed.error.message, /public head/);
 
   // The field-level swap the boundary rejects is rejected at build time with the same shape name.
   const swapped = cli('build_operator_revalidate', { captured: captureData(), cwd: '/repo' });

@@ -43,13 +43,24 @@ function built(operation, consumer, data, rename) {
 function buildOperatorRevalidate(data) {
   return wrap('build_operator_revalidate', () => {
     if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
-    if (Object.hasOwn(data, 'postPushHead') && !(typeof data.postPushHead === 'string' && COMMIT_OID_PATTERN.test(data.postPushHead))) fail('invalid_request', 'postPushHead must be a commit OID string');
-    // The run's earlier pushes, oldest first; they mean nothing without the current one (Issue #140, CL-D79).
-    if (Object.hasOwn(data, 'priorPushHeads') && !(Object.hasOwn(data, 'postPushHead') && Array.isArray(data.priorPushHeads) && data.priorPushHeads.length < 5
-      && Array.from(data.priorPushHeads).every((head) => typeof head === 'string' && COMMIT_OID_PATTERN.test(head)))) fail('invalid_request', 'priorPushHeads must be up to four commit OID strings beside postPushHead');
-    const request = { captured: data.captured, cwd: data.cwd };
-    if (Object.hasOwn(data, 'postPushHead')) request.postPushHead = data.postPushHead;
-    if (Object.hasOwn(data, 'priorPushHeads')) request.priorPushHeads = data.priorPushHeads;
+    // The transition is derived from the run's own snapshots, oldest first, so a parent cannot omit it: the
+    // input it holds after a push is the snapshot it just took (Issue #169, CL-D86). A head beside them would
+    // be a second source for the same fact, which is what a parent got wrong on PR #149.
+    for (const key of ['postPushHead', 'priorPushHeads']) {
+      if (Object.hasOwn(data, key)) fail('invalid_request', `${key} is derived from pushes; it is not an input`);
+    }
+    if (!Object.hasOwn(data, 'pushes')) return built('build_operator_revalidate', 'operator_revalidate', { captured: data.captured, cwd: data.cwd });
+    const pushes = data.pushes;
+    if (!Array.isArray(pushes) || pushes.length === 0 || pushes.length > 5) fail('invalid_request', 'pushes must be one to five snapshots of this run, oldest first');
+    // Array.from, not map: map preserves holes, and a hole would reach the boundary unvalidated.
+    const heads = Array.from(pushes, (snapshot) => {
+      if (inputShapeProblem('fingerprint_snapshot', { snapshot }) !== null) fail('invalid_request', 'each push must be a snapshot result of this run');
+      const head = snapshot.after && snapshot.after.head;
+      if (!(typeof head === 'string' && COMMIT_OID_PATTERN.test(head))) fail('invalid_request', 'each push snapshot must name its public head as a commit OID');
+      return head;
+    });
+    const request = { captured: data.captured, cwd: data.cwd, postPushHead: heads[heads.length - 1] };
+    if (heads.length > 1) request.priorPushHeads = heads.slice(0, -1);
     return built('build_operator_revalidate', 'operator_revalidate', request);
   });
 }

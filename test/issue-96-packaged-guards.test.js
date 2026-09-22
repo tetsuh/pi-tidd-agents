@@ -585,8 +585,8 @@ test('Issue #96 envelope-level defects on a recognized guard are named too', () 
 
 test('Issue #96 the aggregate alarm reset is the one the suites assert', () => {
   const surface = readText('test/issue-59-helper-surface.test.js');
-  assert.match(surface, /const AGGREGATE_SMOKE_ALARM = 270000; \/\/ CL-D78 reviewed reset from 260,000 \(CL-D73\) so a failed create names its run root/);
-  assert.match(readText('test/package.test.js'), /helperBytes < 270000/);
+  assert.match(surface, /const AGGREGATE_SMOKE_ALARM = 280000; \/\/ CL-D86 reviewed reset from 270,000 \(CL-D78\) so the post-push revalidation is derived/);
+  assert.match(readText('test/package.test.js'), /helperBytes < 280000/);
 });
 
 test('Issue #96 CL-D57 records the guard family and the reviewed alarm reset', () => {
