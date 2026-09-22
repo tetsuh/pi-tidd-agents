@@ -26,7 +26,7 @@ test('Issue #120 the PR Skill states the body template and keeps per-head facts 
   // The exact-autofix grant is unchanged: the addendum does not mention a body edit.
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.doesNotMatch(addendum, /CL-D67|PATCH the body|pull-request body edit/);
-  assert.ok(Buffer.byteLength(addendum) < 30000, 'the CL-D30 addendum stays inside its recorded guard');
+  assert.ok(Buffer.byteLength(addendum) < 32000, 'the CL-D30 addendum stays inside its recorded guard');
 });
 
 test('Issue #120 CL-D67 records the choice, the declined bounded body edit, and the boundary', () => {

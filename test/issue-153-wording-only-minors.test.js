@@ -54,8 +54,10 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
   for (const field of ['*Decision ID:* CL-D85', '*Kind:* contract', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(record.includes(field), `CL-D85 must carry ${field}`);
   }
-  assert.match(record, /issues\/153#issuecomment-5777454006/, 'the record cites the owner choice on the guard reset');
-  assert.match(record, /The addendum's recorded guard resets from 29,000 to 30,000 bytes for the three rules recorded here, on the CL-D37 terms CL-D74 used: no prose was trimmed to make room, the figure is revision-qualified, and both helper alarms are untouched\./);
+  assert.match(record, /issues\/153#issuecomment-5777454006/, 'the record cites the superseded choice it names');
+  assert.match(record, /issues\/153#issuecomment-5780064415/, 'the record cites the owner choice the guards carry');
+  assert.match(record, /The addendum's recorded guard resets from 29,000 to 32,000 bytes and the authority ceiling from 150,000 to 156,000 bytes for the three rules recorded here/);
+  assert.match(record, /the headroom is asserted at the raise against the measurement taken when it was chosen — 29,776 and 149,602 bytes at `f71077f`, leaving 2,224 and 6,398/);
   // The records CL-D85 amends say so themselves.
   assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model') || '', /CL-D85/);
   assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D67 — Pull-request bodies carry no per-head facts') || '', /CL-D85/);
@@ -67,19 +69,19 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
 
 test('Issue #153 the reset guard is the one every suite asserts', () => {
   const addendum = readText(ADDENDUM);
-  assert.ok(Buffer.byteLength(addendum) < 30000, `the CL-D30 addendum stays inside its reset guard: ${Buffer.byteLength(addendum)}`);
+  assert.ok(Buffer.byteLength(addendum) < 32000, `the CL-D30 addendum stays inside its reset guard: ${Buffer.byteLength(addendum)}`);
   const SELF = 'issue-153-wording-only-minors.test.js';  // this file names the superseded figure on purpose
   const carriers = [];
   for (const file of fs.readdirSync(repoPath('test'))) {
     if (!file.endsWith('.test.js') || file === SELF) continue;
     const text = readText(`test/${file}`);
     assert.equal(text.includes('< 29000'), false, `${file} must not keep the superseded addendum guard`);
-    if (text.includes('< 30000')) carriers.push(file);
+    if (text.includes('< 32000')) carriers.push(file);
   }
   assert.ok(carriers.length >= 7, `every suite that guards the addendum carries the reset figure: ${carriers.length}`);
   // The aggregate ceiling is untouched by this issue and still holds.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + Buffer.byteLength(readText(file)), 0);
-  assert.ok(total < 150000, `authority files total ${total}`);
+  assert.ok(total < 156000, `authority files total ${total}`);
 });
 
 // The pre-push adversarial pass on c424d48 found the first statement of these rules unimplementable in places:
@@ -117,9 +119,12 @@ test('Issue #153 rule 3 is stated where the artifact that carries it exists', ()
 
 test('Issue #153 the superseded guard figure and phrases leave the repository', () => {
   assert.equal(readText('CONTRACT.md').includes('may not reach 29,000 bytes'), false, 'no record may state the superseded guard in the present tense');
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D43 — Authority byte guards are set once, with headroom') || '', /CL-D85 later reset it to 30,000 bytes on the same terms\./);
-  assert.match(readText('test/issue-87-authority-floor.test.js'), /30,000 bytes since CL-D85 reset it/, 'the floor suite names the live figure in prose, and asserts none');
+  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D43 — Authority byte guards are set once, with headroom') || '', /CL-D85 later reset it to 32,000 bytes and the authority ceiling to 156,000 bytes on the same terms\./);
+  assert.match(readText('test/issue-87-authority-floor.test.js'), /32,000 bytes since CL-D85 reset it/, 'the floor suite names the live figure in prose, and asserts none');
   assert.equal(readText('test/issue-87-authority-floor.test.js').includes('29,000 bytes'), false);
+  // CL-D48: the headroom belongs to the moment of the raise, asserted against the figures the record names.
+  assert.ok(32000 - 29776 > 2000, 'the addendum raise left room');
+  assert.ok(156000 - 149602 > 6000, 'the ceiling raise left room');
   const retired = JSON.parse(readText('test/records/workflow-vocabulary.json')).retiredPhrases.map((entry) => entry.pattern);
   for (const phrase of ['[Tt]he chronology is appended after each review round', 'carries four parts and nothing else']) {
     assert.ok(retired.includes(phrase), `CL-D85 retires "${phrase}", so the denylist must carry it`);
@@ -140,7 +145,7 @@ test('Issue #153 the new pins survive a mutation of what they pin', () => {
     /CL-D85 later moved the fourth part, the round chronology, out of the body to the target's timeline, so the body carries three parts and a review round edits none of them; the grant is unchanged by that move, and existing bodies are not rewritten\./);
   // A carrier is a file that asserts the live figure, not one that merely contains it.
   for (const file of ['test/issue-73-authority-budget.test.js', 'test/issue-87-addendum-split.test.js', 'test/issue-115-writer-pre-guard.test.js', 'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js', 'test/issue-126-sol-component-sweep.test.js', 'test/pr-operational-cleanliness.test.js']) {
-    assert.match(readText(file), /assert\.ok\([^\n]*addendum[^\n]*< 30000/, `${file} asserts the reset addendum guard itself`);
+    assert.match(readText(file), /assert\.ok\([^\n]*addendum[^\n]*< 32000/, `${file} asserts the reset addendum guard itself`);
   }
 });
 

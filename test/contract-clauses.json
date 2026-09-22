@@ -2461,7 +2461,7 @@
         "test/package.test.js"
       ],
       "requires": [
-        "assert.ok(total < 150000,",
+        "assert.ok(total < 156000,",
         "const PR_SKILL_PRE_SPLIT_BYTES = 57160;",
         "not a budget",
         "revision-qualified"
@@ -4402,8 +4402,9 @@
       "requires": [
         "*Owner choice:* Option A",
         "issues/153#issuecomment-5777454006",
-        "The addendum's recorded guard resets from 29,000 to 30,000 bytes for the three rules recorded here",
-        "Existing pull-request bodies are not rewritten; the three-part body applies from the next pull request"
+        "Existing pull-request bodies are not rewritten; the three-part body applies from the next pull request",
+        "The addendum's recorded guard resets from 29,000 to 32,000 bytes and the authority ceiling from 150,000 to 156,000 bytes for the three rules recorded here",
+        "issues/153#issuecomment-5780064415"
       ]
     },
     {

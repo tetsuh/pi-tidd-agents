@@ -25,7 +25,7 @@ test('Issue #115 the writer iterates on focused validation before the guard and 
   // The addendum is untouched: it sits inside its own byte guard and owns the guard sequence.
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.doesNotMatch(addendum, /the edit step is where the writer iterates/);
-  assert.ok(Buffer.byteLength(addendum) < 30000, 'the CL-D30 addendum stays inside its recorded guard');
+  assert.ok(Buffer.byteLength(addendum) < 32000, 'the CL-D30 addendum stays inside its recorded guard');
 });
 
 test('Issue #115 CL-D64 records the writer duty without relaxing the terminal rule', () => {

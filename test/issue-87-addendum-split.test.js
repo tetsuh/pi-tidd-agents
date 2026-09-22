@@ -24,7 +24,7 @@ test('Issue #87 the addendum is its own authority file and the aggregate set has
   assert.ok(AUTHORITY_FILES.includes(ADDENDUM), 'the addendum file must be inside the measured aggregate');
   assert.ok(AUTHORITY_FILES.includes(BASE));
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 150000, `authority files total ${total}`);
+  assert.ok(total < 156000, `authority files total ${total}`);
 });
 
 test('Issue #87 the addendum content moved whole and the base directs to it', () => {
@@ -55,7 +55,7 @@ test('Issue #87 the disclosure stages are bounded per stage', () => {
   // The pre-split-monolith claim keeps its meaning for what every autofix run reads.
   assert.ok(skill + base < 57160, `skill+base is ${skill + base}`);
   // The addendum stage carries the guard its section already had.
-  assert.ok(addendum < 30000, `addendum file is ${addendum}`);
+  assert.ok(addendum < 32000, `addendum file is ${addendum}`);
 });
 
 test('Issue #87 CL-D50 records the third disclosure stage', () => {
