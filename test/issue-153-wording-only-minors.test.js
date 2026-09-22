@@ -178,3 +178,20 @@ test('Issue #153 the CL-D85 record says what its carriers say', () => {
   const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D85').flatMap((clause) => clause.requires);
   assert.ok(pins.some((sentence) => sentence.includes('advances as `MERGE` at every transition')), 'the manifest pins the transition rule');
 });
+
+// ADV-171-CLD85-ROUTING-AND-RECORD-CONTRADICTIONS, reopened: the mode references carried the exception while the
+// authority they both answer to, AC-GATES, still required a literal Sol `MERGE`.
+test('Issue #153 AC-GATES carries the CL-D85 counting rule', () => {
+  const gates = sectionOf(readText('CONTRACT.md'), '## AC-GATES — Sequential Sol then Terra');
+  assert.ok(gates, 'AC-GATES must exist');
+  assert.match(gates, /The Terra gate never starts before the Sol gate returns `MERGE`\. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite \(CL-D85\)\./);
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D85').flatMap((clause) => clause.requires);
+  assert.ok(pins.some((sentence) => sentence.includes('counts as `MERGE` for that prerequisite')), 'the manifest pins the AC-GATES qualification');
+});
+
+// CONV-171-STALE-GUARD-DIAGNOSTIC, recorded as a non-blocking Minor under the rule this PR adds, and corrected here.
+test('Issue #153 the ceiling diagnostic names the ceiling it enforces', () => {
+  assert.equal(readText('test/package.test.js').includes('expected less than 150000'), false);
+  assert.match(readText('test/package.test.js'), /expected less than 156000/);
+});
