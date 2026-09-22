@@ -81,3 +81,63 @@ test('Issue #153 the reset guard is the one every suite asserts', () => {
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + Buffer.byteLength(readText(file)), 0);
   assert.ok(total < 150000, `authority files total ${total}`);
 });
+
+// The pre-push adversarial pass on c424d48 found the first statement of these rules unimplementable in places:
+// rule 1's gloss contradicted its own criterion and governed the Issue root, where "the head" does not exist;
+// rule 3 named a status block in the mode that emits none; readiness stayed unreachable one conjunct over; and
+// five mutations of the new text left the suite green.
+
+const RULE1 = "In a pull-request run, a Minor whose correction changes no file of the head, or changes only wording that alters no obligation — no sentence the clause manifest pins and no behaviour a test asserts — is recorded with its anchoring class and its disposition and does not stop the run, and readiness may be reported with such Minors recorded.";
+
+test('Issue #153 rule 1 is bounded to the pull-request root and states both disjuncts', () => {
+  const classes = sectionOf(readText('skills/closed-loop-shared/references/records.md'), '## Finding anchoring classes (AC-ANCHOR, CL-D34)');
+  assert.ok(classes.includes(RULE1), 'rule 1 names the root it applies to and both disjuncts');
+  assert.equal(classes.includes('— a target-body edit, or a wording change that alters no obligation —'), false,
+    'the gloss that called a wording change a correction changing no file must not survive');
+  // The Issue root reads the same shared file and has no head; the rule must not reach it.
+  assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /changes no file of the head/);
+});
+
+test('Issue #153 readiness is reachable when the only open findings are recorded Minors', () => {
+  const readiness = sectionOf(readText('skills/closed-loop-pr/references/autofix-addendum.md'), '### Source-finding replies and final readiness');
+  assert.match(readiness, /Sol and Terra both returned `MERGE` for the same exact head, counting a gate result whose only open findings are Minors recorded under CL-D85 as `MERGE` for that conjunct/);
+  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
+  assert.match(reviewOnly, /A new finding other than a Minor recorded under CL-D85, a failed check, `Changes requested`, or a new head revokes readiness\./);
+});
+
+test('Issue #153 rule 3 is stated where the artifact that carries it exists', () => {
+  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
+  assert.match(addendum, /the run also records it in its terminal report as a review miss of the gate and invocation that did not raise it \(CL-D85\)\./);
+  assert.equal(addendum.includes('records it in the status block as a review miss'), false, 'exact autofix emits no status block');
+  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
+  assert.match(reviewOnly, /When a gate raises a finding of the same counterexample class as one raised on an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it \(CL-D85\)\./);
+  assert.match(reviewOnly, /^review_misses: <counterexample class: the gate and invocation that did not raise it, one per line, or none>$/m);
+  assert.equal(reviewOnly.includes('<finding class:'), false, 'the derived vocabulary is `counterexample class`, as CL-D34 states it');
+});
+
+test('Issue #153 the superseded guard figure and phrases leave the repository', () => {
+  assert.equal(readText('CONTRACT.md').includes('may not reach 29,000 bytes'), false, 'no record may state the superseded guard in the present tense');
+  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D43 — Progressive disclosure replaces the monolithic Skill') || '', /CL-D85 later reset it to 30,000 bytes on the same terms\./);
+  assert.match(readText('test/issue-87-authority-floor.test.js'), /30,000 bytes/);
+  assert.equal(readText('test/issue-87-authority-floor.test.js').includes('29,000 bytes'), false);
+  const retired = JSON.parse(readText('test/records/workflow-vocabulary.json')).retiredPhrases.map((entry) => entry.pattern);
+  for (const phrase of ['the chronology is appended after each review round', 'carries four parts and nothing else']) {
+    assert.ok(retired.includes(phrase), `CL-D85 retires "${phrase}", so the denylist must carry it`);
+  }
+});
+
+test('Issue #153 the new pins survive a mutation of what they pin', () => {
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  for (const clause of manifest.clauses.filter((entry) => entry.marker === 'CL-D85')) {
+    assert.ok(clause.section, `${clause.id} anchors its pin to a section, so a sentence moved out of it fails`);
+  }
+  // The amendment sentences are the only link between the superseded records and CL-D85; pin them by text.
+  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model'),
+    /CL-D85 later narrowed what a finding under these classes stops: a Minor whose correction changes no file of the head is recorded with its anchoring class and its disposition and does not stop the run, which leaves the classes themselves unchanged\./);
+  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D67 — Pull-request bodies carry no per-head facts'),
+    /CL-D85 later moved the fourth part, the round chronology, out of the body to the target's timeline, so the body carries three parts and a review round edits none of them; the grant is unchanged by that move, and existing bodies are not rewritten\./);
+  // A carrier is a file that asserts the live figure, not one that merely contains it.
+  for (const file of ['test/issue-73-authority-budget.test.js', 'test/issue-87-addendum-split.test.js', 'test/issue-87-authority-floor.test.js', 'test/issue-115-writer-pre-guard.test.js', 'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js', 'test/issue-126-sol-component-sweep.test.js', 'test/pr-operational-cleanliness.test.js']) {
+    assert.match(readText(file), /assert\.ok\([^\n]*addendum[^\n]*< 30000/, `${file} asserts the reset addendum guard itself`);
+  }
+});
