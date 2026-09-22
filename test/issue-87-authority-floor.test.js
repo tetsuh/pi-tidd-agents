@@ -13,7 +13,7 @@
 // local output is not claimed as repository-preserved or runtime-compliance evidence.
 //
 // The authority aggregate is the only guard this issue touches. The 57,160-byte disclosure
-// guard and the CL-D30 addendum guard, 29,000 bytes since CL-D74 reset it, are live subset
+// guard and the CL-D30 addendum guard, 30,000 bytes since CL-D85 reset it, are live subset
 // guards and stay exactly as they are here; `autofix.md` prose remains bounded by the disclosure guard, which is why the
 // `autofix.md` split stays open under Issue #87.
 

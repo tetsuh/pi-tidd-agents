@@ -4346,7 +4346,8 @@
       ],
       "section": "## Finding anchoring classes (AC-ANCHOR, CL-D34)",
       "requires": [
-        "A Minor whose correction changes no file of the head",
+        "In a pull-request run, a Minor whose correction changes no file of the head, or changes only wording that alters no obligation",
+        "no sentence the clause manifest pins and no behaviour a test asserts",
         "is recorded with its anchoring class and its disposition and does not stop the run, and readiness may be reported with such Minors recorded",
         "A finding that corrects a false safety claim changes what the contract promises, so it is not wording only and keeps its severity (CL-D85)"
       ]
@@ -4360,6 +4361,7 @@
       ],
       "section": "### Source-finding replies and final readiness",
       "requires": [
+        "counting a gate result whose only open findings are Minors recorded under CL-D85 as `MERGE` for that conjunct",
         "every finding has final disposition, a Minor whose correction changes no file of the head counting as dispositioned once recorded (CL-D85)"
       ]
     },
@@ -4372,7 +4374,7 @@
       ],
       "section": "### Findings, no-progress, and deterministic status",
       "requires": [
-        "the run also records it in the status block as a review miss of the round that did not raise it (CL-D85)"
+        "the run also records it in its terminal report as a review miss of the gate and invocation that did not raise it (CL-D85)"
       ]
     },
     {
@@ -4383,9 +4385,11 @@
         "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
-        "review_misses: <finding class: the round that did not raise it, one per line, or none>",
-        "A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` (CL-D85)."
-      ]
+        "review_misses: <counterexample class: the gate and invocation that did not raise it, one per line, or none>",
+        "A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` (CL-D85).",
+        "When a gate raises a finding of the same counterexample class as one raised on an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it (CL-D85)."
+      ],
+      "section": "## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)"
     },
     {
       "id": "CL-D85-record",
