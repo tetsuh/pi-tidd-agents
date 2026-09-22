@@ -90,14 +90,22 @@ if [[ "$1" == 'api' && "${'${2:-}'}" == "repos/$GH_EXPECTED_REPOSITORY/pulls/$GH
   current_head="$GH_HEAD"
   if [[ "$count" -gt 1 && -n "${'${GH_HEAD_SECOND:-}'}" ]]; then current_head="$GH_HEAD_SECOND"; fi
   if [[ "$count" == 1 && -n "${'${GH_MUTATE_ORIGINAL_ON_IDENTITY:-}'}" ]]; then printf 'tampered\\n' >> "$GH_ORIGINAL_FILE"; fi
+  if [[ "$count" == 1 && -n "${'${GH_MUTATE_SNAPSHOT_ON_IDENTITY:-}'}" ]]; then
+    for snapshot in "$GH_ARTIFACT_DIR"/.pi-review-publish.*/review-comment.md; do
+      [[ -f "$snapshot" ]] && printf 'tampered\\n' >> "$snapshot"
+    done
+  fi
+  # Raw mode returns identity bytes the template's own filter could never produce, so the guards that stand
+  # between the filter and the field split can be exercised at all.
+  if [[ -n "${'${GH_RAW_IDENTITY:-}'}" ]]; then printf '%b' "$GH_RAW_IDENTITY"; exit 0; fi
   # Issue #141: the template's own filter runs, through the real jq, over a pull request shaped as the REST API
   # returns it, so each field the template reads, its position, and its null handling are what the tests check.
-  draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_ref="${'${GH_HEAD_REF-feature}'}"
+  draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; base_json="${'${GH_BASE_JSON:-}'}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_repo_json="${'${GH_HEAD_REPO_JSON:-}'}"; head_ref="${'${GH_HEAD_REF-feature}'}"; head_ref_json="${'${GH_HEAD_REF_JSON:-}'}"
   if [[ "$count" -gt 1 ]]; then
-    draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"
+    draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; base_json="${'${GH_BASE_JSON_SECOND:-$base_json}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_repo_json="${'${GH_HEAD_REPO_JSON_SECOND:-$head_repo_json}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"; head_ref_json="${'${GH_HEAD_REF_JSON_SECOND:-$head_ref_json}'}"
   fi
-  jq -nr --arg repo "$GH_REPOSITORY" --arg number "$GH_PR_NUMBER" --arg state "$GH_STATE" --arg draft "$draft" --arg head "$current_head" --arg url "$GH_PR_URL" --arg base "$base" --arg headRepo "$head_repo" --arg headRef "$head_ref" \
-    '{ number: ($number|tonumber), state: $state, draft: ($draft|fromjson), html_url: $url, base: { sha: $base, ref: "main", repo: { full_name: $repo } }, head: { sha: $head, ref: $headRef, repo: (if $headRepo == "" then null else { full_name: $headRepo } end) } }' \
+  jq -nr --arg repo "$GH_REPOSITORY" --arg number "$GH_PR_NUMBER" --arg numberJson "${'${GH_NUMBER_JSON:-}'}" --arg state "$GH_STATE" --arg draft "$draft" --arg head "$current_head" --arg url "$GH_PR_URL" --arg base "$base" --arg baseJson "$base_json" --arg headRepo "$head_repo" --arg headRepoJson "$head_repo_json" --arg headRef "$head_ref" --arg headRefJson "$head_ref_json" \
+    '{ number: (if $numberJson == "" then ($number|tonumber) else ($numberJson|fromjson) end), state: $state, draft: ($draft|fromjson), html_url: $url, base: { sha: (if $baseJson == "" then $base else ($baseJson|fromjson) end), ref: "main", repo: { full_name: $repo } }, head: { sha: $head, ref: (if $headRefJson == "" then $headRef else ($headRefJson|fromjson) end), repo: (if $headRepoJson == "" then (if $headRepo == "" then null else { full_name: $headRepo } end) else { full_name: ($headRepoJson|fromjson) } end) } }' \
     | jq -r "$4"
   exit 0
 fi
@@ -141,6 +149,7 @@ function runPublisher(fixture, extra = {}) {
     GH_EXPECTED_REPOSITORY: REPOSITORY,
     GH_EXPECTED_PR_NUMBER: PR,
     GH_ORIGINAL_FILE: gitBashPath(path.join(fixture.artifactDir, 'review-comment.md')),
+    GH_ARTIFACT_DIR: gitBashPath(fixture.artifactDir),
     ...extra,
   };
   return execFileSync(BASH, [gitBashPath(path.join(fixture.artifactDir, 'publish-review.sh'))], {
@@ -398,7 +407,201 @@ test('Issue #141 rejects a pull request whose head repository no longer exists',
 
 test('Issue #141 rejects a pull request whose head branch is empty (CONV-145-HEADREF-GUARD-UNEXERCISED)', () => {
   const f = fixture();
-  assert.throws(() => runPublisher(f, { GH_HEAD_REF: '' }), /base or head branch evidence is malformed/);
+  assert.throws(() => runPublisher(f, { GH_HEAD_REF: '' }), /head branch is missing/);
+  assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+// Issue #148: each identity field is refused by its own clause. With a tab-separated read an empty field collapsed
+// and the next value shifted into it, so a missing head repository was only ever refused by the head-branch clause.
+for (const [label, extra, reason] of [
+  ['only the head repository is empty', { GH_HEAD_REPO: '' }, /head repository is missing/],
+  ['only the head branch is empty', { GH_HEAD_REF: '' }, /head branch is missing/],
+  ['only the base OID is malformed', { GH_BASE: 'not-an-oid' }, /base OID is malformed/],
+]) {
+  test(`Issue #148 ${label}: refused by that field's own clause, before any POST`, () => {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, extra), (error) => reason.test(String(error.stderr)), label);
+    assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+    assert.equal(fs.existsSync(f.posted), false);
+  });
+}
+
+for (const [field, type, extra] of [
+  ['head repository', 'object', { GH_HEAD_REPO_JSON: '{}' }],
+  ['head repository', 'array', { GH_HEAD_REPO_JSON: '[]' }],
+  ['head branch', 'object', { GH_HEAD_REF_JSON: '{}' }],
+  ['head branch', 'array', { GH_HEAD_REF_JSON: '[]' }],
+  ['base OID', 'null', { GH_BASE_JSON: 'null' }],
+  ['head branch', 'null', { GH_HEAD_REF_JSON: 'null' }],
+]) {
+  test(`Issue #149 rejects a ${type} ${field} identity value before any POST`, () => {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, extra));
+    assert.equal(callCount(f), 2, 'malformed identity is refused at the first read, after authentication');
+    assert.equal(fs.existsSync(f.posted), false);
+  });
+}
+
+// Issue #149 (CONV-149-HEAD-ID-TYPE): `tostring` turned a number or a boolean into a plausible identity value, so
+// a type change between the two reads was invisible to the comparison. Only a string, or a null that the field's
+// own clause refuses, may reach the shell.
+for (const [field, type, extra] of [
+  ['head repository', 'number', { GH_HEAD_REPO_JSON: '123' }],
+  ['head repository', 'boolean', { GH_HEAD_REPO_JSON: 'true' }],
+  ['head branch', 'number', { GH_HEAD_REF_JSON: '123' }],
+  ['head branch', 'boolean', { GH_HEAD_REF_JSON: 'true' }],
+  ['base OID', 'number', { GH_BASE_JSON: '123' }],
+  ['base OID', 'boolean', { GH_BASE_JSON: 'true' }],
+]) {
+  test(`Issue #149 refuses a ${type} ${field} as an identity value before any POST`, () => {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, extra),
+      (error) => /identity lookup failed at initial/.test(String(error.stderr)), `${type} ${field}`);
+    assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+    assert.equal(fs.existsSync(f.posted), false);
+  });
+}
+
+test('Issue #149 rejects a unit-separator collision across identity reads before POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REPO: `owner\x1frepo`,
+    GH_HEAD_REF: 'feature',
+    GH_HEAD_REPO_SECOND: 'owner',
+    GH_HEAD_REF_SECOND: `repo\x1ffeature`,
+  }), /unit separator|identity/);
+  assert.equal(callCount(f), 2, 'the delimiter-bearing collision pair is refused on the first identity read before POST');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #149 rejects a NUL-removal collision across identity reads before POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REPO: 'ownerrepo',
+    GH_HEAD_REPO_JSON_SECOND: '"owner\\u0000repo"',
+  }), /control character|identity/);
+  assert.equal(callCount(f), 4, 'the NUL-bearing second identity is refused before POST');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #149 rejects a trailing-LF collision across identity reads before POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REF: 'feature',
+    GH_HEAD_REF_JSON_SECOND: '"feature\\n"',
+  }), /control character|identity/);
+  assert.equal(callCount(f), 4, 'the trailing-LF second identity is refused before POST');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #149 refuses a tab relocation across identity reads before POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REPO: 'owner\trepo',
+    GH_HEAD_REF: 'feature',
+    GH_HEAD_REPO_SECOND: 'owner',
+    GH_HEAD_REF_SECOND: 'repo\tfeature',
+  }), (error) => /base OID, head repository, or head branch changed at before-post/.test(String(error.stderr)));
+  assert.equal(callCount(f), 4, 'the tab is carried through both reads and refused by the pre-POST comparison');
+  assert.equal(fs.existsSync(f.posted), false, 'the relocated tab must not reach POST');
+});
+
+// Issue #149: the tuple the two identity reads compare is injective only while its delimiter is a character the
+// identity filter refuses inside a field. Reading the delimiter out of the template keeps that invariant pinned:
+// with an ordinary character (a colon, say) every character-specific case below still passes.
+function decodeShellLiteral(token) {
+  const ansi = token.match(/^\$'(.*)'$/);
+  if (ansi) {
+    return ansi[1].replace(/\\x([0-9a-fA-F]{2})|\\u([0-9a-fA-F]{4})|\\(.)/g, (whole, hex, unicode, escape) => {
+      if (hex) return String.fromCharCode(parseInt(hex, 16));
+      if (unicode) return String.fromCharCode(parseInt(unicode, 16));
+      return { t: '\t', n: '\n', r: '\r', 0: '\0' }[escape] ?? escape;
+    });
+  }
+  const quoted = token.match(/^'(.*)'$/) || token.match(/^"(.*)"$/);
+  assert.ok(quoted, `the identity tuple's delimiter is not a readable literal: ${token}`);
+  return quoted[1];
+}
+
+function joinDelimiter() {
+  const line = readText(TEMPLATE).match(/^\s*local target=.*$/m);
+  assert.ok(line, 'the template still binds the identity tuple in one assignment');
+  const parts = line[0].match(/^\s*local target="\$actual_base"(.+?)"\$actual_head_repo"(.+?)"\$actual_head_ref"$/);
+  assert.ok(parts, `the identity tuple is joined in an unreadable way: ${line[0]}`);
+  assert.equal(parts[1], parts[2], 'both field boundaries use the same delimiter');
+  return decodeShellLiteral(parts[1]);
+}
+
+function refusedIdentityCharacters() {
+  const refused = [...readText(TEMPLATE).matchAll(/contains\("\\u([0-9a-fA-F]{4})"\)/g)]
+    .map((match) => String.fromCharCode(parseInt(match[1], 16)));
+  assert.ok(refused.length > 0, 'the identity filter still refuses characters by code point');
+  return new Set(refused);
+}
+
+test('Issue #149 joins the bound identity with a character the identity filter refuses', () => {
+  const delimiter = joinDelimiter();
+  const codePoint = `U+${delimiter.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`;
+  assert.ok(refusedIdentityCharacters().has(delimiter),
+    `the identity tuple is joined with ${codePoint}, which the filter accepts inside a field, so two identities can serialize alike`);
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REPO: `owner${delimiter}repo`,
+    GH_HEAD_REF: 'feature',
+    GH_HEAD_REPO_SECOND: 'owner',
+    GH_HEAD_REF_SECOND: `repo${delimiter}feature`,
+  }), `a relocated ${codePoint} must not reach POST`);
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #149 refuses a private snapshot tampered with between validation and POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, { GH_MUTATE_SNAPSHOT_ON_IDENTITY: '1' }),
+    (error) => /private review-comment snapshot changed before POST/.test(String(error.stderr)));
+  assert.equal(callCount(f), 4, 'the snapshot is re-hashed after the pre-POST identity read');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+// Issue #149: `tostring` hides a type change for every field compared after it, not only for the free-form three.
+// A JSON string "false" stringifies to the same `false` a boolean does, so a draft-state or PR-number type could
+// change between the two identity reads without the comparison seeing any movement.
+for (const [label, extra] of [
+  ['a string draft state', { GH_DRAFT: '"false"' }],
+  ['a draft state that changes type between the reads', { GH_DRAFT: '"false"', GH_DRAFT_SECOND: 'false' }],
+  ['a string PR number', { GH_NUMBER_JSON: '"41"' }],
+]) {
+  test(`Issue #149 refuses ${label} before any POST`, () => {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, extra),
+      (error) => /identity lookup failed at initial/.test(String(error.stderr)), label);
+    assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+    assert.equal(fs.existsSync(f.posted), false);
+  });
+}
+
+test('Issue #149 refuses an extra identity field that is empty', () => {
+  const f = fixture();
+  const fields = [REPOSITORY, PR, 'open', 'false', f.head, URL, 'b'.repeat(40), REPOSITORY, 'feature'];
+  assert.throws(() => runPublisher(f, { GH_RAW_IDENTITY: `${fields.join('\\x1f')}\\x1f\\n` }),
+    (error) => /identity evidence has unexpected fields/.test(String(error.stderr)));
+  assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+  assert.equal(fs.existsSync(f.posted), false, 'read strips one trailing separator, so the guard must count them');
+});
+
+test('Issue #149 refuses identity evidence that carries more fields than the filter produces', () => {
+  const f = fixture();
+  const fields = [REPOSITORY, PR, 'open', 'false', f.head, URL, 'b'.repeat(40), REPOSITORY, 'feature', 'EXTRA'];
+  assert.throws(() => runPublisher(f, { GH_RAW_IDENTITY: `${fields.join('\\x1f')}\\n` }),
+    (error) => /identity evidence has unexpected fields/.test(String(error.stderr)));
+  assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+  assert.equal(fs.existsSync(f.posted), false, 'the trailing field must not ride into the head branch and POST');
+});
+
+test('Issue #149 refuses identity evidence that carries more than one record', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, { GH_RAW_IDENTITY: 'one\\ntwo\\n' }),
+    (error) => /identity evidence has multiple records/.test(String(error.stderr)));
   assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
   assert.equal(fs.existsSync(f.posted), false);
 });
