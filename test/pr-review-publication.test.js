@@ -443,6 +443,26 @@ for (const [field, type, extra] of [
   });
 }
 
+// Issue #149 (CONV-149-HEAD-ID-TYPE): `tostring` turned a number or a boolean into a plausible identity value, so
+// a type change between the two reads was invisible to the comparison. Only a string, or a null that the field's
+// own clause refuses, may reach the shell.
+for (const [field, type, extra] of [
+  ['head repository', 'number', { GH_HEAD_REPO_JSON: '123' }],
+  ['head repository', 'boolean', { GH_HEAD_REPO_JSON: 'true' }],
+  ['head branch', 'number', { GH_HEAD_REF_JSON: '123' }],
+  ['head branch', 'boolean', { GH_HEAD_REF_JSON: 'true' }],
+  ['base OID', 'number', { GH_BASE_JSON: '123' }],
+  ['base OID', 'boolean', { GH_BASE_JSON: 'true' }],
+]) {
+  test(`Issue #149 refuses a ${type} ${field} as an identity value before any POST`, () => {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, extra),
+      (error) => /identity lookup failed at initial/.test(String(error.stderr)), `${type} ${field}`);
+    assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+    assert.equal(fs.existsSync(f.posted), false);
+  });
+}
+
 test('Issue #149 rejects a unit-separator collision across identity reads before POST', () => {
   const f = fixture();
   assert.throws(() => runPublisher(f, {
