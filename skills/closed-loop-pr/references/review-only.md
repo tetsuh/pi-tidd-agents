@@ -47,7 +47,7 @@ The order is fixed and sequential:
 implementation and validation
 → one initial external-review snapshot for the current `pr_head`
 → tidd-convergence-reviewer stage (non-authoritative, CL-D62)
-→ preliminary disposition (a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol)
+→ preliminary disposition (a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol, unless its only open findings are Minors recorded under CL-D85)
 → tidd-adversarial-reviewer gate
 → disposition, fix, revalidate
 → Sol MERGE
@@ -61,7 +61,7 @@ implementation and validation
 
 Review-only's validation step runs each of the target's validation commands through packaged `validation_run` from the installed package, as an argv at the checkout's toplevel; `validation_failed` is the validation verdict, and `harness_failed` is a tool failure that never becomes one (CL-D72). The gate's required-evidence set is derived through packaged `required_evidence_set`, never assembled by hand (CL-D72).
 
-Each review-only gate payload composes the shared Every-gate invariant payload block verbatim, exactly one selected PR root role-authority block verbatim, and the volatile envelope/history projection; Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim. `tidd-adversarial-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `tidd-safety-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.** `tidd-convergence-reviewer` runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage; a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol.
+Each review-only gate payload composes the shared Every-gate invariant payload block verbatim, exactly one selected PR root role-authority block verbatim, and the volatile envelope/history projection; Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim. `tidd-adversarial-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `tidd-safety-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`, counting a result whose only open findings are Minors recorded under CL-D85 as `MERGE` (CL-D85).** A gate result whose only open findings are Minors recorded under CL-D85 advances as `MERGE` at every transition — convergence to Sol, Sol to Terra, and Terra to the final check — and is not a correction path; those findings stay recorded and dispositioned, and the head does not move for them. `tidd-convergence-reviewer` runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage; a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs, unless its only open findings are Minors recorded under CL-D85 (CL-D85), and open convergence findings are assigned to Sol.
 
 ### Review-only round deltas (CL-D11, CL-D12)
 
@@ -117,7 +117,7 @@ ABORTED
 
 In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**; this means a readiness-relevant correction candidate and stops at `WAITING_FOR_OWNER`. Once published, a fresh run revalidates the target and external evidence, then reruns Sol, Terra, external state, and exact-head checks.
 
-Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself.
+Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding other than a Minor recorded under CL-D85, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself. A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` (CL-D85). When a gate raises a finding of the same counterexample class as one this run's ledger already carries for an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it (CL-D85).
 
 Whenever a PR review-only run stops, emit the resumable block below:
 
@@ -132,6 +132,7 @@ fingerprints: issue_spec <d> base <d> tree <d> diff <d> commits <d> head <sha>
 rounds: convergence <used>/3, sol <used>/3, terra <used>/3
 resolved: <role provider/model:thinking, one per role that ran; convergence: disabled when skipped>
 findings: <internal finding id: disposition, one per line>
+review_misses: <counterexample class: the gate and invocation that did not raise it, one per line, or none>
 pending_decisions: <decision ids or none>
 publication_grant: review-only not-applicable
 external_observation: head <sha> observed_from <timestamp>, this run only

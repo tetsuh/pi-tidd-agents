@@ -1,10 +1,10 @@
 'use strict';
 
 // Issue #120 (CL-D67) — a pull-request body under this workflow carries no per-head facts: a Closes
-// line, a Scope pointer, the AC-TDD classification, and a chronology. Per-head measurements live in
-// commit messages and in the review's published comment, so no body claim depends on the head; the
-// chronology is appended after each review round. Exact autofix therefore has no body-only finding
-// to stop on. Three PR #113 rounds were body drift.
+// line, a Scope pointer, and the AC-TDD classification. Per-head measurements live in commit messages
+// and in the review's published comment, so no body claim depends on the head; CL-D85 (Issue #153) moved
+// the chronology to the target's timeline, so a review round edits no body at all. Exact autofix
+// therefore has no body-only finding to stop on. Three PR #113 rounds were body drift.
 //
 // TDD provenance: pre-implementation compile/contract RED (not behavioral RED: every assertion
 // inspects artifact text), recorded with `node --test test/issue-120-pr-body-template.test.js` at 0
@@ -20,12 +20,13 @@ const { readText, repoPath, sectionOf } = require('./helpers');
 test('Issue #120 the PR Skill states the body template and keeps per-head facts out of the body', () => {
   const template = sectionOf(readText('skills/closed-loop-pr/SKILL.md'), '### PR body template (CL-D67)');
   assert.ok(template, 'the PR body template subsection must exist');
-  assert.match(template, /A pull-request body under this workflow carries four parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; the AC-TDD classification of the RED with its command and counts; and a chronology of review rounds, followed at most by one tooling attribution footer\./);
-  assert.match(template, /Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology is appended after each review round \(CL-D67\)\./);
+  // CL-D85 removed the fourth part; the chronology now lives on the target's timeline (Issue #153).
+  assert.match(template, /A pull-request body under this workflow carries three parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; and the AC-TDD classification of the RED with its command and counts, followed at most by one tooling attribution footer\./);
+  assert.match(template, /Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology of review rounds lives on the target's timeline, so a round edits no body and invalidates no snapshot by doing so \(CL-D67, CL-D85\)\./);
   // The exact-autofix grant is unchanged: the addendum does not mention a body edit.
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.doesNotMatch(addendum, /CL-D67|PATCH the body|pull-request body edit/);
-  assert.ok(Buffer.byteLength(addendum) < 29000, 'the CL-D30 addendum stays inside its recorded guard');
+  assert.ok(Buffer.byteLength(addendum) < 32000, 'the CL-D30 addendum stays inside its recorded guard');
 });
 
 test('Issue #120 CL-D67 records the choice, the declined bounded body edit, and the boundary', () => {

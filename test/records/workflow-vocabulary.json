@@ -165,6 +165,14 @@
     {
       "pattern": "registry collision",
       "retiredBy": "CL-D59"
+    },
+    {
+      "pattern": "[Tt]he chronology is appended after each review round",
+      "retiredBy": "CL-D85"
+    },
+    {
+      "pattern": "carries four parts and nothing else",
+      "retiredBy": "CL-D85"
     }
   ]
 }
