@@ -61,7 +61,7 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
   assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D67 — Pull-request bodies carry no per-head facts') || '', /CL-D85/);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D85').map((clause) => clause.id).sort(),
-    ['CL-D85-classes', 'CL-D85-misses', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-status', 'CL-D85-tests']);
+    ['CL-D85-classes', 'CL-D85-misses', 'CL-D85-order', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-routing', 'CL-D85-status', 'CL-D85-tests']);
   assert.ok(fs.existsSync(repoPath('test/issue-153-wording-only-minors.test.js')));
 });
 

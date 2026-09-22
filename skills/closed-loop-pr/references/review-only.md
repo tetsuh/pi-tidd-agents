@@ -47,7 +47,7 @@ The order is fixed and sequential:
 implementation and validation
 → one initial external-review snapshot for the current `pr_head`
 → tidd-convergence-reviewer stage (non-authoritative, CL-D62)
-→ preliminary disposition (a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol)
+→ preliminary disposition (a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol, unless its only open findings are Minors recorded under CL-D85)
 → tidd-adversarial-reviewer gate
 → disposition, fix, revalidate
 → Sol MERGE
@@ -61,7 +61,7 @@ implementation and validation
 
 Review-only's validation step runs each of the target's validation commands through packaged `validation_run` from the installed package, as an argv at the checkout's toplevel; `validation_failed` is the validation verdict, and `harness_failed` is a tool failure that never becomes one (CL-D72). The gate's required-evidence set is derived through packaged `required_evidence_set`, never assembled by hand (CL-D72).
 
-Each review-only gate payload composes the shared Every-gate invariant payload block verbatim, exactly one selected PR root role-authority block verbatim, and the volatile envelope/history projection; Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim. `tidd-adversarial-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `tidd-safety-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`.** `tidd-convergence-reviewer` runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage; a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol.
+Each review-only gate payload composes the shared Every-gate invariant payload block verbatim, exactly one selected PR root role-authority block verbatim, and the volatile envelope/history projection; Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim. `tidd-adversarial-reviewer` owns contracts, scope, maintainability, test coverage, and the bounded adversarial check below. `tidd-safety-reviewer` then owns concurrency, lifetime, ownership, cleanup, portability, deadlocks, races, and use-after-free risk. **Never start the Terra gate before the Sol gate returns `MERGE`, counting a result whose only open findings are Minors recorded under CL-D85 as `MERGE` (CL-D85).** A gate result whose only open findings are Minors recorded under CL-D85 advances as `MERGE` at every transition — convergence to Sol, Sol to Terra, and Terra to the final check — and is not a correction path; those findings stay recorded and dispositioned, and the head does not move for them. `tidd-convergence-reviewer` runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage; a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs, and open convergence findings are assigned to Sol.
 
 ### Review-only round deltas (CL-D11, CL-D12)
 
