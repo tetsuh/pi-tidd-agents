@@ -466,6 +466,17 @@ test('Issue #149 rejects a trailing-LF collision across identity reads before PO
   assert.equal(fs.existsSync(f.posted), false);
 });
 
+test('Issue #149 refuses a tab relocation across identity reads before POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REPO: 'owner\trepo',
+    GH_HEAD_REF: 'feature',
+    GH_HEAD_REPO_SECOND: 'owner',
+    GH_HEAD_REF_SECOND: 'repo\tfeature',
+  }), /identity|changed at/);
+  assert.equal(fs.existsSync(f.posted), false, 'the relocated tab must not reach POST');
+});
+
 test('Issue #141 rejects a malformed base OID', () => {
   const f = fixture();
   assert.throws(() => runPublisher(f, { GH_BASE: 'not-an-oid' }));
