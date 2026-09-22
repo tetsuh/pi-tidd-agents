@@ -104,8 +104,8 @@ if [[ "$1" == 'api' && "${'${2:-}'}" == "repos/$GH_EXPECTED_REPOSITORY/pulls/$GH
   if [[ "$count" -gt 1 ]]; then
     draft="${'${GH_DRAFT_SECOND:-$draft}'}"; base="${'${GH_BASE_SECOND:-$base}'}"; base_json="${'${GH_BASE_JSON_SECOND:-$base_json}'}"; head_repo="${'${GH_HEAD_REPO_SECOND-$head_repo}'}"; head_repo_json="${'${GH_HEAD_REPO_JSON_SECOND:-$head_repo_json}'}"; head_ref="${'${GH_HEAD_REF_SECOND:-$head_ref}'}"; head_ref_json="${'${GH_HEAD_REF_JSON_SECOND:-$head_ref_json}'}"
   fi
-  jq -nr --arg repo "$GH_REPOSITORY" --arg number "$GH_PR_NUMBER" --arg state "$GH_STATE" --arg draft "$draft" --arg head "$current_head" --arg url "$GH_PR_URL" --arg base "$base" --arg baseJson "$base_json" --arg headRepo "$head_repo" --arg headRepoJson "$head_repo_json" --arg headRef "$head_ref" --arg headRefJson "$head_ref_json" \
-    '{ number: ($number|tonumber), state: $state, draft: ($draft|fromjson), html_url: $url, base: { sha: (if $baseJson == "" then $base else ($baseJson|fromjson) end), ref: "main", repo: { full_name: $repo } }, head: { sha: $head, ref: (if $headRefJson == "" then $headRef else ($headRefJson|fromjson) end), repo: (if $headRepoJson == "" then (if $headRepo == "" then null else { full_name: $headRepo } end) else { full_name: ($headRepoJson|fromjson) } end) } }' \
+  jq -nr --arg repo "$GH_REPOSITORY" --arg number "$GH_PR_NUMBER" --arg numberJson "${'${GH_NUMBER_JSON:-}'}" --arg state "$GH_STATE" --arg draft "$draft" --arg head "$current_head" --arg url "$GH_PR_URL" --arg base "$base" --arg baseJson "$base_json" --arg headRepo "$head_repo" --arg headRepoJson "$head_repo_json" --arg headRef "$head_ref" --arg headRefJson "$head_ref_json" \
+    '{ number: (if $numberJson == "" then ($number|tonumber) else ($numberJson|fromjson) end), state: $state, draft: ($draft|fromjson), html_url: $url, base: { sha: (if $baseJson == "" then $base else ($baseJson|fromjson) end), ref: "main", repo: { full_name: $repo } }, head: { sha: $head, ref: (if $headRefJson == "" then $headRef else ($headRefJson|fromjson) end), repo: (if $headRepoJson == "" then (if $headRepo == "" then null else { full_name: $headRepo } end) else { full_name: ($headRepoJson|fromjson) } end) } }' \
     | jq -r "$4"
   exit 0
 fi
@@ -561,6 +561,32 @@ test('Issue #149 refuses a private snapshot tampered with between validation and
     (error) => /private review-comment snapshot changed before POST/.test(String(error.stderr)));
   assert.equal(callCount(f), 4, 'the snapshot is re-hashed after the pre-POST identity read');
   assert.equal(fs.existsSync(f.posted), false);
+});
+
+// Issue #149: `tostring` hides a type change for every field compared after it, not only for the free-form three.
+// A JSON string "false" stringifies to the same `false` a boolean does, so a draft-state or PR-number type could
+// change between the two identity reads without the comparison seeing any movement.
+for (const [label, extra] of [
+  ['a string draft state', { GH_DRAFT: '"false"' }],
+  ['a draft state that changes type between the reads', { GH_DRAFT: '"false"', GH_DRAFT_SECOND: 'false' }],
+  ['a string PR number', { GH_NUMBER_JSON: '"41"' }],
+]) {
+  test(`Issue #149 refuses ${label} before any POST`, () => {
+    const f = fixture();
+    assert.throws(() => runPublisher(f, extra),
+      (error) => /identity lookup failed at initial/.test(String(error.stderr)), label);
+    assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+    assert.equal(fs.existsSync(f.posted), false);
+  });
+}
+
+test('Issue #149 refuses an extra identity field that is empty', () => {
+  const f = fixture();
+  const fields = [REPOSITORY, PR, 'open', 'false', f.head, URL, 'b'.repeat(40), REPOSITORY, 'feature'];
+  assert.throws(() => runPublisher(f, { GH_RAW_IDENTITY: `${fields.join('\\x1f')}\\x1f\\n` }),
+    (error) => /identity evidence has unexpected fields/.test(String(error.stderr)));
+  assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+  assert.equal(fs.existsSync(f.posted), false, 'read strips one trailing separator, so the guard must count them');
 });
 
 test('Issue #149 refuses identity evidence that carries more fields than the filter produces', () => {
