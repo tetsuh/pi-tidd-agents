@@ -131,8 +131,10 @@ command -v gh >/dev/null 2>&1 || fail 'gh is not installed'
 gh auth status >/dev/null 2>&1 || fail 'gh is not authenticated'
 
 # The first read binds the base OID and the head repository and branch; the read before POST must find them
-# unchanged, and both must find the pull request open and not a draft (CL-D77). Fields are joined with the unit
-# separator, not a tab: tab is IFS whitespace, so an empty field would collapse and shift the rest (Issue #148).
+# unchanged, and both must find the pull request open and not a draft (CL-D77). Every join here uses the unit
+# separator, never a tab: tab is IFS whitespace, so an empty field would collapse and shift the rest (Issue #148),
+# and a tab inside a field would let two different identities serialize alike, since only U+001F, U+0000, and LF
+# are refused in the fields themselves (Issue #149).
 bound_target=''
 verify_pr_identity() {
   local phase="$1" identity actual_repo actual_number actual_state actual_draft actual_head actual_url actual_base actual_head_repo actual_head_ref
@@ -144,7 +146,7 @@ verify_pr_identity() {
   [[ "$actual_base" =~ ^[0-9a-f]{40}$ ]] || fail "pull-request base OID is malformed at $phase"
   [[ -n "${actual_head_repo:-}" ]] || fail "pull-request head repository is missing at $phase"
   [[ -n "${actual_head_ref:-}" ]] || fail "pull-request head branch is missing at $phase"
-  local target="$actual_base"$'\t'"$actual_head_repo"$'\t'"$actual_head_ref"
+  local target="$actual_base"$'\x1f'"$actual_head_repo"$'\x1f'"$actual_head_ref"
   if [[ -z "$bound_target" ]]; then bound_target="$target"
   elif [[ "$target" != "$bound_target" ]]; then fail "pull-request base OID, head repository, or head branch changed at $phase"; fi
 }
