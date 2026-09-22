@@ -90,6 +90,14 @@ if [[ "$1" == 'api' && "${'${2:-}'}" == "repos/$GH_EXPECTED_REPOSITORY/pulls/$GH
   current_head="$GH_HEAD"
   if [[ "$count" -gt 1 && -n "${'${GH_HEAD_SECOND:-}'}" ]]; then current_head="$GH_HEAD_SECOND"; fi
   if [[ "$count" == 1 && -n "${'${GH_MUTATE_ORIGINAL_ON_IDENTITY:-}'}" ]]; then printf 'tampered\\n' >> "$GH_ORIGINAL_FILE"; fi
+  if [[ "$count" == 1 && -n "${'${GH_MUTATE_SNAPSHOT_ON_IDENTITY:-}'}" ]]; then
+    for snapshot in "$GH_ARTIFACT_DIR"/.pi-review-publish.*/review-comment.md; do
+      [[ -f "$snapshot" ]] && printf 'tampered\\n' >> "$snapshot"
+    done
+  fi
+  # Raw mode returns identity bytes the template's own filter could never produce, so the guards that stand
+  # between the filter and the field split can be exercised at all.
+  if [[ -n "${'${GH_RAW_IDENTITY:-}'}" ]]; then printf '%b' "$GH_RAW_IDENTITY"; exit 0; fi
   # Issue #141: the template's own filter runs, through the real jq, over a pull request shaped as the REST API
   # returns it, so each field the template reads, its position, and its null handling are what the tests check.
   draft="${'${GH_DRAFT:-false}'}"; base="${'${GH_BASE:-'}${'b'.repeat(40)}}"; base_json="${'${GH_BASE_JSON:-}'}"; head_repo="${'${GH_HEAD_REPO-$GH_REPOSITORY}'}"; head_repo_json="${'${GH_HEAD_REPO_JSON:-}'}"; head_ref="${'${GH_HEAD_REF-feature}'}"; head_ref_json="${'${GH_HEAD_REF_JSON:-}'}"
@@ -141,6 +149,7 @@ function runPublisher(fixture, extra = {}) {
     GH_EXPECTED_REPOSITORY: REPOSITORY,
     GH_EXPECTED_PR_NUMBER: PR,
     GH_ORIGINAL_FILE: gitBashPath(path.join(fixture.artifactDir, 'review-comment.md')),
+    GH_ARTIFACT_DIR: gitBashPath(fixture.artifactDir),
     ...extra,
   };
   return execFileSync(BASH, [gitBashPath(path.join(fixture.artifactDir, 'publish-review.sh'))], {
@@ -473,8 +482,73 @@ test('Issue #149 refuses a tab relocation across identity reads before POST', ()
     GH_HEAD_REF: 'feature',
     GH_HEAD_REPO_SECOND: 'owner',
     GH_HEAD_REF_SECOND: 'repo\tfeature',
-  }), /identity|changed at/);
+  }), (error) => /base OID, head repository, or head branch changed at before-post/.test(String(error.stderr)));
+  assert.equal(callCount(f), 4, 'the tab is carried through both reads and refused by the pre-POST comparison');
   assert.equal(fs.existsSync(f.posted), false, 'the relocated tab must not reach POST');
+});
+
+// Issue #149: the tuple the two identity reads compare is injective only while its delimiter is a character the
+// identity filter refuses inside a field. Reading the delimiter out of the template keeps that invariant pinned:
+// with an ordinary character (a colon, say) every character-specific case below still passes.
+function decodeShellLiteral(token) {
+  const ansi = token.match(/^\$'(.*)'$/);
+  if (ansi) {
+    return ansi[1].replace(/\\x([0-9a-fA-F]{2})|\\u([0-9a-fA-F]{4})|\\(.)/g, (whole, hex, unicode, escape) => {
+      if (hex) return String.fromCharCode(parseInt(hex, 16));
+      if (unicode) return String.fromCharCode(parseInt(unicode, 16));
+      return { t: '\t', n: '\n', r: '\r', 0: '\0' }[escape] ?? escape;
+    });
+  }
+  const quoted = token.match(/^'(.*)'$/) || token.match(/^"(.*)"$/);
+  assert.ok(quoted, `the identity tuple's delimiter is not a readable literal: ${token}`);
+  return quoted[1];
+}
+
+function joinDelimiter() {
+  const line = readText(TEMPLATE).match(/^\s*local target=.*$/m);
+  assert.ok(line, 'the template still binds the identity tuple in one assignment');
+  const parts = line[0].match(/^\s*local target="\$actual_base"(.+?)"\$actual_head_repo"(.+?)"\$actual_head_ref"$/);
+  assert.ok(parts, `the identity tuple is joined in an unreadable way: ${line[0]}`);
+  assert.equal(parts[1], parts[2], 'both field boundaries use the same delimiter');
+  return decodeShellLiteral(parts[1]);
+}
+
+function refusedIdentityCharacters() {
+  const refused = [...readText(TEMPLATE).matchAll(/contains\("\\u([0-9a-fA-F]{4})"\)/g)]
+    .map((match) => String.fromCharCode(parseInt(match[1], 16)));
+  assert.ok(refused.length > 0, 'the identity filter still refuses characters by code point');
+  return new Set(refused);
+}
+
+test('Issue #149 joins the bound identity with a character the identity filter refuses', () => {
+  const delimiter = joinDelimiter();
+  const codePoint = `U+${delimiter.charCodeAt(0).toString(16).toUpperCase().padStart(4, '0')}`;
+  assert.ok(refusedIdentityCharacters().has(delimiter),
+    `the identity tuple is joined with ${codePoint}, which the filter accepts inside a field, so two identities can serialize alike`);
+  const f = fixture();
+  assert.throws(() => runPublisher(f, {
+    GH_HEAD_REPO: `owner${delimiter}repo`,
+    GH_HEAD_REF: 'feature',
+    GH_HEAD_REPO_SECOND: 'owner',
+    GH_HEAD_REF_SECOND: `repo${delimiter}feature`,
+  }), `a relocated ${codePoint} must not reach POST`);
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #149 refuses a private snapshot tampered with between validation and POST', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, { GH_MUTATE_SNAPSHOT_ON_IDENTITY: '1' }),
+    (error) => /private review-comment snapshot changed before POST/.test(String(error.stderr)));
+  assert.equal(callCount(f), 4, 'the snapshot is re-hashed after the pre-POST identity read');
+  assert.equal(fs.existsSync(f.posted), false);
+});
+
+test('Issue #149 refuses identity evidence that carries more than one record', () => {
+  const f = fixture();
+  assert.throws(() => runPublisher(f, { GH_RAW_IDENTITY: 'one\\ntwo\\n' }),
+    (error) => /identity evidence has multiple records/.test(String(error.stderr)));
+  assert.equal(callCount(f), 2, 'refused at the first identity read, after authentication');
+  assert.equal(fs.existsSync(f.posted), false);
 });
 
 test('Issue #141 rejects a malformed base OID', () => {
