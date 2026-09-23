@@ -70,3 +70,32 @@ test('Issue #175 the map-split test copies through the shared helper', () => {
     assert.equal(helpers.readText(`test/${file}`).includes("cpSync(repoPath('.')"), false, `${file} copies the whole checkout`);
   }
 });
+
+// CONV-176-RUNTIME-ROOT-001: tracking does not make a runtime root readable. A path below `.pi/` or
+// `.pi-subagents/` is excluded even when Git tracks it, because review-only classifies the roots themselves
+// no-follow (CL-D54), not only their untracked contents.
+test('Issue #175 a tracked path below a runtime root is not copied either', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-175-src-'));
+  const dest = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-175-dst-'));
+  try {
+    git(root, ['init', '-q', '-b', 'main']);
+    write(root, 'skills/a.md', 'tracked\n');
+    write(root, '.pi/settings.json', '{"tracked":true}\n');
+    write(root, '.pi-subagents/agents/x.md', 'tracked\n');
+    write(root, 'docs/.pi/not-a-root.md', 'tracked\n');
+    git(root, ['add', '-f', '.']);
+    git(root, ['-c', 'user.name=t', '-c', 'user.email=t@e.invalid', 'commit', '-q', '-m', 'base']);
+
+    helpers.copyTrackedCheckout(root, path.join(dest, 'copy'));
+
+    assert.deepEqual(listFiles(path.join(dest, 'copy')), ['docs/.pi/not-a-root.md', 'skills/a.md'],
+      'the roots are excluded by their position at the top of the checkout, not by a name anywhere in the path');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(dest, { recursive: true, force: true });
+  }
+});
+
+test('Issue #175 the helper takes the runtime roots from the package that defines them', () => {
+  assert.match(helpers.readText('test/helpers.js'), /RUNTIME_ROOTS/);
+});
