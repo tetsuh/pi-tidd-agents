@@ -94,7 +94,7 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   assert.ok(map, 'the invocation map must exist');
   for (const declaration of [
     '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd`, and after a push `pushes`, this run\'s snapshots oldest first (CL-D86) |',
-    '| `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |',
+    '| `build_workspace_verify` | `created` (data of `workspace_create`) and optionally `transition`; the request runs in `created.path`, and a `cwd` beside it is refused (CL-D88) |',
     '| `build_workspace_cleanup` | `created` (data of `workspace_create`); no `cwd`: the request runs from the repository the receipt states |',
     '| `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |',
     '| `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |',
@@ -110,14 +110,14 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
 test('Issue #83 the CLI exposes exactly the ten builder operations with frozen inputs', () => {
   const schemas = cliSchemas();
   assert.deepEqual(schemas.build_operator_revalidate, ['captured', 'cwd']);
-  assert.deepEqual(schemas.build_workspace_verify, ['created', 'cwd']);
+  assert.deepEqual(schemas.build_workspace_verify, ['created']); // CL-D88 (Issue #179): cwd is derived from created.path
   assert.deepEqual(schemas.build_workspace_cleanup, ['created']);
   assert.deepEqual(schemas.build_fingerprint_snapshot, ['snapshot']);
   assert.deepEqual(schemas.build_gate_expectation, ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence']);
   const cliSource = readText('skills/closed-loop-pr/helpers/cli.js');
   // CL-D86 (Issue #169) replaced the hand-supplied heads with the run's own snapshots.
   assert.match(cliSource, /build_operator_revalidate: \{ required: \['captured', 'cwd'\], optional: \['pushes'\] \}/);
-  assert.match(cliSource, /build_workspace_verify: \{ required: \['created', 'cwd'\], optional: \['transition'\] \}/);
+  assert.match(cliSource, /build_workspace_verify: \{ required: \['created'\], optional: \['transition'\] \}/);
   assert.equal(Object.keys(schemas).filter((operation) => operation.startsWith('build_')).length, 10, 'the builder family is exactly the five CL-D56 compositions, the two CL-D61 manifest builders, the CL-D68 launch composer, the CL-D73 assignments builder, and the CL-D81 writer launch');
 });
 
@@ -136,7 +136,7 @@ test('Issue #83 the workspace chain round-trips: create, built verify, built cle
     const created = cli('workspace_create', { cwd: repository.root, head: repository.head, tree: repository.tree });
     assert.equal(created.ok, true, JSON.stringify(created.error));
 
-    const builtVerify = cli('build_workspace_verify', { created: created.data, cwd: created.data.path });
+    const builtVerify = cli('build_workspace_verify', { created: created.data });
     assert.equal(builtVerify.ok, true, JSON.stringify(builtVerify.error));
     assert.equal(builtVerify.data.request.operation, 'workspace_verify');
     const verified = cli('workspace_verify', builtVerify.data.request.data);
@@ -215,7 +215,7 @@ test('Issue #83 builders reject with the boundary vocabulary, not new codes', ()
   assert.match(swapped.error.message, /envelope:operator_capture/);
   assert.equal(swapped.error.phase, 'build');
 
-  const wrongCreate = cli('build_workspace_verify', { created: { path: '/w' }, cwd: '/w' });
+  const wrongCreate = cli('build_workspace_verify', { created: { path: '/w' } });
   assert.equal(wrongCreate.ok, false);
   assert.equal(wrongCreate.error.code, 'input_shape_mismatch');
   assert.match(wrongCreate.error.message, /data:workspace_create/);

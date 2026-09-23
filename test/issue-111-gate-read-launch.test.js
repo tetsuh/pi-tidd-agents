@@ -482,7 +482,7 @@ test('Issue #111 every declared key set is compared exactly, never through one j
   collided['helperInsideTarget,helperPath'] = false;
   assert.match(helpers.inputShapeProblem('operator_revalidate', { captured: collided, cwd: '/repo' }) ?? '', /`captured` must be envelope:operator_capture/, 'a combined key cannot spell two declared keys');
   const created = { path: '/run/workspace', head: OID, tree: 'b'.repeat(40), root: '/run', kind: 'linked', cleanupAllowed: true, receipt: { version: 1, id: 'run-1', root: '/run', storedPath: '/run/.cleanup-receipt.json', creationIdentity: { kind: 'linked', path: '/run/workspace' } } };
-  const combinedTransition = helpers.buildWorkspaceVerify({ created, cwd: '/run/workspace', transition: { 'from,to': OID } });
+  const combinedTransition = helpers.buildWorkspaceVerify({ created, transition: { 'from,to': OID } }); // CL-D88: no cwd, so the refusal is the transition's
   assert.equal(combinedTransition.ok, false, 'a combined transition key must not build a request the consumer rejects');
   assert.equal(combinedTransition.error.code, 'invalid_request');
   const expected = expectationFor('pr', 'adversarial').expected;
