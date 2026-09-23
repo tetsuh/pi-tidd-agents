@@ -141,9 +141,16 @@ test('Issue #169 the retry is stated where the no-retry rule is stated', () => {
 });
 
 test('Issue #169 nothing still says the parent supplies the heads', () => {
+  // CONV-173-DOC-001: naming the derivation is not enough while the sentence still opens with the parent doing
+  // it. Every live statement says the builder derives the heads; only a clause marked as history may say more.
   for (const file of ['CONTRACT.md', 'README.md', 'skills/closed-loop-pr/references/helper-map.md']) {
-    assert.equal(readText(file).includes('an obligation no check enforces'), false, `${file} still calls the transition an unchecked obligation`);
+    const text = readText(file);
+    assert.equal(text.includes('an obligation no check enforces'), false, `${file} still calls the transition an unchecked obligation`);
+    assert.equal(text.includes("taken from the parent's own record"), false, `${file} still takes the heads from the parent's record`);
+    assert.equal(text.includes('The parent supplies `priorPushHeads`'), false, `${file} still has the parent supplying the list`);
   }
+  assert.match(readText('CONTRACT.md'), /`build_operator_revalidate` derives `priorPushHeads` from the run's own post-push snapshots, oldest first \(CL-D86\); when CL-D79 was taken the parent supplied them from its own record, which no check enforced\./);
+  assert.match(readText('README.md'), /`priorPushHeads` naming every head the run pushed before `C`, oldest first, derived by `build_operator_revalidate` from the run's own post-push snapshots \(CL-D79, CL-D86\)\./);
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D79 — The post-push guard accepts a sole-child chain of pushes');
   assert.ok(record, 'CL-D79 must exist');
   assert.match(record, /CL-D86 later took that decision: the heads are derived by `build_operator_revalidate` from the run's own post-push snapshots, so the parent supplies none by hand\./);
