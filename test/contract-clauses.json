@@ -4502,7 +4502,8 @@
         "*Owner choice:* Option A for both",
         "issues/169#issuecomment-5786110213",
         "The packaged-helper alarm resets from 270,000 to 280,000 bytes",
-        "retrying a refused revalidation more than once requires a new owner decision"
+        "retrying a refused revalidation more than once requires a new owner decision",
+        "A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter."
       ]
     },
     {

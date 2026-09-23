@@ -201,6 +201,9 @@ test('Issue #169 a revalidation composed without the push is refused, on both su
     // Direct helper API: build with no pushes after a push, run what it returns.
     const omitted = buildOperatorRevalidate({ captured: capture.data, cwd: root });
     assert.equal(omitted.ok, true, 'the pre-push form is still composable; it is the guard that refuses it');
+    // And it is exactly the pre-push form: a builder that invented a transition here would hide the omission
+    // behind a request the guard refuses for a different reason.
+    assert.deepEqual(Object.keys(omitted.data.request.data).sort(), ['captured', 'cwd']);
     const ranOmitted = helpers.revalidateOperatorCheckout(capture, { cwd: root });
     assert.equal(ranOmitted.ok, false, 'a request that says nothing about the push cannot pass the post-push guard');
     assert.equal(ranOmitted.error.code, 'operator_changed');
