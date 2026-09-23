@@ -30,7 +30,8 @@ const SCHEMAS = Object.freeze({
   manifest_compare: { required: ['cwd', 'parent'], optional: ['authorizedPaths', 'manifest'] },
   // `pushes` is the run's post-push snapshots; the transition is derived from them, never supplied (CL-D86).
   build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['pushes'] },
-  build_workspace_verify: { required: ['created', 'cwd'], optional: ['transition'] },
+  // `cwd` is created.path, derived by the builder, never supplied (CL-D88).
+  build_workspace_verify: { required: ['created'], optional: ['transition'] },
   build_workspace_cleanup: { required: ['created'], optional: [] },
   build_fingerprint_snapshot: { required: ['snapshot'], optional: [] },
   build_gate_expectation: { required: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], optional: [] },

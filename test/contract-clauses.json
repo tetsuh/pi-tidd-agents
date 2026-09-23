@@ -4531,6 +4531,56 @@
       ]
     },
     {
+      "id": "CL-D88-map",
+      "marker": "CL-D88",
+      "title": "The map declares the verify builder's input set",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "`build_workspace_verify` | `created` (data of `workspace_create`) and optionally `transition`; the request runs in `created.path`, and a `cwd` beside it is refused (CL-D88)",
+        "`build_workspace_verify` takes `created` and optionally `transition`, and composes the request to run in `created.path`; it takes no `cwd` (CL-D88)."
+      ]
+    },
+    {
+      "id": "CL-D88-builder",
+      "marker": "CL-D88",
+      "title": "The builder derives cwd and refuses one supplied",
+      "files": [
+        "skills/closed-loop-pr/helpers/builders.js"
+      ],
+      "requires": [
+        "cwd is derived from created.path; it is not an input",
+        "the workspace path must be absolute"
+      ]
+    },
+    {
+      "id": "CL-D88-record",
+      "marker": "CL-D88",
+      "title": "CL-D88 records the derivation",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D88 — The workspace verification runs in the workspace the run created",
+      "requires": [
+        "*Owner choice:* Option A",
+        "issues/179#issuecomment-5795735529",
+        "Taking a `cwd` from anything but `created.path`, or accepting one beside it, requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D88-tests",
+      "marker": "CL-D88",
+      "title": "The CL-D88 fixtures drive the builder and the CLI",
+      "files": [
+        "test/issue-179-workspace-verify-cwd.test.js"
+      ],
+      "requires": [
+        "Issue #179 the verify request runs in the workspace the run created",
+        "Issue #179 a cwd supplied beside created is refused, on both surfaces"
+      ]
+    },
+    {
       "id": "CL-D87-record",
       "marker": "CL-D87",
       "title": "CL-D87 records the shipped defaults and the model-family consequence",
