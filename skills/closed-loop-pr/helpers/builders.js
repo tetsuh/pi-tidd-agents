@@ -7,7 +7,7 @@
 // network, or Git reach, and no authority beyond assembling a request the caller still runs.
 
 const { createResult, createError, keysExactly } = require('./protocol');
-const { inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem } = require('./composition');
+const { inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem, absoluteSpelling } = require('./composition');
 const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } = require('./gate-result');
 
 // Transition OIDs mirror the CLI's 40-or-64 hex rule; postPushHead mirrors
@@ -73,14 +73,21 @@ function buildOperatorRevalidate(data) {
 
 function buildWorkspaceVerify(data) {
   return wrap('build_workspace_verify', () => {
-    if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
+    // The request runs in the workspace the run created: `created.path` is the one source for it. A parent-supplied
+    // cwd put the operator checkout there on PR #178 and the guard refused the run (Issue #179, CL-D88).
+    if (Object.hasOwn(data, 'cwd')) fail('invalid_request', 'cwd is derived from created.path; it is not an input');
+    const cwd = data.created && data.created.path;
+    if (!text(cwd)) fail('invalid_request', 'created must name the run-owned workspace path');
+    if (cwd.includes(String.fromCharCode(0)) || !cwd.isWellFormed()) fail('invalid_request', 'the workspace path carries a NUL byte or a lone surrogate');
+    // The package's own pure spelling test, POSIX, drive-letter, and UNC alike; builders reach no module beyond the boundary predicates.
+    if (!absoluteSpelling(cwd)) fail('invalid_request', 'the workspace path must be absolute; a relative cwd resolves against the caller, not the run');
     if (Object.hasOwn(data, 'transition')) {
       const transition = data.transition;
       const shaped = keysExactly(transition, ['from', 'to'])
         && Object.values(transition).every((oid) => typeof oid === 'string' && TRANSITION_OID_PATTERN.test(oid));
       if (!shaped) fail('invalid_request', 'workspace transition requires only from and to OIDs');
     }
-    const request = { cwd: data.cwd, expected: data.created };
+    const request = { cwd, expected: data.created };
     if (Object.hasOwn(data, 'transition')) request.transition = data.transition;
     return built('build_workspace_verify', 'workspace_verify', request, { from: 'expected', to: 'created' });
   });

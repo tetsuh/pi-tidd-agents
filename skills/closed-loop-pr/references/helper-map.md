@@ -34,7 +34,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Post-attempt reconciliation (CL-D45) | `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |
 | Before each gate invocation, on the assembled evidence (CL-D42) | `evidence_verify` | `envelope`, `expected` |
 | Construct the revalidation request from the capture it revalidates (CL-D56) | `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd`, and after a push `pushes`, this run's snapshots oldest first (CL-D86) |
-| Construct the verify request from the workspace it verifies (CL-D56) | `build_workspace_verify` | `created` (data of `workspace_create`), `cwd` |
+| Construct the verify request from the workspace it verifies (CL-D56) | `build_workspace_verify` | `created` (data of `workspace_create`); the request runs in `created.path`, and a `cwd` beside it is refused (CL-D88) |
 | Construct the writer launch from the workspace the run created (CL-D81) | `build_writer_launch` | `created` (data of `workspace_create`), `task` |
 | Construct the cleanup request from the workspace's own receipt (CL-D56, CL-D76) | `build_workspace_cleanup` | `created` (data of `workspace_create`); no `cwd`: the request runs from the repository the receipt states |
 | Construct the snapshot-fingerprint request (CL-D56) | `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |
