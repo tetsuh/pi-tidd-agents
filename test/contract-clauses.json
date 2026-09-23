@@ -4059,7 +4059,7 @@
         "README.md"
       ],
       "requires": [
-        "with `priorPushHeads` naming every head the run pushed before `C`, oldest first, taken from the parent's own record, derived by `build_operator_revalidate` from the run's own post-push snapshots (CL-D79, CL-D86)"
+        "with `priorPushHeads` naming every head the run pushed before `C`, oldest first, derived by `build_operator_revalidate` from the run's own post-push snapshots (CL-D79, CL-D86)"
       ]
     },
     {
