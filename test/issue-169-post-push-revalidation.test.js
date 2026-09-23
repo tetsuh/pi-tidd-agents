@@ -111,3 +111,40 @@ test('Issue #169 the reset helper alarm is the one every suite asserts', () => {
   assert.ok(bytes < 280000, `packaged helpers total ${bytes}`);
   assert.ok(280000 - 269652 > 8000, 'the raise left room, asserted against the measurement it was taken on');
 });
+
+// The pre-push pass on 27f70ab found three blocking defects and one surviving mutant. Each case below pins one.
+test('Issue #169 the derived head is the one the push produced, not the one it started from', () => {
+  const moved = { ...snapshotAt(OID('c')), before: { head: OID('b') }, after: { head: OID('c') } };
+  const refused = buildOperatorRevalidate({ captured: captured(), cwd: '/repo', pushes: [moved] });
+  assert.equal(refused.ok, false, 'a snapshot whose brackets disagree is evidence the run must discard');
+  assert.equal(refused.error.code, 'invalid_request');
+  const kept = buildOperatorRevalidate({ captured: captured(), cwd: '/repo', pushes: [{ ...snapshotAt(OID('c')), before: { head: OID('c'), extra: 1 } }] });
+  assert.equal(kept.ok, true, JSON.stringify(kept));
+  assert.equal(kept.data.request.data.postPushHead, OID('c'), 'the after bracket names the public head the push produced');
+});
+
+test('Issue #169 the cap counts what the builder will emit, not what the input claims', () => {
+  // Array.from takes the iterator; an array's own `length` need not describe what that iterator yields.
+  const forged = [snapshotAt(OID('c')), snapshotAt(OID('d'))];
+  forged[Symbol.iterator] = function* iterate() { for (let i = 0; i < 8; i += 1) yield snapshotAt(OID('c')); };
+  const built = buildOperatorRevalidate({ captured: captured(), cwd: '/repo', pushes: forged });
+  assert.equal(built.ok, false, 'a builder must not emit a chain the guard would refuse');
+  assert.equal(built.error.code, 'invalid_request');
+});
+
+test('Issue #169 the retry is stated where the no-retry rule is stated', () => {
+  const procedure = readAutofixProcedure();
+  assert.match(procedure, /no retry beyond the CL-D39 recovery defined above and the CL-D86 recomposition after a push/);
+  assert.match(procedure, /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter \(CL-D86\)\./);
+  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
+  assert.match(addendum, /the CL-D39 recovery defined above, the CL-D51 zero-output relaunch, and the CL-D86 recomposition after a push/);
+});
+
+test('Issue #169 nothing still says the parent supplies the heads', () => {
+  for (const file of ['CONTRACT.md', 'README.md', 'skills/closed-loop-pr/references/helper-map.md']) {
+    assert.equal(readText(file).includes('an obligation no check enforces'), false, `${file} still calls the transition an unchecked obligation`);
+  }
+  const record = sectionOf(readText('CONTRACT.md'), '## CL-D79 — A run names the heads it pushed');
+  assert.ok(record, 'CL-D79 must exist');
+  assert.match(record, /CL-D86 later took that decision: the heads are derived by `build_operator_revalidate` from the run's own post-push snapshots, so the parent supplies none by hand\./);
+});
