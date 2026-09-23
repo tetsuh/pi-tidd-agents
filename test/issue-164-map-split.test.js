@@ -15,7 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readText, readJson, repoPath, AUTHORITY_FILES } = require('./helpers');
+const { readText, readJson, repoPath, AUTHORITY_FILES, copyTrackedCheckout } = require('./helpers');
 
 const MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
@@ -96,7 +96,7 @@ test('Issue #164 the moved file is measured where the moved bytes were measured'
   try {
     for (const [label, addition, file] of [['a duplicated authority sentence', duplicated, 'test/issue-58-authority-duplication.test.js'], ['an unpackaged record as evidence', 'Falsify this against CONTRACT.md.', 'test/package.test.js']]) {
       const copy = path.join(scratch, label.replace(/ /g, '-'));
-      fs.cpSync(repoPath('.'), copy, { recursive: true, filter: (source) => !source.includes(`${path.sep}.git`) && !source.includes('node_modules') });
+      copyTrackedCheckout(repoPath('.'), copy); // tracked content only: never the runtime roots (Issue #175)
       fs.appendFileSync(path.join(copy, MAP), `${String.fromCharCode(10)}${addition}${String.fromCharCode(10)}`);
       const run = spawnSync(process.execPath, ['--test', file], { cwd: copy, encoding: 'utf8', timeout: 300000, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
       assert.notEqual(run.status, 0, `${label} must fail ${file}: ${run.stdout.slice(-300)}`);
