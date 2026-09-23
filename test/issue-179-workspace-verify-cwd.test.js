@@ -44,7 +44,8 @@ test('Issue #179 a cwd supplied beside created is refused, on both surfaces', ()
 });
 
 test('Issue #179 a workspace path that cannot be a cwd is refused', () => {
-  for (const [label, pathValue] of [['relative', 'run/workspace'], ['NUL', '/run/work\u0000space'], ['lone surrogate', '/run/\ud800']]) {
+  // CONV-180-D88-EMPTY-PATH-TEST-001: CL-D88 names the empty path among the refusals, so the table carries it.
+  for (const [label, pathValue] of [['empty', ''], ['relative', 'run/workspace'], ['NUL', '/run/work\u0000space'], ['lone surrogate', '/run/\ud800']]) {
     const result = buildWorkspaceVerify({ created: { ...created(), path: pathValue } });
     assert.equal(result.ok, false, label);
     assert.equal(result.error.code, 'invalid_request', label);
