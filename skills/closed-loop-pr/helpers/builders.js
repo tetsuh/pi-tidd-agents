@@ -43,20 +43,26 @@ function built(operation, consumer, data, rename) {
 function buildOperatorRevalidate(data) {
   return wrap('build_operator_revalidate', () => {
     if (!text(data.cwd)) fail('invalid_request', 'cwd must be a nonempty string');
-    // The transition is derived from the run's own snapshots, oldest first, so a parent cannot omit it: the
-    // input it holds after a push is the snapshot it just took (Issue #169, CL-D86). A head beside them would
-    // be a second source for the same fact, which is what a parent got wrong on PR #149.
+    // The transition is derived from the post-push snapshots the run already takes, oldest first, so the parent
+    // has no head to supply and no list to remember (Issue #169, CL-D86). A head beside them would be a second
+    // source for one fact, which is what a parent got wrong on PR #149. A run that passes no snapshot after a
+    // push still composes the pre-push form and is still refused by the guard: the builder cannot know that a
+    // push happened, which is the residual CL-D86 accepts.
     for (const key of ['postPushHead', 'priorPushHeads']) {
       if (Object.hasOwn(data, key)) fail('invalid_request', `${key} is derived from pushes; it is not an input`);
     }
     if (!Object.hasOwn(data, 'pushes')) return built('build_operator_revalidate', 'operator_revalidate', { captured: data.captured, cwd: data.cwd });
-    const pushes = data.pushes;
-    if (!Array.isArray(pushes) || pushes.length === 0 || pushes.length > 5) fail('invalid_request', 'pushes must be one to five snapshots of this run, oldest first');
-    // Array.from, not map: map preserves holes, and a hole would reach the boundary unvalidated.
-    const heads = Array.from(pushes, (snapshot) => {
-      if (inputShapeProblem('fingerprint_snapshot', { snapshot }) !== null) fail('invalid_request', 'each push must be a snapshot result of this run');
+    // Materialize before counting: `length` need not describe what the iterator yields, and Array.from takes the
+    // iterator. Counting the materialized list is counting what this builder will emit. Holes become undefined
+    // and are validated rather than skipped, which `map` would not do.
+    const pushes = Array.isArray(data.pushes) ? Array.from(data.pushes) : null;
+    if (pushes === null || pushes.length === 0 || pushes.length > 5) fail('invalid_request', 'pushes must be one to five post-push snapshots, oldest first');
+    const heads = pushes.map((snapshot) => {
+      if (inputShapeProblem('fingerprint_snapshot', { snapshot }) !== null) fail('invalid_request', 'each push must be a snapshot result');
       const head = snapshot.after && snapshot.after.head;
+      // A snapshot whose brackets disagree is evidence the run is required to discard, not a transition to derive.
       if (!(typeof head === 'string' && COMMIT_OID_PATTERN.test(head))) fail('invalid_request', 'each push snapshot must name its public head as a commit OID');
+      if (!(snapshot.before && snapshot.before.head === head)) fail('invalid_request', 'each push snapshot must name one public head in both brackets');
       return head;
     });
     const request = { captured: data.captured, cwd: data.cwd, postPushHead: heads[heads.length - 1] };

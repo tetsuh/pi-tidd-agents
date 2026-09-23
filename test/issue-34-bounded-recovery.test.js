@@ -168,7 +168,7 @@ test('Issue #34 writes outside the temp parent are the CL-D37 boundary\'s job, a
 
 test('Issue #34 the stop rule keeps its wording and names its exceptions', () => {
   const text = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above and the CL-D51 zero-output relaunch\./);
+  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above, the CL-D51 zero-output relaunch, and the CL-D86 recomposition after a push\./);
   // The invocation-map sentence must not contradict the recovery it now defers to.
   assert.match(text, /no retry beyond the CL-D39 recovery defined above/);
   // The recovery section really is above the stop rule.

@@ -84,7 +84,7 @@ test('Issue #169 the packaged CLI declares and enforces the same input', () => {
 test('Issue #169 the addendum states where the transition comes from and what a refusal costs', () => {
   const procedure = readAutofixProcedure();
   assert.match(procedure, /The pre-writer `operator_revalidate` after a push is composed by `build_operator_revalidate` from the run's own snapshots, oldest first; the parent supplies no head by hand \(CL-D86\)\./);
-  assert.match(procedure, /A refused post-push revalidation is recomposed once from those snapshots and retried; a second refusal stops the run \(CL-D86\)\./);
+  assert.match(procedure, /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter \(CL-D86\)\./);
 });
 
 test('Issue #169 CL-D86 records both choices and the helper alarm reset', () => {
@@ -97,7 +97,7 @@ test('Issue #169 CL-D86 records both choices and the helper alarm reset', () => 
   assert.match(record, /The packaged-helper alarm resets from 270,000 to 280,000 bytes/);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D86').map((clause) => clause.id).sort(),
-    ['CL-D86-builder', 'CL-D86-map', 'CL-D86-record', 'CL-D86-tests']);
+    ['CL-D86-builder', 'CL-D86-cli', 'CL-D86-map', 'CL-D86-record', 'CL-D86-tests']);
 });
 
 test('Issue #169 the reset helper alarm is the one every suite asserts', () => {
@@ -144,7 +144,7 @@ test('Issue #169 nothing still says the parent supplies the heads', () => {
   for (const file of ['CONTRACT.md', 'README.md', 'skills/closed-loop-pr/references/helper-map.md']) {
     assert.equal(readText(file).includes('an obligation no check enforces'), false, `${file} still calls the transition an unchecked obligation`);
   }
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D79 — A run names the heads it pushed');
+  const record = sectionOf(readText('CONTRACT.md'), '## CL-D79 — The post-push guard accepts a sole-child chain of pushes');
   assert.ok(record, 'CL-D79 must exist');
   assert.match(record, /CL-D86 later took that decision: the heads are derived by `build_operator_revalidate` from the run's own post-push snapshots, so the parent supplies none by hand\./);
 });

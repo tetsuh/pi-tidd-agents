@@ -35,8 +35,8 @@ test('Issue #164 the map and the declared shapes live in one file of their own',
 // 12,813 bytes of lines 28-84 of `references/autofix.md` without the blank line that separated the next section
 // there, because a file may not end in one and `git diff --check` refuses a new blank line at EOF. The map grows by
 // design, so a commit that adds a row updates this digest in the same commit and says which row it added; the point
-// is that no edit to this text can pass unnoticed. Last updated by CL-D84's terminal-cleanup rows (#161).
-const MOVED_RULE_TEXT_SHA256 = '47f74cbeda6a7cf3297cd647ec45d3028161482de4cc07326dfa7b9edbbfc8db'; // CL-D86 (Issue #169) rewrote the post-push row and rule
+// is that no edit to this text can pass unnoticed. Last updated by CL-D86's post-push derivation (#169).
+const MOVED_RULE_TEXT_SHA256 = '2979af45a3143a02bdd416bae278d71da9c74479be386700d408f6dc85e14dd4'; // CL-D86 (Issue #169) rewrote the post-push row, rule, and retry sentence
 
 test('Issue #164 the moved rule text is the moved rule text, byte for byte', () => {
   const map = readText(MAP);
@@ -45,7 +45,7 @@ test('Issue #164 the moved rule text is the moved rule text, byte for byte', () 
   const moved = map.slice(start);
   assert.equal(moved.endsWith(String.fromCharCode(10)), true, 'the file ends with one newline');
   assert.equal(moved.endsWith(String.fromCharCode(10, 10)), false, 'and not with a blank line, which validation refuses');
-  assert.equal(Buffer.byteLength(moved), 13384, 'the map is the size this commit left it');
+  assert.equal(Buffer.byteLength(moved), 13571, 'the map is the size this commit left it');
   assert.equal(crypto.createHash('sha256').update(moved).digest('hex'), MOVED_RULE_TEXT_SHA256, 'and byte for byte the same');
 });
 

@@ -2272,7 +2272,7 @@
         "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
-        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above and the CL-D51 zero-output relaunch."
+        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above, the CL-D51 zero-output relaunch, and the CL-D86 recomposition after a push."
       ]
     },
     {
@@ -4043,7 +4043,7 @@
     {
       "id": "CL-D79-record-keeping",
       "marker": "CL-D79",
-      "title": "The parent's record of its pushes became a derivation",
+      "title": "The residual CL-D86 leaves on the post-push chain",
       "files": [
         "skills/closed-loop-pr/references/helper-map.md"
       ],
@@ -4059,7 +4059,7 @@
         "README.md"
       ],
       "requires": [
-        "with `priorPushHeads` naming every head the run pushed before `C`, oldest first, taken from the parent's own record, an obligation no check enforces (CL-D79)"
+        "with `priorPushHeads` naming every head the run pushed before `C`, oldest first, taken from the parent's own record, derived by `build_operator_revalidate` from the run's own post-push snapshots (CL-D79, CL-D86)"
       ]
     },
     {
@@ -4471,7 +4471,8 @@
       "requires": [
         "and after a push `pushes`, this run's snapshots oldest first (CL-D86)",
         "The pre-writer `operator_revalidate` after a push is composed by `build_operator_revalidate` from the run's own snapshots, oldest first; the parent supplies no head by hand (CL-D86).",
-        "A refused post-push revalidation is recomposed once from those snapshots and retried; a second refusal stops the run (CL-D86)."
+        "A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter (CL-D86).",
+        "no retry beyond the CL-D39 recovery defined above and the CL-D86 recomposition after a push"
       ]
     },
     {
@@ -4483,9 +4484,10 @@
       ],
       "requires": [
         "is derived from pushes; it is not an input",
-        "pushes must be one to five snapshots of this run, oldest first",
-        "each push must be a snapshot result of this run",
-        "each push snapshot must name its public head as a commit OID"
+        "pushes must be one to five post-push snapshots, oldest first",
+        "each push must be a snapshot result",
+        "each push snapshot must name its public head as a commit OID",
+        "each push snapshot must name one public head in both brackets"
       ]
     },
     {
@@ -4514,6 +4516,17 @@
         "Issue #169 the transition is derived from the run",
         "a head supplied by hand beside the snapshots is refused",
         "the reset helper alarm is the one every suite asserts"
+      ]
+    },
+    {
+      "id": "CL-D86-cli",
+      "marker": "CL-D86",
+      "title": "The CLI declares the derived input and nothing else",
+      "files": [
+        "skills/closed-loop-pr/helpers/cli.js"
+      ],
+      "requires": [
+        "build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['pushes'] }"
       ]
     }
   ]

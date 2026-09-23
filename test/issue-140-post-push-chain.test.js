@@ -132,7 +132,7 @@ test('Issue #140 the builder carries priorPushHeads beside postPushHead and refu
       ['not an array', { pushes: snapshotAt(second) }],
       ['a non-snapshot entry', { pushes: [{ after: { head: second } }] }],
       ['a non-OID head', { pushes: [snapshotAt('main')] }],
-      // A hole is skipped by every(); the boundary would refuse the list it produces (CONV-147-BUILDER-SPARSE-CHAIN-GAP).
+      // A hole is undefined once the list is materialized, so it is validated rather than skipped (CONV-147-BUILDER-SPARSE-CHAIN-GAP).
       ['a sparse array', { pushes: [, snapshotAt(second)] }], // eslint-disable-line no-sparse-arrays
     ]) {
       const refused = helpers.buildOperatorRevalidate({ captured: captured.data, cwd: root, ...data });

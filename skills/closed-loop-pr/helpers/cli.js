@@ -28,6 +28,7 @@ const SCHEMAS = Object.freeze({
   overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
   overlay_compare: { required: ['cwd', 'overlay'], optional: [] },
   manifest_compare: { required: ['cwd', 'parent'], optional: ['authorizedPaths', 'manifest'] },
+  // `pushes` is the run's post-push snapshots; the transition is derived from them, never supplied (CL-D86).
   build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['pushes'] },
   build_workspace_verify: { required: ['created', 'cwd'], optional: ['transition'] },
   build_workspace_cleanup: { required: ['created'], optional: [] },
