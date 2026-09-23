@@ -52,7 +52,10 @@ test('Issue #179 a workspace path that cannot be a cwd is refused', () => {
 });
 
 test('Issue #179 the map, the CLI table, and CL-D88 state the input set', () => {
-  assert.match(readText('skills/closed-loop-pr/references/helper-map.md'), /\| Construct the verify request from the workspace it verifies \(CL-D56\) \| `build_workspace_verify` \| `created` \(data of `workspace_create`\); the request runs in `created\.path`, and a `cwd` beside it is refused \(CL-D88\) \|/);
+  // ADV-180-VERIFY-INPUTS-001: the row and the builder paragraph state the whole input set, `transition` included.
+  const map = readText('skills/closed-loop-pr/references/helper-map.md');
+  assert.match(map, /\| Construct the verify request from the workspace it verifies \(CL-D56\) \| `build_workspace_verify` \| `created` \(data of `workspace_create`\) and optionally `transition`; the request runs in `created\.path`, and a `cwd` beside it is refused \(CL-D88\) \|/);
+  assert.match(map, /`build_workspace_verify` takes `created` and optionally `transition`, and composes the request to run in `created\.path`; it takes no `cwd` \(CL-D88\)\./);
   assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /build_workspace_verify: \{ required: \['created'\], optional: \['transition'\] \}/);
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D88 — The workspace verification runs in the workspace the run created');
   assert.ok(record, 'CL-D88 must exist');
