@@ -274,7 +274,10 @@ function primeSpawnFacts(sources) { parseFacts(sources); }
 // stray files that are not part of the change. A path filter cannot know which of those exist; the index does.
 function copyTrackedCheckout(source, destination) {
   const listed = require('node:child_process').execFileSync('git', ['-C', source, 'ls-files', '-z'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  // The runtime roots are no-follow as roots, tracked or not (CL-D54), so a path below one is never copied.
+  const { RUNTIME_ROOTS } = require('../skills/closed-loop-pr/helpers/operator');
   for (const rel of listed.split('\0').filter(Boolean)) {
+    if (RUNTIME_ROOTS.includes(rel.split('/')[0])) continue;
     const from = path.join(source, rel);
     const to = path.join(destination, rel);
     fs.mkdirSync(path.dirname(to), { recursive: true });
