@@ -148,3 +148,18 @@ test('Issue #169 nothing still says the parent supplies the heads', () => {
   assert.ok(record, 'CL-D79 must exist');
   assert.match(record, /CL-D86 later took that decision: the heads are derived by `build_operator_revalidate` from the run's own post-push snapshots, so the parent supplies none by hand\./);
 });
+
+// CONV-173-AUTOFIX-INVARIANT-DOC-001: the normative invariant still said the parent names the heads, which is
+// the claim CL-D86 removed everywhere else. One sentence, pinned in two files and in the manifest.
+test('Issue #169 the post-push invariant names the derivation, wherever it is stated', () => {
+  const DERIVED = 'through the heads `build_operator_revalidate` derives from the run\'s own post-push snapshots (CL-D79, CL-D86)';
+  for (const file of ['skills/closed-loop-pr/references/autofix.md', 'CONTRACT.md']) {
+    const text = readText(file);
+    assert.ok(text.includes(DERIVED), `${file} states the derived chain`);
+    assert.equal(text.includes('through the heads the parent names as its own pushes'), false, `${file} keeps no superseded statement of it`);
+  }
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const pinned = manifest.clauses.find((clause) => clause.id === 'CL-D79-definition');
+  assert.ok(pinned.requires.every((sentence) => sentence.includes(DERIVED) || !sentence.includes('WORKSPACE_POST_PUSH')),
+    'the definition clause pins the amended sentence');
+});
