@@ -106,7 +106,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
-const AGGREGATE_SMOKE_ALARM = 270000; // CL-D78 reviewed reset from 260,000 (CL-D73) so a failed create names its run root
+const AGGREGATE_SMOKE_ALARM = 280000; // CL-D86 reviewed reset from 270,000 (CL-D78) so the post-push revalidation is derived
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -242,6 +242,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'CL-D72 reset it a fourth time to 240,000 bytes',
     'CL-D73 reset it a fifth time to 260,000 bytes',
     'CL-D78 reset it a sixth time to 270,000 bytes',
+    'CL-D86 reset it a seventh time to 280,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);
