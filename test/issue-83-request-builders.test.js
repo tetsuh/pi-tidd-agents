@@ -94,7 +94,7 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   assert.ok(map, 'the invocation map must exist');
   for (const declaration of [
     '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd`, and after a push `pushes`, this run\'s snapshots oldest first (CL-D86) |',
-    '| `build_workspace_verify` | `created` (data of `workspace_create`); the request runs in `created.path`, and a `cwd` beside it is refused (CL-D88) |',
+    '| `build_workspace_verify` | `created` (data of `workspace_create`) and optionally `transition`; the request runs in `created.path`, and a `cwd` beside it is refused (CL-D88) |',
     '| `build_workspace_cleanup` | `created` (data of `workspace_create`); no `cwd`: the request runs from the repository the receipt states |',
     '| `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |',
     '| `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |',

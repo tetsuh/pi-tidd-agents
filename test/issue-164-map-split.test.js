@@ -36,7 +36,7 @@ test('Issue #164 the map and the declared shapes live in one file of their own',
 // there, because a file may not end in one and `git diff --check` refuses a new blank line at EOF. The map grows by
 // design, so a commit that adds a row updates this digest in the same commit and says which row it added; the point
 // is that no edit to this text can pass unnoticed. Last updated by CL-D88's verify-builder row (#179).
-const MOVED_RULE_TEXT_SHA256 = '645ecd58a8e805d7bc879e1584dc591210acd283753e8c018de351ac73ceed58'; // CL-D88 (Issue #179) rewrote the verify-builder row
+const MOVED_RULE_TEXT_SHA256 = 'ce4392fc280167446b6748469962bb9274c279044b1f421bbe52686732eb6581'; // CL-D88 (Issue #179) rewrote the verify-builder row
 
 test('Issue #164 the moved rule text is the moved rule text, byte for byte', () => {
   const map = readText(MAP);
@@ -45,7 +45,7 @@ test('Issue #164 the moved rule text is the moved rule text, byte for byte', () 
   const moved = map.slice(start);
   assert.equal(moved.endsWith(String.fromCharCode(10)), true, 'the file ends with one newline');
   assert.equal(moved.endsWith(String.fromCharCode(10, 10)), false, 'and not with a blank line, which validation refuses');
-  assert.equal(Buffer.byteLength(moved), 13643, 'the map is the size this commit left it');
+  assert.equal(Buffer.byteLength(moved), 13820, 'the map is the size this commit left it');
   assert.equal(crypto.createHash('sha256').update(moved).digest('hex'), MOVED_RULE_TEXT_SHA256, 'and byte for byte the same');
 });
 
