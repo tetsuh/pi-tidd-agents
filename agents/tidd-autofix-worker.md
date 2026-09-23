@@ -2,7 +2,7 @@
 name: tidd-autofix-worker
 aliases: luna-worker
 description: Bounded sole-writer implementation and correction worker
-model: gpt-5.6-luna
+model: gpt-6-luna
 thinking: "high"
 systemPromptMode: replace
 inheritProjectContext: true

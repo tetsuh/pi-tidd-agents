@@ -38,6 +38,7 @@ test('Issue #174 every live surface names the shipped defaults', () => {
   for (const role of roles) assert.equal(role.model, SHIPPED[role.name], `workflow vocabulary declares ${role.name}`);
   const cl22 = sectionOf(readText('CONTRACT.md'), '## CL-D22 — Closed-loop model requirements and preflight');
   assert.match(cl22, /`tidd-adversarial-reviewer` \(default `gpt-6-sol`\), `tidd-drift-reviewer` \(default `gpt-6-sol`\), `tidd-safety-reviewer` \(default `gpt-6-sol`\), and conditional `tidd-autofix-worker` \(default `gpt-6-luna`\)/);
+  assert.equal(/gpt-5\.6-/.test(cl22), false, 'CL-D22 states current defaults only, the convergence role included');
   for (const file of ['README.md', 'test/records/workflow-vocabulary.json']) {
     assert.equal(/gpt-5\.6-(sol|luna|terra)/.test(readText(file)), false, `${file} names no superseded default`);
   }

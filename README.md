@@ -19,7 +19,7 @@ Requirements differ between the two ways of using this package:
 | Standalone agents | À la carte. Run whichever agents resolve in your environment; an unavailable model affects only that one agent. |
 | Closed-loop workflow | Composes a fixed set of five agents: four formal roles plus the non-authoritative convergence reviewer. The complete loop needs all five; a single command needs only the agents in its own preflight, and a disabled convergence reviewer skips its stage. |
 
-The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer` (CL-D62). Their shipped defaults are OpenAI GPT-5.6 Sol (`gpt-5.6-sol`), Terra (`gpt-5.6-terra`, both Terra roles), and Luna (`gpt-5.6-luna`, the writer and the convergence reviewer); those defaults are deployment configuration, not role semantics (CL-D59).
+The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer` (CL-D62). Their shipped defaults are OpenAI GPT-6 Sol (`gpt-6-sol`, the adversarial reviewer and both Terra roles) and GPT-6 Luna (`gpt-6-luna`, the writer and the convergence reviewer) (CL-D87); those defaults are deployment configuration, not role semantics (CL-D59).
 
 Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, and `tidd-convergence-reviewer`; `/tidd-pr` preflights `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-convergence-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode. A disabled `tidd-convergence-reviewer` is not a preflight failure: its stage is skipped and the status block reports `convergence: disabled`.
 
@@ -49,11 +49,11 @@ pi install git:github.com/<owner>/pi-tidd-agents
 
 | Role | Default model | Purpose |
 | --- | --- | --- |
-| `tidd-adversarial-reviewer` | `gpt-5.6-sol` | Read-only adversarial requirements, contract, scope, and maintainability review |
-| `tidd-drift-reviewer` | `gpt-5.6-terra` | Read-only decision-drift and contradiction review |
-| `tidd-safety-reviewer` | `gpt-5.6-terra` | Read-only concurrency, lifetime, ownership, and safety review |
-| `tidd-autofix-worker` | `gpt-5.6-luna` | Bounded sole-writer implementation and correction work |
-| `tidd-convergence-reviewer` | `gpt-5.6-luna` | Read-only preliminary convergence review before the formal gates (non-authoritative) |
+| `tidd-adversarial-reviewer` | `gpt-6-sol` | Read-only adversarial requirements, contract, scope, and maintainability review |
+| `tidd-drift-reviewer` | `gpt-6-sol` | Read-only decision-drift and contradiction review |
+| `tidd-safety-reviewer` | `gpt-6-sol` | Read-only concurrency, lifetime, ownership, and safety review |
+| `tidd-autofix-worker` | `gpt-6-luna` | Bounded sole-writer implementation and correction work |
+| `tidd-convergence-reviewer` | `gpt-6-luna` | Read-only preliminary convergence review before the formal gates (non-authoritative) |
 
 ## Simple usage
 
@@ -100,7 +100,7 @@ An `agentOverrides` entry keyed by an old name does not apply to the role: pi-su
 
 Gate identities in the structured envelope (schema version 2) are `adversarial`, `decision-drift`, and `safety` (CL-D60), plus the non-authoritative `convergence` (CL-D62), with fresh-finding prefixes `ADV-`, `DRIFT-`, `SAFETY-`, and `CONV-`; version 1 (`sol` / `terra`) is accepted for one release. Sol and Terra remain the gate nicknames in prose.
 
-`tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate on both roots, once per candidate identity and snapshot fingerprint, with its own round budget; it has no alias, ships with the `gpt-5.6-luna` default, and can point at an economical model through the same override. In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102. Disable the agent through pi-subagents configuration to skip the stage.
+`tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate on both roots, once per candidate identity and snapshot fingerprint, with its own round budget; it has no alias, ships with the `gpt-6-luna` default, and can point at an economical model through the same override. In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102. Disable the agent through pi-subagents configuration to skip the stage.
 
 ## Closed-loop workflow (opt-in)
 

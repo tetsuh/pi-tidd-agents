@@ -1,7 +1,7 @@
 ---
 name: tidd-convergence-reviewer
 description: Read-only preliminary convergence reviewer that finds ordinary omissions before the formal gates
-model: gpt-5.6-luna
+model: gpt-6-luna
 thinking: "high"
 systemPromptMode: replace
 inheritProjectContext: true
