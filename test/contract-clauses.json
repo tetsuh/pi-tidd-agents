@@ -4015,7 +4015,7 @@
         "CONTRACT.md"
       ],
       "requires": [
-        "`WORKSPACE_POST_PUSH(C, O)` := public/workspace `C`, the no-replace sole child of the public head `P` it was pushed onto (`O` for the run's first push), with clean state; linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads the parent names as its own pushes (CL-D79), clone operator stays `O`."
+        "`WORKSPACE_POST_PUSH(C, O)` := public/workspace `C`, the no-replace sole child of the public head `P` it was pushed onto (`O` for the run's first push), with clean state; linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads `build_operator_revalidate` derives from the run's own post-push snapshots (CL-D79, CL-D86), clone operator stays `O`."
       ]
     },
     {
