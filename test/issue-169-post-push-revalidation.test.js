@@ -163,3 +163,69 @@ test('Issue #169 the post-push invariant names the derivation, wherever it is st
   assert.ok(pinned.requires.every((sentence) => sentence.includes(DERIVED) || !sentence.includes('WORKSPACE_POST_PUSH')),
     'the definition clause pins the amended sentence');
 });
+
+// ADV-173-OMISSION-REGRESSION: acceptance criterion 2 asks for a regression that fails when the composed request
+// omits the transition, on both surfaces. The refusal cases above cover malformed input; this covers the omission
+// the run actually made on PR #149 — a push happened and the request says nothing about it.
+const os = require('node:os');
+const { execFileSync } = require('node:child_process');
+const helpers = require('../skills/closed-loop-pr/helpers');
+
+const commitEnv = { GIT_AUTHOR_NAME: 'Test', GIT_AUTHOR_EMAIL: 'test@example.invalid', GIT_COMMITTER_NAME: 'Test', GIT_COMMITTER_EMAIL: 'test@example.invalid' };
+function git(cwd, args, env) {
+  return execFileSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, ...env, GIT_CONFIG_NOSYSTEM: '1', GIT_TERMINAL_PROMPT: '0' } }).trim();
+}
+function withPushedOperator(run) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-169-repo-'));
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-169-origin-'));
+  try {
+    git(root, ['init', '-b', 'main']); git(root, ['config', 'user.name', 'Issue 169 Test']); git(root, ['config', 'user.email', 'issue169@example.invalid']);
+    fs.writeFileSync(path.join(root, 'tracked.txt'), `base${String.fromCharCode(10)}`);
+    git(root, ['add', 'tracked.txt']); git(root, ['commit', '-m', 'test: base']);
+    git(bare, ['init', '--bare']); git(root, ['remote', 'add', 'origin', bare]); git(root, ['push', '-u', 'origin', 'main']);
+    const head = git(root, ['rev-parse', 'HEAD']);
+    const identity = { repository: 'owner/repo', prNumber: 169, lifecycle: 'OPEN', baseOid: OID('a'), publicHead: head, headRepository: 'owner/repo', headBranch: 'main', originFetch: bare, originPush: bare };
+    const capture = helpers.captureOperatorCheckout({ cwd: root, identity });
+    assert.equal(capture.ok, true, JSON.stringify(capture));
+    const captureCli = cli('operator_capture', { cwd: root, identity });
+    assert.equal(captureCli.ok, true, JSON.stringify(captureCli));
+    // The push itself: one child commit, and the remote-tracking ref moved onto it.
+    const pushed = git(root, ['commit-tree', 'HEAD^{tree}', '-p', head, '-m', 'fix: correction'], commitEnv);
+    git(root, ['update-ref', 'refs/remotes/origin/main', pushed]);
+    run({ root, capture, captureCli, pushed });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); fs.rmSync(bare, { recursive: true, force: true }); }
+}
+
+test('Issue #169 a revalidation composed without the push is refused, on both surfaces', () => {
+  withPushedOperator(({ root, capture, captureCli, pushed }) => {
+    // Direct helper API: build with no pushes after a push, run what it returns.
+    const omitted = buildOperatorRevalidate({ captured: capture.data, cwd: root });
+    assert.equal(omitted.ok, true, 'the pre-push form is still composable; it is the guard that refuses it');
+    const ranOmitted = helpers.revalidateOperatorCheckout(capture, { cwd: root });
+    assert.equal(ranOmitted.ok, false, 'a request that says nothing about the push cannot pass the post-push guard');
+    assert.equal(ranOmitted.error.code, 'operator_changed');
+    // Packaged CLI, the same two steps.
+    const builtCli = cli('build_operator_revalidate', { captured: captureCli, cwd: root });
+    assert.equal(builtCli.ok, true, JSON.stringify(builtCli));
+    const ranCli = cli(builtCli.data.request.operation, builtCli.data.request.data);
+    assert.deepEqual([ranCli.ok, ranCli.error?.code], [false, 'operator_changed'], JSON.stringify(ranCli));
+    // And the snapshot the run holds composes a request that passes, on both surfaces.
+    const snapshot = { ...snapshotAt(pushed) };
+    const derived = buildOperatorRevalidate({ captured: capture.data, cwd: root, pushes: [snapshot] });
+    assert.equal(derived.data.request.data.postPushHead, pushed);
+    const ranDerived = helpers.revalidateOperatorCheckout(capture, { cwd: root, postPushHead: derived.data.request.data.postPushHead });
+    assert.equal(ranDerived.ok, true, JSON.stringify(ranDerived.error));
+    const derivedCli = cli('build_operator_revalidate', { captured: captureCli, cwd: root, pushes: [snapshot] });
+    const ranDerivedCli = cli(derivedCli.data.request.operation, derivedCli.data.request.data);
+    assert.equal(ranDerivedCli.ok, true, JSON.stringify(ranDerivedCli.error));
+  });
+});
+
+test('Issue #169 the record names the source the retry recomposes from', () => {
+  const record = sectionOf(readText('CONTRACT.md'), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots');
+  assert.match(record, /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter\./);
+  assert.equal(record.includes('recomposed once from those snapshots'), false, 'the record may not name a source the operational rule does not');
+  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D86').flatMap((clause) => clause.requires);
+  assert.ok(pins.some((sentence) => sentence.includes('recomposed once from a freshly taken post-push snapshot')), 'the manifest pins the source');
+});
