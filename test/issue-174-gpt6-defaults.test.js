@@ -61,6 +61,10 @@ test('Issue #174 CL-D87 records the choice and what it changes about model famil
   }
   assert.match(record, /issues\/174#issuecomment-5788195445/, 'the record cites the revised owner choice');
   assert.match(record, /the formal gates of each root no longer differ by model family/);
+  // SAFETY-178-CLD87-DRIFT-CONTEXT: the Issue drift gate keeps its forked context on purpose (CL-D59), so the record
+  // may not call fresh context what keeps every formal gate independent.
+  assert.match(record, /the adversarial and safety gates run in fresh context, while the Issue drift gate keeps the forked context CL-D59 gives it on purpose/);
+  assert.doesNotMatch(record, /independent in the sense the addendum states — fresh context/);
   assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D3 — Writer selection'), /CL-D87 later moved the Terra roles to `gpt-6-sol` and the writer to `gpt-6-luna`; no gate runs on the writer's model, so the self-grading exclusion still holds\./);
   assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D29 — Sol attempts adversarial falsification of absolute claims'), /CL-D87 later placed the Sol and Terra roles on one model/);
   assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D62 — A non-authoritative convergence stage runs before the adversarial gate') || readText('CONTRACT.md'), /CL-D87 later moved the shipped convergence default to `gpt-6-luna`/);
