@@ -33,7 +33,7 @@ const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.m
 const PR_HELPER_MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
-const PR_HELPER_FILES = ['validation.js', 'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
+const PR_HELPER_FILES = ['validation.js', 'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js', 'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
 // The pre-split PR Skill's size. This is not a budget: it encodes the claim that progressive
 // disclosure is smaller than the monolith it replaced, so raising it would falsify what it
 // exists to prove. CL-D43 leaves it alone, which makes it — not the six-file ceiling — the
@@ -590,7 +590,8 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    assert.equal(files.length, 40, `packed file count changed: ${files.join(', ')}`);
+    // 41 since CL-D89 added helpers/publish.js, the writer's packaged commit and push.
+    assert.equal(files.length, 41, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);

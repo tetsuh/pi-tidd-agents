@@ -13,17 +13,20 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
   'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js',
-  'process.js', 'protocol.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
+  'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
   'build_fingerprint_snapshot', 'build_gate_assignments', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
-  'build_workspace_verify', 'build_writer_launch', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
+  'build_workspace_verify', 'build_writer_launch', 'commit_create', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
   'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
   'marker_create', 'marker_reconcile', 'message_verify', 'required_evidence_check', 'required_evidence_set', 'validation_run',
-  'operator_capture', 'operator_revalidate', 'snapshot', 'workspace_cleanup', 'workspace_create',
+  'operator_capture', 'operator_revalidate', 'push_publish', 'snapshot', 'workspace_cleanup', 'workspace_create',
   'workspace_cleanup_created', 'workspace_verify', 'writability',
 ].sort();
 const FORBIDDEN_OPERATION = /(?:^|_)(?:commit|push|merge|reply|approve|thread_resolve|schedule|state_write)(?:_|$)/;
+// CL-D89 supersedes CL-D37's boundary for exactly these two: the writer's one normal commit and one non-force push,
+// run in the created workspace with what the capture recorded. Nothing else named above is allowed.
+const CL_D89_OPERATIONS = new Set(['commit_create', 'push_publish']);
 const SCHEDULING_OR_STATE = /\b(?:setInterval|setTimeout|setImmediate|queueMicrotask|scheduler|node-schedule|cron|node:timers|node:sqlite|sqlite3|level|lmdb|globalThis)\b/;
 const APPROVED_FS_SITES = [
   "skills/closed-loop-pr/helpers/cli.js|const fs = require('node:fs');",
@@ -71,11 +74,16 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/workspace.js|const retainedRoot = fs.existsSync(rootPath) ? rootPath : null;',
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
-  './builders': 2, './composition': 5, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
-  './paths': 5, './process': 7, './protocol': 15, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 7, 'node:os': 3, 'node:path': 8,
+  './builders': 2, './composition': 6, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
+  './paths': 5, './process': 8, './protocol': 16, './publish': 1, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 7, 'node:os': 4, 'node:path': 9,
 };
+// CL-D89 adds the writer's commit and push, and the reads that verify them (rev-list for the sole parent, check-ref-format
+// for the captured branch). The two literal credential pairs are the push's own: the inherited helper list cleared, then
+// gh named — the only literal configuration a helper may pass, and only from publish.js.
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
+const PUBLISH_GIT_COMMANDS = new Set(['commit', 'push', 'rev-list', 'check-ref-format', '-c credential.helper=', '-c credential.helper=!gh auth git-credential']);
+function gitCommandAllowed(file, command) { return ALLOWED_GIT_COMMANDS.has(command) || (file === `${HELPER_DIR}/publish.js` && PUBLISH_GIT_COMMANDS.has(command)); }
 const PROVENANCE_ANCHORS = [
   [`${HELPER_DIR}/process.js`, 'const temporaryParent = validateTemporaryParent();'],
   [`${HELPER_DIR}/process.js`, "const home = path.join(root, 'home');"],
@@ -172,7 +180,7 @@ function validateBoundary(model) {
 
   const operations = parseOperations(model.sources[`${HELPER_DIR}/cli.js`]);
   if (JSON.stringify(operations) !== JSON.stringify(ALLOWED_OPERATIONS)) errors.push('CLI operation table differs from the verification-only allowlist');
-  for (const operation of operations) if (FORBIDDEN_OPERATION.test(operation)) errors.push(`provider/writer operation is forbidden: ${operation}`);
+  for (const operation of operations) if (FORBIDDEN_OPERATION.test(operation) && !CL_D89_OPERATIONS.has(operation)) errors.push(`provider/writer operation is forbidden: ${operation}`);
 
   const sites = sourceFsSites(model.sources);
   if (JSON.stringify(sites) !== JSON.stringify(APPROVED_FS_SITES)) errors.push('filesystem access callsites differ from the reviewed allowlist');
@@ -182,13 +190,14 @@ function validateBoundary(model) {
     if (SCHEDULING_OR_STATE.test(source) || /\bimport\s*\(/.test(source)) errors.push(`scheduling or durable-state primitive is forbidden: ${file}`);
     if (/\breceipt\s*\.\s*(?:storedPath|root)\s*=|\b(?:Object\.assign|Reflect\.set)\s*\(\s*receipt\b|\bdelete\s+receipt\s*\./.test(source)) errors.push(`workspace receipt provenance mutation is forbidden: ${file}`);
   }
-  for (const { file, command } of gitCommands(model.sources)) if (!ALLOWED_GIT_COMMANDS.has(command)) errors.push(`Git command is outside the reviewed verification/lifecycle allowlist: ${file}:${command}`);
+  for (const { file, command } of gitCommands(model.sources)) if (!gitCommandAllowed(file, command)) errors.push(`Git command is outside the reviewed verification/lifecycle allowlist: ${file}:${command}`);
   // CL-D72: the complete executable-spawn call surface, parsed and compared exactly — every run/runSync call
   // whose program is not the literal 'git', and both child_process sites — so a call added, moved, relabeled,
   // or reworded anywhere differs from the allowlist; and no site spawns through a shell.
   const spawns = spawnSites(model.sources);
   if (JSON.stringify(spawns) !== JSON.stringify(APPROVED_SPAWN_SITES)) errors.push(`executable-spawn callsites differ from the reviewed allowlist: ${spawns.join(' ; ')}`);
   for (const [file, source] of Object.entries(model.sources)) if (/\bshell:\s*true\b/.test(source)) errors.push(`shell spawn is forbidden: ${file}`);
+  for (const args of gitArgLists(model.sources[`${HELPER_DIR}/publish.js`] || '')) if (args.some((arg) => typeof arg === 'string' && /^(?:-f|--force(?:-with-lease)?(?:=.*)?|\+.*)$/.test(arg))) errors.push('forced push is forbidden: publish.js');
   // ADV-124-SPAWN-SCANNER-ALIAS-BYPASS: the bound CL-D72 records — a primitive reaches a program only through a direct call.
   for (const [file, source] of Object.entries(model.sources)) errors.push(...spawnReferenceProblems(file, source));
   for (const [file, anchor, expectedCount = 1] of PROVENANCE_ANCHORS) {
@@ -313,6 +322,11 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
     }, 'operation table');
   }
   rejectsMutation(model, 'direct write', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nfs.writeFileSync("state", "x");\n'; }, 'filesystem access callsites');
+  // CL-D89: the writer's commit and push are publish.js's alone, and publish.js may name no other literal configuration.
+  rejectsMutation(model, 'a commit outside publish.js', (copy) => { copy.sources[`${HELPER_DIR}/guards.js`] += "\nrunSync('git', ['commit', '-m', 'x']);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'a second credential helper in publish.js', (copy) => { copy.sources[`${HELPER_DIR}/publish.js`] += "\nrunSync('git', ['-c', 'credential.helper=cache', 'push', 'origin', 'HEAD']);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'a hooks path literal in publish.js', (copy) => { copy.sources[`${HELPER_DIR}/publish.js`] += "\nrunSync('git', ['-c', 'core.hooksPath=/tmp/h', 'commit', '-m', 'x']);\n"; }, 'Git command is outside');
+  rejectsMutation(model, 'a forced push in publish.js', (copy) => { copy.sources[`${HELPER_DIR}/publish.js`] += "\nrunSync('git', ['push', '--force', 'origin', 'HEAD']);\n"; }, 'forced push');
   rejectsMutation(model, 'async write', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nfs.promises.writeFile("state", "x");\n'; }, 'filesystem access callsites');
   rejectsMutation(model, 'import alias', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nconst { writeFile: persist } = require("node:fs/promises");\n'; }, 'filesystem access callsites');
   rejectsMutation(model, 'canonical fs alias', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nconst { writeFileSync: persist } = fs; persist("state", "x");\n'; }, 'filesystem access callsites');

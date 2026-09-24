@@ -97,6 +97,18 @@ function inventory(top) {
     .filter((entry) => RUNTIME_ROOTS.some((root) => entry === root || entry.startsWith(`${root}/`))).map(describe);
   return { untrackedPaths, ignoredInventory, runtimeInventory };
 }
+// The identity the run commits with is the operator checkout's own, read once here with the operator's configuration:
+// the one read that is not isolated, because isolated config carries none. It is never inferred, and a value Git would
+// rewrite or split is refused rather than normalized (Issue #181, CL-D89).
+function commitIdentity(top) {
+  const read = (key) => runSync('git', ['config', '--get', key], { cwd: top, phase: 'operator_capture', kind: 'operator_config', acceptExitCodes: [1] }).replace(/\n$/, '');
+  const identity = { name: read('user.name'), email: read('user.email') };
+  if (!identity.name || !identity.email) throw Object.assign(new Error('the operator checkout has no user.name or user.email; set both before an exact-autofix run'), { code: 'commit_identity_missing' });
+  for (const [field, value] of Object.entries(identity)) {
+    if (!value.trim() || /[<>\0\n\r]/.test(value) || !value.isWellFormed()) throw Object.assign(new Error(`the operator ${field} cannot be passed to Git unchanged`), { code: 'commit_identity_invalid', details: { field } });
+  }
+  return identity;
+}
 function captureOperatorCheckout(input = process.cwd()) {
   const options = requestOptions(input);
   const cwd = options.cwd || process.cwd();
@@ -118,6 +130,7 @@ function captureOperatorCheckout(input = process.cwd()) {
     const fetchRepository = repositoryFromRemote(originFetch);
     const pushRepository = repositoryFromRemote(originPush);
     if ((fetchRepository && fetchRepository !== identity.repository.toLowerCase()) || (pushRepository && pushRepository !== identity.repository.toLowerCase())) throw Object.assign(new Error('origin repository differs from target repository'), { code: 'target_identity_mismatch' });
+    const operatorIdentity = commitIdentity(top);
     const worktreeChanges = nulRecords(gitBuffer(top, ['diff', '--name-status', '--no-renames', '-z']));
     const indexChanges = nulRecords(gitBuffer(top, ['diff', '--cached', '--name-status', '--no-renames', '-z']));
     const inventoryReader = typeof options.inventoryFn === 'function' ? options.inventoryFn : inventory;
@@ -134,7 +147,7 @@ function captureOperatorCheckout(input = process.cwd()) {
       root: top, head, branch, originFetch, originPush, upstream, trackingRef,
       worktreeChanges, trackedChanges: worktreeChanges, indexChanges, untrackedPaths, unexpectedUntrackedPaths,
       ignoredInventory, runtimeInventory, runtimeHeadEntries, runtimeIndexEntries, runtimeRoots, unsafeRuntimeRoots, identity, configDigest,
-      helperPath, helperInsideTarget,
+      helperPath, helperInsideTarget, commitIdentity: operatorIdentity,
       clean: worktreeChanges.length === 0 && indexChanges.length === 0 && unexpectedUntrackedPaths.length === 0 && unsafeRuntimeRoots.length === 0,
     });
   } catch (error) {
@@ -183,7 +196,7 @@ function revalidateOperatorCheckout(captured, input = process.cwd()) {
 }
 
 // The exact key set a successful `operator_capture` payload carries (CL-D70).
-const OPERATOR_CAPTURE_PAYLOAD_KEYS = Object.freeze(['branch', 'clean', 'configDigest', 'head', 'helperInsideTarget', 'helperPath',
+const OPERATOR_CAPTURE_PAYLOAD_KEYS = Object.freeze(['branch', 'clean', 'commitIdentity', 'configDigest', 'head', 'helperInsideTarget', 'helperPath',
   'identity', 'ignoredInventory', 'indexChanges', 'originFetch', 'originPush', 'root', 'runtimeHeadEntries', 'runtimeIndexEntries',
   'runtimeInventory', 'runtimeRoots', 'trackedChanges', 'trackingRef', 'unexpectedUntrackedPaths', 'unsafeRuntimeRoots',
   'untrackedPaths', 'upstream', 'worktreeChanges']);
