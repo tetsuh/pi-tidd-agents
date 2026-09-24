@@ -31,6 +31,8 @@ test('Issue #174 every agent definition ships the decided model at high', () => 
 test('Issue #174 every live surface names the shipped defaults', () => {
   const readme = readText('README.md');
   assert.ok(readme.includes('CL-D87 later placed the Sol and Terra roles on one model, so that diversity now separates the gates from the writer rather than from each other; the independent context, system-prompt, and failure boundaries remain.'), 'README explains the CL-D87 model-family consequence');
+  assert.ok(readme.includes('`terra-worker` was excluded because its model also graded the Terra gate; CL-D87 later moved the Terra roles to `gpt-6-sol` and the writer to `gpt-6-luna`, and no gate runs on the writer\'s model, so the self-grading exclusion still holds.'), 'README qualifies the terra-worker exclusion under CL-D87');
+  assert.ok(!readme.includes('`terra-worker` is excluded because its model also grades the Terra gate'), 'README no longer states the pre-CL-D87 exclusion in the present tense');
   for (const [agent, model] of Object.entries(SHIPPED)) {
     assert.match(readme, new RegExp(`\\| \`${agent}\` \\| \`${model.replace('.', '\\.')}\` \\|`), `README role row for ${agent}`);
   }
