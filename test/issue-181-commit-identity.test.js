@@ -76,6 +76,35 @@ test('Issue #181 operator_capture records the operator checkout identity at pref
   assert.ok(OPERATOR_CAPTURE_PAYLOAD_KEYS.includes('commitIdentity'), 'the payload key set names the identity (CL-D70)');
 });
 
+test('Issue #181 the identity may live only in the operator global config, which isolation would hide', () => {
+  // The common case: nothing in the repository, the identity in ~/.gitconfig. An isolated read finds none.
+  const repo = repository({ name: null, email: null });
+  const env = bareHome();
+  fs.writeFileSync(path.join(env.HOME, '.gitconfig'), `[user]\n\tname = ${NAME}\n\temail = ${EMAIL}\n`);
+  const captured = cli('operator_capture', { cwd: repo.root, identity: repo.identity }, env);
+  assert.equal(captured.ok, true, JSON.stringify(captured));
+  assert.deepEqual(captured.data.commitIdentity, { name: NAME, email: EMAIL });
+});
+
+test('Issue #181 push_publish refuses a capture that is not a successful operator_capture, a HEAD off its history, or a non-https origin', () => {
+  const { pushPublish } = require('../skills/closed-loop-pr/helpers/publish');
+  const { repo, captured, created, env } = run();
+  stageCorrection(created.path);
+  assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+  const refused = (result) => [result.ok, result.error?.code, result.error?.phase];
+  assert.deepEqual(refused(pushPublish({ created, captured: { ...captured, ok: false } })), [false, 'invalid_request', 'push_publish'], 'a failed capture');
+  assert.deepEqual(refused(pushPublish({ created, captured: { ...captured, operation: 'snapshot' } })), [false, 'invalid_request', 'push_publish'], 'another operation');
+  // A HEAD that does not descend from the captured public head is not this run's correction.
+  const foreign = { ...captured, data: { ...captured.data, head: 'b'.repeat(40) } };
+  assert.deepEqual(refused(pushPublish({ created, captured: foreign })), [false, 'guard_failed', 'push_publish'], 'a HEAD off the captured history');
+  // Only the gh helper may authenticate the push, so a remote it cannot serve is refused rather than reached by SSH.
+  for (const url of ['git@github.com:owner/repo.git', 'ssh://git@github.com/owner/repo.git']) {
+    const ssh = { ...captured, data: { ...captured.data, identity: { ...captured.data.identity, originPush: url } } };
+    assert.deepEqual(refused(pushPublish({ created, captured: ssh })), [false, 'invalid_request', 'push_publish'], url);
+  }
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, 'nothing was pushed');
+});
+
 test('Issue #181 a checkout without an identity stops at preflight, before any gate', () => {
   for (const [label, name, email] of [['no name', null, EMAIL], ['no email', NAME, null], ['neither', null, null]]) {
     const repo = repository({ name, email });
@@ -144,6 +173,14 @@ test('Issue #181 push_publish never forces over a remote that moved', () => {
   const pushed = cli('push_publish', { created, captured }, env);
   assert.deepEqual([pushed.ok, pushed.error?.phase], [false, 'push_publish'], JSON.stringify(pushed));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), remote, 'the remote branch is unchanged');
+});
+
+test('Issue #181 gh reads the operator configuration directory on every platform', () => {
+  const { ghConfigDir } = require('../skills/closed-loop-pr/helpers/publish');
+  assert.equal(ghConfigDir({ GH_CONFIG_DIR: '/cfg/gh' }, 'linux', '/home/o'), '/cfg/gh');
+  assert.equal(ghConfigDir({ XDG_CONFIG_HOME: '/xdg' }, 'linux', '/home/o'), path.join('/xdg', 'gh'));
+  assert.equal(ghConfigDir({ APPDATA: 'C:\\Users\\o\\AppData\\Roaming' }, 'win32', 'C:\\Users\\o'), path.join('C:\\Users\\o\\AppData\\Roaming', 'GitHub CLI'));
+  assert.equal(ghConfigDir({}, 'linux', '/home/o'), path.join('/home/o', '.config', 'gh'));
 });
 
 test('Issue #181 the push names exactly one credential helper, gh, and no force', () => {
