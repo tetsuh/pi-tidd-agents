@@ -2,7 +2,7 @@
 name: tidd-adversarial-reviewer
 aliases: sol-reviewer
 description: Read-only adversarial requirements, contract, scope, and maintainability reviewer
-model: gpt-5.6-sol
+model: gpt-6-sol
 thinking: "high"
 systemPromptMode: replace
 inheritProjectContext: true

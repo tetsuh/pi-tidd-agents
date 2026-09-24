@@ -4579,6 +4579,44 @@
         "Issue #179 the verify request runs in the workspace the run created",
         "Issue #179 a cwd supplied beside created is refused, on both surfaces"
       ]
+    },
+    {
+      "id": "CL-D87-record",
+      "marker": "CL-D87",
+      "title": "CL-D87 records the shipped defaults and the model-family consequence",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D87 — The package ships gpt-6-sol and gpt-6-luna",
+      "requires": [
+        "issues/174#issuecomment-5788195445",
+        "ship `gpt-6-sol`; `tidd-convergence-reviewer` and `tidd-autofix-worker` ship `gpt-6-luna`; every role keeps thinking `high`",
+        "the formal gates of each root no longer differ by model family",
+        "Records of past runs keep the models those runs used."
+      ]
+    },
+    {
+      "id": "CL-D87-readme",
+      "marker": "CL-D87",
+      "title": "README names the shipped defaults",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "Their shipped defaults are OpenAI GPT-6 Sol (`gpt-6-sol`, the adversarial reviewer and both Terra roles) and GPT-6 Luna (`gpt-6-luna`, the writer and the convergence reviewer) (CL-D87)"
+      ]
+    },
+    {
+      "id": "CL-D87-tests",
+      "marker": "CL-D87",
+      "title": "The CL-D87 fixtures pin the definitions, the surfaces, and the history",
+      "files": [
+        "test/issue-174-gpt6-defaults.test.js"
+      ],
+      "requires": [
+        "Issue #174 every agent definition ships the decided model at high",
+        "Issue #174 records of past runs keep the models those runs used"
+      ]
     }
   ]
 }

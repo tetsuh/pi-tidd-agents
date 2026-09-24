@@ -20,12 +20,12 @@ const fs = require('node:fs');
 const { readText, readJson, repoPath, parseFrontmatter, sectionOf } = require('./helpers');
 
 const ROLES = {
-  'tidd-adversarial-reviewer': { alias: 'sol-reviewer', model: 'gpt-5.6-sol', writer: false, context: 'fresh' },
-  'tidd-drift-reviewer': { alias: 'terra-oracle', model: 'gpt-5.6-terra', writer: false, context: 'fork' },
-  'tidd-safety-reviewer': { alias: 'terra-reviewer', model: 'gpt-5.6-terra', writer: false, context: 'fresh' },
-  'tidd-autofix-worker': { alias: 'luna-worker', model: 'gpt-5.6-luna', writer: true, context: 'fork' },
+  'tidd-adversarial-reviewer': { alias: 'sol-reviewer', model: 'gpt-6-sol', writer: false, context: 'fresh' },
+  'tidd-drift-reviewer': { alias: 'terra-oracle', model: 'gpt-6-sol', writer: false, context: 'fork' },
+  'tidd-safety-reviewer': { alias: 'terra-reviewer', model: 'gpt-6-sol', writer: false, context: 'fresh' },
+  'tidd-autofix-worker': { alias: 'luna-worker', model: 'gpt-6-luna', writer: true, context: 'fork' },
   // CL-D62 added the convergence role: no transitional alias, same reviewer shape.
-  'tidd-convergence-reviewer': { alias: undefined, model: 'gpt-5.6-luna', writer: false, context: 'fresh' },
+  'tidd-convergence-reviewer': { alias: undefined, model: 'gpt-6-luna', writer: false, context: 'fresh' },
 };
 const LEGACY = /sol-reviewer|terra-reviewer|terra-oracle|luna-worker|glm-worker|terra-worker/;
 const REVIEWER_TOOLS = ['read', 'grep', 'find', 'ls', 'bash'];
@@ -113,7 +113,7 @@ test('Issue #100 CL-D59 records the role split, the agents/ widening, and the re
   const cl3 = sectionOf(contract, '## CL-D3 — Writer selection');
   assert.match(cl3, /For exact PR `autofix`, `tidd-autofix-worker` is the mandatory and sole correction writer\/publisher/);
   const cl22 = sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight');
-  assert.match(cl22, /`tidd-adversarial-reviewer` \(default `gpt-5.6-sol`\)/);
+  assert.match(cl22, /`tidd-adversarial-reviewer` \(default `gpt-6-sol`\)/);
   const manifest = readJson('test/contract-clauses.json');
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D59').map((clause) => clause.id).sort(), ['CL-D59-resolution', 'CL-D59-tests']);
   // CL-D35's rule still holds: no clause pins an agent file.

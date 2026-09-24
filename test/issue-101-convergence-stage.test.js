@@ -70,7 +70,7 @@ test('Issue #101 the package ships the convergence role as a read-only, fresh-co
   const frontmatter = parseFrontmatter(text);
   assert.equal(frontmatter.name, 'tidd-convergence-reviewer');
   assert.equal(frontmatter.aliases, undefined, 'a new role carries no transitional alias');
-  assert.equal(frontmatter.model, 'gpt-5.6-luna', 'owner decision 1: the shipped default is Luna');
+  assert.equal(frontmatter.model, 'gpt-6-luna', 'owner decision 1: the shipped default is Luna; CL-D87 moved it to GPT-6 Luna');
   assert.equal(String(frontmatter.thinking).replace(/"/g, ''), 'high');
   assert.equal(frontmatter.defaultContext, 'fresh');
   assert.equal(String(frontmatter.inheritSkills), 'false');
@@ -217,12 +217,12 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   const readme = readText('README.md');
   assert.match(readme, /\| Preliminary convergence review inside the closed loop \(non-authoritative\) \| `tidd-convergence-reviewer` \|/);
   assert.match(readme, /`tidd-convergence-reviewer` \(CL-D62\) is the non-authoritative preliminary reviewer that runs before the adversarial gate/);
-  assert.match(readme, /ships with the `gpt-5.6-luna` default/);
+  assert.match(readme, /ships with the `gpt-6-luna` default/);
   assert.match(readme, /In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102/);
   assert.match(readme, /Disable the agent through pi-subagents configuration to skip the stage/);
   assert.match(readme, /runs before the adversarial gate on both roots, once per candidate identity and snapshot fingerprint, with its own round budget/);
   // Included agents and Model overrides inventories name the fifth role.
-  assert.match(readme, /\| `tidd-convergence-reviewer` \| `gpt-5.6-luna` \| Read-only preliminary convergence review before the formal gates \(non-authoritative\) \|/);
+  assert.match(readme, /\| `tidd-convergence-reviewer` \| `gpt-6-luna` \| Read-only preliminary convergence review before the formal gates \(non-authoritative\) \|/);
   assert.match(readme, /Overrides are keyed by role name, for all five roles including `tidd-convergence-reviewer`/);
   assert.match(readme, /- The convergence reviewer uses fresh context and is never readiness authority\./);
   // SOL-109-README-INVENTORIES-OMIT-CONVERGENCE: the exhaustive inventories count the fifth role and the fourth identity.
