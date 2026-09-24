@@ -30,6 +30,7 @@ test('Issue #174 every agent definition ships the decided model at high', () => 
 
 test('Issue #174 every live surface names the shipped defaults', () => {
   const readme = readText('README.md');
+  assert.ok(readme.includes('CL-D87 later placed the Sol and Terra roles on one model, so that diversity now separates the gates from the writer rather than from each other; the independent context, system-prompt, and failure boundaries remain.'), 'README explains the CL-D87 model-family consequence');
   for (const [agent, model] of Object.entries(SHIPPED)) {
     assert.match(readme, new RegExp(`\\| \`${agent}\` \\| \`${model.replace('.', '\\.')}\` \\|`), `README role row for ${agent}`);
   }
