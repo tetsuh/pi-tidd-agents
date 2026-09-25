@@ -210,3 +210,20 @@ test('Issue #181 the map, the addendum, and CL-D89 route the commit and push thr
   assert.match(record, /issues\/181#issuecomment-5816104411/, 'the record cites the identity decision');
   assert.match(record, /issues\/181#issuecomment-5822980178/, 'the record cites the push decision');
 });
+
+test('Issue #181 the helper alarm reset is the one every suite asserts, with room left at the raise', () => {
+  // The pre-push review corrections put the helpers at 280,749 bytes; CL-D89 resets the alarm to 290,000.
+  assert.match(readText('test/issue-59-helper-surface.test.js'), /const AGGREGATE_SMOKE_ALARM = 290000; \/\/ CL-D89 reviewed reset from 280,000 \(CL-D86\)/);
+  assert.match(readText('test/package.test.js'), /helperBytes < 290000/);
+  for (const file of fs.readdirSync(__dirname)) {
+    if (!file.endsWith('.test.js') || ['issue-169-post-push-revalidation.test.js', 'issue-181-commit-identity.test.js'].includes(file)) continue;
+    assert.equal(readText(`test/${file}`).includes('280000'), false, `${file} must not keep the superseded helper alarm`);
+  }
+  const dir = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers');
+  const bytes = fs.readdirSync(dir).filter((f) => f.endsWith('.js')).reduce((sum, f) => sum + fs.statSync(path.join(dir, f)).size, 0);
+  assert.ok(bytes < 290000, `packaged helpers total ${bytes}`);
+  assert.ok(290000 - 280749 > 9000, 'the raise left room, asserted against the measurement it was taken on');
+  const boundary = sectionOf(readText('CONTRACT.md'), '## CL-D37 — Bounded helper surface is structural');
+  assert.match(boundary, /CL-D89 reset it an eighth time to 290,000 bytes after the review corrections of its own change put the helpers at 280,749, on the same terms\./);
+  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D89 — The writer commits and pushes through packaged operations with the operator identity'), /issues\/181#issuecomment-5834493756/);
+});
