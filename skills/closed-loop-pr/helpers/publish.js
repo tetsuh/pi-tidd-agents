@@ -79,8 +79,11 @@ function pushPublish(data) {
     if (!text(branch)) fail('invalid_request', 'captured names no PR head branch', phase);
     // Only the gh helper may authenticate the push. An https remote is its; a local path needs no credential. Any other
     // transport (SSH above all) would be reached with the operator's own keys instead, so it is refused.
-    // Credentials inside an https URL would authenticate the push instead of that helper, so they are refused too.
-    const pushUrl = String(identity.originPush || '');
+    // The URL checked is the one Git would push to: the workspace's own origin, rewrites applied, which must also be the
+    // URL the capture and the workspace creation recorded. Credentials inside an https URL would authenticate the push
+    // instead of that helper, so they are refused too.
+    const pushUrl = git(cwd, ['remote', 'get-url', '--push', 'origin'], phase).trim();
+    if (pushUrl !== identity.originPush || pushUrl !== data.created.originPush) fail('invalid_request', 'the workspace push URL differs from the one the capture and the workspace recorded', phase, { pushUrl });
     if (/^https:\/\/[^/]*@/i.test(pushUrl)) fail('invalid_request', 'the captured push URL carries credentials, which would authenticate the push instead of the gh credential helper', phase);
     if (!/^https:\/\//i.test(pushUrl) && !/^file:\/\//i.test(pushUrl) && !(absoluteSpelling(pushUrl) && !/^[^/\\]*@/.test(pushUrl))) fail('invalid_request', 'the captured push URL is neither https nor a local path, so the gh credential helper cannot be the one that authenticates it', phase);
     git(cwd, ['check-ref-format', `refs/heads/${branch}`], phase);
