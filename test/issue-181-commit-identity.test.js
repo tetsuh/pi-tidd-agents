@@ -206,6 +206,17 @@ test('Issue #181 push_publish checks the push URL the workspace would actually u
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, 'nothing was pushed');
 });
 
+test('Issue #181 push.followTags in the repository cannot publish a tag beside the branch', () => {
+  const { repo, captured, created, env } = run();
+  git(repo.root, ['config', 'push.followTags', 'true']);
+  stageCorrection(created.path);
+  assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+  git(created.path, ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'tag', '-a', 'v-leak', '-m', 'leak']);
+  const pushed = cli('push_publish', { created, captured }, env);
+  assert.equal(pushed.ok, true, JSON.stringify(pushed));
+  assert.equal(git(repo.bare, ['tag', '--list']), '', 'no tag reached the remote');
+});
+
 test('Issue #181 gh reads the operator configuration directory on every platform', () => {
   const { ghConfigDir } = require('../skills/closed-loop-pr/helpers/publish');
   assert.equal(ghConfigDir({ GH_CONFIG_DIR: '/cfg/gh' }, 'linux', '/home/o'), '/cfg/gh');
@@ -221,7 +232,8 @@ test('Issue #181 the push names exactly one credential helper, gh, and no force'
   assert.equal(helpers.at(-1), 'credential.helper=!gh auth git-credential', 'the named helper is the last one configured');
   assert.equal(helpers.filter((entry) => entry !== 'credential.helper=').length, 1, 'no other helper is configured');
   assert.ok(helpers.indexOf('credential.helper=') < helpers.indexOf('credential.helper=!gh auth git-credential'), 'the inherited list is cleared first');
-  assert.deepEqual(args.slice(args.indexOf('push')), ['push', 'origin', 'HEAD:refs/heads/feat/x']);
+  // Configuration cannot widen the push beyond the one branch: no tags, no submodules, no signing (CL-D30's one push).
+  assert.deepEqual(args.slice(args.indexOf('push')), ['push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', 'origin', 'HEAD:refs/heads/feat/x']);
   assert.ok(!args.some((arg) => /^(?:-f|--force.*|\+.*)$/.test(arg)), 'no force in any form');
 });
 
