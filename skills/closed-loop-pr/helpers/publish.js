@@ -83,7 +83,10 @@ function pushPublish(data) {
     // The URL checked is the one Git would push to: the workspace's own origin, rewrites applied, which must also be the
     // URL the capture and the workspace creation recorded. Credentials inside an https URL would authenticate the push
     // instead of that helper, so they are refused too.
-    const pushUrl = git(cwd, ['remote', 'get-url', '--push', 'origin'], phase).trim();
+    // git push origin publishes to every push URL, so every one is read, and there must be exactly one.
+    const pushUrls = git(cwd, ['remote', 'get-url', '--push', '--all', 'origin'], phase).split('\n').filter(Boolean);
+    if (pushUrls.length !== 1) fail('invalid_request', `the workspace origin pushes to ${pushUrls.length} URLs; exactly one is allowed`, phase);
+    const pushUrl = pushUrls[0];
     if (pushUrl !== identity.originPush || pushUrl !== data.created.originPush) fail('invalid_request', 'the workspace push URL differs from the one the capture and the workspace recorded', phase, { pushUrl });
     if (/^https:\/\/[^/]*@/i.test(pushUrl)) fail('invalid_request', 'the captured push URL carries credentials, which would authenticate the push instead of the gh credential helper', phase);
     if (!/^https:\/\//i.test(pushUrl) && !/^file:\/\//i.test(pushUrl) && !(absoluteSpelling(pushUrl) && !/^[^/\\]*@/.test(pushUrl))) fail('invalid_request', 'the captured push URL is neither https nor a local path, so the gh credential helper cannot be the one that authenticates it', phase);
