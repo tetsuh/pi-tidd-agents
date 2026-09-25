@@ -54,9 +54,10 @@ function commitCreate(data) {
 
 // Isolation empties `credential.helper` and replaces HOME, so the operator's helper never runs. The push clears the
 // inherited list and names exactly one helper; gh is the authentication the run already uses for snapshots and
-// replies. No force in any form: a remote that moved refuses the push.
+// replies. No force in any form: a remote that moved refuses the push. Configuration cannot widen it either: no tags,
+// no submodules, no signing ride along with the one branch.
 function pushArgs(branch) {
-  return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', 'origin', `HEAD:refs/heads/${branch}`]);
+  return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', 'origin', `HEAD:refs/heads/${branch}`]);
 }
 // gh finds its own configuration from the operator's environment, not the isolated one: the isolation sets
 // XDG_CONFIG_HOME on every platform, and gh consults it before its Windows default, so the directory is always named.
