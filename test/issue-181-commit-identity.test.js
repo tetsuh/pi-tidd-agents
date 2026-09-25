@@ -187,6 +187,25 @@ test('Issue #181 push_publish never forces over a remote that moved', () => {
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), remote, 'the remote branch is unchanged');
 });
 
+test('Issue #181 push_publish checks the push URL the workspace would actually use', () => {
+  // CONV-182-PUSH-URL-ACTUAL-001: the capture's URL is only a record; Git pushes through the workspace's origin.
+  const { repo, captured, created, env } = run();
+  stageCorrection(created.path);
+  assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+  // A linked workspace shares the repository's config, so the operator's origin is the workspace's origin.
+  git(repo.root, ['remote', 'set-url', '--push', 'origin', 'git@github.com:owner/repo.git']);
+  const pushed = cli('push_publish', { created, captured }, env);
+  assert.deepEqual([pushed.ok, pushed.error?.code, pushed.error?.phase], [false, 'invalid_request', 'push_publish'], JSON.stringify(pushed));
+  assert.match(pushed.error.message, /push URL/);
+  // pushInsteadOf does not apply to an explicit pushurl, so the pushurl goes and the rewrite applies to the url.
+  git(repo.root, ['config', '--unset', 'remote.origin.pushurl']);
+  // A pushInsteadOf rewrite is what Git would use, so it is what is checked.
+  git(repo.root, ['config', `url.git@github.com:owner/.pushInsteadOf`, repo.bare]);
+  const rewritten = cli('push_publish', { created, captured }, env);
+  assert.deepEqual([rewritten.ok, rewritten.error?.code], [false, 'invalid_request'], JSON.stringify(rewritten));
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, 'nothing was pushed');
+});
+
 test('Issue #181 gh reads the operator configuration directory on every platform', () => {
   const { ghConfigDir } = require('../skills/closed-loop-pr/helpers/publish');
   assert.equal(ghConfigDir({ GH_CONFIG_DIR: '/cfg/gh' }, 'linux', '/home/o'), '/cfg/gh');
