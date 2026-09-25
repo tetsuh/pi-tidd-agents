@@ -217,6 +217,22 @@ test('Issue #181 push.followTags in the repository cannot publish a tag beside t
   assert.equal(git(repo.bare, ['tag', '--list']), '', 'no tag reached the remote');
 });
 
+test('Issue #181 repository configuration that would widen or re-authenticate the push is refused before Git runs', () => {
+  // CONV-182-PUSH-MIRROR and the rest of its class, swept at once: mirror semantics, a remote helper program, extra
+  // HTTP headers (which would authenticate instead of the gh helper), and push options sent to the server.
+  for (const [key, value] of [['remote.origin.mirror', 'true'], ['remote.origin.vcs', 'fake'], ['http.extraHeader', 'Authorization: bearer x'],
+    ['http.https://github.com/.extraHeader', 'Authorization: bearer x'], ['push.pushOption', 'ci.skip']]) {
+    const { repo, captured, created, env } = run();
+    stageCorrection(created.path);
+    assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+    git(repo.root, ['config', key, value]);
+    const pushed = cli('push_publish', { created, captured }, env);
+    assert.deepEqual([pushed.ok, pushed.error?.code, pushed.error?.phase], [false, 'invalid_request', 'push_publish'], `${key}: ${JSON.stringify(pushed)}`);
+    assert.match(pushed.error.message, /configuration/, key);
+    assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, `${key}: nothing was pushed`);
+  }
+});
+
 test('Issue #181 gh reads the operator configuration directory on every platform', () => {
   const { ghConfigDir } = require('../skills/closed-loop-pr/helpers/publish');
   assert.equal(ghConfigDir({ GH_CONFIG_DIR: '/cfg/gh' }, 'linux', '/home/o'), '/cfg/gh');
