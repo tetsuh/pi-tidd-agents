@@ -98,7 +98,8 @@ test('Issue #181 push_publish refuses a capture that is not a successful operato
   const foreign = { ...captured, data: { ...captured.data, head: 'b'.repeat(40) } };
   assert.deepEqual(refused(pushPublish({ created, captured: foreign })), [false, 'guard_failed', 'push_publish'], 'a HEAD off the captured history');
   // Only the gh helper may authenticate the push, so a remote it cannot serve is refused rather than reached by SSH.
-  for (const url of ['git@github.com:owner/repo.git', 'ssh://git@github.com/owner/repo.git']) {
+  // CONV-182-HTTPS-USERINFO-AUTH: credentials in an https URL would authenticate the push instead of the named helper.
+  for (const url of ['git@github.com:owner/repo.git', 'ssh://git@github.com/owner/repo.git', 'https://token@github.com/owner/repo.git', 'https://user:secret@github.com/owner/repo.git', 'https://:secret@github.com/owner/repo.git']) {
     const ssh = { ...captured, data: { ...captured.data, identity: { ...captured.data.identity, originPush: url } } };
     assert.deepEqual(refused(pushPublish({ created, captured: ssh })), [false, 'invalid_request', 'push_publish'], url);
   }
