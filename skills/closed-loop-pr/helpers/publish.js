@@ -79,7 +79,9 @@ function pushPublish(data) {
     if (!text(branch)) fail('invalid_request', 'captured names no PR head branch', phase);
     // Only the gh helper may authenticate the push. An https remote is its; a local path needs no credential. Any other
     // transport (SSH above all) would be reached with the operator's own keys instead, so it is refused.
+    // Credentials inside an https URL would authenticate the push instead of that helper, so they are refused too.
     const pushUrl = String(identity.originPush || '');
+    if (/^https:\/\/[^/]*@/i.test(pushUrl)) fail('invalid_request', 'the captured push URL carries credentials, which would authenticate the push instead of the gh credential helper', phase);
     if (!/^https:\/\//i.test(pushUrl) && !/^file:\/\//i.test(pushUrl) && !(absoluteSpelling(pushUrl) && !/^[^/\\]*@/.test(pushUrl))) fail('invalid_request', 'the captured push URL is neither https nor a local path, so the gh credential helper cannot be the one that authenticates it', phase);
     git(cwd, ['check-ref-format', `refs/heads/${branch}`], phase);
     const head = git(cwd, ['rev-parse', 'HEAD'], phase).trim();
