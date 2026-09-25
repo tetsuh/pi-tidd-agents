@@ -105,7 +105,9 @@ function commitIdentity(top) {
   const identity = { name: read('user.name'), email: read('user.email') };
   if (!identity.name || !identity.email) throw Object.assign(new Error('the operator checkout has no user.name or user.email; set both before an exact-autofix run'), { code: 'commit_identity_missing' });
   for (const [field, value] of Object.entries(identity)) {
-    if (!value.trim() || /[<>\0\n\r]/.test(value) || !value.isWellFormed()) throw Object.assign(new Error(`the operator ${field} cannot be passed to Git unchanged`), { code: 'commit_identity_invalid', details: { field } });
+    // Git strips its "crud" characters from both ends of each field (space and controls, and , : ; < > " \\ '), so an
+    // edge carrying one would commit a different identity than the one recorded.
+    if (!value.trim() || /[<>\0\n\r]/.test(value) || /^[\x00-\x20,:;<>"\\']|[\x00-\x20,:;<>"\\']$/.test(value) || !value.isWellFormed()) throw Object.assign(new Error(`the operator ${field} cannot be passed to Git unchanged`), { code: 'commit_identity_invalid', details: { field } });
   }
   return identity;
 }
