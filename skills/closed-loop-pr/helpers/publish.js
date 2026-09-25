@@ -88,6 +88,10 @@ function pushPublish(data) {
     if (/^https:\/\/[^/]*@/i.test(pushUrl)) fail('invalid_request', 'the captured push URL carries credentials, which would authenticate the push instead of the gh credential helper', phase);
     if (!/^https:\/\//i.test(pushUrl) && !/^file:\/\//i.test(pushUrl) && !(absoluteSpelling(pushUrl) && !/^[^/\\]*@/.test(pushUrl))) fail('invalid_request', 'the captured push URL is neither https nor a local path, so the gh credential helper cannot be the one that authenticates it', phase);
     git(cwd, ['check-ref-format', `refs/heads/${branch}`], phase);
+    // Configuration that would widen the push or authenticate it by other means is refused before Git runs: mirror
+    // semantics, a remote-helper program, extra HTTP headers, and push options sent to the server.
+    const widening = git(cwd, ['config', '--get-regexp', '^(remote\\.origin\\.(mirror|vcs)|push\\.pushoption|http\\..*extraheader)$'], phase, { acceptExitCodes: [1] }).trim();
+    if (widening) fail('invalid_request', 'repository configuration would widen the push or authenticate it by other means', phase, { keys: widening.split('\n').map((line) => line.split(' ')[0]) });
     const head = git(cwd, ['rev-parse', 'HEAD'], phase).trim();
     // The pushed history is this run's: HEAD descends from the public head the capture verified.
     try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), head], phase); }
