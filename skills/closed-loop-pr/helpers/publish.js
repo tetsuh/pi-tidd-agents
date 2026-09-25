@@ -58,25 +58,37 @@ function commitCreate(data) {
 function pushArgs(branch) {
   return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', 'origin', `HEAD:refs/heads/${branch}`]);
 }
-// gh finds its own configuration from the operator's environment, not the isolated one.
-function ghConfigDir() {
-  if (process.env.GH_CONFIG_DIR) return process.env.GH_CONFIG_DIR;
-  if (process.env.XDG_CONFIG_HOME) return path.join(process.env.XDG_CONFIG_HOME, 'gh');
-  return path.join(os.homedir(), '.config', 'gh');
+// gh finds its own configuration from the operator's environment, not the isolated one: the isolation sets
+// XDG_CONFIG_HOME on every platform, and gh consults it before its Windows default, so the directory is always named.
+function ghConfigDir(env = process.env, platform = process.platform, home = os.homedir()) {
+  if (env.GH_CONFIG_DIR) return env.GH_CONFIG_DIR;
+  if (env.XDG_CONFIG_HOME) return path.join(env.XDG_CONFIG_HOME, 'gh');
+  if (platform === 'win32' && env.APPDATA) return path.join(env.APPDATA, 'GitHub CLI');
+  return path.join(home, '.config', 'gh');
 }
 
 function pushPublish(data) {
   return wrap('push_publish', () => {
     const phase = 'push_publish';
     const cwd = workspaceOf(data.created, phase);
-    const branch = data.captured && data.captured.data && data.captured.data.identity && data.captured.data.identity.headBranch;
+    const captured = data.captured;
+    // The CLI's shape check already requires this; a direct caller is held to it too.
+    if (!captured || captured.ok !== true || captured.operation !== 'operator_capture' || !captured.data) fail('invalid_request', 'captured must be a successful operator_capture envelope', phase);
+    const identity = captured.data.identity || {};
+    const branch = identity.headBranch;
     if (!text(branch)) fail('invalid_request', 'captured names no PR head branch', phase);
+    // Only the gh helper may authenticate the push. An https remote is its; a local path needs no credential. Any other
+    // transport (SSH above all) would be reached with the operator's own keys instead, so it is refused.
+    const pushUrl = String(identity.originPush || '');
+    if (!/^https:\/\//i.test(pushUrl) && !/^file:\/\//i.test(pushUrl) && !(absoluteSpelling(pushUrl) && !/^[^/\\]*@/.test(pushUrl))) fail('invalid_request', 'the captured push URL is neither https nor a local path, so the gh credential helper cannot be the one that authenticates it', phase);
     git(cwd, ['check-ref-format', `refs/heads/${branch}`], phase);
     const head = git(cwd, ['rev-parse', 'HEAD'], phase).trim();
-    const env = process.platform === 'win32' ? {} : { GH_CONFIG_DIR: ghConfigDir() };
-    runSync('git', pushArgs(branch), { cwd, phase, env, timeout: 120000 });
+    // The pushed history is this run's: HEAD descends from the public head the capture verified.
+    try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), head], phase); }
+    catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'HEAD does not descend from the captured public head', phase, { captured: String(captured.data.head), head }); throw error; }
+    runSync('git', pushArgs(branch), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
     return { head, ref: `refs/heads/${branch}` };
   });
 }
 
-module.exports = { commitCreate, pushPublish, pushArgs };
+module.exports = { commitCreate, pushPublish, pushArgs, ghConfigDir };

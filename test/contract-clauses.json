@@ -2787,8 +2787,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 280000;",
-        "CL-D86 reviewed reset from 270,000 (CL-D78) so the post-push revalidation is derived"
+        "const AGGREGATE_SMOKE_ALARM = 290000;",
+        "CL-D89 reviewed reset from 280,000 (CL-D86)"
       ]
     },
     {
@@ -3586,8 +3586,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 280000;",
-        "CL-D86 reviewed reset from 270,000 (CL-D78) so the post-push revalidation is derived"
+        "const AGGREGATE_SMOKE_ALARM = 290000;",
+        "CL-D89 reviewed reset from 280,000 (CL-D86)"
       ]
     },
     {
@@ -4566,7 +4566,8 @@
         "credential.helper=!gh auth git-credential",
         "GIT_AUTHOR_NAME: identity.name",
         "nothing_staged",
-        "`HEAD:refs/heads/${branch}`"
+        "`HEAD:refs/heads/${branch}`",
+        "HEAD does not descend from the captured public head"
       ]
     },
     {
@@ -4582,7 +4583,7 @@
         "issues/181#issuecomment-5816104411",
         "issues/181#issuecomment-5822980178",
         "issues/181#issuecomment-5823139754",
-        "naming a second credential helper, adding force in any form, or letting anything but the writer invoke either operation requires a new owner decision."
+        "naming a second credential helper, admitting an SSH or other non-https remote, adding force in any form, or letting anything but the writer invoke either operation requires a new owner decision."
       ]
     },
     {

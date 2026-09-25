@@ -78,11 +78,11 @@ const EXPECTED_REQUIRE_COUNTS = {
   './paths': 5, './process': 8, './protocol': 16, './publish': 1, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
   'node:child_process': 1, 'node:crypto': 8, 'node:fs': 7, 'node:os': 4, 'node:path': 9,
 };
-// CL-D89 adds the writer's commit and push, and the reads that verify them (rev-list for the sole parent, check-ref-format
-// for the captured branch). The two literal credential pairs are the push's own: the inherited helper list cleared, then
+// CL-D89 adds the writer's commit and push, and the reads that verify them (rev-list for the sole parent, merge-base for
+// the pushed history, check-ref-format for the captured branch). The two literal credential pairs are the push's own: the inherited helper list cleared, then
 // gh named — the only literal configuration a helper may pass, and only from publish.js.
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
-const PUBLISH_GIT_COMMANDS = new Set(['commit', 'push', 'rev-list', 'check-ref-format', '-c credential.helper=', '-c credential.helper=!gh auth git-credential']);
+const PUBLISH_GIT_COMMANDS = new Set(['commit', 'push', 'rev-list', 'merge-base', 'check-ref-format', '-c credential.helper=', '-c credential.helper=!gh auth git-credential']);
 function gitCommandAllowed(file, command) { return ALLOWED_GIT_COMMANDS.has(command) || (file === `${HELPER_DIR}/publish.js` && PUBLISH_GIT_COMMANDS.has(command)); }
 const PROVENANCE_ANCHORS = [
   [`${HELPER_DIR}/process.js`, 'const temporaryParent = validateTemporaryParent();'],
@@ -114,7 +114,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
-const AGGREGATE_SMOKE_ALARM = 280000; // CL-D86 reviewed reset from 270,000 (CL-D78) so the post-push revalidation is derived
+const AGGREGATE_SMOKE_ALARM = 290000; // CL-D89 reviewed reset from 280,000 (CL-D86) after the review corrections of the writer's packaged commit and push
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -252,6 +252,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'CL-D73 reset it a fifth time to 260,000 bytes',
     'CL-D78 reset it a sixth time to 270,000 bytes',
     'CL-D86 reset it a seventh time to 280,000 bytes',
+    'CL-D89 reset it an eighth time to 290,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);
