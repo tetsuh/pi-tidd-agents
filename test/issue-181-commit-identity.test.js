@@ -115,11 +115,22 @@ test('Issue #181 a checkout without an identity stops at preflight, before any g
 });
 
 test('Issue #181 an identity Git would rewrite or split is refused, not normalized', () => {
-  for (const [label, name, email] of [['angle bracket in name', 'Bad <name>', EMAIL], ['angle bracket in email', NAME, 'bad>@example.invalid'], ['blank name', '   ', EMAIL]]) {
+  // CONV-182-IDENTITY-WHITESPACE-001: Git strips its "crud" characters (space and controls, and , : ; < > " \\ ') from
+  // both ends of each identity field, so an edge that carries one would be committed as a different identity.
+  for (const [label, name, email] of [['angle bracket in name', 'Bad <name>', EMAIL], ['angle bracket in email', NAME, 'bad>@example.invalid'], ['blank name', '   ', EMAIL],
+    ['leading space in name', ` ${NAME}`, EMAIL], ['trailing space in name', `${NAME} `, EMAIL], ['trailing tab in email', NAME, `${EMAIL}\t`],
+    ['leading comma in name', `,${NAME}`, EMAIL], ['trailing quote in name', `${NAME}'`, EMAIL], ['trailing semicolon in email', NAME, `${EMAIL};`], ['leading backslash in name', `\\${NAME}`, EMAIL]]) {
     const repo = repository({ name, email });
     const captured = cli('operator_capture', { cwd: repo.root, identity: repo.identity }, bareHome());
     assert.deepEqual([captured.ok, captured.error?.code], [false, 'commit_identity_invalid'], `${label}: ${JSON.stringify(captured)}`);
   }
+});
+
+test('Issue #181 an identity edge Git keeps, such as a trailing dot, is accepted unchanged', () => {
+  const repo = repository({ name: 'Initial J.', email: EMAIL });
+  const captured = cli('operator_capture', { cwd: repo.root, identity: repo.identity }, bareHome());
+  assert.equal(captured.ok, true, JSON.stringify(captured));
+  assert.equal(captured.data.commitIdentity.name, 'Initial J.');
 });
 
 test('Issue #181 commit_create commits with exactly the captured identity under isolated config', () => {
