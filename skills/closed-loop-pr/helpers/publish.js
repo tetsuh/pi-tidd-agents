@@ -9,7 +9,7 @@
 
 const os = require('node:os');
 const path = require('node:path');
-const { runSync, gitArgs } = require('./process');
+const { runSync, gitArgs, assertSafeRepositoryConfig } = require('./process');
 const { createResult, createError } = require('./protocol');
 const { absoluteSpelling } = require('./composition');
 
@@ -44,7 +44,7 @@ function commitCreate(data) {
     // Git prefers the identity variables over configuration, so they are set to the captured identity too: an ambient
     // value can never replace it. The message goes on stdin as real bytes, so no literal `\n` can reach it.
     const env = { GIT_AUTHOR_NAME: identity.name, GIT_AUTHOR_EMAIL: identity.email, GIT_COMMITTER_NAME: identity.name, GIT_COMMITTER_EMAIL: identity.email };
-    git(cwd, ['-c', `user.name=${identity.name}`, '-c', `user.email=${identity.email}`, 'commit', '--no-verify', '-F', '-', '--cleanup=whitespace'], phase, { stdin: data.message, env });
+    git(cwd, ['-c', `user.name=${identity.name}`, '-c', `user.email=${identity.email}`, '-c', 'i18n.commitEncoding=UTF-8', 'commit', '--no-verify', '-F', '-', '--cleanup=whitespace'], phase, { stdin: data.message, env });
     const commit = git(cwd, ['rev-parse', 'HEAD'], phase).trim();
     const parents = git(cwd, ['rev-list', '--parents', '-n', '1', commit], phase).trim().split(' ').slice(1);
     if (parents.length !== 1 || parents[0] !== parent) fail('guard_failed', 'the new commit is not the sole child of the head it was made on', phase, { parent, parents });
@@ -93,7 +93,11 @@ function pushPublish(data) {
     git(cwd, ['check-ref-format', `refs/heads/${branch}`], phase);
     // Configuration that would widen the push or authenticate it by other means is refused before Git runs: mirror
     // semantics, a remote-helper program, extra HTTP headers, and push options sent to the server.
-    const widening = git(cwd, ['config', '--get-regexp', '^(remote\\.origin\\.(mirror|vcs)|push\\.pushoption|http\\..*extraheader)$'], phase, { acceptExitCodes: [1] }).trim();
+    // Preflight's unsafe-key check is repeated here, because configuration can change after it, and every http.* key and
+    // the remote's proxy are refused too: TLS, resolution, proxy, and header settings decide which peer receives the
+    // gh credential.
+    try { assertSafeRepositoryConfig(cwd); } catch (error) { error.phase = phase; throw error; }
+    const widening = git(cwd, ['config', '--get-regexp', '^(remote\\.origin\\.(mirror|vcs|proxy)|push\\.pushoption|http\\..*)$'], phase, { acceptExitCodes: [1] }).trim();
     if (widening) fail('invalid_request', 'repository configuration would widen the push or authenticate it by other means', phase, { keys: widening.split('\n').map((line) => line.split(' ')[0]) });
     const head = git(cwd, ['rev-parse', 'HEAD'], phase).trim();
     // The pushed history is this run's: HEAD descends from the public head the capture verified.

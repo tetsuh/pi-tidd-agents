@@ -82,7 +82,7 @@ const EXPECTED_REQUIRE_COUNTS = {
 // the pushed history, check-ref-format for the captured branch). The two literal credential pairs are the push's own: the inherited helper list cleared, then
 // gh named — the only literal configuration a helper may pass, and only from publish.js.
 const ALLOWED_GIT_COMMANDS = new Set(['cat-file', 'checkout', 'clone', 'config', 'diff', 'ls-files', 'ls-tree', 'remote', 'rev-parse', 'status', 'symbolic-ref', 'worktree']);
-const PUBLISH_GIT_COMMANDS = new Set(['commit', 'push', 'rev-list', 'merge-base', 'check-ref-format', '-c credential.helper=', '-c credential.helper=!gh auth git-credential']);
+const PUBLISH_GIT_COMMANDS = new Set(['commit', 'push', 'rev-list', 'merge-base', 'check-ref-format', '-c credential.helper=', '-c credential.helper=!gh auth git-credential', '-c i18n.commitEncoding=UTF-8']);
 function gitCommandAllowed(file, command) { return ALLOWED_GIT_COMMANDS.has(command) || (file === `${HELPER_DIR}/publish.js` && PUBLISH_GIT_COMMANDS.has(command)); }
 const PROVENANCE_ANCHORS = [
   [`${HELPER_DIR}/process.js`, 'const temporaryParent = validateTemporaryParent();'],
