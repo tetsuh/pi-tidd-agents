@@ -233,6 +233,25 @@ test('Issue #181 repository configuration that would widen or re-authenticate th
   }
 });
 
+test('Issue #181 push_publish refuses a remote that would push to more than one URL', () => {
+  // CONV-182-PUSHURL-ALL-001: git push origin publishes to every push URL, so every one is checked and there must be one.
+  for (const [label, configure] of [
+    ['second pushurl', (repo, second) => { git(repo.root, ['config', '--add', 'remote.origin.pushurl', repo.bare]); git(repo.root, ['config', '--add', 'remote.origin.pushurl', second]); }],
+    ['second url', (repo, second) => { git(repo.root, ['config', '--add', 'remote.origin.url', second]); }],
+  ]) {
+    const { repo, captured, created, env } = run();
+    const second = temp('i181-second-');
+    git(second, ['init', '--bare']);
+    stageCorrection(created.path);
+    assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+    configure(repo, second);
+    const pushed = cli('push_publish', { created, captured }, env);
+    assert.deepEqual([pushed.ok, pushed.error?.code, pushed.error?.phase], [false, 'invalid_request', 'push_publish'], `${label}: ${JSON.stringify(pushed)}`);
+    assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, `${label}: the recorded remote received nothing`);
+    assert.equal(git(second, ['for-each-ref']), '', `${label}: the second remote received nothing`);
+  }
+});
+
 test('Issue #181 gh reads the operator configuration directory on every platform', () => {
   const { ghConfigDir } = require('../skills/closed-loop-pr/helpers/publish');
   assert.equal(ghConfigDir({ GH_CONFIG_DIR: '/cfg/gh' }, 'linux', '/home/o'), '/cfg/gh');
