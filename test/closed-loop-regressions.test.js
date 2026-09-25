@@ -574,7 +574,8 @@ test('artifact assertions cover exact autofix safety records and remain non-auth
   ]) assert.ok(skill.includes(required), `missing exact safety artifact: ${required}`);
   assert.doesNotMatch(skill, /before gate invocation 15|at five successful pushes/);
   assert.doesNotMatch(skill, /immediately before push[^.]*local `HEAD` is public parent `P`/s);
-  assert.match(skill, /via `git commit -F --cleanup=whitespace`/);
+  // CONV-182-COMMIT-MESSAGE-DOC-001: the packaged commit reads the message on stdin (CL-D89).
+  assert.match(skill, /on stdin via `git commit -F - --cleanup=whitespace`/);
   assert.match(skill, /no literal `\\\\n`/);
 });
 

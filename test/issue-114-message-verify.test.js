@@ -140,7 +140,7 @@ test('Issue #114 the commit and the verification share one pinned cleanup mode',
   // normalization ran: under commit.cleanup=verbatim Git stores the message as given while the verification models
   // the whitespace cleanup, and a correct commit stops unpushed (CONV-129-CLEANUP-CONFIG-001, CL-D74).
   for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/autofix.md']) {
-    assert.match(readText(file), /git commit -F --cleanup=whitespace/, `${file} pins the cleanup mode the verification models`);
+    assert.match(readText(file), /git commit -F - --cleanup=whitespace/, `${file} pins the cleanup mode the verification models`);
   }
 
   const approved = 'feat: s (#114)\n\nbody with tail.   \n';
