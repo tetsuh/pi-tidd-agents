@@ -252,6 +252,65 @@ test('Issue #181 push_publish refuses a remote that would push to more than one 
   }
 });
 
+test('Issue #181 the environment cannot redirect, re-scope, or unverify the push', () => {
+  // Found by a pre-push sweep against Git 2.43: GIT_CONFIG replaced the configuration the push-time check read while
+  // the push still read the repository's; GIT_NAMESPACE moved the pushed ref; the TLS variables let the gh token reach
+  // another peer. All are dropped for every Git command, not only the push.
+  const { sanitizedEnv } = require('../skills/closed-loop-pr/helpers/process');
+  const ambient = { GIT_CONFIG: '/x', GIT_NAMESPACE: 'evil', GIT_SSL_NO_VERIFY: '1', GIT_SSL_CAINFO: '/ca', GIT_HTTP_PROXY_AUTHMETHOD: 'x', GIT_CURL_VERBOSE: '1', CURL_CA_BUNDLE: '/ca', SSL_CERT_FILE: '/ca', SSL_CERT_DIR: '/ca' };
+  const env = sanitizedEnv(ambient, 'git');
+  for (const key of Object.keys(ambient)) assert.equal(Object.hasOwn(env, key), false, `${key} is dropped`);
+  const { repo, captured, created } = run();
+  const runEnv = { ...bareHome(), GIT_NAMESPACE: 'evil' };
+  stageCorrection(created.path);
+  const committed = cli('commit_create', { created, captured, message: MESSAGE }, runEnv);
+  assert.equal(committed.ok, true, JSON.stringify(committed));
+  assert.equal(cli('push_publish', { created, captured }, runEnv).ok, true);
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), committed.data.commit, 'the branch itself moved');
+  assert.equal(git(repo.bare, ['for-each-ref', 'refs/namespaces']), '', 'nothing landed under a namespace');
+  // GIT_CONFIG pointing at an empty file must not hide push.pushOption from the check.
+  const { repo: repo2, captured: captured2, created: created2 } = run();
+  const empty = path.join(temp('i181-cfg-'), 'empty');
+  fs.writeFileSync(empty, '');
+  stageCorrection(created2.path);
+  assert.equal(cli('commit_create', { created: created2, captured: captured2, message: MESSAGE }, runEnv).ok, true);
+  git(repo2.root, ['config', 'push.pushOption', 'smuggled']);
+  const hidden = cli('push_publish', { created: created2, captured: captured2 }, { ...bareHome(), GIT_CONFIG: empty });
+  assert.deepEqual([hidden.ok, hidden.error?.code], [false, 'invalid_request'], JSON.stringify(hidden));
+  assert.equal(git(repo2.bare, ['rev-parse', 'refs/heads/main']), repo2.head, 'nothing was pushed');
+});
+
+test('Issue #181 the push re-checks unsafe and transport configuration set after preflight', () => {
+  for (const [key, value] of [['http.sslVerify', 'false'], ['http.curloptResolve', 'github.com:443:127.0.0.1'], ['http.proxy', 'http://127.0.0.1:9'],
+    ['credential.helper', 'store'], ['include.path', '/dev/null'], ['remote.origin.proxy', 'http://127.0.0.1:9']]) {
+    const { repo, captured, created, env } = run();
+    stageCorrection(created.path);
+    assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+    git(repo.root, ['config', key, value]);
+    const pushed = cli('push_publish', { created, captured }, env);
+    assert.deepEqual([pushed.ok, pushed.error?.phase], [false, 'push_publish'], `${key}: ${JSON.stringify(pushed)}`);
+    assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, `${key}: nothing was pushed`);
+  }
+  // A receive-pack program set after preflight must not run.
+  const { repo, captured, created, env } = run();
+  stageCorrection(created.path);
+  assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+  const marker = path.join(temp('i181-rp-'), 'ran');
+  git(repo.root, ['config', 'remote.origin.receivepack', `touch ${marker}; git-receive-pack`]);
+  const pushed = cli('push_publish', { created, captured }, env);
+  assert.equal(pushed.ok, false, JSON.stringify(pushed));
+  assert.equal(fs.existsSync(marker), false, 'the receive-pack program never ran');
+});
+
+test('Issue #181 the commit is stored as UTF-8 whatever the repository declares', () => {
+  const { repo, captured, created, env } = run();
+  git(repo.root, ['config', 'i18n.commitEncoding', 'ISO-8859-1']);
+  stageCorrection(created.path);
+  const committed = cli('commit_create', { created, captured, message: MESSAGE }, env);
+  assert.equal(committed.ok, true, JSON.stringify(committed));
+  assert.doesNotMatch(git(created.path, ['cat-file', 'commit', 'HEAD']), /^encoding /m, 'no encoding header');
+});
+
 test('Issue #181 gh reads the operator configuration directory on every platform', () => {
   const { ghConfigDir } = require('../skills/closed-loop-pr/helpers/publish');
   assert.equal(ghConfigDir({ GH_CONFIG_DIR: '/cfg/gh' }, 'linux', '/home/o'), '/cfg/gh');
