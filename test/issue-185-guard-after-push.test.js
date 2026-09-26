@@ -43,7 +43,11 @@ function pushedWorkspace() {
   fs.writeFileSync(path.join(workspace, 'tracked.txt'), 'first correction\n');
   git(workspace, ['add', 'tracked.txt']);
   git(workspace, ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-m', 'fix: first correction']);
-  return { created: created.data, head, pushed: git(workspace, ['rev-parse', 'HEAD']) };
+  const pushed = git(workspace, ['rev-parse', 'HEAD']);
+  // CONV-186-POSTPUSH-TEST: the correction is published, as the writer's push publishes it, before any guard runs.
+  git(workspace, ['push', 'origin', 'HEAD:refs/heads/main']);
+  assert.equal(git(bare, ['rev-parse', 'refs/heads/main']), pushed, 'the origin branch is at the pushed correction');
+  return { created: created.data, head, pushed };
 }
 
 test('Issue #185 the guard takes the post-push transition workspace_verify takes', () => {
