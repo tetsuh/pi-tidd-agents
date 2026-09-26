@@ -103,7 +103,7 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   // ADV-123-CLD68-IO-CONTRADICTION: the paragraph names the one exception the CL-D68 record grants.
   assert.match(map, /Builders are read-only, reach no network or Git, and grant no authority; none reaches the filesystem except `build_gate_launch`, whose only reads are the installed package's own authority files and the supplied expectation file \(CL-D68\)/);
   assert.match(map, /rejects invalid inputs with the boundary's vocabulary at phase `build`/);
-  assert.match(map, /returns the canonical CL-D36 structured-output schema, so the parent copies a derivation instead of re-authoring one/);
+  assert.match(map, /`build_gate_expectation` returns only `expected`; the gate roles' agent definitions supply the CL-D36 `outputSchema`/, 'CL-D90: the schema is no longer in the expectation');
   assert.match(map, /Prefer a builder over hand-assembly wherever one exists/);
 });
 
