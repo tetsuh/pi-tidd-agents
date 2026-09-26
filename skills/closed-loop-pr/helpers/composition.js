@@ -26,6 +26,9 @@ const INPUT_SHAPES = Object.freeze({
   // CL-D82: the workspace an exact-autofix gate child runs in, optional because review-only has none.
   build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation', created: 'data:workspace_create' }),
   build_writer_launch: Object.freeze({ created: 'data:workspace_create' }),
+  // CL-D89: the writer's commit and push run in the created workspace with what the capture recorded.
+  commit_create: Object.freeze({ created: 'data:workspace_create', captured: 'envelope:operator_capture' }),
+  push_publish: Object.freeze({ created: 'data:workspace_create', captured: 'envelope:operator_capture' }),
 });
 
 const { RUNTIME_ROOTS, OPERATOR_CAPTURE_PAYLOAD_KEYS } = require('./operator');

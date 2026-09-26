@@ -2787,8 +2787,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 280000;",
-        "CL-D86 reviewed reset from 270,000 (CL-D78) so the post-push revalidation is derived"
+        "const AGGREGATE_SMOKE_ALARM = 290000;",
+        "CL-D89 reviewed reset from 280,000 (CL-D86)"
       ]
     },
     {
@@ -3586,8 +3586,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 280000;",
-        "CL-D86 reviewed reset from 270,000 (CL-D78) so the post-push revalidation is derived"
+        "const AGGREGATE_SMOKE_ALARM = 290000;",
+        "CL-D89 reviewed reset from 280,000 (CL-D86)"
       ]
     },
     {
@@ -4528,6 +4528,88 @@
       ],
       "requires": [
         "build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['pushes'] }"
+      ]
+    },
+    {
+      "id": "CL-D89-map",
+      "marker": "CL-D89",
+      "title": "The map routes the writer's commit and push through the packaged operations",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "| The bounded batch's one normal commit (CL-D89) | `commit_create` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `message` |",
+        "| The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`) |"
+      ]
+    },
+    {
+      "id": "CL-D89-capture",
+      "marker": "CL-D89",
+      "title": "The capture records the operator identity and refuses a missing or unusable one",
+      "files": [
+        "skills/closed-loop-pr/helpers/operator.js"
+      ],
+      "requires": [
+        "commit_identity_missing",
+        "commit_identity_invalid",
+        "commitIdentity"
+      ]
+    },
+    {
+      "id": "CL-D89-operations",
+      "marker": "CL-D89",
+      "title": "The commit carries the captured identity and the push names one helper without force",
+      "files": [
+        "skills/closed-loop-pr/helpers/publish.js"
+      ],
+      "requires": [
+        "credential.helper=!gh auth git-credential",
+        "GIT_AUTHOR_NAME: identity.name",
+        "nothing_staged",
+        "`HEAD:refs/heads/${branch}`",
+        "HEAD does not descend from the captured public head"
+      ]
+    },
+    {
+      "id": "CL-D89-record",
+      "marker": "CL-D89",
+      "title": "CL-D89 records the identity, the helper, and the superseded CL-D37 clause",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D89 — The writer commits and pushes through packaged operations with the operator identity",
+      "requires": [
+        "*Owner choice:* Option A for the identity",
+        "issues/181#issuecomment-5816104411",
+        "issues/181#issuecomment-5822980178",
+        "issues/181#issuecomment-5823139754",
+        "naming a second credential helper, admitting an SSH or other non-https remote, adding force in any form, or letting anything but the writer invoke either operation requires a new owner decision.",
+        "issues/181#issuecomment-5841643694"
+      ]
+    },
+    {
+      "id": "CL-D89-tests",
+      "marker": "CL-D89",
+      "title": "The CL-D89 fixtures drive the capture, the commit, the push, and the boundary",
+      "files": [
+        "test/issue-181-commit-identity.test.js"
+      ],
+      "requires": [
+        "Issue #181 commit_create commits with exactly the captured identity under isolated config",
+        "Issue #181 push_publish never forces over a remote that moved"
+      ]
+    },
+    {
+      "id": "CL-D89-boundary",
+      "marker": "CL-D89",
+      "title": "The structural boundary admits exactly the two operations, from publish.js only",
+      "files": [
+        "test/issue-59-helper-surface.test.js"
+      ],
+      "requires": [
+        "CL_D89_OPERATIONS",
+        "PUBLISH_GIT_COMMANDS",
+        "forced push is forbidden: publish.js"
       ]
     },
     {

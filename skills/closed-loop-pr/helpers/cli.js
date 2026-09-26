@@ -41,6 +41,9 @@ const SCHEMAS = Object.freeze({
   build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },
   build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },
   message_verify: { required: ['cwd', 'expected'], optional: [] },
+  // The workspace is created.path and the identity and branch come from the capture, never supplied (CL-D89).
+  commit_create: { required: ['created', 'captured', 'message'], optional: [] },
+  push_publish: { required: ['created', 'captured'], optional: [] },
   required_evidence_check: { required: ['cwd', 'requiredEvidence'], optional: [] },
   validation_run: { required: ['cwd', 'command'], optional: ['timeoutMs'] },
   required_evidence_set: { required: ['cwd', 'baseOid', 'headOid', 'identities'], optional: [] },
@@ -163,6 +166,8 @@ async function dispatch(request) {
     case 'build_manifest_capture': return wrap(operation, helpers.buildManifestCapture(data));
     case 'build_manifest_compare': return wrap(operation, helpers.buildManifestCompare(data));
     case 'message_verify': return wrap(operation, helpers.messageVerify(data));
+    case 'commit_create': return wrap(operation, helpers.commitCreate(data));
+    case 'push_publish': return wrap(operation, helpers.pushPublish(data));
     case 'required_evidence_check': return wrap(operation, helpers.requiredEvidenceCheck(data));
     case 'validation_run': return wrap(operation, await helpers.validationRun(data));
     case 'required_evidence_set': return wrap(operation, helpers.requiredEvidenceSet(data));

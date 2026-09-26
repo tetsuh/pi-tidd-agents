@@ -75,7 +75,8 @@ test('Issue #153 the reset guard is the one every suite asserts', () => {
   for (const file of fs.readdirSync(repoPath('test'))) {
     if (!file.endsWith('.test.js') || file === SELF) continue;
     const text = readText(`test/${file}`);
-    assert.equal(text.includes('< 29000'), false, `${file} must not keep the superseded addendum guard`);
+    // A digit boundary, so the helper alarm's `< 290000` (CL-D89) is not read as the superseded addendum figure.
+    assert.equal(/< 29000(?!\d)/.test(text), false, `${file} must not keep the superseded addendum guard`);
     if (text.includes('< 32000')) carriers.push(file);
   }
   assert.ok(carriers.length >= 7, `every suite that guards the addendum carries the reset figure: ${carriers.length}`);

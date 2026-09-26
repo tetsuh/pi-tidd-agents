@@ -204,12 +204,15 @@ test('Issue #74 the declared shapes are published beside the fields', () => {
       ['build_gate_launch', 'expectation', 'data:build_gate_expectation', 'created', 'data:workspace_create'],
       // CL-D81 declared the writer launch's workspace field the same way.
       ['build_writer_launch', 'created', 'data:workspace_create'],
+      // CL-D89 declared the writer's commit and push fields the same way.
+      ['commit_create', 'created', 'data:workspace_create', 'captured', 'envelope:operator_capture'],
       ['fingerprint_snapshot', 'snapshot', 'data:snapshot'],
       ['gate_result_validate', 'result', 'structured:gate_result'],
       ['guard_before_edit', 'expected', 'data:workspace_create'],
       ['manifest_compare', 'manifest', 'data:manifest_compare'],
       ['operator_revalidate', 'captured', 'envelope:operator_capture'],
       ['overlay_compare', 'overlay', 'data:overlay_freeze'],
+      ['push_publish', 'created', 'data:workspace_create', 'captured', 'envelope:operator_capture'],
       ['workspace_cleanup', 'receipt', 'receipt:workspace_create'],
       // CL-D84 declared the packaged terminal cleanup's only input.
       ['workspace_cleanup_created', 'created', 'data:workspace_create'],
