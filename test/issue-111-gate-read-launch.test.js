@@ -54,7 +54,10 @@ function runRecord(root, { runId = RUN, state = 'complete', stepStatus = 'comple
   const structuredOutputPath = path.join(dir, 'structured-output', 'x', 'output.json');
   if (outputText === null) fs.rmSync(structuredOutputPath, { force: true });
   else fs.writeFileSync(structuredOutputPath, outputText === undefined ? `${JSON.stringify(envelope, null, 2)}\n` : outputText);
-  const step = { agent: 'tidd-adversarial-reviewer' };
+  // CL-D90: the runner records the schema the child ran with beside the output; the packaged one here.
+  const structuredOutputSchemaPath = path.join(dir, 'structured-output', 'x', 'schema.json');
+  fs.writeFileSync(structuredOutputSchemaPath, JSON.stringify(gateResult.SCHEMA));
+  const step = { agent: 'tidd-adversarial-reviewer', structuredOutputSchemaPath };
   if (stepStatus !== null) step.status = stepStatus;
   if (withPath) step.structuredOutputPath = structuredOutputPath;
   fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId, state, steps: [step] }));
@@ -133,7 +136,7 @@ test('Issue #111 gate_result_read fails closed with a distinct code and the path
     twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'failed', structuredOutputPath: laterPath });
     assert.equal(expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath').error.details.structuredOutputPath, laterPath, 'the later step names its own path');
     fs.writeFileSync(laterPath, `${JSON.stringify(envelopeFor('pr', 'adversarial'), null, 2)}\n`);
-    twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: laterPath });
+    twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: laterPath, structuredOutputSchemaPath: path.join(root, RUN, 'structured-output', 'x', 'schema.json') });
     const later = helpers.readGateResult({ runId: RUN, runsRoot: root });
     assert.equal(later.ok, true, JSON.stringify(later.error)); assert.equal(later.data.structuredOutputPath, laterPath, 'the later complete step is the one read');
     // CONV-123-LAST-STEP-SHAPE: the selected step is the last recorded one whatever it is. A malformed
@@ -744,7 +747,7 @@ test('Issue #111 gate_result_read refuses a designated output outside the run it
     const elsewhere = path.join(root, 'elsewhere.json');
     fs.writeFileSync(elsewhere, `${JSON.stringify(envelope, null, 2)}\n`);
     for (const outside of [elsewhere, path.join(root, RUN, '..', 'elsewhere.json')]) {
-      fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: outside }] }));
+      fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: outside, structuredOutputSchemaPath: path.join(root, RUN, 'structured-output', 'x', 'schema.json') }] }));
       const refused = helpers.readGateResult({ runId: RUN, runsRoot: root });
       assert.equal(refused.ok, false, `${outside} must be refused`);
       assert.equal(refused.error.code, 'designated_output_outside_run', JSON.stringify(refused.error));
@@ -754,12 +757,12 @@ test('Issue #111 gate_result_read refuses a designated output outside the run it
     // inside the run directory pointing outside it is outside it.
     const escaping = path.join(root, RUN, 'structured-output', 'escape.json');
     fs.symlinkSync(elsewhere, escaping);
-    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: escaping }] }));
+    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: escaping, structuredOutputSchemaPath: path.join(root, RUN, 'structured-output', 'x', 'schema.json') }] }));
     const linked = helpers.readGateResult({ runId: RUN, runsRoot: root });
     assert.equal(linked.ok, false, 'a link out of the run directory is refused');
     assert.equal(linked.error.code, 'designated_output_outside_run', JSON.stringify(linked.error));
     // A symlink into the run directory is the same file, and is read.
-    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath }] }));
+    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath, structuredOutputSchemaPath: path.join(root, RUN, 'structured-output', 'x', 'schema.json') }] }));
     assert.equal(helpers.readGateResult({ runId: RUN, runsRoot: root }).ok, true, 'the run’s own output still reads');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

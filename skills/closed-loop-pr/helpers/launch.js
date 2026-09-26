@@ -103,18 +103,28 @@ function readGateResult(data) {
     // #184, CL-D90: the schema the child ran with is the one the runner recorded for the step. If it is not the packaged
     // schema, the launch diverged (a parent-added outputSchema overrides the agent definition's), whatever the step's
     // status says. It is read only from inside the run directory, by filesystem identity, as the output is below.
-    if (text(step.structuredOutputSchemaPath)) {
-      const childSchemaPath = step.structuredOutputSchemaPath;
-      let canonicalSchema; let childSchema;
+    // The check fails closed: a step that records no schema, or one that cannot be read, ran without the packaged
+    // schema as far as anyone can show (CONV-187-SCHEMA-READ-FAILOPEN), e.g. under a replacement gate definition that
+    // declares none (CONV-187-CUSTOM-GATE-SCHEMA).
+    // An incomplete step (a timeout or a stop records no schema) reports as incomplete below unless it demonstrably ran
+    // with another schema; a complete step must show the packaged one.
+    const complete = step.status === 'complete';
+    const schemaProblem = (code, message, details) => { if (complete) fail(code, message, details); };
+    const childSchemaPath = step.structuredOutputSchemaPath;
+    let childSchema;
+    if (!text(childSchemaPath)) schemaProblem('designated_schema_unrecorded', 'the selected step records no structuredOutputSchemaPath; the gate did not run with the packaged schema', { statusPath });
+    else {
+      let canonicalSchema;
       try { canonicalSchema = fs.realpathSync.native(childSchemaPath); } catch { canonicalSchema = null; }
-      if (canonicalSchema !== null) {
+      if (canonicalSchema === null) schemaProblem('designated_schema_unreadable', 'the recorded output schema is not readable', { statusPath, childSchemaPath });
+      else {
         const within = path.relative(fs.realpathSync.native(path.dirname(statusPath)), canonicalSchema);
         if (!within || within.startsWith('..') || path.isAbsolute(within)) fail('designated_output_outside_run', 'the recorded output schema is outside the run directory', { statusPath, childSchemaPath, canonicalSchema });
-        try { childSchema = JSON.parse(readUtf8(canonicalSchema)); } catch { childSchema = undefined; }
+        try { childSchema = JSON.parse(readUtf8(canonicalSchema)); } catch { schemaProblem('designated_schema_unreadable', 'the recorded output schema is not JSON', { statusPath, childSchemaPath }); }
       }
-      const differs = childSchema === undefined ? null : firstDifference(childSchema, SCHEMA, '');
-      if (differs !== null) fail('schema_transcription_mismatch', `the child ran with an outputSchema other than the packaged one, first differing at ${differs || '/'}; the launch request, not the reviewed change, is at fault`, { statusPath, childSchemaPath, path: differs });
     }
+    const differs = childSchema === undefined ? null : firstDifference(childSchema, SCHEMA, '');
+    if (differs !== null) fail('schema_transcription_mismatch', `the child ran with an outputSchema other than the packaged one, first differing at ${differs || '/'}; the launch request, not the reviewed change, is at fault`, { statusPath, childSchemaPath, path: differs });
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
     // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).
     if (step.status !== 'complete') fail('step_incomplete', `selected step status is ${JSON.stringify(step.status ?? null)}`, { statusPath, structuredOutputPath, stepStatus: step.status ?? null });
