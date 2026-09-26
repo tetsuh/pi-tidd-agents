@@ -210,11 +210,9 @@ function buildGateExpectation(data) {
     // A gate outside its root cannot validate later; refuse it before an expectation exists (CONV-123-ROOT-GATE-LAUNCH).
     if (!ROOT_GATES[data.workflow].includes(data.correlation.gate)) fail('gate_outside_root', `gate ${data.correlation.gate} is not a ${data.workflow} gate`);
     checkRequiredEvidence(data.requiredEvidence);
-    // The canonical CL-D36 schema rides along so the parent copies a derivation instead of
-    // re-authoring one (CL-D47's rule applied to schemas).
-    // A deep detached copy: the validator's live schema must never be aliased into caller
-    // hands, or a caller-side mutation would move the CL-D36 boundary (SOL-98-SCHEMA-ALIAS).
-    return createResult('build_gate_expectation', { expected, outputSchema: JSON.parse(JSON.stringify(SCHEMA)) });
+    // CL-D90: the CL-D36 schema no longer rides along. The gate roles' agent definitions carry it, so no document the
+    // parent composes holds it and nothing is re-typed (#184).
+    return createResult('build_gate_expectation', { expected });
   });
 }
 

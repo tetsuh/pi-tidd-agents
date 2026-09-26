@@ -71,7 +71,7 @@ test('Issue #159 a gate launch built with the created workspace runs in it', () 
       assert.equal(built.ok, true, `${gate}: ${JSON.stringify(built.error)}`);
       assert.equal(built.data.request.cwd, CREATED.path, `${gate}: the gate child runs in the run's own workspace`);
       // The one field added, and nothing else: the launch is otherwise what CL-D68 fixed.
-      assert.deepEqual(Object.keys(built.data.request).sort(), ['acceptance', 'agent', 'async', 'context', 'cwd', 'outputMode', 'outputSchema', 'task'], gate);
+      assert.deepEqual(Object.keys(built.data.request).sort(), ['acceptance', 'agent', 'async', 'context', 'cwd', 'outputMode', 'task'], gate);
     });
   }
 });
@@ -82,7 +82,7 @@ test('Issue #159 a review-only gate launch carries no cwd, and an autofix one ma
     const built = helpers.buildGateLaunch(data);
     assert.equal(built.ok, true, JSON.stringify(built.error));
     assert.equal(Object.hasOwn(built.data.request, 'cwd'), false, 'no workspace, no cwd');
-    assert.deepEqual(Object.keys(built.data.request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'outputSchema', 'task']);
+    assert.deepEqual(Object.keys(built.data.request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'task']);
     // The envelope states the mode, so the builder relates the two rather than trusting the parent to remember:
     // a review-only launch may not carry a workspace at all (ADV159B-MODE-AND-WORKSPACE-UNRELATED).
     const withWorkspace = helpers.buildGateLaunch({ ...data, created: CREATED });
@@ -176,7 +176,7 @@ test('Issue #159 the parent cannot add a field to the built gate launch', () => 
     }
     // And the request it does build carries no key beyond the launch fields and the workspace.
     const built = helpers.buildGateLaunch({ ...data, created: CREATED });
-    assert.deepEqual(Object.keys(built.data.request).sort(), ['acceptance', 'agent', 'async', 'context', 'cwd', 'outputMode', 'outputSchema', 'task']);
+    assert.deepEqual(Object.keys(built.data.request).sort(), ['acceptance', 'agent', 'async', 'context', 'cwd', 'outputMode', 'task']);
   });
 });
 
@@ -222,7 +222,7 @@ test('Issue #159 the builder and the packaged CLI answer every CL-D82 path the s
         assert.equal(answer.ok, expected.ok, `${label} via the ${driver}: ${JSON.stringify(answer.error ?? answer.data?.request?.cwd)}`);
         if (expected.ok) {
           assert.equal(answer.data.request.cwd, expected.cwd, `${label} via the ${driver}: the cwd`);
-          const keys = ['acceptance', 'agent', 'async', 'context', 'outputMode', 'outputSchema', 'task'];
+          const keys = ['acceptance', 'agent', 'async', 'context', 'outputMode', 'task'];
           assert.deepEqual(Object.keys(answer.data.request).sort(), expected.cwd === undefined ? keys : [...keys, 'cwd'].sort(), `${label} via the ${driver}: the key set`);
         } else {
           assert.deepEqual([answer.error.code, answer.error.phase], [expected.code, phase], `${label} via the ${driver}: ${JSON.stringify(answer.error)}`);

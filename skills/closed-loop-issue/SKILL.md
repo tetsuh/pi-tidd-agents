@@ -72,7 +72,7 @@ Copy exactly one of these owning-root blocks verbatim into each Issue gate paylo
 The Issue workflow retains these obligations outside the shared references:
 
 - `tidd-drift-reviewer` has no verdict contract of its own; the parent requires the shared Every-gate invariant payload block verbatim in every Issue Terra invocation, plus one concrete Issue Terra role-authority block.
-- Every Issue convergence invocation composes the shared Every-gate invariant payload block verbatim and the volatile envelope/history projection, requests the packaged schema through `outputSchema`, and receives neither the Sol-only adversarial block nor a formal role-authority block (CL-D62).
+- Every Issue convergence invocation composes the shared Every-gate invariant payload block verbatim and the volatile envelope/history projection, returns the packaged schema declared by its agent definition, with no `outputSchema` in the launch, and receives neither the Sol-only adversarial block nor a formal role-authority block (CL-D62).
 - Every Issue Sol invocation composes the shared Every-gate and Sol-only adversarial invariant payload blocks verbatim, one concrete Issue Sol role-authority block, and the volatile envelope/history projection. The same composition is mandatory for ordinary Sol/Terra, candidate rereview Sol/Terra, and every CL-D32 post-decision rereview route; Terra receives only the Every-gate block, never the Sol-only block.
 - External review services, external static-analysis sites, and pull-request checks **are not part of issue readiness** (AC-ISSUE-NO-EXTERNAL).
 - Issue finding records retain the `issue_spec` raised-against field, candidate identity, revised passage, validation evidence, and explicit snapshot-C assignment.

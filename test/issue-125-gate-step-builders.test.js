@@ -44,8 +44,11 @@ function runRecord(envelope) {
   fs.mkdirSync(runDir, { recursive: true });
   const structuredOutputPath = path.join(runDir, 'output.json');
   fs.writeFileSync(structuredOutputPath, JSON.stringify(envelope));
+  // CL-D90: the runner records the schema the child ran with; the packaged one here.
+  const structuredOutputSchemaPath = path.join(runDir, 'schema.json');
+  fs.writeFileSync(structuredOutputSchemaPath, JSON.stringify(require('../skills/closed-loop-pr/helpers/gate-result').SCHEMA));
   fs.writeFileSync(path.join(runDir, 'status.json'), JSON.stringify({
-    runId: RUN, state: 'succeeded', steps: [{ status: 'complete', structuredOutputPath }],
+    runId: RUN, state: 'succeeded', steps: [{ status: 'complete', structuredOutputPath, structuredOutputSchemaPath }],
   }));
   return { root, runDir, structuredOutputPath };
 }

@@ -54,7 +54,10 @@ function runRecord(root, { runId = RUN, state = 'complete', stepStatus = 'comple
   const structuredOutputPath = path.join(dir, 'structured-output', 'x', 'output.json');
   if (outputText === null) fs.rmSync(structuredOutputPath, { force: true });
   else fs.writeFileSync(structuredOutputPath, outputText === undefined ? `${JSON.stringify(envelope, null, 2)}\n` : outputText);
-  const step = { agent: 'tidd-adversarial-reviewer' };
+  // CL-D90: the runner records the schema the child ran with beside the output; the packaged one here.
+  const structuredOutputSchemaPath = path.join(dir, 'structured-output', 'x', 'schema.json');
+  fs.writeFileSync(structuredOutputSchemaPath, JSON.stringify(gateResult.SCHEMA));
+  const step = { agent: 'tidd-adversarial-reviewer', structuredOutputSchemaPath };
   if (stepStatus !== null) step.status = stepStatus;
   if (withPath) step.structuredOutputPath = structuredOutputPath;
   fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId, state, steps: [step] }));
@@ -133,7 +136,7 @@ test('Issue #111 gate_result_read fails closed with a distinct code and the path
     twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'failed', structuredOutputPath: laterPath });
     assert.equal(expectFail({ runId: RUN, runsRoot: root }, 'step_incomplete', 'structuredOutputPath').error.details.structuredOutputPath, laterPath, 'the later step names its own path');
     fs.writeFileSync(laterPath, `${JSON.stringify(envelopeFor('pr', 'adversarial'), null, 2)}\n`);
-    twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: laterPath });
+    twoSteps({ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: laterPath, structuredOutputSchemaPath: path.join(root, RUN, 'structured-output', 'x', 'schema.json') });
     const later = helpers.readGateResult({ runId: RUN, runsRoot: root });
     assert.equal(later.ok, true, JSON.stringify(later.error)); assert.equal(later.data.structuredOutputPath, laterPath, 'the later complete step is the one read');
     // CONV-123-LAST-STEP-SHAPE: the selected step is the last recorded one whatever it is. A malformed
@@ -194,10 +197,10 @@ test('Issue #111 build_gate_launch composes the request from the package and can
       const { request, blocks } = built.data;
       assert.equal(request.agent, role, `${workflow}/${gate} role`);
       // No `cwd` here: this composition supplies no workspace, which is review-only's shape (CL-D82).
-      assert.deepEqual(Object.keys(request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'outputSchema', 'task'], `${workflow}/${gate}: exactly the launch fields, no output file`);
+      // #184: the request carries no schema; the gate role's agent definition declares it.
+      assert.deepEqual(Object.keys(request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'task'], `${workflow}/${gate}: exactly the launch fields, no output file`);
       assert.deepEqual({ context: request.context, async: request.async, outputMode: request.outputMode, acceptance: request.acceptance }, { context: 'fresh', async: true, outputMode: 'inline', acceptance: false });
-      assert.deepEqual(request.outputSchema, gateResult.SCHEMA, 'the builder schema byte for byte');
-      assert.notEqual(request.outputSchema, expectation.outputSchema, 'a detached copy, never an alias');
+      assert.equal(Object.hasOwn(request, 'outputSchema'), false, 'no schema travels through the parent');
       assert.equal(request.task, composed(workflow, gate, volatile, expectationPath, expectation.expected), `${workflow}/${gate}: the task is exactly the verbatim blocks, the volatile envelope, the expectation as data, and the two machine lines`);
       if (gate !== 'convergence') assert.ok(request.task.includes(`\n\n${roleLine(workflow, gate === 'adversarial' ? 'Sol' : 'Terra')}\n\n`), `${workflow}/${gate}: the selected role block line appears verbatim, never reworded`);
       const expectedBlocks = [EVERY_GATE, ...(gate === 'adversarial' ? [SOL_ONLY] : []), ...(gate === 'convergence' ? [] : [ROLE_BLOCKS[workflow]])].map(([file, heading]) => ({ file, heading, sha256: sha256(block([file, heading])) }));
@@ -208,8 +211,8 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     const expectationPath = path.join(dir, 'pr-adversarial.json');
     const volatile = completeVolatile('pr', 'adversarial');
     const fail = (data, code) => { const result = helpers.buildGateLaunch(data); assert.equal(result.ok, false, code); assert.equal(result.error.code, code, JSON.stringify(result.error)); assert.equal(result.error.phase, 'build'); };
-    const edited = JSON.parse(JSON.stringify(expectation)); edited.outputSchema.properties.extra = { type: 'string' };
-    fail({ expectation: edited, expectationPath, volatile }, 'schema_mismatch');
+    // CL-D90: an expectation carries no schema, so one added to it is not the builder's output and is refused.
+    fail({ expectation: { ...expectation, outputSchema: {} }, expectationPath, volatile }, 'input_shape_mismatch');
     fs.writeFileSync(expectationPath, `${JSON.stringify({ ...expectation.expected, assignedFindings: [{ findingId: 'ADV-111-X', blockerKey: 'k' }] })}\n`);
     fail({ expectation, expectationPath, volatile }, 'expectation_file_mismatch');
     fail({ expectation, expectationPath: path.join(dir, 'missing.json'), volatile }, 'expectation_file_absent');
@@ -245,7 +248,8 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     assert.equal(helpers.inputShapeProblem('build_gate_launch', { expectation, expectationPath, volatile }), null);
     const wrongShape = cli('build_gate_launch', { expectation: expectation.expected, expectationPath, volatile });
     assert.equal(wrongShape.ok, false); assert.equal(wrongShape.error.code, 'input_shape_mismatch', JSON.stringify(wrongShape.error)); assert.match(wrongShape.error.message, /`expectation` must be data:build_gate_expectation/);
-    const inLibrary = helpers.buildGateLaunch({ expectation: { expected: expectation.expected }, expectationPath, volatile });
+    // CL-D90: `{ expected }` is now the builder's whole output, so the library-side wrong shape carries an extra field.
+    const inLibrary = helpers.buildGateLaunch({ expectation: { expected: expectation.expected, outputSchema: {} }, expectationPath, volatile });
     assert.equal(inLibrary.error.code, 'input_shape_mismatch'); assert.equal(inLibrary.error.phase, 'build');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -743,7 +747,7 @@ test('Issue #111 gate_result_read refuses a designated output outside the run it
     const elsewhere = path.join(root, 'elsewhere.json');
     fs.writeFileSync(elsewhere, `${JSON.stringify(envelope, null, 2)}\n`);
     for (const outside of [elsewhere, path.join(root, RUN, '..', 'elsewhere.json')]) {
-      fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: outside }] }));
+      fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: outside, structuredOutputSchemaPath: path.join(root, RUN, 'structured-output', 'x', 'schema.json') }] }));
       const refused = helpers.readGateResult({ runId: RUN, runsRoot: root });
       assert.equal(refused.ok, false, `${outside} must be refused`);
       assert.equal(refused.error.code, 'designated_output_outside_run', JSON.stringify(refused.error));
@@ -753,12 +757,12 @@ test('Issue #111 gate_result_read refuses a designated output outside the run it
     // inside the run directory pointing outside it is outside it.
     const escaping = path.join(root, RUN, 'structured-output', 'escape.json');
     fs.symlinkSync(elsewhere, escaping);
-    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: escaping }] }));
+    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: escaping, structuredOutputSchemaPath: path.join(root, RUN, 'structured-output', 'x', 'schema.json') }] }));
     const linked = helpers.readGateResult({ runId: RUN, runsRoot: root });
     assert.equal(linked.ok, false, 'a link out of the run directory is refused');
     assert.equal(linked.error.code, 'designated_output_outside_run', JSON.stringify(linked.error));
     // A symlink into the run directory is the same file, and is read.
-    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath }] }));
+    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath, structuredOutputSchemaPath: path.join(root, RUN, 'structured-output', 'x', 'schema.json') }] }));
     assert.equal(helpers.readGateResult({ runId: RUN, runsRoot: root }).ok, true, 'the run’s own output still reads');
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
