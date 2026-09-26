@@ -698,3 +698,39 @@ test('Issue #41 preserves the validated comment URL when receipt creation fails'
   assert.match(combined, /do not retry automatically/);
   assert.equal(callCount(f), 5);
 });
+
+// Issue #170: the review-only artifact for PR #149 at b24de911 was published with the literal text
+// `$(date -u +%Y-%m-%dT%H:%M:%SZ)` where the observation time belongs. The digest, UTF-8, LF, and marker checks
+// all passed, because none of them reads the sentence. The publisher now refuses an observation time that is still an
+// unexpanded substitution, before any provider lookup.
+// TDD provenance: behavioural RED — the publisher posts these bodies before the change.
+function publisherError(f) {
+  try { runPublisher(f); } catch (error) { return String(error.stderr || error.message); }
+  return null;
+}
+test('Issue #170 refuses an observation time left as an unexpanded substitution', () => {
+  for (const sentence of [
+    'External observation for this run: head `b24de911…` observed at $(date -u +%Y-%m-%dT%H:%M:%SZ); 14 comments.',
+    'external_observation: head bbbbbbbb observed_from $(date -u +%FT%TZ), this run only',
+    'external_observation: head bbbbbbbb observed_from ${OBSERVED_AT}, this run only',
+    'External observation: head bbbbbbbb observed at `date -u`, this run only.',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${sentence}`);
+    assert.match(error, /observation time is an unexpanded substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+});
+
+test('Issue #170 accepts a real observation time, and a substitution quoted elsewhere', () => {
+  const visible = Buffer.from([
+    '# Review state: MERGE_READY',
+    'external_observation: head bbbbbbbb observed_from 2026-09-26T01:31:35.646Z, this run only',
+    'External observation for this run: head `b24de911` observed at 2026-09-21T10:02:03Z.',
+    'The earlier artifact carried the literal `$(date -u +%Y-%m-%dT%H:%M:%SZ)` in its observation sentence.',
+    '',
+  ].join('\n'), 'utf8');
+  const f = fixture({ visibleBytes: visible });
+  assert.equal(publisherError(f), null);
+});
