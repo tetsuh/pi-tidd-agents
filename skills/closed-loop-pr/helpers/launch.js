@@ -100,13 +100,19 @@ function readGateResult(data) {
     if (plain(step) && STEP_IN_PROGRESS.includes(step.status) && RUN_IN_PROGRESS.includes(status.state)) fail('run_in_progress', `the runner still records the selected step as ${step.status}; wait for its completion and read again`, { statusPath, stepStatus: step.status });
     if (!plain(step) || !text(step.structuredOutputPath)) fail('designated_output_unrecorded', 'the selected step of the runner status record carries no structuredOutputPath', { statusPath });
     const structuredOutputPath = step.structuredOutputPath;
-    // #184, CL-D90: the child's schema is the one pi-subagents wrote beside its output. If it is not the packaged schema, the
-    // launch diverged (a parent-added outputSchema overrides the agent definition's), whatever the step's status says.
-    const childSchemaPath = path.join(path.dirname(structuredOutputPath), 'schema.json');
-    let childSchema;
-    try { childSchema = JSON.parse(readUtf8(childSchemaPath)); } catch { childSchema = undefined; }
-    if (childSchema !== undefined) {
-      const differs = firstDifference(childSchema, SCHEMA, '');
+    // #184, CL-D90: the schema the child ran with is the one the runner recorded for the step. If it is not the packaged
+    // schema, the launch diverged (a parent-added outputSchema overrides the agent definition's), whatever the step's
+    // status says. It is read only from inside the run directory, by filesystem identity, as the output is below.
+    if (text(step.structuredOutputSchemaPath)) {
+      const childSchemaPath = step.structuredOutputSchemaPath;
+      let canonicalSchema; let childSchema;
+      try { canonicalSchema = fs.realpathSync.native(childSchemaPath); } catch { canonicalSchema = null; }
+      if (canonicalSchema !== null) {
+        const within = path.relative(fs.realpathSync.native(path.dirname(statusPath)), canonicalSchema);
+        if (!within || within.startsWith('..') || path.isAbsolute(within)) fail('designated_output_outside_run', 'the recorded output schema is outside the run directory', { statusPath, childSchemaPath, canonicalSchema });
+        try { childSchema = JSON.parse(readUtf8(canonicalSchema)); } catch { childSchema = undefined; }
+      }
+      const differs = childSchema === undefined ? null : firstDifference(childSchema, SCHEMA, '');
       if (differs !== null) fail('schema_transcription_mismatch', `the child ran with an outputSchema other than the packaged one, first differing at ${differs || '/'}; the launch request, not the reviewed change, is at fault`, { statusPath, childSchemaPath, path: differs });
     }
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
@@ -210,7 +216,6 @@ function buildGateLaunch(data) {
     }
     const expected = data.expectation.expected;
     expectedState(expected);
-    if (JSON.stringify(data.expectation.outputSchema) !== JSON.stringify(SCHEMA)) fail('schema_mismatch', 'outputSchema is not the packaged CL-D36 schema byte for byte');
     // A gate outside its root cannot validate later; refuse it before any file is read (CONV-123-ROOT-GATE-LAUNCH).
     if (!ROOT_GATES[expected.workflow].includes(expected.correlation.gate)) fail('gate_outside_root', `gate ${expected.correlation.gate} is not a ${expected.workflow} gate`);
     for (const key of volatileRequired(expected.workflow, expected.correlation.gate)) {

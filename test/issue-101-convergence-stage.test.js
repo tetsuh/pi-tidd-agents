@@ -106,7 +106,7 @@ test('Issue #101 the envelope accepts the convergence gate on both roots with it
   assert.deepEqual(gateResult.SCHEMA.properties.correlation.properties.gate.enum, ['adversarial', 'decision-drift', 'safety', 'convergence']);
   const built = cli('build_gate_expectation', expectation('issue', 'convergence'));
   assert.equal(built.ok, true, JSON.stringify(built.error));
-  assert.ok(built.data.outputSchema.properties.correlation.properties.gate.enum.includes('convergence'));
+  assert.ok(require('../skills/closed-loop-pr/helpers/gate-result').SCHEMA.properties.correlation.properties.gate.enum.includes('convergence'));  // CL-D90: the schema is the agent definition's
   const marker = helpers.createReplyMarker({
     binding: {
       repository: 'tetsuh/pi-tidd-agents', number: 101, sourceKind: 'issue_comment', sourceId: '1',
@@ -139,7 +139,7 @@ test('Issue #101 the shared contract defines the stage: order, one per candidate
   assert.match(section, /present but unresolved or resolves with `edit` or `write` is `BLOCKED`/);
   assert.match(section, /reports `resolved:` with the provider, model, and thinking level each role ran with/);
   // ADV-109-CONVERGENCE-NO-PROGRESS-OMITTED: the no-progress circuit breaker counts convergence observations.
-  assert.match(section, /The convergence stage requests the same packaged schema through its `outputSchema` and composes the Every-gate invariant payload block and the volatile envelope, never the Sol-only adversarial block or a formal role-authority block/);
+  assert.match(section, /The convergence stage returns the same packaged schema's envelope, declared by its agent definition, and composes the Every-gate invariant payload block and the volatile envelope, never the Sol-only adversarial block or a formal role-authority block/);
   assert.match(section, /The no-progress rule is shared: a convergence result's unresolved observation of an assigned `blockerKey × breakerOwner` counts toward that key's history exactly as a formal result's does, at most one per result, and the third observation across convergence and formal gates stops the run/);
   const resolution = sectionOf(contract, '## Name-level agent resolution (CL-D22, CL-D5, CL-D59)');
   assert.match(resolution, /plus the non-authoritative preliminary `tidd-convergence-reviewer` \(CL-D62\)/);
@@ -155,7 +155,7 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(issue, /`tidd-convergence-reviewer` is required for the CL-D62 convergence stage unless it is explicitly disabled: a disabled role skips the stage and reports `convergence: disabled`; a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule/);
   assert.doesNotMatch(issue, /when it resolves and is skipped when disabled/);
   // Proactive sweep: payload composition, candidate-change trigger, and formal-gate wording name convergence.
-  assert.match(issue, /Every Issue convergence invocation composes the shared Every-gate invariant payload block verbatim and the volatile envelope\/history projection, requests the packaged schema through `outputSchema`, and receives neither the Sol-only adversarial block nor a formal role-authority block \(CL-D62\)/);
+  assert.match(issue, /Every Issue convergence invocation composes the shared Every-gate invariant payload block verbatim and the volatile envelope\/history projection, returns the packaged schema declared by its agent definition, with no `outputSchema` in the launch, and receives neither the Sol-only adversarial block nor a formal role-authority block \(CL-D62\)/);
   assert.match(issue, /a candidate-changing convergence, Sol, or Terra finding/);
   assert.match(issue, /after both formal gates merge the same frozen object/);
   assert.match(issue, /only when both formal gates returned `MERGE` against the current `issue_spec`/);
@@ -179,7 +179,7 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   const pr = readText('skills/closed-loop-pr/SKILL.md');
   assert.match(pr, /`tidd-convergence-reviewer` is required in both modes for the CL-D62 convergence stage unless it is explicitly disabled: a disabled role skips the stage and reports `convergence: disabled`; a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule/);
   assert.doesNotMatch(pr, /when it resolves and is skipped when disabled/);
-  assert.match(pr, /Every convergence invocation in either mode composes the shared Every-gate invariant payload block verbatim and the volatile envelope\/history projection, requests the packaged schema through `outputSchema`, and receives neither the Sol-only adversarial block nor a formal role-authority block \(CL-D62\)/);
+  assert.match(pr, /Every convergence invocation in either mode composes the shared Every-gate invariant payload block verbatim and the volatile envelope\/history projection, returns the packaged schema declared by its agent definition, with no `outputSchema` in the launch, and receives neither the Sol-only adversarial block nor a formal role-authority block \(CL-D62\)/);
   const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
   assert.match(reviewOnly, /→ tidd-convergence-reviewer stage \(non-authoritative, CL-D62\)\n→ preliminary disposition \(a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol, unless its only open findings are Minors recorded under CL-D85\)\n→ tidd-adversarial-reviewer gate/);
   assert.match(reviewOnly, /a preliminary `FIX BEFORE MERGE` is reported through the disposition\/draft path as `WAITING_FOR_OWNER` before Sol runs, unless its only open findings are Minors recorded under CL-D85 \(CL-D85\), and open convergence findings are assigned to Sol/);

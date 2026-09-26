@@ -168,22 +168,23 @@ test('Issue #83 built operator and snapshot requests satisfy the boundary by con
   assert.equal(fingerprinted.ok, true, JSON.stringify(fingerprinted.error));
 });
 
-test('Issue #83 the built gate expectation validates a real gate result and carries the schema', () => {
+test('Issue #83 the built gate expectation validates a real gate result and carries no schema', () => {
   const built = cli('build_gate_expectation', expectationInput());
   assert.equal(built.ok, true, JSON.stringify(built.error));
-  assert.equal(built.data.outputSchema.properties.schemaVersion.const, 2, 'the canonical CL-D36 schema rides along, at the shipping version (CL-D60)');
+  assert.deepEqual(Object.keys(built.data), ['expected'], 'CL-D90: the schema is the gate roles\' agent definition, not a document the parent carries');
   const validated = cli('gate_result_validate', { result: gateOutput(), expected: built.data.expected });
   assert.equal(validated.ok, true, JSON.stringify(validated.error));
   assert.equal(validated.data.verdict, 'MERGE');
 });
 
-test('Issue #83 the returned schema is detached: mutating it moves no boundary', () => {
-  // Review-driven (SOL-98-SCHEMA-ALIAS): the builder must hand out a deep copy, never the
-  // validator's live schema object, or a caller-side mutation would widen CL-D1's vocabulary.
+test('Issue #83 no caller holds the live schema: mutating what the builder returns moves no boundary', () => {
+  // Review-driven (SOL-98-SCHEMA-ALIAS). Under CL-D90 the builder hands out no schema at all, so the only document a
+  // caller holds is the expectation; mutating it must not widen CL-D1's vocabulary either.
   const helpers = require('../skills/closed-loop-pr/helpers');
   const built = helpers.buildGateExpectation(expectationInput());
   assert.equal(built.ok, true, JSON.stringify(built.error));
-  built.data.outputSchema.properties.verdict.enum.push('HACK');
+  assert.equal(Object.hasOwn(built.data, 'outputSchema'), false);
+  built.data.expected.workflow = 'pr';
   const hacked = { ...gateOutput(), verdict: 'HACK' };
   const validated = helpers.validateGateResult(hacked, built.data.expected);
   assert.equal(validated.ok, false, 'the validator must still reject a verdict outside CL-D1');

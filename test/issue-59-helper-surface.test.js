@@ -36,6 +36,9 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/paths.js|const target = fs.realpathSync.native(top);',
   "skills/closed-loop-pr/helpers/launch.js|const fs = require('node:fs');",
   "skills/closed-loop-pr/helpers/launch.js|function readUtf8(file) { return fs.readFileSync(file, 'utf8'); }",
+  // CL-D90: the schema the child ran with is read only from inside the run, by the same canonical containment.
+  "skills/closed-loop-pr/helpers/launch.js|try { canonicalSchema = fs.realpathSync.native(childSchemaPath); } catch { canonicalSchema = null; }",
+  "skills/closed-loop-pr/helpers/launch.js|const within = path.relative(fs.realpathSync.native(path.dirname(statusPath)), canonicalSchema);",
   // CONV-123-DESIGNATED-OUTPUT-SYMLINK: containment is a filesystem identity, so the reader canonicalizes.
   "skills/closed-loop-pr/helpers/launch.js|try { canonicalOutput = fs.realpathSync.native(structuredOutputPath); canonicalRun = fs.realpathSync.native(path.dirname(statusPath)); }",
   'skills/closed-loop-pr/helpers/paths.js|const stat = fs.lstatSync(file);',

@@ -208,8 +208,8 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     const expectationPath = path.join(dir, 'pr-adversarial.json');
     const volatile = completeVolatile('pr', 'adversarial');
     const fail = (data, code) => { const result = helpers.buildGateLaunch(data); assert.equal(result.ok, false, code); assert.equal(result.error.code, code, JSON.stringify(result.error)); assert.equal(result.error.phase, 'build'); };
-    const edited = JSON.parse(JSON.stringify(expectation)); edited.outputSchema.properties.extra = { type: 'string' };
-    fail({ expectation: edited, expectationPath, volatile }, 'schema_mismatch');
+    // CL-D90: an expectation carries no schema, so one added to it is not the builder's output and is refused.
+    fail({ expectation: { ...expectation, outputSchema: {} }, expectationPath, volatile }, 'input_shape_mismatch');
     fs.writeFileSync(expectationPath, `${JSON.stringify({ ...expectation.expected, assignedFindings: [{ findingId: 'ADV-111-X', blockerKey: 'k' }] })}\n`);
     fail({ expectation, expectationPath, volatile }, 'expectation_file_mismatch');
     fail({ expectation, expectationPath: path.join(dir, 'missing.json'), volatile }, 'expectation_file_absent');
@@ -245,7 +245,8 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     assert.equal(helpers.inputShapeProblem('build_gate_launch', { expectation, expectationPath, volatile }), null);
     const wrongShape = cli('build_gate_launch', { expectation: expectation.expected, expectationPath, volatile });
     assert.equal(wrongShape.ok, false); assert.equal(wrongShape.error.code, 'input_shape_mismatch', JSON.stringify(wrongShape.error)); assert.match(wrongShape.error.message, /`expectation` must be data:build_gate_expectation/);
-    const inLibrary = helpers.buildGateLaunch({ expectation: { expected: expectation.expected }, expectationPath, volatile });
+    // CL-D90: `{ expected }` is now the builder's whole output, so the library-side wrong shape carries an extra field.
+    const inLibrary = helpers.buildGateLaunch({ expectation: { expected: expectation.expected, outputSchema: {} }, expectationPath, volatile });
     assert.equal(inLibrary.error.code, 'input_shape_mismatch'); assert.equal(inLibrary.error.phase, 'build');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

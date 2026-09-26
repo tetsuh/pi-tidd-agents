@@ -132,8 +132,11 @@ test('Issue #100 version 1 stays accepted verbatim for one release, with no cros
 test('Issue #100 the packaged expectation builder ships version 2 only', () => {
   const built = cli('build_gate_expectation', expectation('pr', 'adversarial'));
   assert.equal(built.ok, true, JSON.stringify(built.error));
-  assert.equal(built.data.outputSchema.properties.schemaVersion.const, 2);
-  assert.deepEqual(built.data.outputSchema.properties.correlation.properties.gate.enum, V2_GATES);
+  // CL-D90: the schema is the gate roles' agent definition, not the expectation's; it ships version 2 only.
+  assert.equal(Object.hasOwn(built.data, 'outputSchema'), false);
+  const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
+  assert.equal(SCHEMA.properties.schemaVersion.const, 2);
+  assert.deepEqual(SCHEMA.properties.correlation.properties.gate.enum, V2_GATES);
   const validated = cli('gate_result_validate', { result: envelope(2, 'adversarial'), expected: built.data.expected });
   assert.equal(validated.ok, true, JSON.stringify(validated.error));
   const legacy = cli('build_gate_expectation', expectation('pr', 'sol'));

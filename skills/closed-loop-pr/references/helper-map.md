@@ -38,7 +38,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Construct the writer launch from the workspace the run created (CL-D81) | `build_writer_launch` | `created` (data of `workspace_create`), `task` |
 | Construct the cleanup request from the workspace's own receipt (CL-D56, CL-D76) | `build_workspace_cleanup` | `created` (data of `workspace_create`); no `cwd`: the request runs from the repository the receipt states |
 | Construct the snapshot-fingerprint request (CL-D56) | `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |
-| Construct the gate expectation and the canonical result schema (CL-D36, CL-D56) | `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |
+| Construct the gate expectation; the result schema is the gate roles' agent definition (CL-D36, CL-D56, CL-D90) | `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |
 | Construct the assigned-finding tuples from the validated result and the ledger (CL-D73) | `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |
 | Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |
 | Construct the `AFTER_STAGING` capture request from the frozen overlay (CL-D61) | `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |
