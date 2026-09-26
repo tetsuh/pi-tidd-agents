@@ -103,7 +103,7 @@ test('Issue #83 the invocation map offers every builder and the builder paragrap
   // ADV-123-CLD68-IO-CONTRADICTION: the paragraph names the one exception the CL-D68 record grants.
   assert.match(map, /Builders are read-only, reach no network or Git, and grant no authority; none reaches the filesystem except `build_gate_launch`, whose only reads are the installed package's own authority files and the supplied expectation file \(CL-D68\)/);
   assert.match(map, /rejects invalid inputs with the boundary's vocabulary at phase `build`/);
-  assert.match(map, /returns the canonical CL-D36 structured-output schema, so the parent copies a derivation instead of re-authoring one/);
+  assert.match(map, /`build_gate_expectation` returns only `expected`; the gate roles' agent definitions supply the CL-D36 `outputSchema`/, 'CL-D90: the schema is no longer in the expectation');
   assert.match(map, /Prefer a builder over hand-assembly wherever one exists/);
 });
 
@@ -168,22 +168,23 @@ test('Issue #83 built operator and snapshot requests satisfy the boundary by con
   assert.equal(fingerprinted.ok, true, JSON.stringify(fingerprinted.error));
 });
 
-test('Issue #83 the built gate expectation validates a real gate result and carries the schema', () => {
+test('Issue #83 the built gate expectation validates a real gate result and carries no schema', () => {
   const built = cli('build_gate_expectation', expectationInput());
   assert.equal(built.ok, true, JSON.stringify(built.error));
-  assert.equal(built.data.outputSchema.properties.schemaVersion.const, 2, 'the canonical CL-D36 schema rides along, at the shipping version (CL-D60)');
+  assert.deepEqual(Object.keys(built.data), ['expected'], 'CL-D90: the schema is the gate roles\' agent definition, not a document the parent carries');
   const validated = cli('gate_result_validate', { result: gateOutput(), expected: built.data.expected });
   assert.equal(validated.ok, true, JSON.stringify(validated.error));
   assert.equal(validated.data.verdict, 'MERGE');
 });
 
-test('Issue #83 the returned schema is detached: mutating it moves no boundary', () => {
-  // Review-driven (SOL-98-SCHEMA-ALIAS): the builder must hand out a deep copy, never the
-  // validator's live schema object, or a caller-side mutation would widen CL-D1's vocabulary.
+test('Issue #83 no caller holds the live schema: mutating what the builder returns moves no boundary', () => {
+  // Review-driven (SOL-98-SCHEMA-ALIAS). Under CL-D90 the builder hands out no schema at all, so the only document a
+  // caller holds is the expectation; mutating it must not widen CL-D1's vocabulary either.
   const helpers = require('../skills/closed-loop-pr/helpers');
   const built = helpers.buildGateExpectation(expectationInput());
   assert.equal(built.ok, true, JSON.stringify(built.error));
-  built.data.outputSchema.properties.verdict.enum.push('HACK');
+  assert.equal(Object.hasOwn(built.data, 'outputSchema'), false);
+  built.data.expected.workflow = 'pr';
   const hacked = { ...gateOutput(), verdict: 'HACK' };
   const validated = helpers.validateGateResult(hacked, built.data.expected);
   assert.equal(validated.ok, false, 'the validator must still reject a verdict outside CL-D1');
