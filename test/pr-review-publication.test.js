@@ -703,7 +703,8 @@ test('Issue #41 preserves the validated comment URL when receipt creation fails'
 // `$(date -u +%Y-%m-%dT%H:%M:%SZ)` where the observation time belongs. The digest, UTF-8, LF, and marker checks
 // all passed, because none of them reads the sentence. The publisher now refuses an observation time that is still an
 // unexpanded substitution, before any provider lookup.
-// TDD provenance: behavioural RED — the publisher posts these bodies before the change.
+// TDD provenance: the four original shapes below were pre-implementation behavioural RED.
+// The date/T-prefix bypass is review-driven regression coverage.
 function publisherError(f) {
   try { runPublisher(f); } catch (error) { return String(error.stderr || error.message); }
   return null;
@@ -714,6 +715,7 @@ test('Issue #170 refuses an observation time left as an unexpanded substitution'
     'external_observation: head bbbbbbbb observed_from $(date -u +%FT%TZ), this run only',
     'external_observation: head bbbbbbbb observed_from ${OBSERVED_AT}, this run only',
     'External observation: head bbbbbbbb observed at `date -u`, this run only.',
+    'External observation for this run: head bbbbbbbb observed at 2026-09-26T$(date -u +%H:%M:%SZ); 14 comments.',
   ]) {
     const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
     const error = publisherError(f);
@@ -728,6 +730,7 @@ test('Issue #170 accepts a real observation time, and a substitution quoted else
     '# Review state: MERGE_READY',
     'external_observation: head bbbbbbbb observed_from 2026-09-26T01:31:35.646Z, this run only',
     'External observation for this run: head `b24de911` observed at 2026-09-21T10:02:03Z.',
+    'External observation for this run: head `b24de911` observed at `2026-09-21T10:02:03Z`.',
     'The earlier artifact carried the literal `$(date -u +%Y-%m-%dT%H:%M:%SZ)` in its observation sentence.',
     '',
   ].join('\n'), 'utf8');
