@@ -38,12 +38,16 @@ function displaced(schema) {
   if (Array.isArray(schema.required) && out.properties) out.properties = { ...out.properties, required: schema.required };
   return out;
 }
-function runRecord(root, schema, stepStatus) {
+// A runner record as pi-subagents 0.71 writes it: the step records both the output and the schema it ran with
+// (`structuredOutputSchemaPath`, subagent-runner.js), beside each other in the run directory.
+function runRecord(root, schema, stepStatus, { schemaPath, output } = {}) {
   const dir = path.join(root, RUN);
   fs.mkdirSync(path.join(dir, 'structured-output', 'x'), { recursive: true });
   const structuredOutputPath = path.join(dir, 'structured-output', 'x', 'output.json');
-  fs.writeFileSync(path.join(dir, 'structured-output', 'x', 'schema.json'), JSON.stringify(schema));
-  fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId: RUN, state: stepStatus === 'complete' ? 'complete' : 'failed', steps: [{ agent: 'tidd-adversarial-reviewer', status: stepStatus, structuredOutputPath }] }));
+  const structuredOutputSchemaPath = schemaPath || path.join(dir, 'structured-output', 'x', 'schema.json');
+  if (!schemaPath) fs.writeFileSync(structuredOutputSchemaPath, JSON.stringify(schema));
+  if (output !== undefined) fs.writeFileSync(structuredOutputPath, JSON.stringify(output));
+  fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId: RUN, state: stepStatus === 'complete' ? 'complete' : 'failed', steps: [{ agent: 'tidd-adversarial-reviewer', status: stepStatus, structuredOutputPath, structuredOutputSchemaPath }] }));
   return structuredOutputPath;
 }
 
@@ -74,6 +78,42 @@ test('Issue #184 gate_result_read names a child that ran with a schema other tha
     const ordinary = helpers.readGateResult({ runId: RUN, runsRoot: root });
     assert.equal(ordinary.error?.code, 'step_incomplete', JSON.stringify(ordinary));
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Issue #184 the schema read stays inside the run and a matching schema reads on', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'i184-runs-'));
+  try {
+    // A recorded schema path outside the run directory is never read, whatever it holds.
+    const outside = path.join(root, 'foreign-schema.json');
+    fs.writeFileSync(outside, JSON.stringify(displaced(SCHEMA)));
+    runRecord(root, null, 'failed', { schemaPath: outside });
+    const foreign = helpers.readGateResult({ runId: RUN, runsRoot: root });
+    assert.equal(foreign.error?.code, 'designated_output_outside_run', JSON.stringify(foreign));
+    // A symlink inside the run that resolves outside it is outside too.
+    fs.rmSync(path.join(root, RUN), { recursive: true, force: true });
+    fs.mkdirSync(path.join(root, RUN, 'structured-output', 'x'), { recursive: true });
+    const link = path.join(root, RUN, 'structured-output', 'x', 'schema.json');
+    fs.symlinkSync(outside, link);
+    runRecord(root, null, 'failed', { schemaPath: link });
+    assert.equal(helpers.readGateResult({ runId: RUN, runsRoot: root }).error?.code, 'designated_output_outside_run');
+    // A complete step whose schema is the packaged one reads its envelope.
+    fs.rmSync(path.join(root, RUN), { recursive: true, force: true });
+    const envelope = { schemaVersion: 2, correlation: {}, verdict: 'MERGE', evidenceRead: [], findings: [], confirmations: [], decisions: [], adversarialResults: [] };
+    runRecord(root, SCHEMA, 'complete', { output: envelope });
+    const read = helpers.readGateResult({ runId: RUN, runsRoot: root });
+    assert.equal(read.ok, true, JSON.stringify(read));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Issue #184 the schema reaches no document the parent composes', () => {
+  // build_gate_expectation no longer returns it, so the parent carries it into no later request.
+  const built = helpers.buildGateExpectation({ workflow: 'pr', correlation: { repository: 'o/r', number: 1, baseOid: 'a'.repeat(40), headOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'x', lifecycle: 'open', draft: false, gate: 'adversarial', invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) }, assignedFindings: [], requiredEvidence: [{ source: 'README.md', kind: 'file', identity: '1'.repeat(64) }] });
+  assert.equal(built.ok, true, JSON.stringify(built.error));
+  assert.deepEqual(Object.keys(built.data).sort(), ['expected']);
+  // No workflow prose tells the parent to pass or request a schema itself.
+  for (const file of ['skills/closed-loop-issue/SKILL.md', 'skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-shared/references/gate-contract.md']) {
+    assert.doesNotMatch(readText(file), /requests? (?:the )?(?:same )?packaged (?:closed result )?schema through (?:its )?`outputSchema`/, `${file} no longer tells the parent to request the schema`);
+  }
 });
 
 test('Issue #184 the shared contract says where the schema comes from', () => {
