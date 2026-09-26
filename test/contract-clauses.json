@@ -4583,7 +4583,8 @@
         "issues/181#issuecomment-5816104411",
         "issues/181#issuecomment-5822980178",
         "issues/181#issuecomment-5823139754",
-        "naming a second credential helper, admitting an SSH or other non-https remote, adding force in any form, or letting anything but the writer invoke either operation requires a new owner decision."
+        "naming a second credential helper, admitting an SSH or other non-https remote, adding force in any form, or letting anything but the writer invoke either operation requires a new owner decision.",
+        "issues/181#issuecomment-5841643694"
       ]
     },
     {
