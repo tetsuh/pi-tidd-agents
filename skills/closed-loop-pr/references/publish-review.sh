@@ -121,6 +121,12 @@ fi
 visible_sha256="$(hash_file "$VISIBLE_FILE")"
 [[ "$visible_sha256" == "$marker_digest" ]] || fail 'visible-body marker digest does not match canonical bytes'
 grep -F -q -- "$REVIEW_MARKER" "$POST_FILE" || fail 'review-comment.md is missing its deterministic marker'
+# Issue #170: every stated observation time is a timestamp. A drafted `$(…)`, `${…}`, or backtick command in its place
+# passes every byte check above and publishes a sentence that states nothing, so it is refused here.
+if LC_ALL=C grep -E 'observed(_from| at) ' "$VISIBLE_FILE" | LC_ALL=C grep -E -v 'observed(_from| at) `?[0-9]{4}-[0-9]{2}-[0-9]{2}T' \
+  | LC_ALL=C grep -E -q 'observed(_from| at) [^;,]*(\$\(|\$\{|`)'; then
+  fail 'the observation time is an unexpanded substitution, not a timestamp'
+fi
 
 if ! mkdir "$LOCK_DIR"; then
   fail 'this generated publication artifact is already active or was already attempted'
