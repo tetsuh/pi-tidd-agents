@@ -1,6 +1,6 @@
 'use strict';
 
-// Issue #184 — gate launches failed before any verdict because the `outputSchema` the parent passed to the subagent
+// Issue #184 (CL-D90) — gate launches failed before any verdict because the `outputSchema` the parent passed to the subagent
 // tool was not the packaged schema: the parent re-typed a ~11 KB JSON document as tool-call arguments and displaced
 // every `required` array into its object's `properties`. The provider rejected it. Seen in a consumer repository on
 // several PRs and here on PR #182 (round 4). The four gate roles now carry the packaged schema in their agent

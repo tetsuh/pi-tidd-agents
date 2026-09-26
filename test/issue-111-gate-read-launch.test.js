@@ -194,10 +194,10 @@ test('Issue #111 build_gate_launch composes the request from the package and can
       const { request, blocks } = built.data;
       assert.equal(request.agent, role, `${workflow}/${gate} role`);
       // No `cwd` here: this composition supplies no workspace, which is review-only's shape (CL-D82).
-      assert.deepEqual(Object.keys(request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'outputSchema', 'task'], `${workflow}/${gate}: exactly the launch fields, no output file`);
+      // #184: the request carries no schema; the gate role's agent definition declares it.
+      assert.deepEqual(Object.keys(request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'task'], `${workflow}/${gate}: exactly the launch fields, no output file`);
       assert.deepEqual({ context: request.context, async: request.async, outputMode: request.outputMode, acceptance: request.acceptance }, { context: 'fresh', async: true, outputMode: 'inline', acceptance: false });
-      assert.deepEqual(request.outputSchema, gateResult.SCHEMA, 'the builder schema byte for byte');
-      assert.notEqual(request.outputSchema, expectation.outputSchema, 'a detached copy, never an alias');
+      assert.equal(Object.hasOwn(request, 'outputSchema'), false, 'no schema travels through the parent');
       assert.equal(request.task, composed(workflow, gate, volatile, expectationPath, expectation.expected), `${workflow}/${gate}: the task is exactly the verbatim blocks, the volatile envelope, the expectation as data, and the two machine lines`);
       if (gate !== 'convergence') assert.ok(request.task.includes(`\n\n${roleLine(workflow, gate === 'adversarial' ? 'Sol' : 'Terra')}\n\n`), `${workflow}/${gate}: the selected role block line appears verbatim, never reworded`);
       const expectedBlocks = [EVERY_GATE, ...(gate === 'adversarial' ? [SOL_ONLY] : []), ...(gate === 'convergence' ? [] : [ROLE_BLOCKS[workflow]])].map(([file, heading]) => ({ file, heading, sha256: sha256(block([file, heading])) }));

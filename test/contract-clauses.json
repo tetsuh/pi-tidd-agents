@@ -4531,6 +4531,53 @@
       ]
     },
     {
+      "id": "CL-D90-launch",
+      "marker": "CL-D90",
+      "title": "The launch request carries no schema",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "the schema is the gate role's own `outputSchema`"
+      ]
+    },
+    {
+      "id": "CL-D90-read",
+      "marker": "CL-D90",
+      "title": "The read refuses a child that ran with another schema",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "schema_transcription_mismatch"
+      ]
+    },
+    {
+      "id": "CL-D90-record",
+      "marker": "CL-D90",
+      "title": "CL-D90 records where the schema lives",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D90 — The gate schema lives in the gate roles' agent definitions",
+      "requires": [
+        "issues/184#issuecomment-5845374102",
+        "putting a schema back in the launch request, or reading a result whose child schema differs requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D90-tests",
+      "marker": "CL-D90",
+      "title": "The CL-D90 fixtures drive the definitions, the launch, and the read",
+      "files": [
+        "test/issue-184-schema-in-agents.test.js"
+      ],
+      "requires": [
+        "Issue #184 every gate role carries the packaged schema in its definition",
+        "Issue #184 gate_result_read names a child that ran with a schema other than the packaged one"
+      ]
+    },
+    {
       "id": "CL-D89-map",
       "marker": "CL-D89",
       "title": "The map routes the writer's commit and push through the packaged operations",

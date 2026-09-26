@@ -55,6 +55,23 @@ function runsRoot(host = { env: process.env, getuid: process.getuid?.bind(proces
   return path.join(configured ? path.resolve(configured) : path.join(host.tmpdir, `pi-subagents-${tempScopeId(host)}`), 'async-subagent-runs');
 }
 
+// The first JSON path at which two values differ, or null when they are equal (#184).
+function firstDifference(actual, expected, at) {
+  if (Array.isArray(expected) || Array.isArray(actual)) {
+    if (!Array.isArray(actual) || !Array.isArray(expected) || actual.length !== expected.length) return at;
+    for (let i = 0; i < expected.length; i += 1) { const d = firstDifference(actual[i], expected[i], `${at}/${i}`); if (d !== null) return d; }
+    return null;
+  }
+  if (plain(expected) || plain(actual)) {
+    if (!plain(actual) || !plain(expected)) return at;
+    for (const key of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
+      if (!Object.hasOwn(actual, key) || !Object.hasOwn(expected, key)) return `${at}/${key}`;
+      const d = firstDifference(actual[key], expected[key], `${at}/${key}`); if (d !== null) return d;
+    }
+    return null;
+  }
+  return Object.is(actual, expected) ? null : at;
+}
 function readGateResult(data) {
   const operation = 'gate_result_read';
   try {
@@ -83,6 +100,15 @@ function readGateResult(data) {
     if (plain(step) && STEP_IN_PROGRESS.includes(step.status) && RUN_IN_PROGRESS.includes(status.state)) fail('run_in_progress', `the runner still records the selected step as ${step.status}; wait for its completion and read again`, { statusPath, stepStatus: step.status });
     if (!plain(step) || !text(step.structuredOutputPath)) fail('designated_output_unrecorded', 'the selected step of the runner status record carries no structuredOutputPath', { statusPath });
     const structuredOutputPath = step.structuredOutputPath;
+    // #184, CL-D90: the child's schema is the one pi-subagents wrote beside its output. If it is not the packaged schema, the
+    // launch diverged (a parent-added outputSchema overrides the agent definition's), whatever the step's status says.
+    const childSchemaPath = path.join(path.dirname(structuredOutputPath), 'schema.json');
+    let childSchema;
+    try { childSchema = JSON.parse(readUtf8(childSchemaPath)); } catch { childSchema = undefined; }
+    if (childSchema !== undefined) {
+      const differs = firstDifference(childSchema, SCHEMA, '');
+      if (differs !== null) fail('schema_transcription_mismatch', `the child ran with an outputSchema other than the packaged one, first differing at ${differs || '/'}; the launch request, not the reviewed change, is at fault`, { statusPath, childSchemaPath, path: differs });
+    }
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
     // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).
     if (step.status !== 'complete') fail('step_incomplete', `selected step status is ${JSON.stringify(step.status ?? null)}`, { statusPath, structuredOutputPath, stepStatus: step.status ?? null });
@@ -219,7 +245,9 @@ function buildGateLaunch(data) {
     // as the child's attestation after reading (CL-D69: three runs lost to one retyped character).
     parts.push(`## Evidence records (copy each; set readCompletely true after reading)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: false })), null, 2)}\n\`\`\``);
     parts.push(`Expectation file: ${data.expectationPath}\nPackaged validator: node ${CLI_PATH} (operation gate_result_validate, CL-D65)`);
-    const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false, outputSchema: JSON.parse(JSON.stringify(SCHEMA)) };
+    // #184, CL-D90: the schema is the gate role's own `outputSchema` (its agent definition), so the request carries none and the
+    // parent has nothing to re-type; a parent-typed schema displaced every `required` array into `properties`.
+    const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false };
     // CL-D82: an exact-autofix gate reads the tree the run works in, so the launch names it; review-only has no
     // workspace and its child inherits the operator checkout, which is the tree it reviews. The envelope already
     // states which mode this is, so the two are related here rather than left to the parent's memory: an autofix
