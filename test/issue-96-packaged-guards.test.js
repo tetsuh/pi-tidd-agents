@@ -64,7 +64,8 @@ test('Issue #96 the map offers the guard family and the addendum requires it', (
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map, 'the invocation map must exist');
   for (const declaration of [
-    '| `guard_before_edit` | `cwd`, `expected` (data of `workspace_create`), `authorizedPaths` |',
+    // #185 added the post-push transition to the guard's row.
+    '| `guard_before_edit` | `cwd`, `expected` (data of `workspace_create`), `authorizedPaths`, and after a push the same `transition` `workspace_verify` takes (#185) |',
     '| `overlay_freeze` | `cwd`, `authorizedPaths` |',
     '| `overlay_compare` | `cwd`, `overlay` (data of `overlay_freeze`) |',
     '| `manifest_compare` | `cwd`, `parent`, exactly one of `authorizedPaths` or `manifest` (data of `manifest_compare`) |',

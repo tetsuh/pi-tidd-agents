@@ -24,7 +24,8 @@ const SCHEMAS = Object.freeze({
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   gate_result_read: { required: ['runId'], optional: ['expectationPath'] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
-  guard_before_edit: { required: ['cwd', 'expected', 'authorizedPaths'], optional: [] },
+  // After a push the workspace is ahead of created.head; the guard takes the transition workspace_verify takes (#185).
+  guard_before_edit: { required: ['cwd', 'expected', 'authorizedPaths'], optional: ['transition'] },
   overlay_freeze: { required: ['cwd', 'authorizedPaths'], optional: [] },
   overlay_compare: { required: ['cwd', 'overlay'], optional: [] },
   manifest_compare: { required: ['cwd', 'parent'], optional: ['authorizedPaths', 'manifest'] },
@@ -114,7 +115,7 @@ function validateRequest(value) {
   const allowed = new Set([...schema.required, ...schema.optional]);
   for (const key of Object.keys(value.data)) if (!allowed.has(key)) invalid(`unknown request field: ${key}`, value.operation, key);
   for (const key of schema.required) if (!Object.hasOwn(value.data, key)) invalid(`missing request field: ${key}`, value.operation, key);
-  if (value.operation === 'workspace_verify' && Object.hasOwn(value.data, 'transition')) {
+  if (['workspace_verify', 'guard_before_edit'].includes(value.operation) && Object.hasOwn(value.data, 'transition')) {
     const transition = value.data.transition;
     if (!object(transition) || Object.keys(transition).some((key) => !['from', 'to'].includes(key)) || !Object.hasOwn(transition, 'from') || !Object.hasOwn(transition, 'to') || !Object.values(transition).every((oid) => typeof oid === 'string' && /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(oid))) invalid('workspace transition requires only from and to OIDs');
   }
