@@ -116,6 +116,37 @@ test('Issue #184 the schema reaches no document the parent composes', () => {
   }
 });
 
+test('Issue #184 a child schema that is unrecorded, missing, or unreadable is refused, not skipped', () => {
+  // CONV-187-SCHEMA-READ-FAILOPEN: a gate that ran without the packaged schema, such as a replacement definition that
+  // declares none (CONV-187-CUSTOM-GATE-SCHEMA), leaves no schema or another one. Neither may read on as a result.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'i184-runs-'));
+  const envelope = { schemaVersion: 2, correlation: {}, verdict: 'MERGE', evidenceRead: [], findings: [], confirmations: [], decisions: [], adversarialResults: [] };
+  const writeRun = (step, schemaText) => {
+    fs.rmSync(path.join(root, RUN), { recursive: true, force: true });
+    const dir = path.join(root, RUN, 'structured-output', 'x');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'output.json'), JSON.stringify(envelope));
+    if (schemaText !== undefined) fs.writeFileSync(path.join(dir, 'schema.json'), schemaText);
+    fs.writeFileSync(path.join(root, RUN, 'status.json'), JSON.stringify({ runId: RUN, state: 'complete', steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', structuredOutputPath: path.join(dir, 'output.json'), ...step(dir) }] }));
+  };
+  try {
+    for (const [label, step, schemaText, code] of [
+      ['unrecorded', () => ({}), undefined, 'designated_schema_unrecorded'],
+      ['recorded but missing', (dir) => ({ structuredOutputSchemaPath: path.join(dir, 'schema.json') }), undefined, 'designated_schema_unreadable'],
+      ['recorded but not JSON', (dir) => ({ structuredOutputSchemaPath: path.join(dir, 'schema.json') }), '{', 'designated_schema_unreadable'],
+    ]) {
+      writeRun(step, schemaText);
+      const read = helpers.readGateResult({ runId: RUN, runsRoot: root });
+      assert.deepEqual([read.ok, read.error?.code], [false, code], `${label}: ${JSON.stringify(read)}`);
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Issue #184 a replacement gate definition must declare the packaged schema', () => {
+  assert.match(readText('README.md'), /A replacement definition of a gate role must declare the same `outputSchema` as the packaged one \(CL-D90\); a gate that ran without it is refused when its result is read\./);
+  assert.match(readText('skills/closed-loop-shared/references/gate-contract.md'), /A replacement definition of a gate role must declare the same `outputSchema`; a result whose child ran without the packaged schema is refused when read\./);
+});
+
 test('Issue #184 the shared contract says where the schema comes from', () => {
   const contract = readText('skills/closed-loop-shared/references/gate-contract.md');
   assert.match(contract, /The packaged closed result schema is declared in each gate role's agent definition \(`outputSchema`, #184\); a launch request carries none, and the parent never adds one\./);
