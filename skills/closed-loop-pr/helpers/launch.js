@@ -55,6 +55,23 @@ function runsRoot(host = { env: process.env, getuid: process.getuid?.bind(proces
   return path.join(configured ? path.resolve(configured) : path.join(host.tmpdir, `pi-subagents-${tempScopeId(host)}`), 'async-subagent-runs');
 }
 
+// The first JSON path at which two values differ, or null when they are equal (#184).
+function firstDifference(actual, expected, at) {
+  if (Array.isArray(expected) || Array.isArray(actual)) {
+    if (!Array.isArray(actual) || !Array.isArray(expected) || actual.length !== expected.length) return at;
+    for (let i = 0; i < expected.length; i += 1) { const d = firstDifference(actual[i], expected[i], `${at}/${i}`); if (d !== null) return d; }
+    return null;
+  }
+  if (plain(expected) || plain(actual)) {
+    if (!plain(actual) || !plain(expected)) return at;
+    for (const key of new Set([...Object.keys(expected), ...Object.keys(actual)])) {
+      if (!Object.hasOwn(actual, key) || !Object.hasOwn(expected, key)) return `${at}/${key}`;
+      const d = firstDifference(actual[key], expected[key], `${at}/${key}`); if (d !== null) return d;
+    }
+    return null;
+  }
+  return Object.is(actual, expected) ? null : at;
+}
 function readGateResult(data) {
   const operation = 'gate_result_read';
   try {
@@ -83,6 +100,31 @@ function readGateResult(data) {
     if (plain(step) && STEP_IN_PROGRESS.includes(step.status) && RUN_IN_PROGRESS.includes(status.state)) fail('run_in_progress', `the runner still records the selected step as ${step.status}; wait for its completion and read again`, { statusPath, stepStatus: step.status });
     if (!plain(step) || !text(step.structuredOutputPath)) fail('designated_output_unrecorded', 'the selected step of the runner status record carries no structuredOutputPath', { statusPath });
     const structuredOutputPath = step.structuredOutputPath;
+    // #184, CL-D90: the schema the child ran with is the one the runner recorded for the step. If it is not the packaged
+    // schema, the launch diverged (a parent-added outputSchema overrides the agent definition's), whatever the step's
+    // status says. It is read only from inside the run directory, by filesystem identity, as the output is below.
+    // The check fails closed: a step that records no schema, or one that cannot be read, ran without the packaged
+    // schema as far as anyone can show (CONV-187-SCHEMA-READ-FAILOPEN), e.g. under a replacement gate definition that
+    // declares none (CONV-187-CUSTOM-GATE-SCHEMA).
+    // An incomplete step (a timeout or a stop records no schema) reports as incomplete below unless it demonstrably ran
+    // with another schema; a complete step must show the packaged one.
+    const complete = step.status === 'complete';
+    const schemaProblem = (code, message, details) => { if (complete) fail(code, message, details); };
+    const childSchemaPath = step.structuredOutputSchemaPath;
+    let childSchema;
+    if (!text(childSchemaPath)) schemaProblem('designated_schema_unrecorded', 'the selected step records no structuredOutputSchemaPath; the gate did not run with the packaged schema', { statusPath });
+    else {
+      let canonicalSchema;
+      try { canonicalSchema = fs.realpathSync.native(childSchemaPath); } catch { canonicalSchema = null; }
+      if (canonicalSchema === null) schemaProblem('designated_schema_unreadable', 'the recorded output schema is not readable', { statusPath, childSchemaPath });
+      else {
+        const within = path.relative(fs.realpathSync.native(path.dirname(statusPath)), canonicalSchema);
+        if (!within || within.startsWith('..') || path.isAbsolute(within)) fail('designated_output_outside_run', 'the recorded output schema is outside the run directory', { statusPath, childSchemaPath, canonicalSchema });
+        try { childSchema = JSON.parse(readUtf8(canonicalSchema)); } catch { schemaProblem('designated_schema_unreadable', 'the recorded output schema is not JSON', { statusPath, childSchemaPath }); }
+      }
+    }
+    const differs = childSchema === undefined ? null : firstDifference(childSchema, SCHEMA, '');
+    if (differs !== null) fail('schema_transcription_mismatch', `the child ran with an outputSchema other than the packaged one, first differing at ${differs || '/'}; the launch request, not the reviewed change, is at fault`, { statusPath, childSchemaPath, path: differs });
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
     // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).
     if (step.status !== 'complete') fail('step_incomplete', `selected step status is ${JSON.stringify(step.status ?? null)}`, { statusPath, structuredOutputPath, stepStatus: step.status ?? null });
@@ -184,7 +226,6 @@ function buildGateLaunch(data) {
     }
     const expected = data.expectation.expected;
     expectedState(expected);
-    if (JSON.stringify(data.expectation.outputSchema) !== JSON.stringify(SCHEMA)) fail('schema_mismatch', 'outputSchema is not the packaged CL-D36 schema byte for byte');
     // A gate outside its root cannot validate later; refuse it before any file is read (CONV-123-ROOT-GATE-LAUNCH).
     if (!ROOT_GATES[expected.workflow].includes(expected.correlation.gate)) fail('gate_outside_root', `gate ${expected.correlation.gate} is not a ${expected.workflow} gate`);
     for (const key of volatileRequired(expected.workflow, expected.correlation.gate)) {
@@ -219,7 +260,9 @@ function buildGateLaunch(data) {
     // as the child's attestation after reading (CL-D69: three runs lost to one retyped character).
     parts.push(`## Evidence records (copy each; set readCompletely true after reading)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: false })), null, 2)}\n\`\`\``);
     parts.push(`Expectation file: ${data.expectationPath}\nPackaged validator: node ${CLI_PATH} (operation gate_result_validate, CL-D65)`);
-    const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false, outputSchema: JSON.parse(JSON.stringify(SCHEMA)) };
+    // #184, CL-D90: the schema is the gate role's own `outputSchema` (its agent definition), so the request carries none and the
+    // parent has nothing to re-type; a parent-typed schema displaced every `required` array into `properties`.
+    const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false };
     // CL-D82: an exact-autofix gate reads the tree the run works in, so the launch names it; review-only has no
     // workspace and its child inherits the operator checkout, which is the tree it reviews. The envelope already
     // states which mode this is, so the two are related here rather than left to the parent's memory: an autofix

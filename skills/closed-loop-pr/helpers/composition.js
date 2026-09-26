@@ -122,8 +122,8 @@ const PREDICATES = Object.freeze({
       .every((key) => Array.isArray(value[key])),
   'structured:gate_result': (value) => plain(value) && [1, 2].includes(value.schemaVersion)
     && plain(value.correlation) && typeof value.verdict === 'string',
-  'data:build_gate_expectation': (value) => plain(value) && keySet(value, ['expected', 'outputSchema'], [])
-    && plain(value.expected) && plain(value.outputSchema)
+  'data:build_gate_expectation': (value) => plain(value) && keySet(value, ['expected'], [])
+    && plain(value.expected)
     && keySet(value.expected, ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'], [])
     && plain(value.expected.correlation) && Array.isArray(value.expected.assignedFindings) && Array.isArray(value.expected.requiredEvidence),
 });
