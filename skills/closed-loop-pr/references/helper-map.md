@@ -49,7 +49,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Immediately after the bounded batch's one commit, before the post-commit guard (CL-D25, CL-D74) | `message_verify` | `cwd`, `expected` |
 | The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`) |
 | The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |
-| Immediately before Luna's first edit, on the authorized correction set (CL-D57) | `guard_before_edit` | `cwd`, `expected` (data of `workspace_create`), `authorizedPaths` |
+| Immediately before Luna's first edit, on the authorized correction set (CL-D57) | `guard_before_edit` | `cwd`, `expected` (data of `workspace_create`), `authorizedPaths`, and after a push the same `transition` `workspace_verify` takes (#185) |
 | Immediately after editing, freezing the authorized overlay (CL-D57) | `overlay_freeze` | `cwd`, `authorizedPaths` |
 | At each later overlay boundary, re-observing the frozen overlay (CL-D57) | `overlay_compare` | `cwd`, `overlay` (data of `overlay_freeze`) |
 | At `AFTER_STAGING` (capture) and `BEFORE_COMMIT` (compare) (CL-D57), with requests built by `build_manifest_capture` and `build_manifest_compare` (CL-D61) | `manifest_compare` | `cwd`, `parent`, exactly one of `authorizedPaths` or `manifest` (data of `manifest_compare`) |

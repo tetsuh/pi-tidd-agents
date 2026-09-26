@@ -112,7 +112,9 @@ function guardBeforeEdit(data) {
     const phase = 'guard_before_edit';
     if (!text(data.cwd)) fail('invalid_request', 'request_shape', 'cwd must be a nonempty string', typeof data.cwd);
     checkAuthorizedPaths(data.authorizedPaths);
-    const workspace = verifyWorkspace(data.cwd, data.expected);
+    // After a push the workspace is the pushed head, so the identity is checked through the same transition
+    // workspace_verify takes (#185); without one, the workspace must still be at created.head.
+    const workspace = verifyWorkspace(data.cwd, data.expected, data.transition);
     if (workspace && workspace.ok === false) {
       fail(workspace.error.code, 'workspace_identity', workspace.error.message);
     }
