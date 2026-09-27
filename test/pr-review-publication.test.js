@@ -804,6 +804,31 @@ test('Issue #170 the marker is recognized whatever its case and whatever whitesp
   assert.equal(publisherError(accepted), null, 'a timestamp after a differently spaced marker is still a timestamp');
 });
 
+test('Issue #170 a marker with nothing between it and the command is still a marker', () => {
+  // ADV-183-MISSING-OBSERVATION-DELIMITER: the split required a space after the marker, so a backtick, a stripped
+  // zero-width joiner or the end of the sentence right after it left the command unexamined.
+  for (const sentence of [
+    'External observation: head abc observed at`date -u`; 14 comments.',
+    'external_observation: head abc observed_from`date -u`, this run only',
+    'External observation: head abc observed at\u200d`date -u`; 14 comments.',
+    'External observation: head abc observed at.',
+    'External observation: head abc observed at',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${JSON.stringify(sentence)}`);
+    assert.match(error, /unexpanded substitution|carries a command substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+  for (const sentence of [
+    'External observation: head abc observed at2026-09-21T10:02:03Z; 14 comments.',
+    'The driver observed attempts 1-6 and observed_from_state nothing; head abc observed at 2026-09-21T10:02:03Z.',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    assert.equal(publisherError(f), null, `accepted: ${JSON.stringify(sentence)}`);
+  }
+});
+
 test('Issue #170 accepts real observation times, and refuses a substitution quoted elsewhere', () => {
   const visible = Buffer.from([
     '# Review state: MERGE_READY',
