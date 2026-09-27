@@ -116,12 +116,19 @@ test('Issue #188 the location is judged by where it resolves, and only a tempora
     const refused = helpers.buildGateLaunch(inputs(link));
     assert.deepEqual([refused.ok, refused.error?.code], [false, 'payload_location_invalid'], JSON.stringify(refused));
     assert.deepEqual(fs.readdirSync(path.join(repo, 'sub')).filter((name) => name.startsWith('gate-payload-')), [], 'nothing was written into the repository');
-    // A directory outside the temporary directory, even with no .git above it, is not a run directory.
-    const home = fs.mkdtempSync(path.join(os.homedir(), '.i188-'));
+    // A directory outside the temporary directory, even with no .git above it, is not a run directory. The temporary
+    // directory is moved rather than a directory sought outside it, so the case holds whatever HOME is.
+    const elsewhere = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-elsewhere-'));
+    const narrowTmp = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-tmp-'));
+    const saved = process.env.TMPDIR;
     try {
-      const outside = helpers.buildGateLaunch(inputs(home));
+      process.env.TMPDIR = narrowTmp;
+      const outside = helpers.buildGateLaunch(inputs(elsewhere));
       assert.deepEqual([outside.ok, outside.error?.code], [false, 'payload_location_invalid'], JSON.stringify(outside));
-    } finally { fs.rmSync(home, { recursive: true, force: true }); }
+    } finally {
+      if (saved === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = saved;
+      fs.rmSync(elsewhere, { recursive: true, force: true }); fs.rmSync(narrowTmp, { recursive: true, force: true });
+    }
   } finally { fs.rmSync(link, { force: true }); fs.rmSync(repo, { recursive: true, force: true }); }
 });
 
