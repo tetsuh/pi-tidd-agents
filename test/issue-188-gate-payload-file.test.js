@@ -136,6 +136,28 @@ test('Issue #188 the location is judged by where it resolves, and only a tempora
   } finally { fs.rmSync(link, { force: true }); fs.rmSync(repo, { recursive: true, force: true }); }
 });
 
+test('Issue #188 a file whose raw bytes differ is not reused, even when it decodes to the same text', () => {
+  // CONV-189-PAYLOAD-BYTES-REUSE: a byte that is not valid UTF-8 decodes to U+FFFD, so a text comparison can call two
+  // different files equal. Reuse compares raw bytes.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
+  try {
+    const data = inputs(dir);
+    data.volatile.body = 'body \uFFFD';
+    const { payloadPath } = helpers.buildGateLaunch(data).data;
+    const bytes = fs.readFileSync(payloadPath);
+    const marker = Buffer.from('\uFFFD', 'utf8');
+    const at = bytes.indexOf(marker);
+    assert.ok(at > 0, 'the payload carries the replacement character');
+    // Same decoded text, different bytes: a lone 0xFF decodes to U+FFFD.
+    const forged = Buffer.concat([bytes.subarray(0, at), Buffer.from([0xff]), bytes.subarray(at + marker.length)]);
+    assert.equal(forged.toString('utf8'), bytes.toString('utf8'));
+    fs.writeFileSync(payloadPath, forged);
+    fs.chmodSync(payloadPath, 0o600);
+    const again = helpers.buildGateLaunch(data);
+    assert.deepEqual([again.ok, again.error?.code], [false, 'payload_exists_different'], JSON.stringify(again));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('Issue #188 a planted symlink at the payload name is refused, not followed', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
   try {
