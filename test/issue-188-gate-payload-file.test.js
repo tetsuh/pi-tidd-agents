@@ -232,9 +232,10 @@ test('Issue #188 the payload is 0600 whatever the umask', () => {
   // CONV-189-PAYLOAD-MODE-UMASK: writeFileSync's mode is masked by the process umask, so a restrictive umask left an
   // unreadable payload behind a successful launch. The mode is set and verified after creation.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
+  const data = inputs(dir);  // the fixture's own files are written under the ordinary umask
   const saved = process.umask(0o777);
   try {
-    const built = helpers.buildGateLaunch(inputs(dir));
+    const built = helpers.buildGateLaunch(data);
     assert.equal(built.ok, true, JSON.stringify(built.error));
     assert.equal(fs.statSync(built.data.payloadPath).mode & 0o777, 0o600);
     assert.equal(cli('gate_payload_verify', { path: built.data.payloadPath, sha256: built.data.payloadSha256 }).ok, true, 'the payload is readable');
