@@ -37,9 +37,10 @@ function writePayload(expectationPath, correlation, payload) {
   try { fs.writeFileSync(payloadPath, payload, { mode: 0o600, flag: 'wx' }); }
   catch (error) {
     if (error.code !== 'EEXIST') fail('payload_write_failed', `the payload file could not be written: ${error.message}`, { payloadPath });
-    // A same-named entry is reused only when it is a regular file holding these bytes; a link or anything else is not.
+    // A same-named entry is reused only when it is a private regular file holding these exact bytes, compared raw so no
+    // decoding can make two files equal; a link or anything else is not.
     const existing = fs.lstatSync(payloadPath);
-    if (!existing.isFile() || (existing.mode & 0o777) !== 0o600 || fs.readFileSync(payloadPath, 'utf8') !== payload) fail('payload_exists_different', 'a different or no longer private entry already holds this payload name', { payloadPath });
+    if (!existing.isFile() || (existing.mode & 0o777) !== 0o600 || !fs.readFileSync(payloadPath).equals(Buffer.from(payload, 'utf8'))) fail('payload_exists_different', 'a different or no longer private entry already holds this payload name', { payloadPath });
   }
   return { payloadPath, payloadSha256 };
 }
