@@ -757,6 +757,25 @@ test('Issue #170 whitespace after the marker does not hide a substitution, and a
   assert.equal(publisherError(quoted), null, 'a quoted sentence is an example, not an observation');
 });
 
+test('Issue #170 inline code spans pair from the left, and an exempted timestamp must be a possible date-time', () => {
+  // ADV-183-OBSERVATION-PARSER-BYPASSES: the quotation exemption paired a closing backtick with the next opening one,
+  // erasing the observation between them; and 2026-99-99T99:99:99Z was accepted as a timestamp.
+  for (const sentence of [
+    'External observation: head `b24de911` observed at $(date -u +%FT%TZ); see `details` below.',
+    'External observation: head `b24de911` observed at `date -u`; see `details` below.',
+    'External observation: head `b24de911` observed at 2026-99-99T99:99:99Z; `$(date -u)` was the old form.',
+    'external_observation: head abc observed_from 2026-02-30T10:00:00Z; `$(date -u)` was the old form.',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${sentence}`);
+    assert.match(error, /observation time is (?:an unexpanded substitution|not a possible date-time)/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+  const accepted = fixture({ visibleBytes: Buffer.from('# Review state: MERGE_READY\nExternal observation: head `b24de911` observed at 2026-09-21T10:02:03Z; see `details` below. Earlier review said `observed at $(date -u +%FT%TZ)`.\n', 'utf8') });
+  assert.equal(publisherError(accepted), null, 'a backticked head, a timestamp, later inline code, and a quoted example');
+});
+
 test('Issue #170 accepts a real observation time, and a substitution quoted elsewhere', () => {
   const visible = Buffer.from([
     '# Review state: MERGE_READY',
