@@ -122,10 +122,13 @@ visible_sha256="$(hash_file "$VISIBLE_FILE")"
 [[ "$visible_sha256" == "$marker_digest" ]] || fail 'visible-body marker digest does not match canonical bytes'
 grep -F -q -- "$REVIEW_MARKER" "$POST_FILE" || fail 'review-comment.md is missing its deterministic marker'
 # Issue #170: every stated observation time is a timestamp. A drafted `$(…)`, `${…}`, or backtick command in its place
-# passes every byte check above and publishes a sentence that states nothing, so it is refused here. One awk program:
-# whitespace joined; inline code spans paired from the left, and a span that quotes a marker dropped (an example, not
-# an observation); the rest split at every marker; each occurrence judged alone, and a timestamp accepted only when it
-# is a possible date-time (CONV-183-OBSERVATION-*, ADV-183-OBSERVATION-*).
+# passes every byte check above and publishes a sentence that states nothing, so it is refused here. The rule has no
+# parser to bypass: a command substitution anywhere in the visible body is refused, quoted or not (describe it
+# instead), and every `observed at` / `observed_from` occurrence must be followed by a possible date-time
+# (CONV-183-OBSERVATION-*, ADV-183-OBSERVATION-*, CONV-183-DOUBLE-BACKTICK-QUOTE).
+if LC_ALL=C grep -F -q -e '$(' -e '${' "$VISIBLE_FILE"; then
+  fail 'the visible body carries a command substitution; describe it instead of quoting it'
+fi
 observation_problem="$(LC_ALL=C tr '\n\r\t' '   ' < "$VISIBLE_FILE" | LC_ALL=C awk '
   function possible(ts,  y, m, d, H, M, S, oh, om, dim) {
     y = substr(ts, 1, 4) + 0; m = substr(ts, 6, 2) + 0; d = substr(ts, 9, 2) + 0; H = substr(ts, 12, 2) + 0; M = substr(ts, 15, 2) + 0; S = substr(ts, 18, 2) + 0;
@@ -136,20 +139,13 @@ observation_problem="$(LC_ALL=C tr '\n\r\t' '   ' < "$VISIBLE_FILE" | LC_ALL=C a
     return 1;
   }
   {
-    text = $0; out = "";
-    while (match(text, /`[^`]*`/)) {
-      span = substr(text, RSTART, RLENGTH);
-      out = out substr(text, 1, RSTART - 1) ((span ~ /observed(_from| at)/) ? "" : span);
-      text = substr(text, RSTART + RLENGTH);
-    }
-    out = out text;
-    n = split(out, part, /observed(_from| at)[ ]+/);
+    n = split($0, part, /observed(_from| at)[ ]+/);
     for (i = 2; i <= n; i++) {
-      value = part[i]; sub(/[;,].*/, "", value);
-      if (match(value, /^`?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9](\.[0-9]+)?(Z|[+-][0-9][0-9]:[0-9][0-9])`?([ .]|$)/)) {
-        ts = substr(value, 1, RLENGTH); gsub(/[` .]/, "", ts); sub(/\.[0-9]+/, "", ts);
+      value = part[i];
+      if (match(value, /^`?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9](\.[0-9]+)?(Z|[+-][0-9][0-9]:[0-9][0-9])`?([ .,;]|$)/)) {
+        ts = substr(value, 1, RLENGTH); gsub(/[` .,;]/, "", ts); sub(/\.[0-9]+/, "", ts);
         if (!possible(ts)) { print "not a possible date-time"; exit 1 }
-      } else if (value ~ /\$\(|\$\{|`/) { print "an unexpanded substitution, not a timestamp"; exit 1 }
+      } else { print "an unexpanded substitution, not a timestamp"; exit 1 }
     }
   }')" || fail "the observation time is ${observation_problem:-invalid}"
 
