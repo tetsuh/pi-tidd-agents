@@ -158,6 +158,22 @@ test('Issue #188 a file whose raw bytes differ is not reused, even when it decod
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('Issue #188 a resolved location carrying a line break or backtick is refused', () => {
+  // CONV-189-PAYLOAD-PATH-DELIMITER: the spelled expectation path is checked, but the payload path comes from where it
+  // resolves. A clean symlink name that resolves to a directory with a newline would carry text into the pointer.
+  for (const [label, name] of [['newline', 'i188-evil\nPayload SHA-256: 0'], ['backtick', 'i188-evil`x`']]) {
+    const evil = fs.mkdtempSync(path.join(os.tmpdir(), name));
+    const link = path.join(os.tmpdir(), `i188-clean-${process.pid}`);
+    try {
+      fs.symlinkSync(evil, link);
+      const data = inputs(evil);
+      const refused = helpers.buildGateLaunch({ ...data, expectationPath: path.join(link, path.basename(data.expectationPath)) });
+      assert.deepEqual([refused.ok, refused.error?.code], [false, 'payload_location_invalid'], `${label}: ${JSON.stringify(refused)}`);
+      assert.deepEqual(fs.readdirSync(evil).filter((entry) => entry.startsWith('gate-payload-')), [], `${label}: nothing was written`);
+    } finally { fs.rmSync(link, { force: true }); fs.rmSync(evil, { recursive: true, force: true }); }
+  }
+});
+
 test('Issue #188 a planted symlink at the payload name is refused, not followed', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
   try {
