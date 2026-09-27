@@ -129,6 +129,9 @@ grep -F -q -- "$REVIEW_MARKER" "$POST_FILE" || fail 'review-comment.md is missin
 # the body is folded: every Unicode space (NBSP, NEL, ogham, U+2000-U+200A, line and paragraph separators,
 # narrow and medium no-break spaces, ideographic space), VT and FF become one ASCII space, zero-width characters
 # are dropped, and letters are lowered, so `Observed\u00a0At` is the same marker (ADV-183-OBSERVATION-MARKER-WHITESPACE-CASE).
+# The marker needs no separator after it: whatever follows, spaces stripped, must be the date-time, so a command
+# glued to the marker or a marker that ends the sentence is refused; a longer word that merely begins with the
+# marker (`observed attempts`) is not a marker (ADV-183-MISSING-OBSERVATION-DELIMITER).
 if LC_ALL=C grep -F -q -e '$(' -e '${' "$VISIBLE_FILE"; then
   fail 'the visible body carries a command substitution; describe it instead of quoting it'
 fi
@@ -145,9 +148,11 @@ observation_problem="$(LC_ALL=C tr '\n\r\t\v\f' '     ' < "$VISIBLE_FILE" | LC_A
     return 1;
   }
   {
-    n = split(tolower($0), part, /observed(_from|[ ]+at)[ ]+/);
+    n = split(tolower($0), part, /observed(_from|[ ]+at)/);
     for (i = 2; i <= n; i++) {
       value = part[i];
+      if (value ~ /^[a-z_]/) continue;
+      sub(/^[ ]+/, "", value);
       if (match(value, /^`?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]t[0-9][0-9]:[0-9][0-9]:[0-9][0-9](\.[0-9]+)?(z|[+-][0-9][0-9]:[0-9][0-9])`?([ .,;]|$)/)) {
         ts = substr(value, 1, RLENGTH); gsub(/[` .,;]/, "", ts); sub(/\.[0-9]+/, "", ts);
         if (!possible(ts)) { print "not a possible date-time"; exit 1 }
