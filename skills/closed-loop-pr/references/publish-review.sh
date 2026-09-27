@@ -122,16 +122,36 @@ visible_sha256="$(hash_file "$VISIBLE_FILE")"
 [[ "$visible_sha256" == "$marker_digest" ]] || fail 'visible-body marker digest does not match canonical bytes'
 grep -F -q -- "$REVIEW_MARKER" "$POST_FILE" || fail 'review-comment.md is missing its deterministic marker'
 # Issue #170: every stated observation time is a timestamp. A drafted `$(…)`, `${…}`, or backtick command in its place
-# passes every byte check above and publishes a sentence that states nothing, so it is refused here. The body's
-# whitespace is joined and inline code spans that quote a marker are dropped (an example, not an observation); the rest
-# is split at every marker, so each occurrence is judged alone: a valid timestamp exempts nothing beside or after it
-# (CONV-183-OBSERVATION-SECOND-ON-LINE-BYPASS, CONV-183-OBSERVATION-SECOND-MARKER-BYPASS, ADV-183-OBSERVATION-WHITESPACE-AND-QUOTED-CONTEXT).
-if LC_ALL=C tr '\n\r\t' '   ' < "$VISIBLE_FILE" | LC_ALL=C awk '{ gsub(/`[^`]*observed(_from| at)[^`]*`/, ""); gsub(/observed(_from| at)[[:space:]]+/, "\nobserved_at "); print }' \
-  | LC_ALL=C grep -E -o '^observed_at [^;,]*' \
-  | LC_ALL=C grep -E -v '^observed_at `?[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})`?([[:space:].]|$)' \
-  | LC_ALL=C grep -E -q '(\$\(|\$\{|`)'; then
-  fail 'the observation time is an unexpanded substitution, not a timestamp'
-fi
+# passes every byte check above and publishes a sentence that states nothing, so it is refused here. One awk program:
+# whitespace joined; inline code spans paired from the left, and a span that quotes a marker dropped (an example, not
+# an observation); the rest split at every marker; each occurrence judged alone, and a timestamp accepted only when it
+# is a possible date-time (CONV-183-OBSERVATION-*, ADV-183-OBSERVATION-*).
+observation_problem="$(LC_ALL=C tr '\n\r\t' '   ' < "$VISIBLE_FILE" | LC_ALL=C awk '
+  function possible(ts,  y, m, d, H, M, S, oh, om, dim) {
+    y = substr(ts, 1, 4) + 0; m = substr(ts, 6, 2) + 0; d = substr(ts, 9, 2) + 0; H = substr(ts, 12, 2) + 0; M = substr(ts, 15, 2) + 0; S = substr(ts, 18, 2) + 0;
+    if (m < 1 || m > 12 || H > 23 || M > 59 || S > 59) return 0;
+    dim = (m == 2) ? ((y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)) ? 29 : 28) : ((m == 4 || m == 6 || m == 9 || m == 11) ? 30 : 31);
+    if (d < 1 || d > dim) return 0;
+    if (ts ~ /[+-][0-9][0-9]:[0-9][0-9]$/) { oh = substr(ts, length(ts) - 4, 2) + 0; om = substr(ts, length(ts) - 1, 2) + 0; if (oh > 14 || om > 59) return 0; }
+    return 1;
+  }
+  {
+    text = $0; out = "";
+    while (match(text, /`[^`]*`/)) {
+      span = substr(text, RSTART, RLENGTH);
+      out = out substr(text, 1, RSTART - 1) ((span ~ /observed(_from| at)/) ? "" : span);
+      text = substr(text, RSTART + RLENGTH);
+    }
+    out = out text;
+    n = split(out, part, /observed(_from| at)[ ]+/);
+    for (i = 2; i <= n; i++) {
+      value = part[i]; sub(/[;,].*/, "", value);
+      if (match(value, /^`?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9](\.[0-9]+)?(Z|[+-][0-9][0-9]:[0-9][0-9])`?([ .]|$)/)) {
+        ts = substr(value, 1, RLENGTH); gsub(/[` .]/, "", ts); sub(/\.[0-9]+/, "", ts);
+        if (!possible(ts)) { print "not a possible date-time"; exit 1 }
+      } else if (value ~ /\$\(|\$\{|`/) { print "an unexpanded substitution, not a timestamp"; exit 1 }
+    }
+  }')" || fail "the observation time is ${observation_problem:-invalid}"
 
 if ! mkdir "$LOCK_DIR"; then
   fail 'this generated publication artifact is already active or was already attempted'
