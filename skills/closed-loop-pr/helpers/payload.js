@@ -51,13 +51,13 @@ function writePayload(expectationPath, correlation, payload) {
 function shellWord(value) { return `'${String(value).replaceAll("'", "'\\''")}'`; }
 function payloadPointer(payloadPath, payloadSha256) {
   const request = JSON.stringify({ version: 1, operation: 'gate_payload_verify', data: { path: payloadPath, sha256: payloadSha256 } });
+  // The path and the digest appear once each, inside the command the verifier authenticates; the child reads the
+  // path the verifier returns, never one shown beside it (ADV-189-POINTER-DISPLAY-DIVERGENCE).
   return [
     'Your complete gate payload is the file below; this message is only its pointer (CL-D91).',
-    `Payload file: ${payloadPath}`,
-    `Payload SHA-256: ${payloadSha256}`,
     `1. Run: printf '%s' ${shellWord(request)} | node ${shellWord(CLI_PATH)}`,
     'If it prints anything but "ok":true, stop at once and end without producing any structured output.',
-    '2. Otherwise read the payload file completely, then follow it verbatim as your task.',
+    '2. Otherwise read the file named by `path` in that result completely, then follow it verbatim as your task.',
     '',
   ].join('\n');
 }
@@ -67,11 +67,12 @@ function verifyGatePayload(data) {
   try {
     if (!plain(data) || !text(data.path) || !path.isAbsolute(data.path)) fail('invalid_request', 'path must be the absolute payload path');
     if (typeof data.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(data.sha256)) fail('invalid_request', 'sha256 must be 64 lowercase hex digits');
-    let bytes;
-    try { bytes = fs.readFileSync(data.path); } catch (error) { fail('payload_unreadable', `the payload file is not readable: ${error.message}`, { path: data.path }); }
+    let resolved; let bytes;
+    try { resolved = fs.realpathSync.native(data.path); bytes = fs.readFileSync(resolved); } catch (error) { fail('payload_unreadable', `the payload file is not readable: ${error.message}`, { path: data.path }); }
     const actual = crypto.createHash('sha256').update(bytes).digest('hex');
     if (actual !== data.sha256) fail('payload_digest_mismatch', 'the payload file does not have the digest the launch names; do not review', { path: data.path, actual });
-    return createResult(operation, { bytes: bytes.length });
+    // The result names the file whose bytes were authenticated: the one the child reads.
+    return createResult(operation, { path: resolved, bytes: bytes.length });
   } catch (error) {
     return createError(operation, error.code || 'verify_failed', error.message, operation, error.details);
   }

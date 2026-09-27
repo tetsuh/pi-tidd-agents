@@ -44,7 +44,7 @@ const APPROVED_FS_SITES = [
   "skills/closed-loop-pr/helpers/payload.js|try { fs.writeFileSync(payloadPath, payload, { mode: 0o600, flag: 'wx' }); }",
   "skills/closed-loop-pr/helpers/payload.js|const existing = fs.lstatSync(payloadPath);",
   "skills/closed-loop-pr/helpers/payload.js|if (!existing.isFile() || (existing.mode & 0o777) !== 0o600 || !fs.readFileSync(payloadPath).equals(Buffer.from(payload, 'utf8'))) fail('payload_exists_different', 'a different or no longer private entry already holds this payload name', { payloadPath });",
-  "skills/closed-loop-pr/helpers/payload.js|try { bytes = fs.readFileSync(data.path); } catch (error) { fail('payload_unreadable', `the payload file is not readable: ${error.message}`, { path: data.path }); }",
+  "skills/closed-loop-pr/helpers/payload.js|try { resolved = fs.realpathSync.native(data.path); bytes = fs.readFileSync(resolved); } catch (error) { fail('payload_unreadable', `the payload file is not readable: ${error.message}`, { path: data.path }); }",
   // CL-D90: the schema the child ran with is read only from inside the run, by the same canonical containment.
   "skills/closed-loop-pr/helpers/launch.js|try { canonicalSchema = fs.realpathSync.native(childSchemaPath); } catch { canonicalSchema = null; }",
   "skills/closed-loop-pr/helpers/launch.js|const within = path.relative(fs.realpathSync.native(path.dirname(statusPath)), canonicalSchema);",
