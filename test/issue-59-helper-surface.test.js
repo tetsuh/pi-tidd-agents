@@ -13,12 +13,12 @@ const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace'
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
 const HELPER_FILES = [
   'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js',
-  'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
+  'payload.js', 'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
 const ALLOWED_OPERATIONS = [
   'build_fingerprint_snapshot', 'build_gate_assignments', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
   'build_workspace_verify', 'build_writer_launch', 'commit_create', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
-  'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_result_read', 'gate_result_validate',
+  'fingerprint_pr_head', 'fingerprint_pr_tree', 'fingerprint_snapshot', 'gate_payload_verify', 'gate_result_read', 'gate_result_validate',
   'marker_create', 'marker_reconcile', 'message_verify', 'required_evidence_check', 'required_evidence_set', 'validation_run',
   'operator_capture', 'operator_revalidate', 'push_publish', 'snapshot', 'workspace_cleanup', 'workspace_create',
   'workspace_cleanup_created', 'workspace_verify', 'writability',
@@ -36,6 +36,17 @@ const APPROVED_FS_SITES = [
   'skills/closed-loop-pr/helpers/paths.js|const target = fs.realpathSync.native(top);',
   "skills/closed-loop-pr/helpers/launch.js|const fs = require('node:fs');",
   "skills/closed-loop-pr/helpers/launch.js|function readUtf8(file) { return fs.readFileSync(file, 'utf8'); }",
+  // CL-D91: the gate payload file, written once beside the expectation file and verified by digest.
+  "skills/closed-loop-pr/helpers/payload.js|const fs = require('node:fs');",
+  "skills/closed-loop-pr/helpers/payload.js|try { dir = fs.realpathSync.native(path.dirname(expectationPath)); } catch (error) { fail('payload_location_invalid', `the payload location does not resolve: ${error.message}`); }",
+  "skills/closed-loop-pr/helpers/payload.js|const tmp = fs.realpathSync.native(os.tmpdir());",
+  "skills/closed-loop-pr/helpers/payload.js|if (fs.existsSync(path.join(at, '.git'))) fail('payload_location_invalid', 'the payload location is inside a Git work tree', { dir, repository: at });",
+  "skills/closed-loop-pr/helpers/payload.js|fs.writeFileSync(payloadPath, payload, { mode: 0o600, flag: 'wx' });",
+  "skills/closed-loop-pr/helpers/payload.js|fs.chmodSync(payloadPath, 0o600);",
+  "skills/closed-loop-pr/helpers/payload.js|if ((fs.lstatSync(payloadPath).mode & 0o777) !== 0o600) fail('payload_write_failed', 'the payload file could not be made private to the operator', { payloadPath });",
+  "skills/closed-loop-pr/helpers/payload.js|const existing = fs.lstatSync(payloadPath);",
+  "skills/closed-loop-pr/helpers/payload.js|if (!existing.isFile() || (existing.mode & 0o777) !== 0o600 || !fs.readFileSync(payloadPath).equals(Buffer.from(payload, 'utf8'))) fail('payload_exists_different', 'a different or no longer private entry already holds this payload name', { payloadPath });",
+  "skills/closed-loop-pr/helpers/payload.js|try { resolved = fs.realpathSync.native(data.path); bytes = fs.readFileSync(resolved); } catch (error) { fail('payload_unreadable', `the payload file is not readable: ${error.message}`, { path: data.path }); }",
   // CL-D90: the schema the child ran with is read only from inside the run, by the same canonical containment.
   "skills/closed-loop-pr/helpers/launch.js|try { canonicalSchema = fs.realpathSync.native(childSchemaPath); } catch { canonicalSchema = null; }",
   "skills/closed-loop-pr/helpers/launch.js|const within = path.relative(fs.realpathSync.native(path.dirname(statusPath)), canonicalSchema);",
@@ -78,8 +89,8 @@ const APPROVED_FS_SITES = [
 ].sort();
 const EXPECTED_REQUIRE_COUNTS = {
   './builders': 2, './composition': 6, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
-  './paths': 5, './process': 8, './protocol': 16, './publish': 1, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 8, 'node:fs': 7, 'node:os': 4, 'node:path': 9,
+  './paths': 5, './payload': 2, './process': 8, './protocol': 17, './publish': 1, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
+  'node:child_process': 1, 'node:crypto': 9, 'node:fs': 8, 'node:os': 5, 'node:path': 10,
 };
 // CL-D89 adds the writer's commit and push, and the reads that verify them (rev-list for the sole parent, merge-base for
 // the pushed history, check-ref-format for the captured branch). The two literal credential pairs are the push's own: the inherited helper list cleared, then
@@ -117,7 +128,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
-const AGGREGATE_SMOKE_ALARM = 290000; // CL-D89 reviewed reset from 280,000 (CL-D86) after the review corrections of the writer's packaged commit and push
+const AGGREGATE_SMOKE_ALARM = 300000; // CL-D91 reviewed reset from 290,000 (CL-D89) for the gate payload file
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -256,6 +267,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'CL-D78 reset it a sixth time to 270,000 bytes',
     'CL-D86 reset it a seventh time to 280,000 bytes',
     'CL-D89 reset it an eighth time to 290,000 bytes',
+    'CL-D91 reset it a ninth time to 300,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);

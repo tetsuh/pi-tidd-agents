@@ -108,12 +108,13 @@ test('Issue #159 a child sent to the workspace is given no path it must resolve 
     assert.deepEqual([refused.ok, refused.error?.code, refused.error?.phase], [false, 'invalid_request', 'build'], JSON.stringify(refused));
     assert.match(refused.error.message, /expectationPath must be absolute/);
   });
-  // Without a workspace the child stays where the parent is, and a relative path still resolves there.
+  // Without a workspace a relative path would still resolve for the child, but CL-D91 writes the payload beside the
+  // expectation file, which must therefore be absolute in both modes.
   withExpectationFile('adversarial', (data) => {
     const relative = path.relative(process.cwd(), data.expectationPath);
-    const built = helpers.buildGateLaunch({ ...data, expectationPath: relative });
-    assert.equal(built.ok, true, JSON.stringify(built.error));
-    assert.ok(built.data.request.task.includes(`Expectation file: ${relative}`));
+    const refused = helpers.buildGateLaunch({ ...data, expectationPath: relative });
+    assert.deepEqual([refused.ok, refused.error?.code], [false, 'invalid_request'], JSON.stringify(refused));
+    assert.match(refused.error.message, /expectationPath must be absolute/);
   }, 'review-only');
 });
 
