@@ -228,6 +228,19 @@ test('Issue #188 the pointer names the path once, and the child reads the path t
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('Issue #188 the payload is 0600 whatever the umask', () => {
+  // CONV-189-PAYLOAD-MODE-UMASK: writeFileSync's mode is masked by the process umask, so a restrictive umask left an
+  // unreadable payload behind a successful launch. The mode is set and verified after creation.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
+  const saved = process.umask(0o777);
+  try {
+    const built = helpers.buildGateLaunch(inputs(dir));
+    assert.equal(built.ok, true, JSON.stringify(built.error));
+    assert.equal(fs.statSync(built.data.payloadPath).mode & 0o777, 0o600);
+    assert.equal(cli('gate_payload_verify', { path: built.data.payloadPath, sha256: built.data.payloadSha256 }).ok, true, 'the payload is readable');
+  } finally { process.umask(saved); fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('Issue #188 the map and the contract state the pointer rule', () => {
   const map = readText('skills/closed-loop-pr/references/helper-map.md');
   assert.match(map, /\| The gate child's first step, on the payload its launch points to \(CL-D91\) \| `gate_payload_verify` \| `path`, `sha256` \|/);
