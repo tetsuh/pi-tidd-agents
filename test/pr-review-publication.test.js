@@ -731,6 +731,9 @@ test('Issue #170 one valid observation on a line does not exempt an unexpanded o
   for (const sentence of [
     'External observation: head bbbbbbbb observed at 2026-09-21T10:02:03Z; external_observation: head bbbbbbbb observed_from $(date -u +%FT%TZ), this run only',
     'external_observation: head bbbbbbbb observed_from 2026-09-21T10:02:03Z, then observed at `date -u`.',
+    // CONV-183-OBSERVATION-SECOND-MARKER-BYPASS: no comma or semicolon between the two markers.
+    'external_observation: head bbbbbbbb observed_from 2026-09-21T10:02:03Z then observed at `date -u`, this run only',
+    'observed at 2026-09-21T10:02:03Z and later observed_from ${OBSERVED_AT} for the same head',
   ]) {
     const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
     const error = publisherError(f);
