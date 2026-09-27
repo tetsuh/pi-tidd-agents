@@ -698,3 +698,148 @@ test('Issue #41 preserves the validated comment URL when receipt creation fails'
   assert.match(combined, /do not retry automatically/);
   assert.equal(callCount(f), 5);
 });
+
+// Issue #170: the review-only artifact for PR #149 at b24de911 was published with the literal text
+// `$(date -u +%Y-%m-%dT%H:%M:%SZ)` where the observation time belongs. The digest, UTF-8, LF, and marker checks
+// all passed, because none of them reads the sentence. The publisher now refuses an observation time that is still an
+// unexpanded substitution, before any provider lookup.
+// TDD provenance: the four original shapes below were pre-implementation behavioural RED.
+// The date/T-prefix bypass is review-driven regression coverage.
+function publisherError(f) {
+  try { runPublisher(f); } catch (error) { return String(error.stderr || error.message); }
+  return null;
+}
+test('Issue #170 refuses an observation time left as an unexpanded substitution', () => {
+  for (const sentence of [
+    'External observation for this run: head `b24de911…` observed at $(date -u +%Y-%m-%dT%H:%M:%SZ); 14 comments.',
+    'external_observation: head bbbbbbbb observed_from $(date -u +%FT%TZ), this run only',
+    'external_observation: head bbbbbbbb observed_from ${OBSERVED_AT}, this run only',
+    'External observation: head bbbbbbbb observed at `date -u`, this run only.',
+    'External observation for this run: head bbbbbbbb observed at 2026-09-26T$(date -u +%H:%M:%SZ); 14 comments.',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${sentence}`);
+    assert.match(error, /unexpanded substitution|carries a command substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+});
+
+test('Issue #170 one valid observation on a line does not exempt an unexpanded one beside it', () => {
+  // CONV-183-OBSERVATION-SECOND-ON-LINE-BYPASS: the check filtered lines, so a line with a valid `observed at` and an
+  // unexpanded `observed_from $(…)` passed the timestamp whitelist and was never scanned.
+  for (const sentence of [
+    'External observation: head bbbbbbbb observed at 2026-09-21T10:02:03Z; external_observation: head bbbbbbbb observed_from $(date -u +%FT%TZ), this run only',
+    'external_observation: head bbbbbbbb observed_from 2026-09-21T10:02:03Z, then observed at `date -u`.',
+    // CONV-183-OBSERVATION-SECOND-MARKER-BYPASS: no comma or semicolon between the two markers.
+    'external_observation: head bbbbbbbb observed_from 2026-09-21T10:02:03Z then observed at `date -u`, this run only',
+    'observed at 2026-09-21T10:02:03Z and later observed_from ${OBSERVED_AT} for the same head',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${sentence}`);
+    assert.match(error, /unexpanded substitution|carries a command substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+});
+
+test('Issue #170 whitespace after the marker does not hide a substitution, and a quoted substitution is refused too', () => {
+  // ADV-183-OBSERVATION-WHITESPACE-AND-QUOTED-CONTEXT: a line break or tab between the marker and the placeholder
+  // escaped the check, while a whole quoted historical sentence was refused although it states nothing.
+  for (const sentence of ['External observation: head abc observed at\n$(date -u +%FT%TZ); 14 comments.', 'External observation: head abc observed at\t$(date -u +%FT%TZ); 14 comments.', 'external_observation: head abc observed_from   ${OBSERVED_AT}, this run only']) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${JSON.stringify(sentence)}`);
+    assert.match(error, /unexpanded substitution|carries a command substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+  // The rule is parser-free (CONV-183-DOUBLE-BACKTICK-QUOTE closed the quotation-exemption class): a `$(` or `${`
+  // anywhere in the visible body is refused, quoted or not, whatever the backtick run length. Describe such text instead.
+  for (const quoted of ['Earlier review said `observed at $(date -u +%FT%TZ)`; current head observed at 2026-09-21T10:02:03Z.', 'Earlier review said ``observed at $(date -u +%FT%TZ)``; current head observed at 2026-09-21T10:02:03Z.']) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${quoted}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${quoted}`);
+    assert.match(error, /carries a command substitution/, quoted);
+    assert.equal(callCount(f), 0);
+  }
+});
+
+test('Issue #170 inline code spans pair from the left, and an exempted timestamp must be a possible date-time', () => {
+  // ADV-183-OBSERVATION-PARSER-BYPASSES: the quotation exemption paired a closing backtick with the next opening one,
+  // erasing the observation between them; and 2026-99-99T99:99:99Z was accepted as a timestamp.
+  for (const sentence of [
+    'External observation: head `b24de911` observed at $(date -u +%FT%TZ); see `details` below.',
+    'External observation: head `b24de911` observed at `date -u`; see `details` below.',
+    'External observation: head `b24de911` observed at 2026-99-99T99:99:99Z; the old form was an unexpanded date command.',
+    'external_observation: head abc observed_from 2026-02-30T10:00:00Z; the old form was an unexpanded date command.',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${sentence}`);
+    assert.match(error, /unexpanded substitution|carries a command substitution|not a possible date-time/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+  const accepted = fixture({ visibleBytes: Buffer.from('# Review state: MERGE_READY\nExternal observation: head `b24de911` observed at 2026-09-21T10:02:03Z; see `details` below. The earlier artifact carried an unexpanded date command in its observation sentence.\n', 'utf8') });
+  assert.equal(publisherError(accepted), null, 'a backticked head, a timestamp, later inline code, and a described example');
+});
+
+test('Issue #170 the marker is recognized whatever its case and whatever whitespace surrounds it', () => {
+  // ADV-183-OBSERVATION-MARKER-WHITESPACE-CASE: a no-break space, a vertical tab, a form feed, or a capital letter in
+  // the marker escaped recognition, and the command beside it was published.
+  for (const sentence of [
+    'External observation: head abc observed\u00a0at `date -u`; 14 comments.',
+    'External observation: head abc observed at\u000b`date -u`; 14 comments.',
+    'External observation: head abc observed at\u000c`date -u`; 14 comments.',
+    'External observation: head abc Observed At `date -u`; 14 comments.',
+    'external_observation: head abc OBSERVED_FROM\u2003`date -u`, this run only',
+    'external_observation: head abc observed_from\u3000${OBSERVED_AT}, this run only',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${JSON.stringify(sentence)}`);
+    assert.match(error, /unexpanded substitution|carries a command substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+  const accepted = fixture({ visibleBytes: Buffer.from('# Review state: MERGE_READY\nExternal observation: head abc Observed\u00a0At\u00a02026-09-21T10:02:03Z; 14 comments.\n', 'utf8') });
+  assert.equal(publisherError(accepted), null, 'a timestamp after a differently spaced marker is still a timestamp');
+});
+
+test('Issue #170 a marker with nothing between it and the command is still a marker', () => {
+  // ADV-183-MISSING-OBSERVATION-DELIMITER: the split required a space after the marker, so a backtick, a stripped
+  // zero-width joiner or the end of the sentence right after it left the command unexamined.
+  for (const sentence of [
+    'External observation: head abc observed at`date -u`; 14 comments.',
+    'external_observation: head abc observed_from`date -u`, this run only',
+    'External observation: head abc observed at\u200d`date -u`; 14 comments.',
+    'External observation: head abc observed at.',
+    'External observation: head abc observed at',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${JSON.stringify(sentence)}`);
+    assert.match(error, /unexpanded substitution|carries a command substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+  for (const sentence of [
+    'External observation: head abc observed at2026-09-21T10:02:03Z; 14 comments.',
+    'The driver observed attempts 1-6 and observed_from_state nothing; head abc observed at 2026-09-21T10:02:03Z.',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    assert.equal(publisherError(f), null, `accepted: ${JSON.stringify(sentence)}`);
+  }
+});
+
+test('Issue #170 accepts real observation times, and refuses a substitution quoted elsewhere', () => {
+  const visible = Buffer.from([
+    '# Review state: MERGE_READY',
+    'external_observation: head bbbbbbbb observed_from 2026-09-26T01:31:35.646Z, this run only',
+    'External observation for this run: head `b24de911` observed at 2026-09-21T10:02:03Z.',
+    'External observation for this run: head `b24de911` observed at `2026-09-21T10:02:03Z`.',
+    'The earlier artifact carried an unexpanded date command in its observation sentence.',
+    '',
+  ].join('\n'), 'utf8');
+  const f = fixture({ visibleBytes: visible });
+  assert.equal(publisherError(f), null);
+  const quotedElsewhere = fixture({ visibleBytes: Buffer.from('# Review state: MERGE_READY\nobserved at 2026-09-21T10:02:03Z. The earlier artifact carried the literal `$(date -u +%Y-%m-%dT%H:%M:%SZ)`.\n', 'utf8') });
+  assert.match(publisherError(quotedElsewhere) || '', /carries a command substitution/, 'a quoted substitution anywhere is refused; describe it instead');
+});
