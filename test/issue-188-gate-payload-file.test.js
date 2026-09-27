@@ -83,7 +83,7 @@ test('Issue #188 gate_payload_verify accepts the payload and refuses a corrupted
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('Issue #188 the payload is never written inside a Git work tree or at a relative path', () => {
+test('Issue #188 the payload is never written inside a Git work tree', () => {
   const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-repo-'));
   try {
     execFileSync('git', ['init', '-q'], { cwd: repo });
@@ -92,10 +92,74 @@ test('Issue #188 the payload is never written inside a Git work tree or at a rel
     const refused = helpers.buildGateLaunch(inputs(inside));
     assert.deepEqual([refused.ok, refused.error?.code], [false, 'payload_location_invalid'], JSON.stringify(refused));
     assert.deepEqual(fs.readdirSync(inside).filter((name) => name.startsWith('gate-payload-')), [], 'nothing was written');
-    const relative = inputs(fs.mkdtempSync(path.join(os.tmpdir(), 'i188-')));
-    const rel = helpers.buildGateLaunch({ ...relative, expectationPath: path.relative(process.cwd(), relative.expectationPath) });
-    assert.deepEqual([rel.ok, rel.error?.code], [false, 'payload_location_invalid']);
   } finally { fs.rmSync(repo, { recursive: true, force: true }); }
+});
+
+test('Issue #188 a relative expectation path is refused before anything is read, in both modes', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
+  try {
+    const data = inputs(dir);
+    const rel = helpers.buildGateLaunch({ ...data, expectationPath: path.relative(process.cwd(), data.expectationPath) });
+    assert.deepEqual([rel.ok, rel.error?.code], [false, 'invalid_request'], JSON.stringify(rel));
+    assert.match(rel.error.message, /expectationPath must be absolute/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Issue #188 the location is judged by where it resolves, and only a temporary directory qualifies', () => {
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-repo-'));
+  const link = path.join(os.tmpdir(), `i188-link-${process.pid}`);
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: repo });
+    fs.mkdirSync(path.join(repo, 'sub'));
+    fs.symlinkSync(path.join(repo, 'sub'), link);
+    // A symlinked directory outside the repository that resolves inside it.
+    const refused = helpers.buildGateLaunch(inputs(link));
+    assert.deepEqual([refused.ok, refused.error?.code], [false, 'payload_location_invalid'], JSON.stringify(refused));
+    assert.deepEqual(fs.readdirSync(path.join(repo, 'sub')).filter((name) => name.startsWith('gate-payload-')), [], 'nothing was written into the repository');
+    // A directory outside the temporary directory, even with no .git above it, is not a run directory.
+    const home = fs.mkdtempSync(path.join(os.homedir(), '.i188-'));
+    try {
+      const outside = helpers.buildGateLaunch(inputs(home));
+      assert.deepEqual([outside.ok, outside.error?.code], [false, 'payload_location_invalid'], JSON.stringify(outside));
+    } finally { fs.rmSync(home, { recursive: true, force: true }); }
+  } finally { fs.rmSync(link, { force: true }); fs.rmSync(repo, { recursive: true, force: true }); }
+});
+
+test('Issue #188 a planted symlink at the payload name is refused, not followed', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
+  try {
+    const first = helpers.buildGateLaunch(inputs(dir)).data;
+    const target = path.join(dir, 'elsewhere.md');
+    fs.copyFileSync(first.payloadPath, target);
+    fs.rmSync(first.payloadPath);
+    fs.symlinkSync(target, first.payloadPath);
+    const again = helpers.buildGateLaunch(inputs(dir));
+    assert.deepEqual([again.ok, again.error?.code], [false, 'payload_exists_different'], JSON.stringify(again));
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Issue #188 the pointer is a runnable command and a failed check leaves no structured output', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188 dir with space\'s-'));
+  try {
+    const { request, payloadPath, payloadSha256 } = helpers.buildGateLaunch(inputs(dir)).data;
+    const line = request.task.split('\n').find((entry) => entry.startsWith('1. Run: '));
+    assert.ok(line, request.task);
+    const command = line.slice('1. Run: '.length);
+    // The command, run exactly as written, verifies the payload through the packaged CLI.
+    const out = JSON.parse(execFileSync('bash', ['-c', command], { encoding: 'utf8' }));
+    assert.deepEqual([out.ok, out.operation, out.data.bytes], [true, 'gate_payload_verify', fs.statSync(payloadPath).size]);
+    assert.ok(command.includes(payloadSha256));
+    // A failed check ends the child with no structured output: the zero-output transport failure, not a malformed result.
+    assert.match(request.task, /If it prints anything but "ok":true, stop at once and end without producing any structured output\./);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Issue #188 the alarm reset left room, asserted against the measurement it was taken on', () => {
+  const dir = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers');
+  const bytes = fs.readdirSync(dir).filter((f) => f.endsWith('.js')).reduce((sum, f) => sum + fs.statSync(path.join(dir, f)).size, 0);
+  assert.ok(bytes < 300000, `packaged helpers total ${bytes}`);
+  assert.ok(300000 - 292160 > 7000, 'CL-D91 measured 292,160 bytes at the raise');
+  assert.match(readText('CONTRACT.md'), /the payload file and its verification put the helpers at 292,160 bytes/);
 });
 
 test('Issue #188 the map and the contract state the pointer rule', () => {
