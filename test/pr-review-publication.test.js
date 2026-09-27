@@ -725,6 +725,21 @@ test('Issue #170 refuses an observation time left as an unexpanded substitution'
   }
 });
 
+test('Issue #170 one valid observation on a line does not exempt an unexpanded one beside it', () => {
+  // CONV-183-OBSERVATION-SECOND-ON-LINE-BYPASS: the check filtered lines, so a line with a valid `observed at` and an
+  // unexpanded `observed_from $(…)` passed the timestamp whitelist and was never scanned.
+  for (const sentence of [
+    'External observation: head bbbbbbbb observed at 2026-09-21T10:02:03Z; external_observation: head bbbbbbbb observed_from $(date -u +%FT%TZ), this run only',
+    'external_observation: head bbbbbbbb observed_from 2026-09-21T10:02:03Z, then observed at `date -u`.',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${sentence}`);
+    assert.match(error, /observation time is an unexpanded substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+});
+
 test('Issue #170 accepts a real observation time, and a substitution quoted elsewhere', () => {
   const visible = Buffer.from([
     '# Review state: MERGE_READY',
