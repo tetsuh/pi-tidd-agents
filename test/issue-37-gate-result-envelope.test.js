@@ -332,7 +332,9 @@ test('Issue #37 workflow records round-trip with root-specific completeness chec
 
 // SOL-57-003: record schemas carry the AC-DISPOSITION, AC-DECISION, CL-D29, and CL-D2 fields.
 test('Issue #37 record schemas are closed and carry their contract fields', () => {
-  const { findings, confirmations, decisions, evidenceRead, adversarialResults } = gateResult.SCHEMA.properties;
+  const { confirmations, decisions, evidenceRead, adversarialResults } = gateResult.SCHEMA.properties;
+  // #162: the finding schema is a set of variants; the contract fields live on the whole shape behind them.
+  const findings = { items: gateResult.findingShape() };
   for (const key of ['origin', 'raisedAgainstFingerprint', 'impact', 'rationale', 'correction', 'transport']) {
     assert.ok(findings.items.required.includes(key), `AC-DISPOSITION field ${key} must be required on a finding`);
   }
@@ -462,8 +464,9 @@ test('Issue #37 packaged CLI accepts mixed findings and exits nonzero on forged 
 });
 
 test('Issue #37 findings separate assigned identity, fresh identity, and the out-of-scope residual label', () => {
-  const record = gateResult.SCHEMA.properties.findings.items;
+  const record = gateResult.findingShape();  // #162: the whole shape behind the variants
   assert.equal(record.additionalProperties, false);
+  for (const variant of gateResult.SCHEMA.properties.findings.items.anyOf) assert.equal(variant.additionalProperties, false, 'every variant is closed');
   assert.equal(record.properties.workflowRecord.additionalProperties, false);
   for (const key of ['candidateIdentity', 'revisedPassage', 'snapshotAssignment', 'sourceKind', 'sourceId', 'sourceUrl', 'authorIdentity', 'authorType', 'bodyDigest', 'createdAt', 'updatedAt', 'reviewCommitOid', 'path', 'line', 'observedHeadOid', 'fingerprint', 'semanticFingerprint', 'correctiveChange', 'replyUrl']) assert.ok(Object.hasOwn(record.properties.workflowRecord.properties, key), `workflow record must represent ${key}`);
   for (const key of ['findingId', 'origin', 'gate', 'headOid', 'severity', 'proposedDisposition', 'evidence', 'correction']) {
