@@ -94,7 +94,7 @@ When an external state cannot be determined — a provider that exposes no usabl
 
 Workflow findings carry across resumptions with assigned identities and status dispositions. The initial snapshot is not polling. Review-only has no timers and **must not busy-poll**; incomplete processing reports `WAITING_EXTERNAL_REVIEW` with a status block for resume.
 
-Treat CodeRabbit and SonarCloud as required once detected. Process GitHub Copilot review findings when observed, but never block merely because an optional Copilot review is absent. Human `Changes requested` and required approvals are a separate repository-policy gate.
+Treat CodeRabbit and SonarCloud as required once detected. Read CodeRabbit's state from the snapshot's `policies.externalReview`, never from raw suites: an empty check suite (zero check runs) is no external-review record, and the newest `CodeRabbit` commit status on the head decides (CL-D92). Process GitHub Copilot review findings when observed, but never block merely because an optional Copilot review is absent. Human `Changes requested` and required approvals are a separate repository-policy gate.
 
 ### SonarCloud (CL-D17)
 

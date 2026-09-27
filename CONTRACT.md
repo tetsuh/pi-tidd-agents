@@ -660,6 +660,19 @@ The implementation must preserve the exact `gh pr comment <full-pr-url> --body-f
 *Rationale:* The writer launch was the last hand-composed request in the exact-autofix flow, and the failure it caused cost a whole run after the gates had already produced a finding. Stating the one field that broke is the smallest change that makes the run reach its writer; if the parent gets another field wrong, CL-D68's builder shape is the answer, and this record says so.
 *Validity and invalidation conditions:* Applies to the `tidd-autofix-worker` launch. It grants the writer nothing: the grant, the one-commit and one-push bounds, and every guard are unchanged, and no review-gate launch changes. `false` is pi-subagents' deprecated shorthand for `{ level: "none" }`; if a release removes it, this record is invalidated and the setting must be restated. Packaging the writer launch as a builder, or giving it any other acceptance setting or time bound, requires a new owner decision. That builder is CL-D81, taken four days later after the parent composed another field wrongly: the three settings are unchanged and now emitted by `build_writer_launch`, so this record is superseded in form only, and CL-D80-autofix's sentence in `references/autofix.md` is replaced by CL-D81's map row and builder sentence.
 
+## CL-D92 — The snapshot classifies CodeRabbit's review state
+**Clauses:** CL-D92-classify, CL-D92-prose, CL-D92-record, CL-D92-tests
+
+*Decision ID:* CL-D92
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#193` at its body and the owner choice https://github.com/tetsuh/pi-tidd-agents/issues/193#issuecomment-5857325598 (working session of 2026-09-28)
+*Question:* A review-only run on tetsuh/sitos#185 passed every gate and ended `WAITING_EXTERNAL_REVIEW`, because GitHub keeps an empty `coderabbitai` check suite (zero check runs) `queued` on every commit while CodeRabbit reports through its `CodeRabbit` commit status. The parent read the empty suite as a pending review, so `MERGE_READY` was unreachable wherever CodeRabbit runs. Where does CodeRabbit's state come from, and who reads it?
+*Options and trade-offs:* The rule alone, in both roots' prose, leaves the parent interpreting raw suites and statuses each run. The rule plus a classification the snapshot emits makes the reading deterministic and costs one small function in the helpers.
+*Recommendation:* The rule plus the classification.
+*Owner choice:* The rule plus the classification (https://github.com/tetsuh/pi-tidd-agents/issues/193#issuecomment-5857325598). `snapshot` emits `policies.externalReview`: a check suite with `latest_check_runs_count` 0 is ignored for detection and completion; the newest `CodeRabbit` commit status on the head decides (`success` completed, `pending` pending, `failure` or `error` failed); a non-empty CodeRabbit suite is read only when no such status exists. Both roots read the classification, never raw suites.
+*Rationale:* An undetermined provider must never pass, and an empty suite is not undetermined: it holds nothing. Naming the source once, in the package, removes a reading the parent had to get right on every run.
+*Validity and invalidation conditions:* Applies to CodeRabbit's state in `snapshot` and both roots' external-review readiness. Other providers, required checks, approvals, and `CHANGES_REQUESTED` are unchanged. Reading CodeRabbit from an empty suite, or from anything but this classification, requires a new owner decision.
+
 ## CL-D91 — The gate launch carries a pointer to a verified payload file
 **Clauses:** CL-D91-payload, CL-D91-verify, CL-D91-record, CL-D91-tests
 

@@ -170,6 +170,19 @@ function classifyChecks(checks = []) {
     return { id: check.id, name: check.name, status: check.status, conclusion: check.conclusion, successful: check.status === 'completed' && check.conclusion === 'success', pending: check.status !== 'completed' || check.conclusion === null, failed: check.status === 'completed' && check.conclusion !== null && check.conclusion !== 'success' };
   });
 }
+// CL-D92 (#193): an empty check suite (zero runs) carries no provider state; CodeRabbit's state is its newest
+// `CodeRabbit` commit status on the head, and a non-empty CodeRabbit suite is read only when no such status exists.
+function classifyExternalReview(suites = [], statuses = []) {
+  if (!Array.isArray(suites) || !Array.isArray(statuses)) throw schemaError('external review records are not arrays');
+  const byStatus = { success: 'completed', pending: 'pending', failure: 'failed', error: 'failed' };
+  const latest = statuses.filter((item) => object(item) && /^coderabbit$/i.test(String(item.context)))
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || b.id - a.id)[0];
+  if (latest) return [{ provider: 'coderabbit', source: 'status', state: byStatus[latest.state] || 'unknown', description: latest.description ?? null }];
+  const suite = suites.find((item) => object(item) && item.app?.slug === 'coderabbitai' && item.latest_check_runs_count > 0);
+  if (!suite) return [];
+  const state = suite.status !== 'completed' ? 'pending' : suite.conclusion === 'success' ? 'completed' : 'failed';
+  return [{ provider: 'coderabbit', source: 'check_suite', state, description: null }];
+}
 async function collectAnnotations(transport, endpoint, checks, cwd) {
   const annotations = [];
   for (const check of checks) {
@@ -218,7 +231,7 @@ async function collectSnapshot({ owner, repo, number, cwd, transport = defaultTr
     return createResult('snapshot', {
       before, after, pull: pullBefore, comments, reviews, inline, threads, checks, statuses,
       checkSuites: suites, annotations,
-      policies: { branchProtection, rulesets: repositoryRulesets, organizationRulesets, defaultBranch: repository.default_branch, checks: classifiedChecks },
+      policies: { branchProtection, rulesets: repositoryRulesets, organizationRulesets, defaultBranch: repository.default_branch, checks: classifiedChecks, externalReview: classifyExternalReview(suites, statuses) },
       completeness: { rest: true, reviewThreads: true, nestedThreadComments: true, rulesetDetails: true, organizationRulesets: repository.owner?.type !== 'Organization' || organizationRulesets.length >= 0, checks: true, brackets: true },
     });
   } catch (error) {
@@ -226,4 +239,4 @@ async function collectSnapshot({ owner, repo, number, cwd, transport = defaultTr
   }
 }
 
-module.exports = { reviewThreadsQuery, collectSnapshot, restPages, reviewThreads, collectAnnotations, detailedRulesets, classifyChecks, identity, canonicalPull, MAX_PAGES };
+module.exports = { reviewThreadsQuery, collectSnapshot, restPages, reviewThreads, collectAnnotations, detailedRulesets, classifyChecks, classifyExternalReview, identity, canonicalPull, MAX_PAGES };

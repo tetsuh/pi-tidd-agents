@@ -4583,6 +4583,57 @@
       ]
     },
     {
+      "id": "CL-D92-classify",
+      "marker": "CL-D92",
+      "title": "The snapshot classifies CodeRabbit's review state",
+      "files": [
+        "skills/closed-loop-pr/helpers/snapshot.js"
+      ],
+      "requires": [
+        "function classifyExternalReview(",
+        "latest_check_runs_count > 0",
+        "externalReview: classifyExternalReview(suites, statuses)"
+      ]
+    },
+    {
+      "id": "CL-D92-prose",
+      "marker": "CL-D92",
+      "title": "Both roots read the classification",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md",
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "policies.externalReview",
+        "(CL-D92)"
+      ]
+    },
+    {
+      "id": "CL-D92-record",
+      "marker": "CL-D92",
+      "title": "CL-D92 records the classification rule",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D92 — The snapshot classifies CodeRabbit's review state",
+      "requires": [
+        "issues/193#issuecomment-5857325598",
+        "Reading CodeRabbit from an empty suite, or from anything but this classification, requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D92-tests",
+      "marker": "CL-D92",
+      "title": "The CL-D92 fixtures drive the classification",
+      "files": [
+        "test/issue-193-external-review-state.test.js"
+      ],
+      "requires": [
+        "Issue #193 an empty queued suite beside a success status is a completed CodeRabbit review",
+        "Issue #193 an empty suite alone detects no provider"
+      ]
+    },
+    {
       "id": "CL-D90-launch",
       "marker": "CL-D90",
       "title": "The launch request carries no schema",
