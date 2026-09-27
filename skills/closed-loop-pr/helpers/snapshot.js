@@ -171,17 +171,23 @@ function classifyChecks(checks = []) {
   });
 }
 // CL-D92 (#193): an empty check suite (zero runs) carries no provider state; CodeRabbit's state is its newest
-// `CodeRabbit` commit status on the head, and a non-empty CodeRabbit suite is read only when no such status exists.
+// `CodeRabbit` status by coderabbitai[bot] on the head, and a non-empty CodeRabbit suite is read only when no status
+// exists. Anything not provably CodeRabbit's or not dated, or a success other than "Review completed", is unknown.
 function classifyExternalReview(suites = [], statuses = []) {
   if (!Array.isArray(suites) || !Array.isArray(statuses)) throw schemaError('external review records are not arrays');
-  const byStatus = { success: 'completed', pending: 'pending', failure: 'failed', error: 'failed' };
-  const latest = statuses.filter((item) => object(item) && /^coderabbit$/i.test(String(item.context)))
-    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)) || b.id - a.id)[0];
-  if (latest) return [{ provider: 'coderabbit', source: 'status', state: byStatus[latest.state] || 'unknown', description: latest.description ?? null }];
-  const suite = suites.find((item) => object(item) && item.app?.slug === 'coderabbitai' && item.latest_check_runs_count > 0);
-  if (!suite) return [];
-  const state = suite.status !== 'completed' ? 'pending' : suite.conclusion === 'success' ? 'completed' : 'failed';
-  return [{ provider: 'coderabbit', source: 'check_suite', state, description: null }];
+  const one = (source, state, description = null) => [{ provider: 'coderabbit', source, state, description }];
+  const matching = statuses.filter((item) => object(item) && /^coderabbit$/i.test(String(item.context)));
+  if (matching.length) {
+    if (matching.some((item) => item.context !== 'CodeRabbit' || item.creator?.login !== 'coderabbitai[bot]' || Number.isNaN(Date.parse(item.created_at)))) return one('status', 'unknown');
+    const latest = matching.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || Number(b.id) - Number(a.id))[0];
+    const state = latest.state === 'success' ? (latest.description === 'Review completed' ? 'completed' : 'unknown') : { pending: 'pending', failure: 'failed', error: 'failed' }[latest.state] || 'unknown';
+    return one('status', state, latest.description ?? null);
+  }
+  const ours = suites.filter((item) => object(item) && item.app?.slug === 'coderabbitai' && item.latest_check_runs_count !== 0);
+  if (!ours.length) return [];
+  if (ours.some((item) => !Number.isInteger(item.latest_check_runs_count))) return one('check_suite', 'unknown');
+  if (ours.some((item) => item.status !== 'completed')) return one('check_suite', 'pending');
+  return one('check_suite', ours.sort((a, b) => Number(b.id) - Number(a.id))[0].conclusion === 'success' ? 'completed' : 'failed');
 }
 async function collectAnnotations(transport, endpoint, checks, cwd) {
   const annotations = [];

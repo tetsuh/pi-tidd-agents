@@ -4591,7 +4591,9 @@
       ],
       "requires": [
         "function classifyExternalReview(",
-        "latest_check_runs_count > 0",
+        "item.latest_check_runs_count !== 0",
+        "item.creator?.login !== 'coderabbitai[bot]'",
+        "latest.description === 'Review completed'",
         "externalReview: classifyExternalReview(suites, statuses)"
       ]
     },
