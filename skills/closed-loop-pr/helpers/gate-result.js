@@ -73,7 +73,15 @@ const SCHEMAS = { 1: schemaFor(1), 2: schemaFor(2) }, SCHEMA = SCHEMAS[2];
 const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 function check(s, v, p = 'envelope') {
-  if (s.anyOf) return check(LOOSE.get(s), v, p);
+  if (s.anyOf) {
+    // The whole shape behind the variants; for a copy of the schema (parsed or cloned, so not in LOOSE) it is rebuilt
+    // as the union of the variants' properties, required where every variant requires it.
+    const widest = (a, b) => (!a ? b : !b ? a : a.enum && b.enum ? { ...a, enum: [...new Set([...a.enum, ...b.enum])] } : a.enum ? b : a);
+    const loose = LOOSE.get(s) || { type: 'object', additionalProperties: false,
+      properties: s.anyOf.reduce((all, x) => { for (const [k, d] of Object.entries(x.properties)) all[k] = widest(all[k], d); return all; }, {}),
+      required: s.anyOf[0].required.filter((k) => s.anyOf.every((x) => x.required.includes(k))) };
+    return check(loose, v, p);
+  }
   if (s.type === 'array') {
     if (!Array.isArray(v)) fail('schema_invalid', `${p}: array`);
     v.forEach((x, i) => check(s.items, x, `${p}[${i}]`)); return;
