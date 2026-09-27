@@ -25,6 +25,9 @@ function writePayload(expectationPath, correlation, payload) {
   // A run directory is a temporary directory, which also keeps the payload out of a work tree whose .git lives elsewhere.
   let dir;
   try { dir = fs.realpathSync.native(path.dirname(expectationPath)); } catch (error) { fail('payload_location_invalid', `the payload location does not resolve: ${error.message}`); }
+  // The resolved path is what the pointer names, so it is screened as the spelled one is: no control character or
+  // backtick can carry text into the child's task.
+  if (/[\x00-\x1f\x7f`]/.test(dir)) fail('payload_location_invalid', 'the resolved payload location carries a control character or a backtick');
   const tmp = fs.realpathSync.native(os.tmpdir());
   const underTmp = path.relative(tmp, dir);
   if (!underTmp || underTmp.startsWith('..') || path.isAbsolute(underTmp)) fail('payload_location_invalid', 'the payload location is not inside the temporary directory', { dir, tmp });
