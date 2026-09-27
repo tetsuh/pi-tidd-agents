@@ -5,7 +5,7 @@
 // structure reaches a reviewer task and every identity the envelope repeats agrees with the expectation.
 // `build_gate_launch` in launch.js is its only consumer.
 
-const { SCHEMA } = require('./gate-result');
+const { findingShape } = require('./gate-result');
 const { FINGERPRINT_DOMAINS, FINGERPRINT_ENCODINGS, OID_PATTERN } = require('./evidence');
 
 function plain(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -38,10 +38,11 @@ const TARGET_FIELDS = Object.freeze({
 const HISTORY_FIELDS = Object.freeze(['unresolved', 'reopened', 'settled']);
 // A history record is a finding record or a settled summary: the finding fields the packaged schema declares,
 // plus the projection fields CL-D2 names for a settled or reopened entry. Every record names its finding.
-const HISTORY_RECORD_FIELDS = Object.freeze([...Object.keys(SCHEMA.properties.findings.items.properties),
+// #162: the finding schema is a set of variants; its fields are those of the whole shape behind them.
+const HISTORY_RECORD_FIELDS = Object.freeze([...Object.keys(findingShape().properties),
   'sourceGate', 'raisedAgainst', 'disposition', 'dispositionRationale', 'confirmation', 'status', 'reviewedHead', 'summary']);
 // The one declared object inside a record is closed by the same schema (CONV-123-HISTORY-RECORD-CLOSURE).
-const WORKFLOW_RECORD_FIELDS = Object.freeze(Object.keys(SCHEMA.properties.findings.items.properties.workflowRecord.properties));
+const WORKFLOW_RECORD_FIELDS = Object.freeze(Object.keys(findingShape().properties.workflowRecord.properties));
 // The evidence identities the correlation already fixes; a repeated one must agree with it.
 const FINGERPRINT_CORRELATED = Object.freeze({ pr_head: 'headOid', pr_base: 'baseOid', snapshot: 'snapshotFingerprint' });
 const RECORD_LISTS = Object.freeze(['decisions', 'comments']);

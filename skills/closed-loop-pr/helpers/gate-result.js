@@ -32,11 +32,29 @@ const corr = (gate) => closed({ ...fields('headBranch'), repository: NWO, number
 const RECORD = closed({ ...fields('candidateIdentity revisedPassage snapshotAssignment sourceId sourceUrl authorIdentity authorType createdAt updatedAt path correctiveChange replyUrl'),
   sourceKind: choice(SOURCES), bodyDigest: SHA256, reviewCommitOid: OID, line: { type: 'integer', minimum: 1 },
   observedHeadOid: OID, fingerprint: SHA256, semanticFingerprint: SHA256 });
-const finding = (gate) => closed({ ...fields('findingId blockerKey anchor proposedIssueTitle evidence impact rationale correction validationEvidence transport'),
+const FINDING_REQ = words('findingId origin gate headOid raisedAgainstFingerprint severity proposedDisposition evidence impact rationale correction transport workflowRecord');
+const findingBase = (gate) => closed({ ...fields('findingId blockerKey anchor proposedIssueTitle evidence impact rationale correction validationEvidence transport'),
   origin: choice(words('assigned fresh')), gate, headOid: OID, raisedAgainstFingerprint: SHA256,
   severity: choice(SEVERITIES), anchoring: choice(ANCHORING), outOfScope: { type: 'boolean' },
-  proposedDisposition: choice(DISPOSITIONS), workflowRecord: RECORD },
-  words('findingId origin gate headOid raisedAgainstFingerprint severity proposedDisposition evidence impact rationale correction transport workflowRecord'));
+  proposedDisposition: choice(DISPOSITIONS), workflowRecord: RECORD }, FINDING_REQ);
+// #162: the classification rules checkFindings applies per finding, stated as the variants a schema-constrained model
+// can emit, so decoding cannot produce a finding the validator refuses for them. The local check keeps reading the
+// base shape (LOOSE), and checkFindings still states the rules with their own codes.
+const LOOSE = new WeakMap();
+const finding = (gate) => {
+  const base = findingBase(gate);
+  const variant = (props, required = []) => ({ ...base, properties: { ...base.properties, ...props }, required: [...FINDING_REQ, ...required] });
+  const without = (key) => { const { [key]: _omit, ...rest } = base.properties; return rest; };
+  const notOut = { outOfScope: { type: 'boolean', enum: [false] } };
+  const node = { anyOf: [
+    variant({ anchoring: choice(['criterion-anchored']), ...notOut }, ['anchoring', 'anchor']),
+    variant({ anchoring: choice(['reword']), severity: choice(['Major', 'Minor']), proposedDisposition: choice(['fixed', 'accepted-as-designed']), ...notOut }, ['anchoring']),
+    variant({ anchoring: choice(['follow-up']), severity: choice(['Major', 'Minor']), proposedDisposition: choice(['deferred']), ...notOut }, ['anchoring', 'proposedIssueTitle']),
+    { ...base, properties: { ...without('anchoring'), outOfScope: { type: 'boolean', enum: [true] }, severity: choice(['Minor']), proposedDisposition: choice(['accepted-as-designed', 'deferred', 'not-applicable']) }, required: [...FINDING_REQ, 'outOfScope'] },
+  ] };
+  LOOSE.set(node, base);
+  return node;
+};
 const confirm = (gate) => closed({ ...fields('findingId evidence'), gate, headOid: OID,
   confirmation: choice(CONFIRMS) }, words('findingId gate headOid confirmation evidence'));
 const DEC = closed({ ...fields('decisionId kind targetAndRevision question options recommendation ownerChoice rationale validity'),
@@ -55,6 +73,7 @@ const SCHEMAS = { 1: schemaFor(1), 2: schemaFor(2) }, SCHEMA = SCHEMAS[2];
 const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
 function check(s, v, p = 'envelope') {
+  if (s.anyOf) return check(LOOSE.get(s), v, p);
   if (s.type === 'array') {
     if (!Array.isArray(v)) fail('schema_invalid', `${p}: array`);
     v.forEach((x, i) => check(s.items, x, `${p}[${i}]`)); return;
@@ -207,4 +226,6 @@ function validateGateResult(v, e) {
 // checkSchema exposes the same structural walk validateGateResult applies, so builders can
 // validate a correlation with the boundary's own checker instead of a re-derivation.
 function checkSchema(schema, value, pathName = 'value') { check(schema, value, pathName); }
-module.exports = { SCHEMA, SCHEMAS, ROOT_GATES, validateGateResult, expectedState, checkRequiredEvidence, checkSchema };
+// The whole finding shape behind the #162 variants: every field any variant may carry.
+const findingShape = (schema = SCHEMA) => LOOSE.get(schema.properties.findings.items);
+module.exports = { SCHEMA, SCHEMAS, ROOT_GATES, validateGateResult, expectedState, checkRequiredEvidence, checkSchema, findingShape };

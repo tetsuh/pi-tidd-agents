@@ -4,11 +4,10 @@
 // without `anchoring`). The CL-D36 schema admitted both, so structured-output decoding produced them, and the packaged
 // validator then refused the result and the run ended. Four observations, the last on exact-autofix attempt 2 on
 // PR #183. Owner choice B: the schema states the validator's per-finding classification rules as `anyOf` variants, so
-// decoding cannot produce these results; and exact autofix may re-invoke a gate once when its result is refused by
-// packaged validation, counted and reported.
+// decoding cannot produce these results. The owner's second part, one counted re-invocation of a refused result, moves
+// to the deterministic driver of #191 rather than into prose (direction of 2026-09-27).
 //
-// TDD provenance: behavioural RED — the schema admits the refused findings and autofix.md has no re-invocation row
-// before the change.
+// TDD provenance: behavioural RED — the schema admits the refused findings before the change.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -78,10 +77,4 @@ test('Issue #162 the local validator keeps its codes for the refused shapes', ()
   const refused = validateGateResult({ ...base, findings: [finding({ anchoring: 'criterion-anchored' })] }, expected);
   assert.deepEqual([refused.ok, refused.error?.code], [false, 'finding_records_invalid'], JSON.stringify(refused));
   assert.match(refused.error.message, /CONV-1-X: anchor/);
-});
-
-test('Issue #162 exact autofix re-invokes a gate once for a result packaged validation refuses', () => {
-  const autofix = readText('skills/closed-loop-pr/references/autofix.md');
-  assert.match(autofix, /\| gate result refused by packaged validation \(#162\) \| `gate_result_validate@gate_result` \| one re-invocation of the same gate on the same head, counted against the gate budget and reported \| recoverable once \| the refused envelope preserved and never read as a verdict \|/);
-  assert.match(autofix, /malformed verdict beyond the one #162 re-invocation, correlation mismatch, and stale target at `gate_result`/);
 });
