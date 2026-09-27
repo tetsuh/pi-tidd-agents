@@ -122,9 +122,11 @@ visible_sha256="$(hash_file "$VISIBLE_FILE")"
 [[ "$visible_sha256" == "$marker_digest" ]] || fail 'visible-body marker digest does not match canonical bytes'
 grep -F -q -- "$REVIEW_MARKER" "$POST_FILE" || fail 'review-comment.md is missing its deterministic marker'
 # Issue #170: every stated observation time is a timestamp. A drafted `$(…)`, `${…}`, or backtick command in its place
-# passes every byte check above and publishes a sentence that states nothing, so it is refused here. Each occurrence is
-# judged on its own, so one valid observation on a line exempts nothing beside it (CONV-183-OBSERVATION-SECOND-ON-LINE-BYPASS).
-if LC_ALL=C grep -E -o 'observed(_from| at) [^;,]*' "$VISIBLE_FILE" | LC_ALL=C grep -E -v '^observed(_from| at) `?[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})`?([[:space:].]|$)' \
+# passes every byte check above and publishes a sentence that states nothing, so it is refused here. The body is first
+# split at every marker, so each occurrence is judged alone: a valid timestamp exempts nothing beside or after it
+# (CONV-183-OBSERVATION-SECOND-ON-LINE-BYPASS, CONV-183-OBSERVATION-SECOND-MARKER-BYPASS).
+if LC_ALL=C awk '{ gsub(/observed(_from| at) /, "\n&"); print }' "$VISIBLE_FILE" | LC_ALL=C grep -E -o '^observed(_from| at) [^;,]*' \
+  | LC_ALL=C grep -E -v '^observed(_from| at) `?[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})`?([[:space:].]|$)' \
   | LC_ALL=C grep -E -q '(\$\(|\$\{|`)'; then
   fail 'the observation time is an unexpanded substitution, not a timestamp'
 fi
