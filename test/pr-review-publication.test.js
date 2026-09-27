@@ -743,6 +743,20 @@ test('Issue #170 one valid observation on a line does not exempt an unexpanded o
   }
 });
 
+test('Issue #170 whitespace after the marker does not hide a substitution, and a quoted marker is not an observation', () => {
+  // ADV-183-OBSERVATION-WHITESPACE-AND-QUOTED-CONTEXT: a line break or tab between the marker and the placeholder
+  // escaped the check, while a whole quoted historical sentence was refused although it states nothing.
+  for (const sentence of ['External observation: head abc observed at\n$(date -u +%FT%TZ); 14 comments.', 'External observation: head abc observed at\t$(date -u +%FT%TZ); 14 comments.', 'external_observation: head abc observed_from   ${OBSERVED_AT}, this run only']) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${JSON.stringify(sentence)}`);
+    assert.match(error, /observation time is an unexpanded substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+  const quoted = fixture({ visibleBytes: Buffer.from('# Review state: MERGE_READY\nEarlier review said `observed at $(date -u +%FT%TZ)`; current head observed at 2026-09-21T10:02:03Z.\n', 'utf8') });
+  assert.equal(publisherError(quoted), null, 'a quoted sentence is an example, not an observation');
+});
+
 test('Issue #170 accepts a real observation time, and a substitution quoted elsewhere', () => {
   const visible = Buffer.from([
     '# Review state: MERGE_READY',
