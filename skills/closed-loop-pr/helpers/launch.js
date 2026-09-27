@@ -16,6 +16,8 @@ const { createResult, createError } = require('./protocol');
 const { SCHEMA, ROOT_GATES, expectedState, validateGateResult } = require('./gate-result');
 const { inputShapeProblem } = require('./composition');
 const { VOLATILE_FIELDS, volatileRequired, volatileEmptiness, nestedProblem, citedRecords } = require('./envelope');
+// CL-D91: the gate payload file the launch points to, and the child's verification of it.
+const { writePayload, payloadPointer } = require('./payload');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CLI_PATH = path.join(__dirname, 'cli.js');
@@ -262,7 +264,8 @@ function buildGateLaunch(data) {
     parts.push(`Expectation file: ${data.expectationPath}\nPackaged validator: node ${CLI_PATH} (operation gate_result_validate, CL-D65)`);
     // #184, CL-D90: the schema is the gate role's own `outputSchema` (its agent definition), so the request carries none and the
     // parent has nothing to re-type; a parent-typed schema displaced every `required` array into `properties`.
-    const request = { agent, task: `${parts.join('\n\n')}\n`, context: 'fresh', async: true, outputMode: 'inline', acceptance: false };
+    const payload = `${parts.join('\n\n')}\n`;
+    const request = { agent, task: '', context: 'fresh', async: true, outputMode: 'inline', acceptance: false };
     // CL-D82: an exact-autofix gate reads the tree the run works in, so the launch names it; review-only has no
     // workspace and its child inherits the operator checkout, which is the tree it reviews. The envelope already
     // states which mode this is, so the two are related here rather than left to the parent's memory: an autofix
@@ -271,7 +274,11 @@ function buildGateLaunch(data) {
     if (autofix && !Object.hasOwn(data, 'created')) fail('invalid_request', 'an autofix gate runs in the run-owned workspace; pass the workspace_create data as created');
     if (!autofix && Object.hasOwn(data, 'created')) fail('invalid_request', 'a review-only gate reviews the operator checkout; it takes no workspace');
     if (Object.hasOwn(data, 'created')) request.cwd = gateWorkspaceCwd(data.created);
-    return createResult(operation, { request, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });
+    // #188, CL-D91: the parent re-typed the 14 KB task and corrupted it, so the task is written here, once, and the
+    // request carries only a pointer the child verifies before reading.
+    const { payloadPath, payloadSha256 } = writePayload(data.expectationPath, expected.correlation, payload);
+    request.task = payloadPointer(payloadPath, payloadSha256);
+    return createResult(operation, { request, payloadPath, payloadSha256, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });
   } catch (error) {
     return createError(operation, error.code || 'build_failed', error.message, 'build', error.details);
   }

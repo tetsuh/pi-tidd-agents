@@ -23,6 +23,8 @@ const SCHEMAS = Object.freeze({
   workspace_cleanup_created: { required: ['created'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   gate_result_read: { required: ['runId'], optional: ['expectationPath'] },
+  // The gate child's first step, on the payload its launch points to (CL-D91).
+  gate_payload_verify: { required: ['path', 'sha256'], optional: [] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
   // After a push the workspace is ahead of created.head; the guard takes the transition workspace_verify takes (#185).
   guard_before_edit: { required: ['cwd', 'expected', 'authorizedPaths'], optional: ['transition'] },
@@ -151,6 +153,7 @@ async function dispatch(request) {
     case 'workspace_cleanup_created': return wrap(operation, await helpers.cleanupCreatedWorkspace(data));
     case 'gate_result_validate': return wrap(operation, helpers.validateGateResult(data.result, data.expected));
     case 'gate_result_read': return wrap(operation, helpers.readGateResult(data));
+    case 'gate_payload_verify': return wrap(operation, helpers.verifyGatePayload(data));
     case 'evidence_verify': return wrap(operation, helpers.verifyEvidence(data));
     case 'guard_before_edit': return wrap(operation, helpers.guardBeforeEdit(data));
     case 'overlay_freeze': return wrap(operation, helpers.overlayFreeze(data));

@@ -16,6 +16,7 @@ module.exports = {
   ...require('./launch'),
   ...require('./validation'),
   ...require('./publish'),
+  ...require('./payload'),
   ...require('./protocol'),
   protocol: require('./protocol'),
 };
