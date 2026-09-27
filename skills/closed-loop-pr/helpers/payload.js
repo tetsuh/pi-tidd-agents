@@ -37,7 +37,12 @@ function writePayload(expectationPath, correlation, payload) {
   }
   const payloadSha256 = crypto.createHash('sha256').update(payload).digest('hex');
   const payloadPath = path.join(dir, `gate-payload-${correlation.gate}-${correlation.invocation}-${payloadSha256.slice(0, 12)}.md`);
-  try { fs.writeFileSync(payloadPath, payload, { mode: 0o600, flag: 'wx' }); }
+  try {
+    fs.writeFileSync(payloadPath, payload, { mode: 0o600, flag: 'wx' });
+    // The umask masks the creation mode, so the mode is set and verified after creation (CONV-189-PAYLOAD-MODE-UMASK).
+    fs.chmodSync(payloadPath, 0o600);
+    if ((fs.lstatSync(payloadPath).mode & 0o777) !== 0o600) fail('payload_write_failed', 'the payload file could not be made private to the operator', { payloadPath });
+  }
   catch (error) {
     if (error.code !== 'EEXIST') fail('payload_write_failed', `the payload file could not be written: ${error.message}`, { payloadPath });
     // A same-named entry is reused only when it is a private regular file holding these exact bytes, compared raw so no
