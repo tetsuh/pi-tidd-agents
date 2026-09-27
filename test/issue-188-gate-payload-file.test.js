@@ -55,8 +55,8 @@ test('Issue #188 the launch request carries a pointer to a run-owned payload fil
     assert.match(payload, /#### Every-gate invariant payload block/, 'the payload is the composed task');
     assert.match(payload, /## Volatile envelope/);
     assert.ok(request.task.length < 1200, `the pointer is short: ${request.task.length}`);
-    assert.ok(request.task.includes(`Payload file: ${payloadPath}`));
-    assert.ok(request.task.includes(`Payload SHA-256: ${payloadSha256}`));
+    assert.ok(request.task.includes(payloadPath), 'the pointer names the payload path');
+    assert.ok(request.task.includes(payloadSha256), 'the pointer names the digest');
     assert.ok(request.task.includes('gate_payload_verify'), 'the child verifies through the packaged CLI');
     assert.equal(request.task.includes('## Volatile envelope'), false, 'no payload rides in the request');
     // A second build of the same invocation reuses the identical file rather than failing.
@@ -209,6 +209,23 @@ test('Issue #188 the alarm reset left room, asserted against the measurement it 
   assert.ok(bytes < 300000, `packaged helpers total ${bytes}`);
   assert.ok(300000 - 292160 > 7000, 'CL-D91 measured 292,160 bytes at the raise');
   assert.match(readText('CONTRACT.md'), /the payload file and its verification put the helpers at 292,160 bytes/);
+});
+
+test('Issue #188 the pointer names the path once, and the child reads the path the verifier authenticated', () => {
+  // ADV-189-POINTER-DISPLAY-DIVERGENCE: a path shown for display and a path inside the verify command could diverge,
+  // and the child might read the shown one while the verifier authenticated the other. The pointer carries the path
+  // and the digest exactly once each, inside the verify command, and the verifier's result names the path to read.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
+  try {
+    const { request, payloadPath, payloadSha256 } = helpers.buildGateLaunch(inputs(dir)).data;
+    assert.equal(request.task.split(payloadPath).length - 1, 1, 'the payload path appears exactly once');
+    assert.equal(request.task.split(payloadSha256).length - 1, 1, 'the digest appears exactly once');
+    assert.doesNotMatch(request.task, /^Payload file: /m, 'no display copy of the path');
+    assert.match(request.task, /read the file named by `path` in that result completely/, 'the child reads the verifier-authenticated path');
+    const verified = cli('gate_payload_verify', { path: payloadPath, sha256: payloadSha256 });
+    assert.equal(verified.ok, true, JSON.stringify(verified));
+    assert.equal(verified.data.path, fs.realpathSync.native(payloadPath), 'the result names the authenticated path, resolved');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('Issue #188 the map and the contract state the pointer rule', () => {
