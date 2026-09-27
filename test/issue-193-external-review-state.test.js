@@ -30,7 +30,7 @@ function transportWith({ suites = [], statuses = [] }) {
   };
 }
 const emptySuite = { id: 1, app: { slug: 'coderabbitai' }, status: 'queued', conclusion: null, latest_check_runs_count: 0 };
-const status = (state, description, created_at, id) => ({ id, context: 'CodeRabbit', state, description, created_at });
+const status = (state, description, created_at, id, login = 'coderabbitai[bot]') => ({ id, context: 'CodeRabbit', state, description, created_at, creator: { login } });
 async function classify(input) {
   const result = await snapshot.collectSnapshot({ owner: 'owner', repo: 'repo', number: 193, transport: transportWith(input) });
   assert.equal(result.ok, true, JSON.stringify(result));
@@ -54,6 +54,28 @@ test('Issue #193 the newest status wins whatever order the API lists them in', a
   for (const failed of ['failure', 'error']) assert.equal((await classify({ statuses: [status(failed, 'x', '2026-09-27T10:00:00Z', 4)] }))[0].state, 'failed');
 });
 
+// Pre-push adversarial review of 7e2146a: each of these failed open.
+test('Issue #193 a CodeRabbit status from any other author, or with no usable time, is unknown', async () => {
+  const bot = status('pending', 'Review in progress', '2026-09-27T11:00:00Z', 1);
+  assert.equal((await classify({ statuses: [bot, status('success', 'Review completed', '2026-09-27T11:00:01Z', 2, 'someone')] }))[0].state, 'unknown');
+  for (const created of [undefined, null, 'soon']) assert.equal((await classify({ statuses: [bot, status('success', 'Review completed', created, 2)] }))[0].state, 'unknown', String(created));
+  // An offset is a time, not a string to sort: 20:00+09:00 is 11:00Z, older than 11:30Z.
+  assert.equal((await classify({ statuses: [status('success', 'Review completed', '2026-09-27T20:00:00+09:00', 3), status('pending', 'Review in progress', '2026-09-27T11:30:00Z', 4)] }))[0].state, 'pending');
+});
+
+test('Issue #193 only "Review completed" completes; a paused or skipped success is unknown', async () => {
+  for (const description of ['Review paused', 'Review skipped', undefined]) assert.equal((await classify({ statuses: [status('success', description, '2026-09-27T10:00:00Z', 1)] }))[0].state, 'unknown', String(description));
+});
+
+test('Issue #193 suites: any unfinished one is pending, and a count that is not a number is unknown', async () => {
+  const suite = (id, status, conclusion, count = 1) => ({ id, app: { slug: 'coderabbitai' }, status, conclusion, latest_check_runs_count: count });
+  assert.equal((await classify({ suites: [suite(1, 'completed', 'success'), suite(2, 'in_progress', null)] }))[0].state, 'pending');
+  assert.equal((await classify({ suites: [suite(2, 'completed', 'failure'), suite(1, 'completed', 'success')] }))[0].state, 'failed');
+  const uncounted = suite(1, 'completed', 'success'); delete uncounted.latest_check_runs_count;
+  for (const shape of [uncounted, suite(1, 'completed', 'success', null), suite(1, 'completed', 'success', '1')]) assert.equal((await classify({ suites: [shape] }))[0].state, 'unknown', JSON.stringify(shape));
+  assert.deepEqual(await classify({ suites: [emptySuite, { id: 9, app: { slug: 'github-actions' }, status: 'completed', conclusion: 'success', latest_check_runs_count: 3 }] }), []);
+});
+
 test('Issue #193 a non-empty CodeRabbit suite is read only when no status exists', async () => {
   const running = { id: 5, app: { slug: 'coderabbitai' }, status: 'in_progress', conclusion: null, latest_check_runs_count: 1 };
   const done = { ...running, status: 'completed', conclusion: 'success' };
@@ -69,6 +91,7 @@ test('Issue #193 both roots read the classification instead of raw suites', () =
     const text = readText(file);
     assert.match(text, /policies\.externalReview/, file);
     assert.match(text, /empty check suite/i, file);
+    assert.match(text, /`unknown` is not complete/, file);
   }
   assert.match(readText('CONTRACT.md'), /^## CL-D92 — /m);
 });
