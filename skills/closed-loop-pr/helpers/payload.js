@@ -7,6 +7,7 @@
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { createResult, createError } = require('./protocol');
 
@@ -20,7 +21,13 @@ function fail(code, message, details) { throw Object.assign(new Error(message), 
 // its bytes are the payload's, and never overwritten (CL-D91).
 function writePayload(expectationPath, correlation, payload) {
   if (!path.isAbsolute(expectationPath)) fail('payload_location_invalid', 'the payload is written beside the expectation file, which must be absolute');
-  const dir = path.dirname(expectationPath);
+  // Judged where it resolves, not as spelled: a symlinked directory that lands in a repository is in that repository.
+  // A run directory is a temporary directory, which also keeps the payload out of a work tree whose .git lives elsewhere.
+  let dir;
+  try { dir = fs.realpathSync.native(path.dirname(expectationPath)); } catch (error) { fail('payload_location_invalid', `the payload location does not resolve: ${error.message}`); }
+  const tmp = fs.realpathSync.native(os.tmpdir());
+  const underTmp = path.relative(tmp, dir);
+  if (!underTmp || underTmp.startsWith('..') || path.isAbsolute(underTmp)) fail('payload_location_invalid', 'the payload location is not inside the temporary directory', { dir, tmp });
   for (let at = dir; ; at = path.dirname(at)) {
     if (fs.existsSync(path.join(at, '.git'))) fail('payload_location_invalid', 'the payload location is inside a Git work tree', { dir, repository: at });
     if (path.dirname(at) === at) break;
@@ -30,17 +37,23 @@ function writePayload(expectationPath, correlation, payload) {
   try { fs.writeFileSync(payloadPath, payload, { mode: 0o600, flag: 'wx' }); }
   catch (error) {
     if (error.code !== 'EEXIST') fail('payload_write_failed', `the payload file could not be written: ${error.message}`, { payloadPath });
-    if (fs.readFileSync(payloadPath, 'utf8') !== payload) fail('payload_exists_different', 'a different file already holds this payload name', { payloadPath });
+    // A same-named entry is reused only when it is a regular file holding these bytes; a link or anything else is not.
+    const existing = fs.lstatSync(payloadPath);
+    if (!existing.isFile() || fs.readFileSync(payloadPath, 'utf8') !== payload) fail('payload_exists_different', 'a different entry already holds this payload name', { payloadPath });
   }
   return { payloadPath, payloadSha256 };
 }
+// A single-quoted shell word, so a path with spaces or quotes survives being run as written.
+function shellWord(value) { return `'${String(value).replaceAll("'", "'\\''")}'`; }
 function payloadPointer(payloadPath, payloadSha256) {
+  const request = JSON.stringify({ version: 1, operation: 'gate_payload_verify', data: { path: payloadPath, sha256: payloadSha256 } });
   return [
     'Your complete gate payload is the file below; this message is only its pointer (CL-D91).',
     `Payload file: ${payloadPath}`,
     `Payload SHA-256: ${payloadSha256}`,
-    `1. Verify it first: node ${CLI_PATH} with operation gate_payload_verify and data {"path": ${JSON.stringify(payloadPath)}, "sha256": "${payloadSha256}"}. If the result is not ok, stop: review nothing and report that the payload could not be verified.`,
-    '2. Read the payload file completely, then follow it verbatim as your task.',
+    `1. Run: printf '%s' ${shellWord(request)} | node ${shellWord(CLI_PATH)}`,
+    'If it prints anything but "ok":true, stop at once and end without producing any structured output.',
+    '2. Otherwise read the payload file completely, then follow it verbatim as your task.',
     '',
   ].join('\n');
 }

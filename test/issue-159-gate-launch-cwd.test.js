@@ -113,7 +113,8 @@ test('Issue #159 a child sent to the workspace is given no path it must resolve 
   withExpectationFile('adversarial', (data) => {
     const relative = path.relative(process.cwd(), data.expectationPath);
     const refused = helpers.buildGateLaunch({ ...data, expectationPath: relative });
-    assert.deepEqual([refused.ok, refused.error?.code], [false, 'payload_location_invalid'], JSON.stringify(refused));
+    assert.deepEqual([refused.ok, refused.error?.code], [false, 'invalid_request'], JSON.stringify(refused));
+    assert.match(refused.error.message, /expectationPath must be absolute/);
   }, 'review-only');
 });
 

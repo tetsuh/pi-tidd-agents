@@ -38,9 +38,12 @@ const APPROVED_FS_SITES = [
   "skills/closed-loop-pr/helpers/launch.js|function readUtf8(file) { return fs.readFileSync(file, 'utf8'); }",
   // CL-D91: the gate payload file, written once beside the expectation file and verified by digest.
   "skills/closed-loop-pr/helpers/payload.js|const fs = require('node:fs');",
+  "skills/closed-loop-pr/helpers/payload.js|try { dir = fs.realpathSync.native(path.dirname(expectationPath)); } catch (error) { fail('payload_location_invalid', `the payload location does not resolve: ${error.message}`); }",
+  "skills/closed-loop-pr/helpers/payload.js|const tmp = fs.realpathSync.native(os.tmpdir());",
   "skills/closed-loop-pr/helpers/payload.js|if (fs.existsSync(path.join(at, '.git'))) fail('payload_location_invalid', 'the payload location is inside a Git work tree', { dir, repository: at });",
   "skills/closed-loop-pr/helpers/payload.js|try { fs.writeFileSync(payloadPath, payload, { mode: 0o600, flag: 'wx' }); }",
-  "skills/closed-loop-pr/helpers/payload.js|if (fs.readFileSync(payloadPath, 'utf8') !== payload) fail('payload_exists_different', 'a different file already holds this payload name', { payloadPath });",
+  "skills/closed-loop-pr/helpers/payload.js|const existing = fs.lstatSync(payloadPath);",
+  "skills/closed-loop-pr/helpers/payload.js|if (!existing.isFile() || fs.readFileSync(payloadPath, 'utf8') !== payload) fail('payload_exists_different', 'a different entry already holds this payload name', { payloadPath });",
   "skills/closed-loop-pr/helpers/payload.js|try { bytes = fs.readFileSync(data.path); } catch (error) { fail('payload_unreadable', `the payload file is not readable: ${error.message}`, { path: data.path }); }",
   // CL-D90: the schema the child ran with is read only from inside the run, by the same canonical containment.
   "skills/closed-loop-pr/helpers/launch.js|try { canonicalSchema = fs.realpathSync.native(childSchemaPath); } catch { canonicalSchema = null; }",
@@ -85,7 +88,7 @@ const APPROVED_FS_SITES = [
 const EXPECTED_REQUIRE_COUNTS = {
   './builders': 2, './composition': 6, './envelope': 2, './evidence': 2, './fingerprints': 2, './gate-result': 5, './guards': 1, './index': 1, './inspect': 1, './launch': 1, './operator': 3,
   './paths': 5, './payload': 2, './process': 8, './protocol': 17, './publish': 1, './reply': 1, './snapshot': 1, './validation': 1, './workspace': 2, './writability': 1,
-  'node:child_process': 1, 'node:crypto': 9, 'node:fs': 8, 'node:os': 4, 'node:path': 10,
+  'node:child_process': 1, 'node:crypto': 9, 'node:fs': 8, 'node:os': 5, 'node:path': 10,
 };
 // CL-D89 adds the writer's commit and push, and the reads that verify them (rev-list for the sole parent, merge-base for
 // the pushed history, check-ref-format for the captured branch). The two literal credential pairs are the push's own: the inherited helper list cleared, then

@@ -1,7 +1,7 @@
 'use strict';
 
 // Issue #111 (CL-D68). The two gate documents the parent still assembled by hand, packaged as a
-// read-only reader and a read-only composer. `readGateResult` opens the runner's own status record
+// read-only reader and a composer whose one write is the gate payload file (CL-D91; otherwise read-only). `readGateResult` opens the runner's own status record
 // for a run id and returns the envelope at that record's structured output path (CL-D58): the parent
 // never chooses a path. `buildGateLaunch` composes the launch request from the built expectation and
 // the installed package's own payload blocks (CL-D2, CL-D29): the schema is the builder's byte for
@@ -216,8 +216,9 @@ function buildGateLaunch(data) {
     // (ADV-123-EXPECTATION-PATH-INJECTION).
     if (/[\r\n`]/.test(data.expectationPath)) fail('invalid_request', 'expectationPath must not contain a line break or a backtick');
     // The child validates its draft against this file (CL-D65). While it inherited the parent's cwd a relative path
-    // resolved; sent to the workspace under CL-D82 it would resolve inside the worked tree, or nowhere.
-    if (Object.hasOwn(data, 'created') && !path.isAbsolute(data.expectationPath)) fail('invalid_request', 'expectationPath must be absolute when the child runs in the workspace');
+    // resolved; sent to the workspace under CL-D82 it would resolve inside the worked tree, or nowhere. Since CL-D91 the
+    // payload file is written beside it, so it is absolute in both modes.
+    if (!path.isAbsolute(data.expectationPath)) fail('invalid_request', 'expectationPath must be absolute: the payload file is written beside it (CL-D91), and a child sent to the workspace resolves nothing relative');
     if (!plain(data.volatile)) fail('invalid_request', 'volatile must be a plain object');
     for (const key of Object.keys(data.volatile)) if (!Object.hasOwn(VOLATILE_FIELDS, key)) fail('volatile_unknown_field', `volatile carries an unknown field: ${key}`, { field: key, allowed: Object.keys(VOLATILE_FIELDS) });
     for (const [key, kind] of Object.entries(VOLATILE_FIELDS)) {
