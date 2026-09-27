@@ -783,6 +783,27 @@ test('Issue #170 inline code spans pair from the left, and an exempted timestamp
   assert.equal(publisherError(accepted), null, 'a backticked head, a timestamp, later inline code, and a described example');
 });
 
+test('Issue #170 the marker is recognized whatever its case and whatever whitespace surrounds it', () => {
+  // ADV-183-OBSERVATION-MARKER-WHITESPACE-CASE: a no-break space, a vertical tab, a form feed, or a capital letter in
+  // the marker escaped recognition, and the command beside it was published.
+  for (const sentence of [
+    'External observation: head abc observed\u00a0at `date -u`; 14 comments.',
+    'External observation: head abc observed at\u000b`date -u`; 14 comments.',
+    'External observation: head abc observed at\u000c`date -u`; 14 comments.',
+    'External observation: head abc Observed At `date -u`; 14 comments.',
+    'external_observation: head abc OBSERVED_FROM\u2003`date -u`, this run only',
+    'external_observation: head abc observed_from\u3000${OBSERVED_AT}, this run only',
+  ]) {
+    const f = fixture({ visibleBytes: Buffer.from(`# Review state: MERGE_READY\n${sentence}\n`, 'utf8') });
+    const error = publisherError(f);
+    assert.ok(error, `refused: ${JSON.stringify(sentence)}`);
+    assert.match(error, /unexpanded substitution|carries a command substitution/, sentence);
+    assert.equal(callCount(f), 0, 'refused before any provider lookup');
+  }
+  const accepted = fixture({ visibleBytes: Buffer.from('# Review state: MERGE_READY\nExternal observation: head abc Observed\u00a0At\u00a02026-09-21T10:02:03Z; 14 comments.\n', 'utf8') });
+  assert.equal(publisherError(accepted), null, 'a timestamp after a differently spaced marker is still a timestamp');
+});
+
 test('Issue #170 accepts real observation times, and refuses a substitution quoted elsewhere', () => {
   const visible = Buffer.from([
     '# Review state: MERGE_READY',
