@@ -2787,8 +2787,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 290000;",
-        "CL-D89 reviewed reset from 280,000 (CL-D86)"
+        "const AGGREGATE_SMOKE_ALARM = 300000;",
+        "CL-D91 reviewed reset from 290,000 (CL-D89)"
       ]
     },
     {
@@ -3586,8 +3586,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 290000;",
-        "CL-D89 reviewed reset from 280,000 (CL-D86)"
+        "const AGGREGATE_SMOKE_ALARM = 300000;",
+        "CL-D91 reviewed reset from 290,000 (CL-D89)"
       ]
     },
     {
@@ -4528,6 +4528,58 @@
       ],
       "requires": [
         "build_operator_revalidate: { required: ['captured', 'cwd'], optional: ['pushes'] }"
+      ]
+    },
+    {
+      "id": "CL-D91-payload",
+      "marker": "CL-D91",
+      "title": "The launch writes the payload file and points to it",
+      "files": [
+        "skills/closed-loop-pr/helpers/payload.js"
+      ],
+      "requires": [
+        "payload_location_invalid",
+        "payload_exists_different",
+        "flag: 'wx'",
+        "Your complete gate payload is the file below; this message is only its pointer (CL-D91)."
+      ]
+    },
+    {
+      "id": "CL-D91-verify",
+      "marker": "CL-D91",
+      "title": "The child verifies the payload digest",
+      "files": [
+        "skills/closed-loop-pr/helpers/payload.js"
+      ],
+      "requires": [
+        "payload_digest_mismatch",
+        "payload_unreadable"
+      ]
+    },
+    {
+      "id": "CL-D91-record",
+      "marker": "CL-D91",
+      "title": "CL-D91 records the pointer rule and the alarm reset",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D91 — The gate launch carries a pointer to a verified payload file",
+      "requires": [
+        "issues/188#issuecomment-5851025142",
+        "issues/188#issuecomment-5851068857",
+        "or letting a gate proceed on an unverified payload requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D91-tests",
+      "marker": "CL-D91",
+      "title": "The CL-D91 fixtures drive the payload, the pointer, and the verification",
+      "files": [
+        "test/issue-188-gate-payload-file.test.js"
+      ],
+      "requires": [
+        "Issue #188 the launch request carries a pointer to a run-owned payload file, not the payload",
+        "Issue #188 gate_payload_verify accepts the payload and refuses a corrupted pointer or file"
       ]
     },
     {
