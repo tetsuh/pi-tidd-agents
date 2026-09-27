@@ -125,11 +125,17 @@ grep -F -q -- "$REVIEW_MARKER" "$POST_FILE" || fail 'review-comment.md is missin
 # passes every byte check above and publishes a sentence that states nothing, so it is refused here. The rule has no
 # parser to bypass: a command substitution anywhere in the visible body is refused, quoted or not (describe it
 # instead), and every `observed at` / `observed_from` occurrence must be followed by a possible date-time
-# (CONV-183-OBSERVATION-*, ADV-183-OBSERVATION-*, CONV-183-DOUBLE-BACKTICK-QUOTE).
+# (CONV-183-OBSERVATION-*, ADV-183-OBSERVATION-*, CONV-183-DOUBLE-BACKTICK-QUOTE). The marker is matched after
+# the body is folded: every Unicode space (NBSP, NEL, ogham, U+2000-U+200A, line and paragraph separators,
+# narrow and medium no-break spaces, ideographic space), VT and FF become one ASCII space, zero-width characters
+# are dropped, and letters are lowered, so `Observed\u00a0At` is the same marker (ADV-183-OBSERVATION-MARKER-WHITESPACE-CASE).
 if LC_ALL=C grep -F -q -e '$(' -e '${' "$VISIBLE_FILE"; then
   fail 'the visible body carries a command substitution; describe it instead of quoting it'
 fi
-observation_problem="$(LC_ALL=C tr '\n\r\t' '   ' < "$VISIBLE_FILE" | LC_ALL=C awk '
+observation_problem="$(LC_ALL=C tr '\n\r\t\v\f' '     ' < "$VISIBLE_FILE" | LC_ALL=C sed \
+  -e $'s/\xc2[\x85\xa0]/ /g' -e $'s/\xe1\x9a\x80/ /g' -e $'s/\xe2\x80[\x80-\x8a\xa8\xa9\xaf]/ /g' \
+  -e $'s/\xe2\x81\x9f/ /g' -e $'s/\xe3\x80\x80/ /g' \
+  -e $'s/\xe2\x80[\x8b-\x8d]//g' -e $'s/\xe2\x81\xa0//g' -e $'s/\xef\xbb\xbf//g' | LC_ALL=C awk '
   function possible(ts,  y, m, d, H, M, S, oh, om, dim) {
     y = substr(ts, 1, 4) + 0; m = substr(ts, 6, 2) + 0; d = substr(ts, 9, 2) + 0; H = substr(ts, 12, 2) + 0; M = substr(ts, 15, 2) + 0; S = substr(ts, 18, 2) + 0;
     if (m < 1 || m > 12 || H > 23 || M > 59 || S > 59) return 0;
@@ -139,10 +145,10 @@ observation_problem="$(LC_ALL=C tr '\n\r\t' '   ' < "$VISIBLE_FILE" | LC_ALL=C a
     return 1;
   }
   {
-    n = split($0, part, /observed(_from| at)[ ]+/);
+    n = split(tolower($0), part, /observed(_from|[ ]+at)[ ]+/);
     for (i = 2; i <= n; i++) {
       value = part[i];
-      if (match(value, /^`?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9](\.[0-9]+)?(Z|[+-][0-9][0-9]:[0-9][0-9])`?([ .,;]|$)/)) {
+      if (match(value, /^`?[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]t[0-9][0-9]:[0-9][0-9]:[0-9][0-9](\.[0-9]+)?(z|[+-][0-9][0-9]:[0-9][0-9])`?([ .,;]|$)/)) {
         ts = substr(value, 1, RLENGTH); gsub(/[` .,;]/, "", ts); sub(/\.[0-9]+/, "", ts);
         if (!possible(ts)) { print "not a possible date-time"; exit 1 }
       } else { print "an unexpanded substitution, not a timestamp"; exit 1 }
