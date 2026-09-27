@@ -172,7 +172,8 @@ function classifyChecks(checks = []) {
 }
 // CL-D92 (#193): an empty check suite (zero runs) carries no provider state; CodeRabbit's state is its newest
 // `CodeRabbit` status by coderabbitai[bot] on the head, and a non-empty CodeRabbit suite is read only when no status
-// exists. Anything not provably CodeRabbit's or not dated, or a success other than "Review completed", is unknown.
+// exists. Any success completes (a paused or skipped review needs no action); anything not provably CodeRabbit's
+// or not dated is unknown.
 function classifyExternalReview(suites = [], statuses = []) {
   if (!Array.isArray(suites) || !Array.isArray(statuses)) throw schemaError('external review records are not arrays');
   const one = (source, state, description = null) => [{ provider: 'coderabbit', source, state, description }];
@@ -180,7 +181,7 @@ function classifyExternalReview(suites = [], statuses = []) {
   if (matching.length) {
     if (matching.some((item) => item.context !== 'CodeRabbit' || item.creator?.login !== 'coderabbitai[bot]' || Number.isNaN(Date.parse(item.created_at)))) return one('status', 'unknown');
     const latest = matching.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || Number(b.id) - Number(a.id))[0];
-    const state = latest.state === 'success' ? (latest.description === 'Review completed' ? 'completed' : 'unknown') : { pending: 'pending', failure: 'failed', error: 'failed' }[latest.state] || 'unknown';
+    const state = { success: 'completed', pending: 'pending', failure: 'failed', error: 'failed' }[latest.state] || 'unknown';
     return one('status', state, latest.description ?? null);
   }
   const ours = suites.filter((item) => object(item) && item.app?.slug === 'coderabbitai' && item.latest_check_runs_count !== 0);
