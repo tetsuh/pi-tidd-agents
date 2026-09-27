@@ -61,6 +61,10 @@ test('Issue #188 the launch request carries a pointer to a run-owned payload fil
     assert.equal(request.task.includes('## Volatile envelope'), false, 'no payload rides in the request');
     // A second build of the same invocation reuses the identical file rather than failing.
     assert.equal(helpers.buildGateLaunch(inputs(dir)).ok, true);
+    // CONV-189-PAYLOAD-MODE-REUSE: an identical file that is no longer private to the operator is not reused.
+    fs.chmodSync(payloadPath, 0o644);
+    const widened = helpers.buildGateLaunch(inputs(dir));
+    assert.deepEqual([widened.ok, widened.error?.code], [false, 'payload_exists_different'], JSON.stringify(widened));
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
