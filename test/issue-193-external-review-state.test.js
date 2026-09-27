@@ -63,8 +63,9 @@ test('Issue #193 a CodeRabbit status from any other author, or with no usable ti
   assert.equal((await classify({ statuses: [status('success', 'Review completed', '2026-09-27T20:00:00+09:00', 3), status('pending', 'Review in progress', '2026-09-27T11:30:00Z', 4)] }))[0].state, 'pending');
 });
 
-test('Issue #193 only "Review completed" completes; a paused or skipped success is unknown', async () => {
-  for (const description of ['Review paused', 'Review skipped', undefined]) assert.equal((await classify({ statuses: [status('success', description, '2026-09-27T10:00:00Z', 1)] }))[0].state, 'unknown', String(description));
+// Owner decision (comment 5860210273 on #193): as loose as possible; a paused or skipped review needs no action.
+test('Issue #193 every success completes, whatever its description', async () => {
+  for (const description of ['Review completed', 'Review paused', 'Review skipped', undefined]) assert.equal((await classify({ statuses: [status('success', description, '2026-09-27T10:00:00Z', 1)] }))[0].state, 'completed', String(description));
 });
 
 test('Issue #193 suites: any unfinished one is pending, and a count that is not a number is unknown', async () => {
