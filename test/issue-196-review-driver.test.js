@@ -423,3 +423,17 @@ test('Issue #196 a .tidd.json added only at the head is not read, and the run st
   assert.notEqual(r.status, 0);
   assert.match(state(t.runDir).reason, /base commit carries no \.tidd\.json/);
 });
+
+// CONV-199-BODY-ID-CLI: the helpers define no body fingerprint, so CL-D93 defines the `github:pr:<N>:body` identity
+// itself, as the SHA-256 of the body's LF-normalized UTF-8 bytes, and the record says so instead of claiming every
+// correlated value comes from a helper.
+test('Issue #196 the pull request body identity is the one CL-D93 defines', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const request = JSON.parse(fs.readFileSync(path.join(t.runDir, fs.readdirSync(t.runDir).find((f) => f.endsWith('-required_evidence_set.request.json'))), 'utf8'));
+  const body = request.data.identities.find((x) => x.source === 'github:pr:7:body');
+  assert.equal(body.identity, crypto.createHash('sha256').update(Buffer.from('Closes #5.\n', 'utf8')).digest('hex'));
+  const record = readText('CONTRACT.md');
+  assert.match(record, /the `github:pr:<number>:body` identity is the SHA-256 of the body's LF-normalized UTF-8 bytes/);
+  assert.doesNotMatch(record, /no value the gate correlates is computed beside the helpers/);
+});
