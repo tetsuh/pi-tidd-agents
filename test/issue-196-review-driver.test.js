@@ -351,12 +351,17 @@ test('Issue #196 readiness reads commit statuses and each reviewer\'s latest dec
   assert.equal(state(changed.runDir).state, 'MERGE_READY', state(changed.runDir).reason);
 });
 
-test('Issue #196 a criterion-anchored Minor not proposed fixed is recorded and advances', () => {
-  const t = setup();
-  assert.equal(drive(t.start, t.e).status, 0);
-  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX', severity: 'Minor', disposition: 'accepted-as-designed' })], t.e);
-  assert.equal(r.status, 0, r.stderr + r.stdout);
-  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
+// CONV-199-CLD85-MINOR-BYPASS: CL-D85's condition (a correction that changes no file) is not readable from a proposed
+// disposition, so a criterion-anchored Minor stays open whatever it proposes; only reword, follow-up, and out-of-scope
+// Minors are recorded.
+test('Issue #196 a criterion-anchored Minor stays open whatever disposition it proposes', () => {
+  for (const disposition of ['accepted-as-designed', 'deferred']) {
+    const t = setup();
+    assert.equal(drive(t.start, t.e).status, 0);
+    const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX', severity: 'Minor', disposition })], t.e);
+    assert.notEqual(r.status, 0, disposition);
+    assert.equal(state(t.runDir).state, 'WAITING_FOR_OWNER', disposition);
+  }
 });
 
 test('Issue #196 an early stop still drafts publishable artifacts, with the full CL-D33 report', () => {
@@ -472,4 +477,40 @@ test('Issue #196 an unknown check conclusion or status state waits instead of pa
     assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(patch)}: ${s.reason}`);
     assert.match(s.reason, /unknown/);
   }
+});
+
+// Round 9 of PR #199: runtime roots are judged by status type and by what the root is (CONV-199-CLD54-RUNTIME-ROOT-FILTER);
+// the checkout's HEAD is re-read at every boundary (CONV-199-LOCAL-CHECKOUT-REF); every target field is validated
+// before the run directory exists (CONV-199-MISSING-HEAD-REPO-ARTIFACTS).
+test('Issue #196 a tracked or staged change under a runtime root, or a runtime root that is a symlink, is dirty', () => {
+  const staged = setup();
+  fs.mkdirSync(path.join(staged.target.root, '.pi')); fs.writeFileSync(path.join(staged.target.root, '.pi', 'x'), 'x');
+  git(staged.target.root, ['add', '-f', '.pi/x']);
+  assert.notEqual(drive(staged.start, staged.e).status, 0);
+  assert.match(state(staged.runDir).reason, /checkout is not clean/);
+  const linked = setup();
+  fs.symlinkSync(temp('i196-elsewhere-'), path.join(linked.target.root, '.pi'));
+  assert.notEqual(drive(linked.start, linked.e).status, 0);
+  assert.match(state(linked.runDir).reason, /runtime root \.pi is not a directory/);
+  const plain = setup();
+  fs.mkdirSync(path.join(plain.target.root, '.pi')); fs.writeFileSync(path.join(plain.target.root, '.pi', 'session'), 'x');
+  assert.equal(drive(plain.start, plain.e).status, 0, 'an untracked file in a real runtime root is allowed');
+});
+
+test('Issue #196 a checkout switched to another commit between gates stops the next launch', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  git(t.target.root, ['checkout', '-q', t.target.base]);
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.notEqual(r.status, 0);
+  assert.match(state(t.runDir).reason, /checkout is at/);
+});
+
+test('Issue #196 a pull request whose head repository is gone fails before any run directory exists', () => {
+  const t = setup();
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.repo = null; fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(fs.existsSync(t.runDir), false);
+  assert.match(r.stderr, /head repository/);
 });
