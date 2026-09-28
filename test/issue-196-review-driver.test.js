@@ -30,7 +30,7 @@ function makeTarget({ config = { validate: [['node', '-e', 'process.exit(0)']] }
   const root = temp('i196-target-');
   git(root, ['init', '-q', '-b', 'main']);
   fs.writeFileSync(path.join(root, 'a.js'), 'module.exports = 1;\n');
-  if (config) fs.writeFileSync(path.join(root, '.tidd.json'), `${JSON.stringify(config)}\n`);
+  if (config) fs.writeFileSync(path.join(root, '.tidd.json'), typeof config === 'string' ? config : `${JSON.stringify(config)}\n`);
   git(root, ['add', '.']); git(root, ['commit', '-q', '-m', 'base']);
   const base = git(root, ['rev-parse', 'HEAD']);
   git(root, ['checkout', '-q', '-b', 'feature']);
@@ -115,6 +115,10 @@ test('Issue #196 the packaged review-only driver runs a PR round to MERGE_READY;
   assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /^# Review state: MERGE_READY\n/);
   assert.ok(s.log.every((entry) => entry.ok), 'every packaged operation succeeded');
   assert.ok(s.log.some((entry) => entry.operation === 'validation_run'), 'validation ran from .tidd.json');
+  // CONV-199-CLI-FINGERPRINT-BOUNDARY: every fingerprint is a packaged operation's answer, never an in-process call.
+  for (const domain of ['issue_spec', 'pr_base', 'pr_tree', 'pr_diff', 'pr_commits', 'pr_head', 'snapshot']) {
+    assert.ok(s.log.some((entry) => entry.operation === `fingerprint_${domain}` && entry.ok), `fingerprint_${domain} ran through the CLI`);
+  }
 });
 
 test('Issue #196 contractInput is the package authority files, not the target checkout', () => {
@@ -127,7 +131,9 @@ test('Issue #196 contractInput is the package authority files, not the target ch
 });
 
 test('Issue #196 a missing .tidd.json at the base, or an issue without acceptance criteria, stops before any gate', () => {
-  for (const [options, reason] of [[{ config: null }, /\.tidd\.json/], [{ issueBody: 'Spec without criteria.\n' }, /Acceptance criteria/]]) {
+  // CONV-199-MALFORMED-VALIDATION-CONFIG-TEST: a malformed file stops the run as surely as a missing one.
+  for (const [options, reason] of [[{ config: null }, /\.tidd\.json/], [{ issueBody: 'Spec without criteria.\n' }, /Acceptance criteria/],
+    [{ config: 'not json' }, /not JSON/], [{ config: { validate: [] } }, /nonempty list/], [{ config: { validate: [['node', 1]] } }, /nonempty list/]]) {
     const t = setup(options);
     const r = drive(t.start, t.e);
     assert.notEqual(r.status, 0);
@@ -157,6 +163,7 @@ test('Issue #196 the driver is packaged under its own alarms and names no writin
   for (const [i, size] of sizes.entries()) assert.ok(size < 30000, `${files[i]} is ${size} bytes`);
   assert.ok(sizes.reduce((a, b) => a + b, 0) < 60000, 'driver aggregate alarm');
   for (const f of files) assert.doesNotMatch(readText(f), /commit_create|push_publish|marker_create|\/merge\b|'merge'|--approve|APPROVE/, `${f} names a writing operation`);
+  for (const f of files) assert.doesNotMatch(readText(f), /require\('\.\.\/helpers\/(?:fingerprints|evidence)'\)/, `${f} computes evidence outside the packaged operations`);
   assert.ok(/^## CL-D93 — /m.test(readText('CONTRACT.md')), 'CL-D93 records the driver boundary');
   assert.deepEqual(JSON.parse(readText('.tidd.json')), { validate: [['node', '--test']] });
 });
