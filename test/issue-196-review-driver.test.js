@@ -201,3 +201,14 @@ test('Issue #196 each resolved role names its provider, model, and thinking leve
   assert.equal(s.state, 'MERGE_READY', s.reason);
   assert.deepEqual(s.resolved, ['convergence', 'adversarial', 'safety'].map((g) => `tidd-${g}-reviewer provider prov, model model-x, thinking high`));
 });
+
+// CONV-199-RUN-DIR-CHECK-BEFORE-MKDTEMP: with no --run-dir, the default location is checked before it is created.
+test('Issue #196 a default run directory under a temporary root inside a work tree is refused before creation', () => {
+  const t = setup();
+  const tmp = path.join(t.target.root, 'tmp-inside'); fs.mkdirSync(tmp);
+  const before = fs.readdirSync(tmp);
+  const r = drive(['start', '--pr', '7', '--repo', 'o/r', '--checkout', t.target.root], { ...t.e, TMPDIR: tmp });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /inside a Git work tree/);
+  assert.deepEqual(fs.readdirSync(tmp), before, 'nothing was created under the temporary root');
+});
