@@ -320,10 +320,12 @@ function receiverTypebox(receiver, { pathEnv = process.env.PI_TIDD_NO_PI_TYPEBOX
     if (pi) try { createRequire(path.join(pi, 'package.json')).resolve('typebox'); resolvable = true; } catch { /* named below */ }
     if (!resolvable) source = { from: null, problem: 'cannot resolve its own typebox: neither the receiver nor an installed pi package carries it' };
     else {
-      const inside = pathToFileURL(receiver + path.sep).href, parentURL = pathToFileURL(path.join(pi, 'package.json')).href;
+      // Node reports a module's real directory as its parent, so both the given and the canonical receiver count
+      // (ADV-198-SYMLINK-RECEIVER-TYPEBOX).
+      const inside = [...new Set([receiver, fs.realpathSync(receiver)])].map((dir) => pathToFileURL(dir + path.sep).href), parentURL = pathToFileURL(path.join(pi, 'package.json')).href;
       registerHooks({ resolve(specifier, context, next) {
         try { return next(specifier, context); } catch (error) {
-          if ((specifier === 'typebox' || specifier.startsWith('typebox/')) && String(context.parentURL || '').startsWith(inside)) return next(specifier, { ...context, parentURL });
+          if ((specifier === 'typebox' || specifier.startsWith('typebox/')) && inside.some((prefix) => String(context.parentURL || '').startsWith(prefix))) return next(specifier, { ...context, parentURL });
           throw error;
         }
       } });
