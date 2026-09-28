@@ -601,3 +601,15 @@ test('Issue #196 a pull request with no local checkout of its head is left to th
   assert.equal(fs.existsSync(t.runDir), false);
   assert.match(r.stderr, /review it on the prose path/);
 });
+
+// CONV-199-IGNORED-DELTA-BOUNDARY: ignored paths are frozen after validation (the validation sandbox delta) and
+// compared at every later boundary, so an ignored file that appears between gates stops the next launch.
+test('Issue #196 an ignored file that appears between gates stops the next launch', () => {
+  const t = setup();
+  fs.appendFileSync(path.join(t.target.root, '.git', 'info', 'exclude'), 'scratch/\n');
+  assert.equal(drive(t.start, t.e).status, 0);
+  fs.mkdirSync(path.join(t.target.root, 'scratch')); fs.writeFileSync(path.join(t.target.root, 'scratch', 'x'), 'x');
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.notEqual(r.status, 0);
+  assert.match(state(t.runDir).reason, /ignored paths changed/);
+});
