@@ -79,6 +79,17 @@ test('Issue #193 suites: any unfinished one is pending, and a count that is not 
   assert.deepEqual(await classify({ suites: [emptySuite, { id: 9, app: { slug: 'github-actions' }, status: 'completed', conclusion: 'success', latest_check_runs_count: 3 }] }), []);
 });
 
+test('Issue #193 unestablished status and suite fields classify as unknown', async () => {
+  const suite = (status, count = 1) => ({ id: 1, app: { slug: 'coderabbitai' }, status, conclusion: 'success', latest_check_runs_count: count });
+  const cases = [
+    ['negative run count', { suites: [suite('completed', -1)] }],
+    ['__proto__ status state', { statuses: [status('__proto__', 'x', '2026-09-27T10:00:00Z', 1)] }],
+    ['toString status state', { statuses: [status('toString', 'x', '2026-09-27T10:00:00Z', 1)] }],
+    ['unrecognized suite status', { suites: [suite('mystery')] }],
+  ];
+  for (const [name, input] of cases) assert.equal((await classify(input))[0]?.state, 'unknown', name);
+});
+
 test('Issue #193 a non-empty CodeRabbit suite is read only when no status exists', async () => {
   const running = { id: 5, app: { slug: 'coderabbitai' }, status: 'in_progress', conclusion: null, latest_check_runs_count: 1 };
   const done = { ...running, status: 'completed', conclusion: 'success' };

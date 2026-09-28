@@ -192,12 +192,14 @@ function classifyExternalReview(suites = [], statuses = []) {
     };
     if (matching.some((item) => item.context !== 'CodeRabbit' || item.creator?.login !== 'coderabbitai[bot]' || !validTimestamp(item.created_at))) return one('status', 'unknown');
     const latest = matching.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || Number(b.id) - Number(a.id))[0];
-    const state = { success: 'completed', pending: 'pending', failure: 'failed', error: 'failed' }[latest.state] || 'unknown';
+    const states = { success: 'completed', pending: 'pending', failure: 'failed', error: 'failed' };
+    const state = Object.hasOwn(states, latest.state) ? states[latest.state] : 'unknown';
     return one('status', state, latest.description ?? null);
   }
   const ours = suites.filter((item) => object(item) && item.app?.slug === 'coderabbitai' && item.latest_check_runs_count !== 0);
   if (!ours.length) return [];
-  if (ours.some((item) => !Number.isInteger(item.latest_check_runs_count))) return one('check_suite', 'unknown');
+  if (ours.some((item) => !Number.isSafeInteger(item.latest_check_runs_count) || item.latest_check_runs_count <= 0)) return one('check_suite', 'unknown');
+  if (ours.some((item) => !['queued', 'in_progress', 'completed'].includes(item.status))) return one('check_suite', 'unknown');
   if (ours.some((item) => item.status !== 'completed')) return one('check_suite', 'pending');
   const conclusion = ours.sort((a, b) => Number(b.id) - Number(a.id))[0].conclusion;
   if (conclusion === 'success') return one('check_suite', 'completed');
