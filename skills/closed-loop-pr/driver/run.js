@@ -165,6 +165,15 @@ function checkoutProblem(cwd, headOid) {
   const local = git(cwd, ['rev-parse', 'HEAD']).trim();
   return local === headOid ? dirtyCheckout(cwd) : `the checkout is at ${local}, not the public head ${headOid}`;
 }
+// The ignored paths outside the runtime roots, each with its type judged without following a link. Frozen after
+// validation (the validation sandbox delta) and compared at every later boundary (CONV-199-IGNORED-DELTA-BOUNDARY).
+function ignoredInventory(cwd) {
+  const entries = git(cwd, ['status', '--porcelain=v1', '-z', '--ignored=matching', '--untracked-files=all']).split('\0').filter((e) => e.startsWith('!! ')).map((e) => e.slice(3));
+  return entries.filter((p) => !RUNTIME_ROOTS.some((root) => p === root || p === `${root}/` || p.startsWith(`${root}/`))).map((p) => {
+    let type = 'absent'; try { const st = fs.lstatSync(path.join(cwd, p)); type = st.isSymbolicLink() ? 'symlink' : st.isDirectory() ? 'dir' : 'file'; } catch { /* named as absent */ }
+    return `${p}:${type}`;
+  }).sort();
+}
 function dirtyCheckout(cwd) {
   for (const root of RUNTIME_ROOTS) {
     let stat = null; try { stat = fs.lstatSync(path.join(cwd, root)); } catch { /* absent is allowed */ }
@@ -257,4 +266,4 @@ class Run {
   }
 }
 
-module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, checkoutProblem, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };

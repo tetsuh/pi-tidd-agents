@@ -12,7 +12,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, checkoutProblem, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, checkoutProblem, ignoredInventory, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -94,6 +94,7 @@ function start(opts) {
     if (v.data?.outcome !== 'passed') { s.nextAction = 'the author fixes the validation failure, then a fresh run'; run.stop('WAITING_FOR_OWNER', `validation failed: ${command.join(' ')}`); }
   }
   const after = checkoutProblem(checkout, target.headOid); if (after) run.stop('BLOCKED', `validation changed the checkout: ${after}`);
+  s.ignoredDelta = ignoredInventory(checkout); run.save();
   collectSnapshotEvidence(run);
   launch(run, 'convergence', { fresh: true });
 }
@@ -127,6 +128,9 @@ function revalidate(run) {
   const pull = gh(['api', `repos/${t.repository}/pulls/${t.number}`], s.checkout);
   const moved = targetMoved(t, pull); if (moved) run.stop('BLOCKED', moved);
   const checkout = checkoutProblem(s.checkout, t.headOid); if (checkout) run.stop('BLOCKED', checkout);
+  const ignored = ignoredInventory(s.checkout);
+  const drift = [...ignored.filter((x) => !s.ignoredDelta.includes(x)), ...s.ignoredDelta.filter((x) => !ignored.includes(x))];
+  if (drift.length) run.stop('BLOCKED', `the checkout's ignored paths changed after validation: ${drift.slice(0, 5).join(', ')}`);
   if ((pull.body || '') !== s.body) run.stop('BLOCKED', 'the target moved: the pull request body changed');
   const { issue, comments } = readIssue(run);
   const now = headFingerprints(run, { cwd: s.checkout, baseOid: t.baseOid, headOid: t.headOid, issue, comments }).values;
