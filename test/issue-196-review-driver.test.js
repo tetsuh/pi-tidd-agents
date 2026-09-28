@@ -644,3 +644,25 @@ test('Issue #196 a validated MERGE that carries a deferred follow-up advances', 
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
 });
+
+// Round 16 of PR #199: a ruleset counts only when it is active and its conditions target this pull request's base
+// branch and repository (CONV-199-RULESET-APPLICABILITY). A condition the snapshot cannot evaluate counts, so an
+// unknown targeting keeps readiness waiting rather than passing it.
+test('Issue #196 readiness counts only active rulesets whose conditions target the base branch and repository', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/run');
+  const rule = (context) => [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context }] } }, { type: 'pull_request', parameters: { required_approving_review_count: 1 } }];
+  const ruleset = (id, extra) => ({ id, enforcement: 'active', target: 'branch', rules: rule(`ci/${id}`), bypass_actors: [], ...extra });
+  const refs = (include, exclude = []) => ({ conditions: { ref_name: { include, exclude } } });
+  const snapshot = (rulesets, organizationRulesets = []) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], reviews: [], threads: [], policies: { rulesets, organizationRulesets, defaultBranch: 'main', externalReview: [] } });
+  const counted = (r) => readiness(r, 'h'.repeat(40)).pending;
+  for (const [name, set] of [['disabled', ruleset('x', { enforcement: 'disabled' })], ['evaluate', ruleset('x', { enforcement: 'evaluate' })], ['tag', ruleset('x', { target: 'tag' })],
+    ['other branch', ruleset('x', refs(['refs/heads/release/*']))], ['excluded', ruleset('x', refs(['~ALL'], ['refs/heads/main']))], ['no branch', ruleset('x', refs([]))]]) {
+    assert.deepEqual(counted(snapshot([set])), [], name);
+  }
+  assert.deepEqual(counted(snapshot([], [ruleset('x', { conditions: { ref_name: { include: ['~ALL'], exclude: [] }, repository_name: { include: ['other'], exclude: [] } } })])), [], 'another repository');
+  for (const [name, set] of [['default branch', ruleset('a', refs(['~DEFAULT_BRANCH']))], ['pattern', ruleset('a', refs(['refs/heads/ma*']))], ['all', ruleset('a', refs(['~ALL']))], ['untargeted', ruleset('a')],
+    ['unknown condition', ruleset('a', { conditions: { ref_name: { include: ['~ALL'], exclude: [] }, repository_property: { include: [{ name: 'tier', property_values: ['x'] }], exclude: [] } } })]]) {
+    assert.deepEqual(counted(snapshot([set])), ['required check ci/a has not reported', 'required approvals 0 of 1'], name);
+  }
+  assert.deepEqual(counted(snapshot([], [ruleset('a', { conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] }, repository_name: { include: ['r*'], exclude: [] } } })])), ['required check ci/a has not reported', 'required approvals 0 of 1'], 'this repository');
+});
