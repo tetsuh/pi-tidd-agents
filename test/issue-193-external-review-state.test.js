@@ -86,6 +86,11 @@ test('Issue #193 a non-empty CodeRabbit suite is read only when no status exists
   assert.deepEqual((await classify({ suites: [running] })).map((r) => [r.state, r.source]), [['pending', 'check_suite']]);
   assert.equal((await classify({ suites: [done] }))[0].state, 'completed');
   assert.equal((await classify({ suites: [failed] }))[0].state, 'failed');
+  for (const conclusion of [null, undefined, 'future_conclusion']) {
+    const unknown = { ...done, id: 2, conclusion };
+    assert.equal((await classify({ suites: [unknown] }))[0].state, 'unknown', String(conclusion));
+    assert.equal((await classify({ suites: [{ ...done, id: 1 }, unknown] }))[0].state, 'unknown', `newer ${conclusion} must not inherit an older success`);
+  }
   assert.deepEqual((await classify({ suites: [running], statuses: [status('success', 'Review completed', '2026-09-27T10:00:00Z', 6)] })).map((r) => [r.state, r.source]), [['completed', 'status']]);
 });
 

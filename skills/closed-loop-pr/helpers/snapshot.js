@@ -199,7 +199,10 @@ function classifyExternalReview(suites = [], statuses = []) {
   if (!ours.length) return [];
   if (ours.some((item) => !Number.isInteger(item.latest_check_runs_count))) return one('check_suite', 'unknown');
   if (ours.some((item) => item.status !== 'completed')) return one('check_suite', 'pending');
-  return one('check_suite', ours.sort((a, b) => Number(b.id) - Number(a.id))[0].conclusion === 'success' ? 'completed' : 'failed');
+  const conclusion = ours.sort((a, b) => Number(b.id) - Number(a.id))[0].conclusion;
+  if (conclusion === 'success') return one('check_suite', 'completed');
+  if (['failure', 'cancelled', 'timed_out', 'action_required', 'stale', 'startup_failure'].includes(conclusion)) return one('check_suite', 'failed');
+  return one('check_suite', 'unknown');
 }
 async function collectAnnotations(transport, endpoint, checks, cwd) {
   const annotations = [];
