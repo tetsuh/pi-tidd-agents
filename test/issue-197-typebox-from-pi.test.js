@@ -142,3 +142,25 @@ test('Issue #197 the #159 receiver case names the state and the minimum when no 
   assert.match(child.stdout, /cannot resolve its own typebox/);
   assert.match(child.stdout, /the contracted minimum is 0\.70\.0 \(CL-D25\)/);
 });
+
+// CONV-198-NPM-PREFIX-NOT-DISCOVERED: the global root is npm's own answer (`npm prefix -g`), which reads npm's
+// configuration files, not a guess from environment variables. An isolated npm config names a custom prefix, and the
+// resolver finds the pi package there with no prefixes passed.
+test('Issue #197 the default lookup asks npm for its configured global prefix', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'i197-npmrc-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const prefix = path.join(root, 'custom-prefix');
+  const pi = path.join(prefix, process.platform === 'win32' ? '' : 'lib', 'node_modules', '@earendil-works', 'pi-coding-agent'), typebox = path.join(pi, 'node_modules', 'typebox');
+  fs.mkdirSync(typebox, { recursive: true });
+  fs.writeFileSync(path.join(pi, 'package.json'), JSON.stringify({ name: '@earendil-works/pi-coding-agent', version: '0.0.0' }));
+  fs.writeFileSync(path.join(typebox, 'package.json'), JSON.stringify({ name: 'typebox', version: '0.0.0', exports: { '.': './index.mjs' } }));
+  fs.writeFileSync(path.join(typebox, 'index.mjs'), 'export const Type = {};\n');
+  const npmrc = path.join(root, 'npmrc'); fs.writeFileSync(npmrc, `prefix=${prefix}\n`);
+  const receiver = path.join(root, 'receiver'); fs.mkdirSync(receiver);
+  fs.writeFileSync(path.join(receiver, 'package.json'), JSON.stringify({ name: 'pi-subagents', version: '0.73.1' }));
+  const env = { ...process.env, NPM_CONFIG_USERCONFIG: npmrc }; delete env.NPM_CONFIG_PREFIX; delete env.npm_config_prefix; delete env.PI_TIDD_NO_PI_TYPEBOX;
+  const script = `const { receiverTypebox } = require(${JSON.stringify(path.join(__dirname, 'helpers.js'))});
+    process.stdout.write(JSON.stringify(receiverTypebox(${JSON.stringify(receiver)}, { pathEnv: '' })));`;
+  const child = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env });
+  assert.deepEqual(JSON.parse(child.stdout || '{}'), { from: 'pi', root: pi }, child.stderr);
+});
