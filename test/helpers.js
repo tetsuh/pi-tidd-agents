@@ -294,8 +294,16 @@ const PI_PACKAGE = '@earendil-works/pi-coding-agent';
 function isPiPackage(at) { try { return JSON.parse(fs.readFileSync(path.join(at, 'package.json'), 'utf8')).name === PI_PACKAGE; } catch { return false; } }
 // The pi package behind a `pi` on PATH (a symlink into it), or under an npm global root: a wrapper script or a Windows
 // npm shim on PATH is not a symlink into the package (ADV-198-PI-EXECUTABLE-WRAPPER).
+// npm's own answer comes first: `npm prefix -g` reads its configuration files and environment exactly as the install
+// did (CONV-198-NPM-PREFIX-NOT-DISCOVERED); the other entries cover an environment where npm itself cannot run.
 function npmPrefixes(env = process.env) {
-  return [env.NPM_CONFIG_PREFIX || env.npm_config_prefix, path.dirname(path.dirname(process.execPath)), path.dirname(process.execPath), env.APPDATA && path.join(env.APPDATA, 'npm')].filter(Boolean);
+  let configured;
+  try {
+    const { spawnSync } = require('node:child_process');
+    const r = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['prefix', '-g'], { encoding: 'utf8', env, shell: process.platform === 'win32', timeout: 30000 });
+    if (r.status === 0) configured = r.stdout.trim() || undefined;
+  } catch { /* the fallbacks below */ }
+  return [...new Set([configured, env.NPM_CONFIG_PREFIX || env.npm_config_prefix, path.dirname(path.dirname(process.execPath)), path.dirname(process.execPath), env.APPDATA && path.join(env.APPDATA, 'npm')].filter(Boolean))];
 }
 function piPackageRoot(pathEnv, prefixes) {
   for (const dir of String(pathEnv).split(path.delimiter).filter(Boolean)) {
