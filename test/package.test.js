@@ -33,6 +33,8 @@ const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.m
 const PR_HELPER_MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
+// CL-D93: the packaged driver, under its own alarms; it is invoked with node, never a bin, main, or exports entry.
+const PR_DRIVER_FILES = ['run.js', 'review.js'].map((file) => `skills/closed-loop-pr/driver/${file}`);
 const PR_HELPER_FILES = ['validation.js', 'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js', 'payload.js', 'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
 // The pre-split PR Skill's size. This is not a budget: it encodes the claim that progressive
 // disclosure is smaller than the monolith it replaced, so raising it would falsify what it
@@ -511,7 +513,7 @@ test('Issue #13 CL-D31 legacy artifacts are packaged without a controller', () =
     assert.ok(files.includes(entry), `Issue 13 artifact missing from packed tarball: ${entry}`);
   }
   assert.ok(!files.some((file) => /(?:controller|extension)/i.test(file)));
-  const allowed = /^(?:LICENSE|README\.md|THIRD_PARTY_NOTICES\.md|package\.json|skills\/closed-loop-pr\/references\/publish-review\.sh|skills\/closed-loop-pr\/helpers\/[A-Za-z0-9._/-]+\.js|(?:agents|skills|prompts)\/[A-Za-z0-9._/-]+\.md)$/;
+  const allowed = /^(?:LICENSE|README\.md|THIRD_PARTY_NOTICES\.md|package\.json|skills\/closed-loop-pr\/references\/publish-review\.sh|skills\/closed-loop-pr\/(?:helpers|driver)\/[A-Za-z0-9._/-]+\.js|(?:agents|skills|prompts)\/[A-Za-z0-9._/-]+\.md)$/;
   for (const entry of entries) {
     assert.match(entry.path, allowed, `unexpected non-prose package payload: ${entry.path}`);
     assert.equal(Number(entry.mode) & 0o111, 0, `packed entry must not be executable: ${entry.path}`);
@@ -560,8 +562,8 @@ test('Issue #15 CL-D32 packed artifacts contain the combined transaction prose',
     assert.ok(!files.some((file) => /(?:controller|extension)/i.test(file)));
     assert.deepEqual(
       files.filter((file) => /\.(?:js|mjs|cjs|ts)$/.test(file)).sort(),
-      PR_HELPER_FILES.slice().sort(),
-      'only the bounded Issue #47 helpers may be packaged as JavaScript',
+      [...PR_HELPER_FILES, ...PR_DRIVER_FILES].sort(),
+      'only the bounded Issue #47 helpers and the CL-D93 driver may be packaged as JavaScript',
     );
     assert.ok(!files.some((file) => file.startsWith('test/')));
     assert.ok(!files.includes('CONTRACT.md'));
@@ -590,8 +592,9 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       encoding: 'utf8',
     });
 
-    // 41 since CL-D89 added helpers/publish.js, the writer's packaged commit and push; 42 since CL-D91 added helpers/payload.js.
-    assert.equal(files.length, 42, `packed file count changed: ${files.join(', ')}`);
+    // 41 since CL-D89 added helpers/publish.js, the writer's packaged commit and push; 42 since CL-D91 added helpers/payload.js;
+    // 44 since CL-D93 added the driver's run.js and review.js.
+    assert.equal(files.length, 44, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);
@@ -678,7 +681,7 @@ test('the packed tarball excludes the authoritative development record', () => {
 test('the packed tarball ships only bounded Issue #47 helper JavaScript', () => {
   const files = packFileList();
   const code = files.filter((file) => /\.(ts|js|mjs|cjs)$/.test(file));
-  assert.deepEqual(code.sort(), PR_HELPER_FILES.slice().sort(), `unexpected packaged code: ${code.join(', ')}`);
+  assert.deepEqual(code.sort(), [...PR_HELPER_FILES, ...PR_DRIVER_FILES].sort(), `unexpected packaged code: ${code.join(', ')}`);
   assert.ok(!files.includes('CONTRACT.md'));
 });
 
@@ -686,7 +689,7 @@ test('the packed tarball ships no JavaScript controller, executable-mode entry, 
   const entries = packEntryList();
   const files = entries.map((entry) => entry.path);
   const code = files.filter((file) => /\.(ts|js|mjs|cjs)$/.test(file));
-  assert.deepEqual(code.sort(), PR_HELPER_FILES.slice().sort(), `the package ships unexpected JavaScript: ${code.join(', ')}`);
+  assert.deepEqual(code.sort(), [...PR_HELPER_FILES, ...PR_DRIVER_FILES].sort(), `the package ships unexpected JavaScript: ${code.join(', ')}`);
   assert.deepEqual(entries.filter((entry) => Number(entry.mode) & 0o111), [], 'packed entries must not depend on executable mode bits');
   const tests = files.filter((file) => file.startsWith('test/'));
   assert.deepEqual(tests, [], `the test seam must not be published: ${tests.join(', ')}`);
