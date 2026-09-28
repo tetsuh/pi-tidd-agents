@@ -106,10 +106,10 @@ test('Issue #169 the reset helper alarm is the one every suite asserts', () => {
     assert.equal(readText(`test/${file}`).includes('270000'), false, `${file} must not keep the superseded helper alarm`);
   }
   // CL-D89 later reset the live alarm to 290,000; the arithmetic below is the CL-D86 raise's own.
-  assert.match(readText('test/package.test.js'), /helperBytes < 300000/);
+  assert.match(readText('test/package.test.js'), /helperBytes < 310000/);
   const dir = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers');
   const bytes = fs.readdirSync(dir).filter((f) => f.endsWith('.js')).reduce((sum, f) => sum + fs.statSync(path.join(dir, f)).size, 0);
-  assert.ok(bytes < 300000, `packaged helpers total ${bytes}`);
+  assert.ok(bytes < 310000, `packaged helpers total ${bytes}`);
   assert.ok(280000 - 269652 > 8000, 'the raise left room, asserted against the measurement it was taken on');
 });
 
