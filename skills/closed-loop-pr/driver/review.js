@@ -6,12 +6,13 @@
 //
 //   node review.js start  --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR]
 //   node review.js result --run-dir DIR --run-id ID
+//   node review.js resume --run-dir DIR
 //   node review.js status --run-dir DIR
 
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, approvalShortfall, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -64,7 +65,7 @@ function start(opts) {
   const snap = snapshotFingerprint(run, snapshot);
   fp.snapshot = snap.value; records.snapshot = snap.record;
   s.fingerprints = fp; s.observedFrom = new Date().toISOString();
-  s.external = describeExternal(snapshot);
+  s.external = describeExternal(snapshot); s.evidenceIds = evidenceIds(snapshot);
   const envelope = { schemaVersion: 1, captureIdentity: { repository, number, baseOid: target.baseOid, baseBranch: target.baseBranch, headOid: target.headOid, headRepository: target.headRepository, headBranch: target.headBranch, state: 'open', draft: false },
     brackets: { before: snapshot.before, after: snapshot.after }, completeness: snapshot.completeness,
     fingerprints: records };
@@ -73,6 +74,7 @@ function start(opts) {
     { source: `github:issue:${s.issueNumber}:spec`, kind: 'github', identity: fp.issue_spec },
     { source: `github:pr:${number}:body`, kind: 'github', identity: sha256(Buffer.from(s.body.replace(/\r\n?/g, '\n'), 'utf8')) },
     { source: `snapshot:pr:${number}`, kind: 'snapshot', identity: fp.snapshot }];
+  s.identities = identities;
   s.requiredEvidence = run.op('required_evidence_set', { cwd: checkout, baseOid: target.baseOid, headOid: target.headOid, identities }).data.requiredEvidence;
   run.save();
   launch(run, 'convergence');
@@ -82,6 +84,8 @@ function describeExternal(snapshot) {
   const checks = snapshot.policies?.checks || [], external = snapshot.policies?.externalReview || [];
   return `${(snapshot.comments || []).length} comments, ${(snapshot.reviews || []).length} reviews, ${(snapshot.threads || []).length} threads, ${checks.length} checks (${checks.filter((c) => c.failed).length} failing, ${checks.filter((c) => c.pending).length} pending)${external.length ? `, ${external.map((r) => `${r.provider} ${r.state}`).join(', ')}` : ''}`;
 }
+
+function rounds(s) { return GATES.map((g) => `${{ adversarial: 'sol', safety: 'terra' }[g] || g} ${s.invocations[g] || 0}/${ROUND_CAP}`).join(', '); }
 
 function launch(run, gate) {
   const s = run.state, t = s.target;
@@ -98,7 +102,7 @@ function launch(run, gate) {
     fingerprints: s.fingerprints, body: s.body, diff: fs.readFileSync(path.join(run.dir, 'pr.diff'), 'utf8'), languageProfile: LANGUAGE_PROFILE, acceptanceCriteria: s.acceptanceCriteria, history: { unresolved: [], reopened: [], settled: [] } };
   if (gate === 'adversarial') { volatile.decisions = []; volatile.comments = JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter((c) => TRUSTED.includes(c.author_association)); }
   const built = run.op('build_gate_launch', { expectation, expectationPath, volatile }).data;
-  Object.assign(s, { activeGate: gate, state: 'GATE_LAUNCH_PENDING', pending: { gate, invocation, expectationPath }, rounds: GATES.map((g) => `${g} ${s.invocations[g] || 0}/${ROUND_CAP}`).join(', ') });
+  Object.assign(s, { activeGate: gate, state: 'GATE_LAUNCH_PENDING', pending: { gate, invocation, expectationPath }, rounds: rounds(s) });
   run.save();
   run.file(`launch-${gate}-${invocation}.json`, built.request);
   run.next(built.request, `${__filename} result`);
@@ -122,17 +126,49 @@ function result(opts) {
   if (open.length) { s.nextAction = 'the author applies the smallest correction, then a fresh run'; s.invalidated = 'all head-bound evidence once a correction is pushed'; run.stop('WAITING_FOR_OWNER', `${gate} returned ${envelope.verdict} with open finding(s): ${open.map((x) => x.findingId).join(', ')}`); }
   const next = GATES[GATES.indexOf(gate) + 1];
   if (next) return launch(run, next);
-  // Final readiness from a fresh snapshot on the same head.
-  const [owner, repo] = s.target.repository.split('/');
+  return finalReadiness(run);
+}
+
+// Final readiness from a fresh snapshot on the same head: identity, new external evidence (which reruns convergence
+// within its cap, DEC-109-CONV-SNAPSHOT-001), failures, required approvals, pending checks and external review.
+function finalReadiness(run) {
+  const s = run.state, [owner, repo] = s.target.repository.split('/');
   const snapshot = run.op('snapshot', { owner, repo, number: s.target.number, cwd: s.checkout }).data;
   const moved = targetMoved(s.target, { base: { sha: snapshot.after.base }, head: { sha: snapshot.after.head, ref: snapshot.after.headBranch, repo: { full_name: snapshot.after.headRepository } }, state: snapshot.after.state, draft: snapshot.after.draft });
   if (moved) run.stop('BLOCKED', moved);
-  s.external = describeExternal(snapshot); s.activeGate = 'none';
+  s.external = describeExternal(snapshot); s.activeGate = 'none'; s.rounds = rounds(s);
+  const ids = evidenceIds(snapshot);
+  if (ids.some((id) => !(s.evidenceIds || []).includes(id))) {
+    const snap = snapshotFingerprint(run, snapshot);
+    s.fingerprints.snapshot = snap.value; s.evidenceIds = ids; s.observedFrom = new Date().toISOString();
+    s.identities = s.identities.map((x) => (x.kind === 'snapshot' ? { ...x, identity: snap.value } : x));
+    s.requiredEvidence = run.op('required_evidence_set', { cwd: s.checkout, baseOid: s.target.baseOid, headOid: s.target.headOid, identities: s.identities }).data.requiredEvidence;
+    s.verdicts = {}; s.invalidated = 'every gate verdict: new external evidence arrived at final readiness';
+    return launch(run, 'convergence');
+  }
   const checks = snapshot.policies?.checks || [], external = snapshot.policies?.externalReview || [];
   if (checks.some((c) => c.failed) || external.some((r) => r.state === 'failed') || (snapshot.reviews || []).some((r) => r.state === 'CHANGES_REQUESTED')) { s.nextAction = 'the author addresses failing checks or requested changes, then a fresh run'; run.stop('BLOCKED', 'final policy failed: a failing check, a failed external review, or requested changes'); }
-  if (checks.some((c) => c.pending) || external.some((r) => r.state !== 'completed')) { s.nextAction = 'wait for checks and external review on this head, then a fresh run'; run.stop('WAITING_EXTERNAL_REVIEW', 'required checks or external review are pending or unknown'); }
+  const shortfall = approvalShortfall(snapshot, s.target.headOid);
+  if (shortfall || checks.some((c) => c.pending) || external.some((r) => r.state !== 'completed')) { s.nextAction = 'wait for approvals, checks, and external review on this head, then resume'; run.stop('WAITING_EXTERNAL_REVIEW', shortfall ? `${shortfall} on the head` : 'required checks or external review are pending or unknown'); }
   s.nextAction = 'human merge decision; the workflow never merges'; s.operatorActions = 'none; a human may merge';
   run.stop('MERGE_READY', 'convergence, Sol and Terra returned MERGE on the unchanged head; checks are green');
+}
+
+// review-only.md: a stopped run resumes only after every fingerprint is recomputed, never trusting recorded state; a
+// changed target is refused and what moved is reported. Only a WAITING_EXTERNAL_REVIEW stop has work left to resume;
+// every other stop is completed by a fresh run.
+function resume(opts) {
+  const run = Run.open(opts), s = run.state, t = s.target;
+  if (s.state !== 'WAITING_EXTERNAL_REVIEW') die(`a ${s.state} run is not resumable; start a fresh run`);
+  const moved = targetMoved(t, gh(['api', `repos/${t.repository}/pulls/${t.number}`], s.checkout));
+  if (moved) run.stop('BLOCKED', moved);
+  const issue = gh(['api', `repos/${t.repository}/issues/${s.issueNumber}`], s.checkout);
+  const comments = gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${s.issueNumber}/comments?per_page=100`], s.checkout).flat();
+  const now = headFingerprints(run, { cwd: s.checkout, baseOid: t.baseOid, headOid: t.headOid, issue, comments }).values;
+  const changed = Object.keys(now).filter((k) => now[k] !== s.fingerprints[k]);
+  if (changed.length) run.stop('BLOCKED', `the target moved since the stop: ${changed.join(', ')} changed`);
+  s.reason = null;
+  return finalReadiness(run);
 }
 
 try {
@@ -140,6 +176,7 @@ try {
   const command = opts._[0];
   if (command === 'start') start(opts);
   else if (command === 'result') result(opts);
+  else if (command === 'resume') resume(opts);
   else if (command === 'status') process.stdout.write(fs.readFileSync(path.join(path.resolve(opts['run-dir'] || die('--run-dir is required')), 'state.json'), 'utf8'));
-  else die('usage: review.js start|result|status');
+  else die('usage: review.js start|result|resume|status');
 } catch (error) { die(error.stack || String(error)); }

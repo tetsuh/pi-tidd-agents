@@ -92,10 +92,25 @@ function targetMoved(target, pull) {
   const moved = Object.keys(was).filter((k) => now[k] !== was[k]);
   return moved.length ? `the target moved: ${moved.map((k) => `${k} ${was[k]} -> ${now[k]}`).join(', ')}` : null;
 }
-// A role as the runner reported it: `provider/model:thinking` (CONV-199-STATUS-TELEMETRY).
+// A role as the runner reported it, in the contracted `role provider/model:thinking` form (CONV-199-STATUS-TELEMETRY).
 function roleLabel(role, reported) {
   const m = /^([^/]+)\/([^:]+)(?::(.+))?$/.exec(String(reported || ''));
-  return m ? `${role} provider ${m[1]}, model ${m[2]}, thinking ${m[3] || 'unreported'}` : `${role} provider unreported, model ${reported || 'unreported'}, thinking unreported`;
+  return m ? `${role} ${m[1]}/${m[2]}:${m[3] || 'unreported'}` : `${role} unreported/${reported || 'unreported'}:unreported`;
+}
+// The identities of the external records a snapshot carries, to tell new evidence from a check changing state.
+function evidenceIds(snapshot) {
+  return ['comments', 'reviews', 'inline', 'threads'].flatMap((kind) => (snapshot[kind] || []).map((x) => `${kind}:${x.id}:${x.updated_at || x.submitted_at || ''}`)).sort();
+}
+// The approvals the base branch requires, from branch protection and repository rulesets, against the approvals on
+// the head (each reviewer's latest review counts).
+function approvalShortfall(snapshot, headOid) {
+  const p = snapshot.policies || {};
+  const fromRules = (p.rulesets || []).flatMap((r) => r.rules || []).filter((r) => r.type === 'pull_request').map((r) => r.parameters?.required_approving_review_count || 0);
+  const required = Math.max(p.branchProtection?.required_pull_request_reviews?.required_approving_review_count || 0, ...fromRules, 0);
+  const latest = new Map();
+  for (const r of snapshot.reviews || []) if (r.user?.login) latest.set(r.user.login, r);
+  const approved = [...latest.values()].filter((r) => r.state === 'APPROVED' && (!r.commit_id || r.commit_id === headOid)).length;
+  return approved < required ? `required approvals ${approved} of ${required}` : null;
 }
 
 class Run {
@@ -137,9 +152,12 @@ class Run {
   publish() {
     const s = this.state, t = s.target; if (!t) return;
     const fp = s.fingerprints || {};
-    const block = ['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${t.headBranch}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${s.activeGate || 'none'}`,
-      `fingerprints: issue_spec ${fp.issue_spec} base ${fp.pr_base} tree ${fp.pr_tree} diff ${fp.pr_diff} commits ${fp.pr_commits} head ${fp.pr_head} snapshot ${fp.snapshot}`,
-      `rounds: ${s.rounds || 'none'}`, `resolved: ${(s.resolved || []).join('; ') || 'none'}`, `findings: ${(s.findings || []).map((f) => `${f.findingId}: ${f.disposition}`).join('; ') || 'none'}`,
+    // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
+    const label = { adversarial: 'sol', safety: 'terra' };
+    const findings = (s.findings || []).map((f) => `  ${f.findingId}: ${f.disposition}`);
+    const block = ['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${t.headBranch}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
+      `fingerprints: issue_spec ${fp.issue_spec} base ${fp.pr_base} tree ${fp.pr_tree} diff ${fp.pr_diff} commits ${fp.pr_commits} head ${t.headOid}`,
+      `rounds: ${s.rounds || 'none'}`, `resolved: ${(s.resolved || []).join('; ') || 'none'}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
       'review_misses: none', `pending_decisions: ${(s.pendingDecisions || []).join(', ') || 'none'}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
       `external_observation: head ${t.headOid} observed_from ${s.observedFrom}, this run only`, `operator_actions: ${s.operatorActions || 'none'}`, `invalidated_evidence: ${s.invalidated || 'none'}`, `next_action: ${s.nextAction || 'owner decision'}`, '```'].join('\n');
     const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${g.verdict}${g.findings ? `; ${g.findings}` : ''}`).join('\n') || '- none';
@@ -166,4 +184,4 @@ class Run {
   }
 }
 
-module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, approvalShortfall, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
