@@ -113,6 +113,7 @@ test('Issue #196 the packaged review-only driver runs a PR round to MERGE_READY;
   const s = state(t.runDir);
   assert.equal(s.state, 'MERGE_READY', s.reason);
   assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /^# Review state: MERGE_READY\n/);
+  assert.ok(s.publication.comment.startsWith(t.runDir + path.sep), 'the publication artifacts live in the checked run directory');
   assert.ok(s.log.every((entry) => entry.ok), 'every packaged operation succeeded');
   assert.ok(s.log.some((entry) => entry.operation === 'validation_run'), 'validation ran from .tidd.json');
   // CONV-199-CLI-FINGERPRINT-BOUNDARY: every fingerprint is a packaged operation's answer, never an in-process call.

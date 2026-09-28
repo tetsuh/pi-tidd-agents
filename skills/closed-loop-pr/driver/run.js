@@ -148,7 +148,8 @@ class Run {
       `Reason: ${s.reason || s.state}.`, '', '## Gates', gates, '', `Validation: ${s.validation || 'not run'}.`, '', block, ''].join('\n');
     const marker = `<!-- pi-tidd-agents:review-publication:v1 repo=${t.repository} pr=${t.number} head=${t.headOid} visibleSha256=${sha256(visible)} -->`;
     const body = `${visible}${marker}\n`;
-    const pub = fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${t.number}-publish.`));
+    // Inside the run directory, which was verified outside every work tree before it was created.
+    const pub = fs.mkdtempSync(path.join(this.dir, 'publish.'));
     fs.writeFileSync(path.join(pub, 'review-comment.md'), body, { mode: 0o600 });
     const template = fs.readFileSync(path.join(PACKAGE, 'skills', 'closed-loop-pr', 'references', 'publish-review.sh'), 'utf8');
     const script = template.replaceAll('__PI_REVIEW_REPOSITORY__', t.repository).replaceAll('__PI_REVIEW_PR_NUMBER__', String(t.number)).replaceAll('__PI_REVIEW_HEAD__', t.headOid)

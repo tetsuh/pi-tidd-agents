@@ -21,8 +21,9 @@ const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 function start(opts) {
   const number = Number(opts.pr); if (!Number.isInteger(number) || number <= 0) die('--pr must be a pull request number');
   const checkout = path.resolve(opts.checkout || process.cwd());
+  // The location is judged before anything is created: the given directory, or the temporary root a default goes under.
+  const problem = runDirProblem(opts['run-dir'] ? path.resolve(opts['run-dir']) : os.tmpdir()); if (problem) die(problem);
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${number}-review.`));
-  const problem = runDirProblem(runDir); if (problem) die(problem);
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
   const run = new Run(runDir), s = run.state;
   const repository = opts.repo || gh(['repo', 'view', '--json', 'nameWithOwner'], checkout).nameWithOwner;
