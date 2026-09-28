@@ -11,7 +11,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Run, headFingerprints, snapshotFingerprint, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -22,6 +22,7 @@ function start(opts) {
   const number = Number(opts.pr); if (!Number.isInteger(number) || number <= 0) die('--pr must be a pull request number');
   const checkout = path.resolve(opts.checkout || process.cwd());
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${number}-review.`));
+  const problem = runDirProblem(runDir); if (problem) die(problem);
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
   const run = new Run(runDir), s = run.state;
   const repository = opts.repo || gh(['repo', 'view', '--json', 'nameWithOwner'], checkout).nameWithOwner;
@@ -83,6 +84,8 @@ function describeExternal(snapshot) {
 
 function launch(run, gate) {
   const s = run.state, t = s.target;
+  // The first gate launches right after evidence collection; every later one re-resolves the target first.
+  if (gate !== 'convergence') { const moved = targetMoved(t, gh(['api', `repos/${t.repository}/pulls/${t.number}`], s.checkout)); if (moved) run.stop('BLOCKED', moved); }
   s.invocations[gate] = (s.invocations[gate] || 0) + 1;
   const invocation = s.invocations[gate];
   if (invocation > ROUND_CAP) run.stop('ROUND_LIMIT_REACHED', `${gate} reached its ${ROUND_CAP}-round cap`);
@@ -106,7 +109,7 @@ function result(opts) {
   const read = run.op('gate_result_read', { runId: opts['run-id'] || die('--run-id is required'), expectationPath: p.expectationPath }).data;
   const envelope = read.envelope, gate = p.gate, findings = envelope.findings || [];
   const status = read.statusPath ? JSON.parse(fs.readFileSync(read.statusPath, 'utf8')) : {};
-  s.resolved.push(`${ROLE[gate]} ${((status.steps || []).at(-1) || {}).model || 'unknown'}`);
+  s.resolved.push(roleLabel(ROLE[gate], ((status.steps || []).at(-1) || {}).model));
   s.verdicts[gate] = envelope.verdict; s.pending = null;
   s.gateLog.push({ gate, invocation: p.invocation, head: s.target.headOid, verdict: envelope.verdict, findings: findings.map((x) => `${x.findingId} (${x.severity})`).join(', ') });
   // CL-D85: a Minor whose correction alters no obligation is recorded and advances; any other finding is open.
@@ -121,7 +124,8 @@ function result(opts) {
   // Final readiness from a fresh snapshot on the same head.
   const [owner, repo] = s.target.repository.split('/');
   const snapshot = run.op('snapshot', { owner, repo, number: s.target.number, cwd: s.checkout }).data;
-  if (snapshot.after.head !== s.target.headOid) run.stop('BLOCKED', 'the head moved during the run');
+  const moved = targetMoved(s.target, { base: { sha: snapshot.after.base }, head: { sha: snapshot.after.head, ref: snapshot.after.headBranch, repo: { full_name: snapshot.after.headRepository } }, state: snapshot.after.state, draft: snapshot.after.draft });
+  if (moved) run.stop('BLOCKED', moved);
   s.external = describeExternal(snapshot); s.activeGate = 'none';
   const checks = snapshot.policies?.checks || [], external = snapshot.policies?.externalReview || [];
   if (checks.some((c) => c.failed) || external.some((r) => r.state === 'failed') || (snapshot.reviews || []).some((r) => r.state === 'CHANGES_REQUESTED')) { s.nextAction = 'the author addresses failing checks or requested changes, then a fresh run'; run.stop('BLOCKED', 'final policy failed: a failing check, a failed external review, or requested changes'); }

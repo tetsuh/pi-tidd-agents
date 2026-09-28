@@ -75,6 +75,29 @@ function snapshotFingerprint(run, snapshot) {
   return { value: d.fingerprint, record: d.record };
 }
 
+// The run directory holds state and payload pointers, so it never lies inside a Git work tree, judged by where it
+// resolves (CONV-199-RUN-DIR-WRITE); checked before anything is created.
+function runDirProblem(dir) {
+  let at = path.resolve(dir);
+  while (!fs.existsSync(at)) at = path.dirname(at);
+  for (let real = fs.realpathSync.native(at); ; real = path.dirname(real)) {
+    if (fs.existsSync(path.join(real, '.git'))) return `the run directory ${dir} is inside a Git work tree (${real})`;
+    if (real === path.dirname(real)) return null;
+  }
+}
+// The pull request as GitHub reports it now, against the identity the run bound (CONV-199-STALE-TARGET).
+function targetMoved(target, pull) {
+  const now = { baseOid: pull.base?.sha, headOid: pull.head?.sha, headRepository: pull.head?.repo?.full_name, headBranch: pull.head?.ref, state: pull.state, draft: pull.draft };
+  const was = { baseOid: target.baseOid, headOid: target.headOid, headRepository: target.headRepository, headBranch: target.headBranch, state: 'open', draft: false };
+  const moved = Object.keys(was).filter((k) => now[k] !== was[k]);
+  return moved.length ? `the target moved: ${moved.map((k) => `${k} ${was[k]} -> ${now[k]}`).join(', ')}` : null;
+}
+// A role as the runner reported it: `provider/model:thinking` (CONV-199-STATUS-TELEMETRY).
+function roleLabel(role, reported) {
+  const m = /^([^/]+)\/([^:]+)(?::(.+))?$/.exec(String(reported || ''));
+  return m ? `${role} provider ${m[1]}, model ${m[2]}, thinking ${m[3] || 'unreported'}` : `${role} provider unreported, model ${reported || 'unreported'}, thinking unreported`;
+}
+
 class Run {
   constructor(dir) {
     this.dir = dir;
@@ -142,4 +165,4 @@ class Run {
   }
 }
 
-module.exports = { Run, headFingerprints, snapshotFingerprint, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
