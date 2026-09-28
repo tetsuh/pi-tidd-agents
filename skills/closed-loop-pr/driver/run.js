@@ -229,12 +229,13 @@ class Run {
     const script = template.replaceAll('__PI_REVIEW_REPOSITORY__', t.repository).replaceAll('__PI_REVIEW_PR_NUMBER__', String(t.number)).replaceAll('__PI_REVIEW_HEAD__', t.headOid)
       .replaceAll('__PI_REVIEW_PR_URL__', `https://github.com/${t.repository}/pull/${t.number}`).replaceAll('__PI_REVIEW_BODY_SHA256__', sha256(body)).replaceAll('__PI_REVIEW_MARKER__', marker);
     fs.writeFileSync(path.join(pub, 'publish-review.sh'), script, { mode: 0o600 });
-    fs.writeFileSync(path.join(this.dir, 'status-block.md'), `${block}\n`, { mode: 0o600 });
+    // CL-D33 drafts exactly two artifacts; the block also lives in the run's state and in the report below.
+    s.statusBlock = block;
     s.publication = { comment: path.join(pub, 'review-comment.md'), script: path.join(pub, 'publish-review.sh') };
     this.save();
     // The CL-D33 report: both paths, the body digest, the one command, and the head binding; the operator runs it.
     process.stdout.write(`FINISHED comment=${s.publication.comment}\nPUBLISH=${s.publication.script}\nbody sha256 ${sha256(body)}\nrepository ${t.repository}, pull request #${t.number}, head ${t.headOid}\n`
-      + `To publish, the operator runs: bash "${s.publication.script}"\nThe comment is bound to that head; a changed head requires fresh review. It is posted under the operator's own GitHub account.\n`);
+      + `To publish, the operator runs: bash "${s.publication.script}"\nThe comment is bound to that head; a changed head requires fresh review. It is posted under the operator's own GitHub account.\n${block}\n`);
   }
   // Print the one call the parent makes, and the command that reads its result.
   next(request, command) {
