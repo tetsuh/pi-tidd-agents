@@ -311,36 +311,46 @@ function piPackageRoot(pathEnv, prefixes) {
     try { real = fs.realpathSync(path.join(dir, 'pi')); } catch { continue; }
     for (let at = path.dirname(real); at !== path.dirname(at); at = path.dirname(at)) if (isPiPackage(at)) return at;
   }
-  for (const prefix of prefixes) {
+  // npm is asked only when PATH did not answer: the spawn costs time, and a hanging npm must not slow a found pi.
+  for (const prefix of typeof prefixes === 'function' ? prefixes() : prefixes) {
     for (const at of [path.join(prefix, 'lib', 'node_modules', PI_PACKAGE), path.join(prefix, 'node_modules', PI_PACKAGE)]) if (isPiPackage(at)) return at;
   }
   return null;
 }
-// `PI_TIDD_NO_PI_TYPEBOX` turns the fallback off, so a fixture can still present a receiver that cannot be driven.
-function receiverTypebox(receiver, { pathEnv = process.env.PI_TIDD_NO_PI_TYPEBOX ? '' : process.env.PATH, prefixes = process.env.PI_TIDD_NO_PI_TYPEBOX ? [] : npmPrefixes() } = {}) {
-  if (receiverTypeboxSources.has(receiver)) return receiverTypeboxSources.get(receiver);
+// `PI_TIDD_NO_PI_TYPEBOX` turns the fallback off, so a fixture can still present a receiver that cannot be driven. An
+// answer is cached per receiver and option set. The hook covers ES module imports, which is how the receiver loads
+// typebox; Node's CommonJS resolver does not honour a changed parent, so a CommonJS `require` is not redirected.
+function receiverTypebox(receiver, options = {}) {
+  const off = Boolean(process.env.PI_TIDD_NO_PI_TYPEBOX);
+  const pathEnv = options.pathEnv ?? (off ? '' : process.env.PATH);
+  const prefixes = options.prefixes ?? (off ? [] : () => npmPrefixes());
+  const key = JSON.stringify([receiver, pathEnv, typeof prefixes === 'function' ? 'npm' : prefixes]);
+  if (receiverTypeboxSources.has(key)) return receiverTypeboxSources.get(key);
   const { createRequire, registerHooks } = require('node:module');
   const { pathToFileURL } = require('node:url');
-  let source;
-  try { createRequire(path.join(receiver, 'package.json')).resolve('typebox'); source = { from: 'receiver', root: receiver }; } catch {
-    const pi = piPackageRoot(pathEnv, prefixes);
-    let resolvable = false;
-    if (pi) try { createRequire(path.join(pi, 'package.json')).resolve('typebox'); resolvable = true; } catch { /* named below */ }
-    if (!resolvable) source = { from: null, problem: 'cannot resolve its own typebox: neither the receiver nor an installed pi package carries it' };
-    else {
-      // Node reports a module's real directory as its parent, so both the given and the canonical receiver count
-      // (ADV-198-SYMLINK-RECEIVER-TYPEBOX).
-      const inside = [...new Set([receiver, fs.realpathSync(receiver)])].map((dir) => pathToFileURL(dir + path.sep).href), parentURL = pathToFileURL(path.join(pi, 'package.json')).href;
-      registerHooks({ resolve(specifier, context, next) {
-        try { return next(specifier, context); } catch (error) {
-          if ((specifier === 'typebox' || specifier.startsWith('typebox/')) && inside.some((prefix) => String(context.parentURL || '').startsWith(prefix))) return next(specifier, { ...context, parentURL });
-          throw error;
-        }
-      } });
-      source = { from: 'pi', root: pi };
+  let source, canonical;
+  try { canonical = fs.realpathSync(receiver); } catch (error) { source = { from: null, problem: `cannot resolve its own typebox: the receiver is not readable (${error.code})` }; }
+  if (!source) {
+    try { createRequire(path.join(receiver, 'package.json')).resolve('typebox'); source = { from: 'receiver', root: receiver }; } catch {
+      const pi = piPackageRoot(pathEnv, prefixes);
+      let resolvable = false;
+      if (pi) try { createRequire(path.join(pi, 'package.json')).resolve('typebox'); resolvable = true; } catch { /* named below */ }
+      if (!resolvable) source = { from: null, problem: 'cannot resolve its own typebox: neither the receiver nor an installed pi package carries it' };
+      else {
+        // Node reports a module's real directory as its parent, so both the given and the canonical receiver count
+        // (ADV-198-SYMLINK-RECEIVER-TYPEBOX). A retry that fails too rethrows the receiver's own error.
+        const inside = [...new Set([receiver, canonical])].map((dir) => pathToFileURL(dir + path.sep).href), parentURL = pathToFileURL(path.join(pi, 'package.json')).href;
+        registerHooks({ resolve(specifier, context, next) {
+          try { return next(specifier, context); } catch (error) {
+            if (!((specifier === 'typebox' || specifier.startsWith('typebox/')) && inside.some((prefix) => String(context.parentURL || '').startsWith(prefix)))) throw error;
+            try { return next(specifier, { ...context, parentURL }); } catch { throw error; }
+          }
+        } });
+        source = { from: 'pi', root: pi };
+      }
     }
   }
-  receiverTypeboxSources.set(receiver, source);
+  receiverTypeboxSources.set(key, source);
   return source;
 }
 
