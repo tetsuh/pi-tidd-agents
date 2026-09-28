@@ -290,24 +290,32 @@ function copyTrackedCheckout(source, destination) {
 // receiver's own modules cannot resolve it, so a failed `typebox` resolution from inside the receiver is retried from
 // the installed pi package, which is where pi's copy lives. The source is named; with neither, the state is named.
 const receiverTypeboxSources = new Map();
-function piPackageRoot(pathEnv) {
+const PI_PACKAGE = '@earendil-works/pi-coding-agent';
+function isPiPackage(at) { try { return JSON.parse(fs.readFileSync(path.join(at, 'package.json'), 'utf8')).name === PI_PACKAGE; } catch { return false; } }
+// The pi package behind a `pi` on PATH (a symlink into it), or under an npm global root: a wrapper script or a Windows
+// npm shim on PATH is not a symlink into the package (ADV-198-PI-EXECUTABLE-WRAPPER).
+function npmPrefixes(env = process.env) {
+  return [env.NPM_CONFIG_PREFIX || env.npm_config_prefix, path.dirname(path.dirname(process.execPath)), path.dirname(process.execPath), env.APPDATA && path.join(env.APPDATA, 'npm')].filter(Boolean);
+}
+function piPackageRoot(pathEnv, prefixes) {
   for (const dir of String(pathEnv).split(path.delimiter).filter(Boolean)) {
     let real;
     try { real = fs.realpathSync(path.join(dir, 'pi')); } catch { continue; }
-    for (let at = path.dirname(real); at !== path.dirname(at); at = path.dirname(at)) {
-      try { if (JSON.parse(fs.readFileSync(path.join(at, 'package.json'), 'utf8')).name === '@earendil-works/pi-coding-agent') return at; } catch { /* keep walking */ }
-    }
+    for (let at = path.dirname(real); at !== path.dirname(at); at = path.dirname(at)) if (isPiPackage(at)) return at;
+  }
+  for (const prefix of prefixes) {
+    for (const at of [path.join(prefix, 'lib', 'node_modules', PI_PACKAGE), path.join(prefix, 'node_modules', PI_PACKAGE)]) if (isPiPackage(at)) return at;
   }
   return null;
 }
 // `PI_TIDD_NO_PI_TYPEBOX` turns the fallback off, so a fixture can still present a receiver that cannot be driven.
-function receiverTypebox(receiver, { pathEnv = process.env.PI_TIDD_NO_PI_TYPEBOX ? '' : process.env.PATH } = {}) {
+function receiverTypebox(receiver, { pathEnv = process.env.PI_TIDD_NO_PI_TYPEBOX ? '' : process.env.PATH, prefixes = process.env.PI_TIDD_NO_PI_TYPEBOX ? [] : npmPrefixes() } = {}) {
   if (receiverTypeboxSources.has(receiver)) return receiverTypeboxSources.get(receiver);
   const { createRequire, registerHooks } = require('node:module');
   const { pathToFileURL } = require('node:url');
   let source;
   try { createRequire(path.join(receiver, 'package.json')).resolve('typebox'); source = { from: 'receiver', root: receiver }; } catch {
-    const pi = piPackageRoot(pathEnv);
+    const pi = piPackageRoot(pathEnv, prefixes);
     let resolvable = false;
     if (pi) try { createRequire(path.join(pi, 'package.json')).resolve('typebox'); resolvable = true; } catch { /* named below */ }
     if (!resolvable) source = { from: null, problem: 'cannot resolve its own typebox: neither the receiver nor an installed pi package carries it' };
