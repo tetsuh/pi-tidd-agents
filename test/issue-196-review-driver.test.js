@@ -666,3 +666,39 @@ test('Issue #196 readiness counts only active rulesets whose conditions target t
   }
   assert.deepEqual(counted(snapshot([], [ruleset('a', { conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] }, repository_name: { include: ['r*'], exclude: [] } } })])), ['required check ci/a has not reported', 'required approvals 0 of 1'], 'this repository');
 });
+
+// Round 17 of PR #199: a required check pinned to an app is satisfied only by that app's check run
+// (ADV-199-REQUIRED-APP-ID), and the frozen ignored delta covers every descendant of an ignored directory by content
+// (ADV-199-IGNORED-DELTA-CHILDREN).
+test('Issue #196 a required check pinned to an app is satisfied only by that app\'s check run', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/run');
+  const run = (appId) => ({ id: 1, name: 'build', status: 'completed', conclusion: 'success', app: { id: appId } });
+  const status = { id: 1, context: 'build', state: 'success', created_at: '2026-09-29T00:00:00Z' };
+  const snapshot = (policies, checks, statuses = []) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses, reviews: [], threads: [], policies: { rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [], ...policies } });
+  const protection = (app_id) => ({ branchProtection: { required_status_checks: { contexts: ['build'], checks: [{ context: 'build', app_id }] } } });
+  const ruleset = (integration_id) => ({ rulesets: [{ id: 1, enforcement: 'active', target: 'branch', bypass_actors: [], rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'build', integration_id }] } }] }] });
+  const pending = (s) => readiness(s, 'h'.repeat(40)).pending;
+  for (const policy of [protection(123), ruleset(123)]) {
+    assert.match(pending(snapshot(policy, [run(999)])).join(';'), /build/, 'another app');
+    assert.match(pending(snapshot(policy, [], [status])).join(';'), /build/, 'a legacy status');
+    assert.deepEqual(pending(snapshot(policy, [run(123)])), [], 'the pinned app');
+  }
+  assert.deepEqual(pending(snapshot(protection(null), [run(999)])), [], 'an unpinned check');
+  assert.deepEqual(pending(snapshot(ruleset(undefined), [], [status])), [], 'an unpinned context');
+});
+
+test('Issue #196 the ignored inventory covers every descendant of an ignored directory by content', () => {
+  const { ignoredInventory } = require('../skills/closed-loop-pr/driver/run');
+  const root = temp('i196-ignored-');
+  git(root, ['init', '-q']);
+  fs.writeFileSync(path.join(root, '.gitignore'), 'scratch/\n');
+  fs.mkdirSync(path.join(root, 'scratch', 'deep'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'scratch', 'x'), 'one');
+  const frozen = ignoredInventory(root);
+  fs.writeFileSync(path.join(root, 'scratch', 'deep', 'y'), 'new');
+  assert.notDeepEqual(ignoredInventory(root), frozen, 'a new nested file');
+  fs.rmSync(path.join(root, 'scratch', 'deep', 'y'));
+  assert.deepEqual(ignoredInventory(root), frozen, 'back to the frozen delta');
+  fs.writeFileSync(path.join(root, 'scratch', 'x'), 'two');
+  assert.notDeepEqual(ignoredInventory(root), frozen, 'an edited ignored file');
+});
