@@ -11,9 +11,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Run, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
-const fingerprints = require('../helpers/fingerprints');
-const { createEvidenceFingerprintRecord } = require('../helpers/evidence');
+const { Run, headFingerprints, snapshotFingerprint, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -49,15 +47,9 @@ function start(opts) {
   const validation = validationCommands(checkout, target.baseOid);
   if (validation.problem) run.stop('BLOCKED', validation.problem);
   // Evidence of the head (CL-D9), bracketed by the pull request read before it.
-  const diff = git(checkout, ['diff', '--binary', '--no-ext-diff', '--no-textconv', `${target.baseOid}...${target.headOid}`], 'buffer');
-  run.file('pr.diff', diff);
-  const commits = git(checkout, ['log', '--reverse', '--format=%H%x00%B%x01', `${target.baseOid}..${target.headOid}`]).split('\u0001').filter((x) => x.trim())
-    .map((record) => { const [oid, message] = record.replace(/^\n/, '').split('\u0000'); return { oid, message }; });
-  const fp = {
-    issue_spec: fingerprints.issueSpecFingerprint({ body: issue.body || '', comments }),
-    pr_base: fingerprints.prBaseFingerprint(target.baseOid), pr_tree: fingerprints.prTreeFingerprint(git(checkout, ['rev-parse', `${target.headOid}^{tree}`]).trim()),
-    pr_diff: fingerprints.prDiffFingerprint(diff), pr_commits: fingerprints.prCommitsFingerprint(commits), pr_head: fingerprints.prHeadFingerprint(target.headOid),
-  };
+  const evidence = headFingerprints(run, { cwd: checkout, baseOid: target.baseOid, headOid: target.headOid, issue, comments });
+  run.file('pr.diff', evidence.diff);
+  const fp = evidence.values, records = evidence.records;
   const results = [];
   for (const command of [...validation.commands, ['git', 'diff', '--check', `${target.baseOid}...${target.headOid}`]]) {
     const v = run.op('validation_run', { cwd: checkout, command, timeoutMs: 1800000 }, { allowFail: true });
@@ -67,13 +59,13 @@ function start(opts) {
   s.validation = results.join('; ');
   const snapshot = run.op('snapshot', { owner, repo, number, cwd: checkout }).data;
   if (snapshot.after.head !== target.headOid || snapshot.after.base !== target.baseOid) run.stop('BLOCKED', 'the target moved during evidence collection');
-  const built = run.op('build_fingerprint_snapshot', { snapshot }).data.request;
-  fp.snapshot = run.op('fingerprint_snapshot', built.data).data.fingerprint;
+  const snap = snapshotFingerprint(run, snapshot);
+  fp.snapshot = snap.value; records.snapshot = snap.record;
   s.fingerprints = fp; s.observedFrom = new Date().toISOString();
   s.external = describeExternal(snapshot);
   const envelope = { schemaVersion: 1, captureIdentity: { repository, number, baseOid: target.baseOid, baseBranch: target.baseBranch, headOid: target.headOid, headRepository: target.headRepository, headBranch: target.headBranch, state: 'open', draft: false },
     brackets: { before: snapshot.before, after: snapshot.after }, completeness: snapshot.completeness,
-    fingerprints: Object.fromEntries(Object.entries(fp).map(([k, v]) => [k, createEvidenceFingerprintRecord(k, v)])) };
+    fingerprints: records };
   run.op('evidence_verify', { envelope, expected: { ...envelope.captureIdentity, fingerprints: fp } });
   const identities = [...['pr_base', 'pr_head', 'pr_tree', 'pr_diff', 'pr_commits'].map((d) => ({ source: `git:${d}`, kind: 'git', identity: fp[d] })),
     { source: `github:issue:${s.issueNumber}:spec`, kind: 'github', identity: fp.issue_spec },

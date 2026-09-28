@@ -52,6 +52,29 @@ function validationCommands(cwd, baseOid) {
   return ok ? { commands: config.validate } : { problem: '.tidd.json must carry validate: a nonempty list of nonempty argv lists' };
 }
 
+// The six head fingerprints (CL-D9), each through its packaged operation, so a value and its record are the helper's
+// own answer (CONV-199-CLI-FINGERPRINT-BOUNDARY). Returns the values and the evidence records keyed by domain.
+function headFingerprints(run, { cwd, baseOid, headOid, issue, comments }) {
+  const diff = git(cwd, ['diff', '--binary', '--no-ext-diff', '--no-textconv', `${baseOid}...${headOid}`], 'buffer');
+  const commits = git(cwd, ['log', '--reverse', '--format=%H%x00%B%x01', `${baseOid}..${headOid}`]).split('\u0001').filter((x) => x.trim())
+    .map((record) => { const [oid, message] = record.replace(/^\n/, '').split('\u0000'); return { oid, message }; });
+  const requests = {
+    issue_spec: ['fingerprint_issue_spec', { body: issue.body || '', comments }],
+    pr_base: ['fingerprint_pr_base', { oid: baseOid }],
+    pr_tree: ['fingerprint_pr_tree', { oid: git(cwd, ['rev-parse', `${headOid}^{tree}`]).trim() }],
+    pr_diff: ['fingerprint_pr_diff', { base64: diff.toString('base64') }],
+    pr_commits: ['fingerprint_pr_commits', { commits }],
+    pr_head: ['fingerprint_pr_head', { oid: headOid }],
+  };
+  const values = {}, records = {};
+  for (const [domain, [operation, payload]] of Object.entries(requests)) { const d = run.op(operation, payload).data; values[domain] = d.fingerprint; records[domain] = d.record; }
+  return { values, records, diff };
+}
+function snapshotFingerprint(run, snapshot) {
+  const d = run.op('fingerprint_snapshot', run.op('build_fingerprint_snapshot', { snapshot }).data.request.data).data;
+  return { value: d.fingerprint, record: d.record };
+}
+
 class Run {
   constructor(dir) {
     this.dir = dir;
@@ -119,4 +142,4 @@ class Run {
   }
 }
 
-module.exports = { Run, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { Run, headFingerprints, snapshotFingerprint, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
