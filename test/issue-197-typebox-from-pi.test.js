@@ -30,7 +30,7 @@ test('Issue #197 the receiver typebox resolves from the installed pi package whe
 test('Issue #197 with no pi package the loader names the state instead of guessing', () => {
   const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'i197-'));
   fs.writeFileSync(path.join(empty, 'package.json'), '{"name":"pi-subagents","version":"0.73.1"}');
-  const source = helpers.receiverTypebox(empty, { pathEnv: '' });
+  const source = helpers.receiverTypebox(empty, { pathEnv: '', prefixes: [] });
   assert.equal(source.from, null);
   assert.match(source.problem, /cannot resolve its own typebox/);
 });
@@ -69,4 +69,22 @@ test('Issue #197 a fixture pi package supplies typebox to a receiver that does n
   const env = { ...process.env, PATH: bin }; delete env.PI_TIDD_NO_PI_TYPEBOX;
   const child = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env });
   assert.deepEqual(JSON.parse(child.stdout || '{}'), { from: 'pi', keys: ['agent'], check: 'function' }, child.stderr);
+});
+
+// ADV-198-PI-EXECUTABLE-WRAPPER: the `pi` on PATH may be a wrapper script or a Windows npm shim, not a symlink into the
+// package. The installed package is then found under npm's global root instead (the prefix npm installs pi into).
+test('Issue #197 a wrapper pi on PATH still finds the pi package under the npm global root', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'i197-wrapper-'));
+  const prefix = path.join(root, 'prefix');
+  const pi = path.join(prefix, 'lib', 'node_modules', '@earendil-works', 'pi-coding-agent'), typebox = path.join(pi, 'node_modules', 'typebox');
+  fs.mkdirSync(typebox, { recursive: true });
+  fs.writeFileSync(path.join(pi, 'package.json'), JSON.stringify({ name: '@earendil-works/pi-coding-agent', version: '0.0.0' }));
+  fs.writeFileSync(path.join(typebox, 'package.json'), JSON.stringify({ name: 'typebox', version: '0.0.0', exports: { '.': './index.mjs' } }));
+  fs.writeFileSync(path.join(typebox, 'index.mjs'), 'export const Type = {};\n');
+  const bin = path.join(root, 'bin'); fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'pi'), '#!/bin/sh\nexec node "$@"\n', { mode: 0o755 });
+  const receiver = path.join(root, 'receiver'); fs.mkdirSync(receiver);
+  fs.writeFileSync(path.join(receiver, 'package.json'), JSON.stringify({ name: 'pi-subagents', version: '0.73.1' }));
+  const source = helpers.receiverTypebox(receiver, { pathEnv: bin, prefixes: [prefix] });
+  assert.deepEqual(source, { from: 'pi', root: pi });
 });
