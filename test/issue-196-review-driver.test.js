@@ -549,3 +549,20 @@ test('Issue #196 a stop drafts exactly the two CL-D33 artifacts and no status-bl
   assert.ok(fs.readFileSync(s.publication.comment, 'utf8').includes(s.statusBlock), 'the comment carries the block');
   assert.ok(r.stdout.includes('```tidd-status'), 'the report carries the block');
 });
+
+// CONV-199-POST-VALIDATION-HEAD: a validation command that moves HEAD leaves a clean checkout at the wrong commit; the
+// check after validation reads HEAD as well as the working tree.
+test('Issue #196 a validation command that switches the checkout stops before the first gate', () => {
+  const t = setup();
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8'));
+  const base = f.pull.base.sha;
+  fs.writeFileSync(path.join(t.target.root, '.tidd.json'), JSON.stringify({ validate: [['git', 'checkout', '-q', base]] }));
+  git(t.target.root, ['checkout', '-q', 'main']); git(t.target.root, ['add', '.tidd.json']); git(t.target.root, ['commit', '-q', '-m', 'config']);
+  const newBase = git(t.target.root, ['rev-parse', 'HEAD']);
+  git(t.target.root, ['checkout', '-q', 'feature']); git(t.target.root, ['rebase', '-q', 'main']);
+  f.pull.base.sha = newBase; f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0);
+  assert.match(state(t.runDir).reason, /checkout is at/);
+  assert.equal(nextRequest(r.stdout), null);
+});
