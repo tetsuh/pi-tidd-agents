@@ -128,3 +128,17 @@ test('Issue #197 a receiver reached through a symlink loads its schema with the 
   const child = spawnSync(process.execPath, ['-e', load], { encoding: 'utf8' });
   assert.deepEqual(JSON.parse(child.stdout || '{}'), { from: 'pi', keys: ['agent'], check: 'function' }, child.stderr);
 });
+
+// ADV-198-CLD25-ERROR-OMITS-MINIMUM: CL-D25 says a receiver that cannot be driven fails naming the minimum; the #159
+// receiver case must say so too when no typebox resolves.
+test('Issue #197 the #159 receiver case names the state and the minimum when no typebox resolves', (t) => {
+  const receiver = path.join(os.homedir(), '.pi', 'agent', 'npm', 'node_modules', 'pi-subagents');
+  if (!fs.existsSync(receiver)) { t.skip('pi-subagents is not installed in this environment'); return; }
+  const env = { ...process.env, PI_TIDD_NO_PI_TYPEBOX: '1' }; delete env.NODE_TEST_CONTEXT;
+  const child = spawnSync(process.execPath, ['--test', '--test-reporter=tap', path.join(__dirname, 'issue-159-gate-launch-cwd.test.js')], { encoding: 'utf8', env, timeout: 300000 });
+  const installedCarriesTypebox = (() => { try { require('node:module').createRequire(path.join(receiver, 'package.json')).resolve('typebox'); return true; } catch { return false; } })();
+  if (installedCarriesTypebox) { t.skip('the installed receiver carries its own typebox'); return; }
+  assert.notEqual(child.status, 0, 'the receiver case fails');
+  assert.match(child.stdout, /cannot resolve its own typebox/);
+  assert.match(child.stdout, /the contracted minimum is 0\.70\.0 \(CL-D25\)/);
+});
