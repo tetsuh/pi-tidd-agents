@@ -17,7 +17,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, repoPath, cliSchemas } = require('./helpers');
+const { readText, repoPath, cliSchemas, receiverTypebox } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64);
@@ -251,8 +251,11 @@ test('Issue #159 the receiver accepts the cwd the gate launch now carries', { sk
     assert.equal(fs.existsSync(path.join(RECEIVER, module)), true, `pi-subagents ${installed ?? 'with no readable package.json'} carries no ${module}; the contracted minimum is 0.70.0 (CL-D25)`);
   }
   const load = (relative) => import(pathToFileURL(path.join(RECEIVER, relative)).href);
+  // pi-subagents 0.72+ takes typebox from pi, not its own manifest (#197).
+  const typeboxSource = receiverTypebox(RECEIVER);
+  assert.ok(typeboxSource.from, `pi-subagents ${installed ?? 'with no readable package.json'} ${typeboxSource.problem}; the contracted minimum is 0.70.0 (CL-D25)`);
   const [schemas, execution] = [await load(RECEIVER_MODULES[0]), await load(RECEIVER_MODULES[1])];
-  const typebox = await import(pathToFileURL(createRequire(path.join(RECEIVER, 'package.json')).resolve('typebox/value')).href);
+  const typebox = await import(pathToFileURL(createRequire(path.join(typeboxSource.root, 'package.json')).resolve('typebox/value')).href);
   assert.ok(schemas.SubagentParams && execution.normalizePublicSubagentExecution && typebox.Value, 'the receiver exports the surfaces this case drives');
 
   await new Promise((resolve) => { withExpectationFile('adversarial', (data) => {
