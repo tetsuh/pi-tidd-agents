@@ -52,6 +52,11 @@ function start(opts) {
   for (const [name, value] of [['base commit', pull.base?.sha], ['base branch', pull.base?.ref], ['head commit', pull.head?.sha], ['head branch', pull.head?.ref], ['head repository', pull.head?.repo?.full_name]]) {
     if (typeof value !== 'string' || !value) die(`cannot bind pull request ${repository}#${number}: its ${name} is missing`);
   }
+  // The driver reads the head and base from a local checkout. A foreign pull request, or one whose objects are not
+  // local, stays with the prose path of review-only.md until the prompt switch (#196 PR-C) (ADV-199-NO-CHECKOUT-PR).
+  for (const oid of [pull.base.sha, pull.head.sha]) {
+    try { git(checkout, ['cat-file', '-e', `${oid}^{commit}`]); } catch { die(`the checkout ${checkout} does not hold ${oid}; the driver needs the head and base locally, so review it on the prose path of review-only.md`); }
+  }
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${number}-review.`));
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
   const run = new Run(runDir), s = run.state;

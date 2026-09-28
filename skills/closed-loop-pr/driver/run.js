@@ -98,8 +98,11 @@ function roleLabel(role, reported) {
   return m ? `${role} ${m[1]}/${m[2]}:${m[3] || 'unreported'}` : `${role} unreported/${reported || 'unreported'}:unreported`;
 }
 // The identities of the external records a snapshot carries, to tell new evidence from a check changing state.
+// A thread is identified by each of its comments too, so a reply or an edit inside it is new (ADV-199-THREAD-REPLY-IDENTITY).
 function evidenceIds(snapshot) {
-  return ['comments', 'reviews', 'inline', 'threads'].flatMap((kind) => (snapshot[kind] || []).map((x) => `${kind}:${x.id}:${x.updated_at || x.submitted_at || ''}`)).sort();
+  const flat = ['comments', 'reviews', 'inline'].flatMap((kind) => (snapshot[kind] || []).map((x) => `${kind}:${x.id}:${x.updated_at || x.submitted_at || ''}`));
+  const threads = (snapshot.threads || []).flatMap((th) => [`threads:${th.id}:${th.isResolved}`, ...(th.comments?.nodes || []).map((c) => `threads:${th.id}:${c.id}:${c.updatedAt || ''}`)]);
+  return [...flat, ...threads].sort();
 }
 // Final policy from a snapshot on the head (review-only.md "Before declaring MERGE_READY"): check runs (skipped and
 // neutral pass), each commit status context's latest state, each human reviewer's latest decisive review, the approvals
@@ -123,6 +126,12 @@ function readiness(snapshot, headOid) {
     else if (st.state === 'failure' || st.state === 'error') failed.push(`status ${context} ${st.state}`);
     else if (st.state !== 'success') pending.push(`status ${context} unknown state ${st.state}`);
   }
+  // A required check or status context that has not reported for this head is pending (ADV-199-MISSING-REQUIRED-CHECKS).
+  const pol = snapshot.policies || {};
+  const requiredContexts = [...(pol.branchProtection?.required_status_checks?.contexts || []), ...(pol.branchProtection?.required_status_checks?.checks || []).map((c) => c.context),
+    ...[...(pol.rulesets || []), ...(pol.organizationRulesets || [])].flatMap((r) => r.rules || []).filter((r) => r.type === 'required_status_checks').flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => c.context))];
+  const reported = new Set([...(snapshot.checks || []).map((c) => c.name), ...(snapshot.statuses || []).map((st) => st.context)]);
+  for (const context of new Set(requiredContexts.filter(Boolean))) if (!reported.has(context)) pending.push(`required check ${context} has not reported`);
   for (const r of snapshot.policies?.externalReview || []) { if (r.state === 'failed') failed.push(`${r.provider} failed`); else if (r.state !== 'completed') pending.push(`${r.provider} ${r.state}`); }
   const decisive = new Map();
   for (const r of [...(snapshot.reviews || [])].sort((x, y) => Date.parse(x.submitted_at || 0) - Date.parse(y.submitted_at || 0) || x.id - y.id)) {
