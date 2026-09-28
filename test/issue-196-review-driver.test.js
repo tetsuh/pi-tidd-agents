@@ -251,7 +251,7 @@ test('Issue #196 the status block is the contracted one', () => {
   assert.equal(drive(t.start, t.e).status, 0);
   drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
   drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
-  const block = fs.readFileSync(path.join(t.runDir, 'status-block.md'), 'utf8');
+  const block = state(t.runDir).statusBlock;
   assert.match(block, /^active_gate: sol$/m);
   assert.match(block, /^rounds: convergence 1\/3, sol 1\/3, terra 0\/3$/m);
   assert.match(block, /^fingerprints: issue_spec [0-9a-f]{64} base [0-9a-f]{40} tree [0-9a-f]{40} diff [0-9a-f]{64} commits [0-9a-f]{64} head [0-9a-f]{40}$/m);
@@ -382,7 +382,7 @@ test('Issue #196 an open finding is reported as proposed, not as fixed', () => {
   const t = setup();
   assert.equal(drive(t.start, t.e).status, 0);
   drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
-  assert.match(fs.readFileSync(path.join(t.runDir, 'status-block.md'), 'utf8'), /^  CONV-7-X: fixed \(proposed; correction pending\)$/m);
+  assert.match(state(t.runDir).statusBlock, /^  CONV-7-X: fixed \(proposed; correction pending\)$/m);
 });
 
 test('Issue #196 a gh failure mid-run stops with an outcome token, and a harness failure never becomes a verdict', () => {
@@ -535,4 +535,17 @@ test('Issue #196 a code-owner or last-push approval requirement waits, because t
     assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(shape)}: ${s.reason}`);
     assert.match(s.reason, /cannot be verified/);
   }
+});
+
+// CONV-199-STATUS-ARTIFACT-BOUNDARY: CL-D33 drafts exactly two publication artifacts; the status block lives in the
+// visible comment, the report, and the run's state, never as a third file.
+test('Issue #196 a stop drafts exactly the two CL-D33 artifacts and no status-block file', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
+  const s = state(t.runDir);
+  assert.deepEqual(fs.readdirSync(path.dirname(s.publication.comment)).sort(), ['publish-review.sh', 'review-comment.md']);
+  assert.equal(fs.existsSync(path.join(t.runDir, 'status-block.md')), false);
+  assert.ok(fs.readFileSync(s.publication.comment, 'utf8').includes(s.statusBlock), 'the comment carries the block');
+  assert.ok(r.stdout.includes('```tidd-status'), 'the report carries the block');
 });
