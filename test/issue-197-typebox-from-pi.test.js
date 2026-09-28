@@ -51,26 +51,25 @@ test('Issue #197 a fixture pi package supplies typebox to a receiver that does n
   fs.mkdirSync(typebox, { recursive: true });
   fs.writeFileSync(path.join(pi, 'package.json'), JSON.stringify({ name: '@earendil-works/pi-coding-agent', version: '0.0.0' }));
   fs.writeFileSync(path.join(pi, 'cli.js'), '');
-  fs.writeFileSync(path.join(typebox, 'package.json'), JSON.stringify({ name: 'typebox', version: '0.0.0', exports: { '.': './index.mjs', './value': './value.js' } }));
+  fs.writeFileSync(path.join(typebox, 'package.json'), JSON.stringify({ name: 'typebox', version: '0.0.0', exports: { '.': './index.mjs', './value': './value.mjs' } }));
   fs.writeFileSync(path.join(typebox, 'index.mjs'), "export const Type = { Object: (properties) => ({ type: 'object', properties }) };\n");
-  fs.writeFileSync(path.join(typebox, 'value.js'), 'module.exports = { Value: { Check: () => true } };\n');
+  fs.writeFileSync(path.join(typebox, 'value.mjs'), 'export const Value = { Check: () => true };\n');
   const bin = path.join(root, 'bin'); fs.mkdirSync(bin);
   fs.symlinkSync(path.join(pi, 'cli.js'), path.join(bin, 'pi'));
   const receiver = path.join(root, 'receiver');
   fs.mkdirSync(path.join(receiver, 'src', 'extension'), { recursive: true });
   fs.writeFileSync(path.join(receiver, 'package.json'), JSON.stringify({ name: 'pi-subagents', version: '0.73.1', type: 'module' }));
-  fs.writeFileSync(path.join(receiver, 'src', 'extension', 'schemas.js'), "import { Type } from 'typebox';\nexport const SubagentParams = Type.Object({ agent: {} });\n");
+  fs.writeFileSync(path.join(receiver, 'src', 'extension', 'schemas.js'), "import { Type } from 'typebox';\nimport { Value } from 'typebox/value';\nexport const SubagentParams = Type.Object({ agent: {} });\nexport const check = typeof Value.Check;\n");
   const script = `
     const path = require('node:path'); const { createRequire } = require('node:module'); const { pathToFileURL } = require('node:url');
     const { receiverTypebox } = require(${JSON.stringify(path.join(__dirname, 'helpers.js'))});
-    const source = receiverTypebox(${JSON.stringify(receiver)});
+    const source = receiverTypebox(${JSON.stringify(receiver)}, { prefixes: [] });
     import(pathToFileURL(path.join(${JSON.stringify(receiver)}, 'src/extension/schemas.js')).href).then((schemas) => {
-      const value = require(createRequire(path.join(source.root, 'package.json')).resolve('typebox/value'));
-      process.stdout.write(JSON.stringify({ from: source.from, keys: Object.keys(schemas.SubagentParams.properties), check: typeof value.Value.Check }));
+      process.stdout.write(JSON.stringify({ from: source.from, root: source.root, keys: Object.keys(schemas.SubagentParams.properties), check: schemas.check }));
     }, (error) => { process.stdout.write(JSON.stringify({ error: error.message })); });`;
   const env = { ...process.env, PATH: bin }; delete env.PI_TIDD_NO_PI_TYPEBOX;
   const child = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env });
-  assert.deepEqual(JSON.parse(child.stdout || '{}'), { from: 'pi', keys: ['agent'], check: 'function' }, child.stderr);
+  assert.deepEqual(JSON.parse(child.stdout || '{}'), { from: 'pi', root: pi, keys: ['agent'], check: 'function' }, child.stderr);
 });
 
 // ADV-198-PI-EXECUTABLE-WRAPPER: the `pi` on PATH may be a wrapper script or a Windows npm shim, not a symlink into the
@@ -134,10 +133,10 @@ test('Issue #197 a receiver reached through a symlink loads its schema with the 
 test('Issue #197 the #159 receiver case names the state and the minimum when no typebox resolves', (t) => {
   const receiver = path.join(os.homedir(), '.pi', 'agent', 'npm', 'node_modules', 'pi-subagents');
   if (!fs.existsSync(receiver)) { t.skip('pi-subagents is not installed in this environment'); return; }
-  const env = { ...process.env, PI_TIDD_NO_PI_TYPEBOX: '1' }; delete env.NODE_TEST_CONTEXT;
-  const child = spawnSync(process.execPath, ['--test', '--test-reporter=tap', path.join(__dirname, 'issue-159-gate-launch-cwd.test.js')], { encoding: 'utf8', env, timeout: 300000 });
   const installedCarriesTypebox = (() => { try { require('node:module').createRequire(path.join(receiver, 'package.json')).resolve('typebox'); return true; } catch { return false; } })();
   if (installedCarriesTypebox) { t.skip('the installed receiver carries its own typebox'); return; }
+  const env = { ...process.env, PI_TIDD_NO_PI_TYPEBOX: '1' }; delete env.NODE_TEST_CONTEXT;
+  const child = spawnSync(process.execPath, ['--test', '--test-reporter=tap', path.join(__dirname, 'issue-159-gate-launch-cwd.test.js')], { encoding: 'utf8', env, timeout: 300000 });
   assert.notEqual(child.status, 0, 'the receiver case fails');
   assert.match(child.stdout, /cannot resolve its own typebox/);
   assert.match(child.stdout, /the contracted minimum is 0\.70\.0 \(CL-D25\)/);
@@ -163,4 +162,26 @@ test('Issue #197 the default lookup asks npm for its configured global prefix', 
     process.stdout.write(JSON.stringify(receiverTypebox(${JSON.stringify(receiver)}, { pathEnv: '' })));`;
   const child = spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env });
   assert.deepEqual(JSON.parse(child.stdout || '{}'), { from: 'pi', root: pi }, child.stderr);
+});
+
+// Pre-push sweep of the resolver: an answer is cached per receiver and options, a missing receiver names its state,
+// and CL-D25 says what the code does.
+test('Issue #197 the resolver caches per options, names a missing receiver, and CL-D25 matches it', (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'i197-cache-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const prefix = path.join(root, 'prefix'), pi = path.join(prefix, 'lib', 'node_modules', '@earendil-works', 'pi-coding-agent');
+  fs.mkdirSync(path.join(pi, 'node_modules', 'typebox'), { recursive: true });
+  fs.writeFileSync(path.join(pi, 'package.json'), JSON.stringify({ name: '@earendil-works/pi-coding-agent', version: '0.0.0' }));
+  fs.writeFileSync(path.join(pi, 'node_modules', 'typebox', 'package.json'), JSON.stringify({ name: 'typebox', version: '0.0.0', main: 'index.js' }));
+  fs.writeFileSync(path.join(pi, 'node_modules', 'typebox', 'index.js'), 'module.exports = {};\n');
+  const receiver = path.join(root, 'receiver'); fs.mkdirSync(receiver);
+  fs.writeFileSync(path.join(receiver, 'package.json'), JSON.stringify({ name: 'pi-subagents', version: '0.73.1' }));
+  assert.equal(helpers.receiverTypebox(receiver, { pathEnv: '', prefixes: [] }).from, null);
+  assert.deepEqual(helpers.receiverTypebox(receiver, { pathEnv: '', prefixes: [prefix] }), { from: 'pi', root: pi }, 'a different option set is a different answer');
+  const missing = helpers.receiverTypebox(path.join(root, 'absent'), { pathEnv: '', prefixes: [prefix] });
+  assert.equal(missing.from, null);
+  assert.match(missing.problem, /receiver is not readable/);
+  const record = helpers.sectionOf(helpers.readText('CONTRACT.md'), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
+  assert.match(record, /records which source it used/);
+  assert.match(record, /ES module imports/);
 });
