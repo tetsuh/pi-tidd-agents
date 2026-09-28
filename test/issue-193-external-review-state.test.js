@@ -60,6 +60,7 @@ test('Issue #193 a CodeRabbit status from any other author, or with no usable ti
   assert.equal((await classify({ statuses: [bot, status('success', 'Review completed', '2026-09-27T11:00:01Z', 2, 'someone')] }))[0].state, 'unknown');
   for (const created of [undefined, null, 'soon', 0]) assert.equal((await classify({ statuses: [bot, status('success', 'Review completed', created, 2)] }))[0].state, 'unknown', String(created));
   assert.equal((await classify({ statuses: [status('success', 'Review completed', '2026-09-27T10:00:00Z', 3), status('pending', 'Review in progress', 0, 4)] }))[0].state, 'unknown', 'numeric timestamp must not sort behind a valid success');
+  assert.equal((await classify({ statuses: [status('success', 'Review completed', '2026-09-27T10:00:00Z', 3), status('pending', 'Review in progress', '2026-02-30T10:00:00Z', 4)] }))[0].state, 'unknown', 'impossible calendar date must not sort behind a valid success');
   // An offset is a time, not a string to sort: 20:00+09:00 is 11:00Z, older than 11:30Z.
   assert.equal((await classify({ statuses: [status('success', 'Review completed', '2026-09-27T20:00:00+09:00', 3), status('pending', 'Review in progress', '2026-09-27T11:30:00Z', 4)] }))[0].state, 'pending');
 });
