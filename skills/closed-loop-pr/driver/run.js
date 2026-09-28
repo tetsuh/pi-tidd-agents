@@ -144,11 +144,19 @@ function readiness(snapshot, headOid) {
     else if (st.state !== 'success') pending.push(`status ${context} unknown state ${st.state}`);
   }
   // A required check or status context that has not reported for this head is pending (ADV-199-MISSING-REQUIRED-CHECKS).
-  const pol = snapshot.policies || {};
-  const requiredContexts = [...(pol.branchProtection?.required_status_checks?.contexts || []), ...(pol.branchProtection?.required_status_checks?.checks || []).map((c) => c.context),
-    ...[...(pol.rulesets || []), ...(pol.organizationRulesets || [])].filter((r) => applicable(r, snapshot)).flatMap((r) => r.rules || []).filter((r) => r.type === 'required_status_checks').flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => c.context))];
+  // A requirement pinned to an app (protection `app_id`, ruleset `integration_id`; -1 or none accepts any source) is
+  // met only by that app's check run, never by another app's or a legacy status (ADV-199-REQUIRED-APP-ID).
+  const pol = snapshot.policies || {}, rsc = pol.branchProtection?.required_status_checks || {};
+  const requiredChecks = [...(Array.isArray(rsc.checks) ? rsc.checks.map((c) => ({ context: c.context, app: c.app_id })) : (rsc.contexts || []).map((context) => ({ context }))),
+    ...[...(pol.rulesets || []), ...(pol.organizationRulesets || [])].filter((r) => applicable(r, snapshot)).flatMap((r) => r.rules || []).filter((r) => r.type === 'required_status_checks').flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => ({ context: c.context, app: c.integration_id })))];
   const reported = new Set([...(snapshot.checks || []).map((c) => c.name), ...(snapshot.statuses || []).map((st) => st.context)]);
-  for (const context of new Set(requiredContexts.filter(Boolean))) if (!reported.has(context)) pending.push(`required check ${context} has not reported`);
+  const seen = new Set();
+  for (const { context, app } of requiredChecks.filter((r) => r.context)) {
+    const pinned = typeof app === 'number' && app !== -1, key = `${context}\0${pinned ? app : ''}`;
+    if (seen.has(key)) continue; seen.add(key);
+    const met = pinned ? (snapshot.checks || []).some((c) => c.name === context && c.app?.id === app) : reported.has(context);
+    if (!met) pending.push(`required check ${context}${pinned ? ` from app ${app}` : ''} has not reported`);
+  }
   for (const r of snapshot.policies?.externalReview || []) { if (r.state === 'failed') failed.push(`${r.provider} failed`); else if (r.state !== 'completed') pending.push(`${r.provider} ${r.state}`); }
   const decisive = new Map();
   for (const r of [...(snapshot.reviews || [])].sort((x, y) => Date.parse(x.submitted_at || 0) - Date.parse(y.submitted_at || 0) || x.id - y.id)) {
@@ -183,14 +191,22 @@ function checkoutProblem(cwd, headOid) {
   const local = git(cwd, ['rev-parse', 'HEAD']).trim();
   return local === headOid ? dirtyCheckout(cwd) : `the checkout is at ${local}, not the public head ${headOid}`;
 }
-// The ignored paths outside the runtime roots, each with its type judged without following a link. Frozen after
-// validation (the validation sandbox delta) and compared at every later boundary (CONV-199-IGNORED-DELTA-BOUNDARY).
+// The ignored paths outside the runtime roots and every descendant of an ignored directory, each with its type judged
+// without following a link and its content (a file's SHA-256, a link's target). Frozen after validation (the validation
+// sandbox delta) and compared at every later boundary (CONV-199-IGNORED-DELTA-BOUNDARY, ADV-199-IGNORED-DELTA-CHILDREN).
 function ignoredInventory(cwd) {
-  const entries = git(cwd, ['status', '--porcelain=v1', '-z', '--ignored=matching', '--untracked-files=all']).split('\0').filter((e) => e.startsWith('!! ')).map((e) => e.slice(3));
-  return entries.filter((p) => !RUNTIME_ROOTS.some((root) => p === root || p === `${root}/` || p.startsWith(`${root}/`))).map((p) => {
-    let type = 'absent'; try { const st = fs.lstatSync(path.join(cwd, p)); type = st.isSymbolicLink() ? 'symlink' : st.isDirectory() ? 'dir' : 'file'; } catch { /* named as absent */ }
-    return `${p}:${type}`;
-  }).sort();
+  const entries = git(cwd, ['status', '--porcelain=v1', '-z', '--ignored=matching', '--untracked-files=all']).split('\0').filter((e) => e.startsWith('!! ')).map((e) => e.slice(3).replace(/\/$/, ''));
+  const out = [];
+  const visit = (rel) => {
+    const abs = path.join(cwd, rel);
+    let st; try { st = fs.lstatSync(abs); } catch { out.push(`${rel}:absent`); return; }
+    if (st.isSymbolicLink()) out.push(`${rel}:symlink:${fs.readlinkSync(abs)}`);
+    else if (st.isDirectory()) { out.push(`${rel}:dir`); for (const name of fs.readdirSync(abs).sort()) visit(`${rel}/${name}`); }
+    else if (st.isFile()) out.push(`${rel}:file:${sha256(fs.readFileSync(abs))}`);
+    else out.push(`${rel}:other`);
+  };
+  for (const p of entries.filter((e) => !RUNTIME_ROOTS.some((root) => e === root || e.startsWith(`${root}/`)))) visit(p);
+  return out.sort();
 }
 function dirtyCheckout(cwd) {
   for (const root of RUNTIME_ROOTS) {
