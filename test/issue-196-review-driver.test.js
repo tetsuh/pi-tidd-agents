@@ -459,3 +459,17 @@ test('Issue #196 a pull request that cannot be read at start fails before any ru
   assert.equal(fs.existsSync(t.runDir), false, 'no run directory, so no half-run');
   assert.match(r.stderr, /cannot read pull request/);
 });
+
+// CONV-199-UNKNOWN-CHECK-CONCLUSION: only success, skipped, and neutral pass; a conclusion or status state the driver
+// does not know is unknown, which is not complete.
+test('Issue #196 an unknown check conclusion or status state waits instead of passing', () => {
+  for (const patch of [{ checkConclusion: 'future-conclusion' }, { statuses: [{ id: 1, context: 'ci/x', state: 'future-state', created_at: '2026-09-29T00:00:00Z', creator: { login: 'x' } }] }]) {
+    const t = setup();
+    setFixture(t, patch);
+    assert.equal(drive(t.start, t.e).status, 0);
+    throughGates(t);
+    const s = state(t.runDir);
+    assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(patch)}: ${s.reason}`);
+    assert.match(s.reason, /unknown/);
+  }
+});
