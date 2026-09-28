@@ -288,7 +288,7 @@ function copyTrackedCheckout(source, destination) {
 
 // Issue #197: pi-subagents 0.72+ does not bundle `typebox`; pi supplies it to the extension at runtime. Outside pi the
 // receiver's own modules cannot resolve it, so a failed `typebox` resolution from inside the receiver is retried from
-// the installed pi package, which is where pi's copy lives. The source is named; with neither, the state is named.
+// the installed pi package, which is where pi's copy lives. The source is recorded; with neither, the state is named.
 const receiverTypeboxSources = new Map();
 const PI_PACKAGE = '@earendil-works/pi-coding-agent';
 function isPiPackage(at) { try { return JSON.parse(fs.readFileSync(path.join(at, 'package.json'), 'utf8')).name === PI_PACKAGE; } catch { return false; } }
