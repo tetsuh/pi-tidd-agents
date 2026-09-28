@@ -105,18 +105,23 @@ function evidenceIds(snapshot) {
 // neutral pass), each commit status context's latest state, each human reviewer's latest decisive review, the approvals
 // branch protection and repository and organization rulesets require, CodeRabbit's classification (CL-D92), and the
 // review threads still unresolved, which are external findings the owner dispositions.
+// Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
+const PASSED_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
 function readiness(snapshot, headOid) {
   const failed = [], pending = [];
   for (const c of snapshot.checks || []) {
     if (c.status !== 'completed' || c.conclusion === null) pending.push(`check ${c.name}`);
     else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);
+    else if (!PASSED_CONCLUSIONS.has(c.conclusion)) pending.push(`check ${c.name} unknown conclusion ${c.conclusion}`);
   }
   const contexts = new Map();
   for (const st of [...(snapshot.statuses || [])].sort((x, y) => Date.parse(x.created_at) - Date.parse(y.created_at) || x.id - y.id)) contexts.set(st.context, st);
   for (const [context, st] of contexts) {
     if (/^coderabbit$/i.test(context)) continue;
-    if (st.state === 'pending') pending.push(`status ${context}`); else if (st.state !== 'success') failed.push(`status ${context} ${st.state}`);
+    if (st.state === 'pending') pending.push(`status ${context}`);
+    else if (st.state === 'failure' || st.state === 'error') failed.push(`status ${context} ${st.state}`);
+    else if (st.state !== 'success') pending.push(`status ${context} unknown state ${st.state}`);
   }
   for (const r of snapshot.policies?.externalReview || []) { if (r.state === 'failed') failed.push(`${r.provider} failed`); else if (r.state !== 'completed') pending.push(`${r.provider} ${r.state}`); }
   const decisive = new Map();
