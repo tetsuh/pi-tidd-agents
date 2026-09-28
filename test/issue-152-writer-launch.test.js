@@ -16,7 +16,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, repoPath, sectionOf } = require('./helpers');
+const { readAutofixProcedure, readText, repoPath, sectionOf, receiverTypebox } = require('./helpers');
 
 const CREATED = Object.freeze({
   kind: 'linked',
@@ -216,10 +216,13 @@ async function receiver() {
     const load = async (relative) => {
       try { return await import(pathToFileURL(path.join(RECEIVER, relative)).href); } catch (error) { return unusable(`cannot load ${relative}`, error); }
     };
+    // pi-subagents 0.72+ takes typebox from pi, not its own manifest (#197); the source is resolved before any import.
+    const typeboxSource = receiverTypebox(RECEIVER);
+    if (!typeboxSource.from) return unusable(typeboxSource.problem);
     const [schemas, execution, acceptance] = [await load(RECEIVER_MODULES[0]), await load(RECEIVER_MODULES[1]), await load(RECEIVER_MODULES[2])];
     let typebox;
     try {
-      typebox = await import(pathToFileURL(createRequire(path.join(RECEIVER, 'package.json')).resolve('typebox/value')).href);
+      typebox = await import(pathToFileURL(createRequire(path.join(typeboxSource.root, 'package.json')).resolve('typebox/value')).href);
     } catch (error) { return unusable('cannot resolve its own typebox', error); }
     const api = { SubagentParams: schemas.SubagentParams, normalize: execution.normalizePublicSubagentExecution, validateAcceptanceInput: acceptance.validateAcceptanceInput, Value: typebox.Value };
     // A dynamic import yields a namespace, so a renamed export is `undefined` rather than a link error.
@@ -420,7 +423,7 @@ test('Issue #152 an installed receiver missing its sources fails naming the mini
       fs.writeFileSync(path.join(fake, module), 'export const nothing = 1;' + String.fromCharCode(10));
     }
     const undrivable = spawnSync(process.execPath, ['--test', '--test-reporter=tap', repoPath('test/issue-152-writer-launch.test.js')], {
-      encoding: 'utf8', timeout: 300000, env,
+      encoding: 'utf8', timeout: 300000, env: { ...env, PI_TIDD_NO_PI_TYPEBOX: '1' },
     });
     assert.notEqual(undrivable.status, 0, 'a receiver that cannot be driven fails the run');
     assert.match(undrivable.stdout, /cannot resolve its own typebox/, `the loader names the state: ${undrivable.stdout.slice(-400)}`);

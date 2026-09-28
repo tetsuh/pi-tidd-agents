@@ -285,5 +285,46 @@ function copyTrackedCheckout(source, destination) {
   }
 }
 
+
+// Issue #197: pi-subagents 0.72+ does not bundle `typebox`; pi supplies it to the extension at runtime. Outside pi the
+// receiver's own modules cannot resolve it, so a failed `typebox` resolution from inside the receiver is retried from
+// the installed pi package, which is where pi's copy lives. The source is named; with neither, the state is named.
+const receiverTypeboxSources = new Map();
+function piPackageRoot(pathEnv) {
+  for (const dir of String(pathEnv).split(path.delimiter).filter(Boolean)) {
+    let real;
+    try { real = fs.realpathSync(path.join(dir, 'pi')); } catch { continue; }
+    for (let at = path.dirname(real); at !== path.dirname(at); at = path.dirname(at)) {
+      try { if (JSON.parse(fs.readFileSync(path.join(at, 'package.json'), 'utf8')).name === '@earendil-works/pi-coding-agent') return at; } catch { /* keep walking */ }
+    }
+  }
+  return null;
+}
+// `PI_TIDD_NO_PI_TYPEBOX` turns the fallback off, so a fixture can still present a receiver that cannot be driven.
+function receiverTypebox(receiver, { pathEnv = process.env.PI_TIDD_NO_PI_TYPEBOX ? '' : process.env.PATH } = {}) {
+  if (receiverTypeboxSources.has(receiver)) return receiverTypeboxSources.get(receiver);
+  const { createRequire, registerHooks } = require('node:module');
+  const { pathToFileURL } = require('node:url');
+  let source;
+  try { createRequire(path.join(receiver, 'package.json')).resolve('typebox'); source = { from: 'receiver', root: receiver }; } catch {
+    const pi = piPackageRoot(pathEnv);
+    let resolvable = false;
+    if (pi) try { createRequire(path.join(pi, 'package.json')).resolve('typebox'); resolvable = true; } catch { /* named below */ }
+    if (!resolvable) source = { from: null, problem: 'cannot resolve its own typebox: neither the receiver nor an installed pi package carries it' };
+    else {
+      const inside = pathToFileURL(receiver + path.sep).href, parentURL = pathToFileURL(path.join(pi, 'package.json')).href;
+      registerHooks({ resolve(specifier, context, next) {
+        try { return next(specifier, context); } catch (error) {
+          if ((specifier === 'typebox' || specifier.startsWith('typebox/')) && String(context.parentURL || '').startsWith(inside)) return next(specifier, { ...context, parentURL });
+          throw error;
+        }
+      } });
+      source = { from: 'pi', root: pi };
+    }
+  }
+  receiverTypeboxSources.set(receiver, source);
+  return source;
+}
+
 module.exports = {
-  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES };
+  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };
