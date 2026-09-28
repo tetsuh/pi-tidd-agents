@@ -437,3 +437,25 @@ test('Issue #196 the pull request body identity is the one CL-D93 defines', () =
   assert.match(record, /the `github:pr:<number>:body` identity is the SHA-256 of the body's LF-normalized UTF-8 bytes/);
   assert.doesNotMatch(record, /no value the gate correlates is computed beside the helpers/);
 });
+
+// Round 7 of PR #199: new evidence before a later gate reruns convergence (CONV-199-EXTERNAL-REVIEW-RESTART), and a
+// failing lookup at start happens before any run directory exists (CONV-199-START-FAILURE-ARTIFACTS).
+test('Issue #196 a comment that arrives before a later gate reruns convergence first', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  setFixture(t, { prComments: [{ id: 11, html_url: 'u', user: { login: 'someone', type: 'User' }, author_association: 'NONE', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z', body: 'arrived between gates' }] });
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer');
+  assert.equal(state(t.runDir).invocations.convergence, 2);
+  assert.equal(state(t.runDir).invocations.adversarial, undefined);
+});
+
+test('Issue #196 a pull request that cannot be read at start fails before any run directory exists', () => {
+  const t = setup();
+  setFixture(t, { failEndpoint: 'repos/o/r/pulls/7' });
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(fs.existsSync(t.runDir), false, 'no run directory, so no half-run');
+  assert.match(r.stderr, /cannot read pull request/);
+});
