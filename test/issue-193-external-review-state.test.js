@@ -58,7 +58,8 @@ test('Issue #193 the newest status wins whatever order the API lists them in', a
 test('Issue #193 a CodeRabbit status from any other author, or with no usable time, is unknown', async () => {
   const bot = status('pending', 'Review in progress', '2026-09-27T11:00:00Z', 1);
   assert.equal((await classify({ statuses: [bot, status('success', 'Review completed', '2026-09-27T11:00:01Z', 2, 'someone')] }))[0].state, 'unknown');
-  for (const created of [undefined, null, 'soon']) assert.equal((await classify({ statuses: [bot, status('success', 'Review completed', created, 2)] }))[0].state, 'unknown', String(created));
+  for (const created of [undefined, null, 'soon', 0]) assert.equal((await classify({ statuses: [bot, status('success', 'Review completed', created, 2)] }))[0].state, 'unknown', String(created));
+  assert.equal((await classify({ statuses: [status('success', 'Review completed', '2026-09-27T10:00:00Z', 3), status('pending', 'Review in progress', 0, 4)] }))[0].state, 'unknown', 'numeric timestamp must not sort behind a valid success');
   // An offset is a time, not a string to sort: 20:00+09:00 is 11:00Z, older than 11:30Z.
   assert.equal((await classify({ statuses: [status('success', 'Review completed', '2026-09-27T20:00:00+09:00', 3), status('pending', 'Review in progress', '2026-09-27T11:30:00Z', 4)] }))[0].state, 'pending');
 });

@@ -179,7 +179,8 @@ function classifyExternalReview(suites = [], statuses = []) {
   const one = (source, state, description = null) => [{ provider: 'coderabbit', source, state, description }];
   const matching = statuses.filter((item) => object(item) && /^coderabbit$/i.test(String(item.context)));
   if (matching.length) {
-    if (matching.some((item) => item.context !== 'CodeRabbit' || item.creator?.login !== 'coderabbitai[bot]' || Number.isNaN(Date.parse(item.created_at)))) return one('status', 'unknown');
+    const validTimestamp = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) && !Number.isNaN(Date.parse(value));
+    if (matching.some((item) => item.context !== 'CodeRabbit' || item.creator?.login !== 'coderabbitai[bot]' || !validTimestamp(item.created_at))) return one('status', 'unknown');
     const latest = matching.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || Number(b.id) - Number(a.id))[0];
     const state = { success: 'completed', pending: 'pending', failure: 'failed', error: 'failed' }[latest.state] || 'unknown';
     return one('status', state, latest.description ?? null);
