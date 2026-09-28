@@ -101,16 +101,44 @@ function roleLabel(role, reported) {
 function evidenceIds(snapshot) {
   return ['comments', 'reviews', 'inline', 'threads'].flatMap((kind) => (snapshot[kind] || []).map((x) => `${kind}:${x.id}:${x.updated_at || x.submitted_at || ''}`)).sort();
 }
-// The approvals the base branch requires, from branch protection and repository rulesets, against the approvals on
-// the head (each reviewer's latest review counts).
-function approvalShortfall(snapshot, headOid) {
+// Final policy from a snapshot on the head (review-only.md "Before declaring MERGE_READY"): check runs (skipped and
+// neutral pass), each commit status context's latest state, each human reviewer's latest decisive review, the approvals
+// branch protection and repository and organization rulesets require, CodeRabbit's classification (CL-D92), and the
+// review threads still unresolved, which are external findings the owner dispositions.
+const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
+function readiness(snapshot, headOid) {
+  const failed = [], pending = [];
+  for (const c of snapshot.checks || []) {
+    if (c.status !== 'completed' || c.conclusion === null) pending.push(`check ${c.name}`);
+    else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);
+  }
+  const contexts = new Map();
+  for (const st of [...(snapshot.statuses || [])].sort((x, y) => Date.parse(x.created_at) - Date.parse(y.created_at) || x.id - y.id)) contexts.set(st.context, st);
+  for (const [context, st] of contexts) {
+    if (/^coderabbit$/i.test(context)) continue;
+    if (st.state === 'pending') pending.push(`status ${context}`); else if (st.state !== 'success') failed.push(`status ${context} ${st.state}`);
+  }
+  for (const r of snapshot.policies?.externalReview || []) { if (r.state === 'failed') failed.push(`${r.provider} failed`); else if (r.state !== 'completed') pending.push(`${r.provider} ${r.state}`); }
+  const decisive = new Map();
+  for (const r of [...(snapshot.reviews || [])].sort((x, y) => Date.parse(x.submitted_at || 0) - Date.parse(y.submitted_at || 0) || x.id - y.id)) {
+    if (r.user?.type === 'Bot' || !r.user?.login || !['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state)) continue;
+    decisive.set(r.user.login, r);
+  }
+  for (const [login, r] of decisive) if (r.state === 'CHANGES_REQUESTED') failed.push(`changes requested by ${login}`);
   const p = snapshot.policies || {};
-  const fromRules = (p.rulesets || []).flatMap((r) => r.rules || []).filter((r) => r.type === 'pull_request').map((r) => r.parameters?.required_approving_review_count || 0);
+  const fromRules = [...(p.rulesets || []), ...(p.organizationRulesets || [])].flatMap((r) => r.rules || []).filter((r) => r.type === 'pull_request').map((r) => r.parameters?.required_approving_review_count || 0);
   const required = Math.max(p.branchProtection?.required_pull_request_reviews?.required_approving_review_count || 0, ...fromRules, 0);
-  const latest = new Map();
-  for (const r of snapshot.reviews || []) if (r.user?.login) latest.set(r.user.login, r);
-  const approved = [...latest.values()].filter((r) => r.state === 'APPROVED' && (!r.commit_id || r.commit_id === headOid)).length;
-  return approved < required ? `required approvals ${approved} of ${required}` : null;
+  const approved = [...decisive.values()].filter((r) => r.state === 'APPROVED' && (!r.commit_id || r.commit_id === headOid)).length;
+  if (approved < required) pending.push(`required approvals ${approved} of ${required}`);
+  const unresolved = (snapshot.threads || []).filter((th) => th.isResolved === false).map((th) => `${th.id} (${th.path || 'conversation'}, ${th.comments?.nodes?.[0]?.author?.login || 'unknown'})`);
+  return { failed, pending, unresolved };
+}
+// A checkout the review reads must hold exactly the head: no tracked, staged, or untracked change outside the runtime
+// roots (review-only.md, CL-D38/CL-D54). Ignored files, such as a validation delta, are not listed.
+function dirtyCheckout(cwd) {
+  const entries = git(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']).split('\0').filter(Boolean).map((e) => e.slice(3));
+  const dirty = entries.filter((p) => !['.pi/', '.pi-subagents/'].some((root) => p === root.slice(0, -1) || p.startsWith(root)));
+  return dirty.length ? `the checkout is not clean: ${dirty.slice(0, 5).join(', ')}${dirty.length > 5 ? ` and ${dirty.length - 5} more` : ''}` : null;
 }
 
 class Run {
@@ -151,18 +179,18 @@ class Run {
   // Status block and publication artifacts: the CL-D33 template and the CL-D45 marker, with a real observation time.
   publish() {
     const s = this.state, t = s.target; if (!t) return;
-    const fp = s.fingerprints || {};
+    const unknown = 'not computed', fp = s.fingerprints || {}, observed = s.observedFrom || s.startedAt;
     // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
     const label = { adversarial: 'sol', safety: 'terra' };
     const findings = (s.findings || []).map((f) => `  ${f.findingId}: ${f.disposition}`);
     const block = ['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${t.headBranch}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
-      `fingerprints: issue_spec ${fp.issue_spec} base ${fp.pr_base} tree ${fp.pr_tree} diff ${fp.pr_diff} commits ${fp.pr_commits} head ${t.headOid}`,
+      `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${(s.resolved || []).join('; ') || 'none'}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
       'review_misses: none', `pending_decisions: ${(s.pendingDecisions || []).join(', ') || 'none'}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
-      `external_observation: head ${t.headOid} observed_from ${s.observedFrom}, this run only`, `operator_actions: ${s.operatorActions || 'none'}`, `invalidated_evidence: ${s.invalidated || 'none'}`, `next_action: ${s.nextAction || 'owner decision'}`, '```'].join('\n');
+      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${s.operatorActions || 'none'}`, `invalidated_evidence: ${s.invalidated || 'none'}`, `next_action: ${s.nextAction || 'owner decision'}`, '```'].join('\n');
     const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${g.verdict}${g.findings ? `; ${g.findings}` : ''}`).join('\n') || '- none';
     const visible = [`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
-      `External observation for this run: head \`${t.headOid}\` observed at ${s.observedFrom}; ${s.external || 'no snapshot'}.`, '',
+      `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
       `Reason: ${s.reason || s.state}.`, '', '## Gates', gates, '', `Validation: ${s.validation || 'not run'}.`, '', block, ''].join('\n');
     const marker = `<!-- pi-tidd-agents:review-publication:v1 repo=${t.repository} pr=${t.number} head=${t.headOid} visibleSha256=${sha256(visible)} -->`;
     const body = `${visible}${marker}\n`;
@@ -176,7 +204,9 @@ class Run {
     fs.writeFileSync(path.join(this.dir, 'status-block.md'), `${block}\n`, { mode: 0o600 });
     s.publication = { comment: path.join(pub, 'review-comment.md'), script: path.join(pub, 'publish-review.sh') };
     this.save();
-    process.stdout.write(`FINISHED comment=${s.publication.comment}\nPUBLISH=${s.publication.script}\n`);
+    // The CL-D33 report: both paths, the body digest, the one command, and the head binding; the operator runs it.
+    process.stdout.write(`FINISHED comment=${s.publication.comment}\nPUBLISH=${s.publication.script}\nbody sha256 ${sha256(body)}\nrepository ${t.repository}, pull request #${t.number}, head ${t.headOid}\n`
+      + `To publish, the operator runs: bash "${s.publication.script}"\nThe comment is bound to that head; a changed head requires fresh review. It is posted under the operator's own GitHub account.\n`);
   }
   // Print the one call the parent makes, and the command that reads its result.
   next(request, command) {
@@ -184,4 +214,4 @@ class Run {
   }
 }
 
-module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, approvalShortfall, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };

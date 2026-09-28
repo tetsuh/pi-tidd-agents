@@ -254,7 +254,7 @@ test('Issue #196 the status block is the contracted one', () => {
   assert.match(block, /^rounds: convergence 1\/3, sol 1\/3, terra 0\/3$/m);
   assert.match(block, /^fingerprints: issue_spec [0-9a-f]{64} base [0-9a-f]{40} tree [0-9a-f]{40} diff [0-9a-f]{64} commits [0-9a-f]{64} head [0-9a-f]{40}$/m);
   assert.match(block, /^resolved: tidd-convergence-reviewer prov\/model-x:high; tidd-adversarial-reviewer prov\/model-x:high$/m);
-  assert.match(block, /^findings:\n  ADV-7-X: fixed$/m);
+  assert.match(block, /^findings:\n  ADV-7-X: fixed \(proposed; correction pending\)$/m);
 });
 
 test('Issue #196 a stopped run resumes after recomputing its fingerprints, and refuses a moved target', () => {
@@ -400,4 +400,26 @@ test('Issue #196 a resumed run reports its own observation time', () => {
   setFixture(t, { checkStatus: 'completed' });
   drive(['resume', '--run-dir', t.runDir], t.e);
   assert.notEqual(state(t.runDir).observedFrom, before);
+});
+
+// Round 5 of PR #199: a body-only edit between gates stops the next launch (CONV-199-BODY-IDENTITY); a pull request
+// that adds `.tidd.json` only at its head is refused, because the file is read at the base (CONV-199-BASE-VALIDATION-CONFIG).
+test('Issue #196 a pull request body edited between gates stops the next launch', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.body += '\nEdited.\n'; fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /body changed/);
+});
+
+test('Issue #196 a .tidd.json added only at the head is not read, and the run stops BLOCKED', () => {
+  const t = setup({ config: null });
+  fs.writeFileSync(path.join(t.target.root, '.tidd.json'), '{"validate": [["node", "-e", "0"]]}\n');
+  git(t.target.root, ['add', '.tidd.json']); git(t.target.root, ['commit', '-q', '-m', 'add config at head']);
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0);
+  assert.match(state(t.runDir).reason, /base commit carries no \.tidd\.json/);
 });
