@@ -170,6 +170,42 @@ function classifyChecks(checks = []) {
     return { id: check.id, name: check.name, status: check.status, conclusion: check.conclusion, successful: check.status === 'completed' && check.conclusion === 'success', pending: check.status !== 'completed' || check.conclusion === null, failed: check.status === 'completed' && check.conclusion !== null && check.conclusion !== 'success' };
   });
 }
+// CL-D92 (#193): an empty check suite (zero runs) carries no provider state; CodeRabbit's state is its newest
+// `CodeRabbit` status by coderabbitai[bot] on the head, and a non-empty CodeRabbit suite is read only when no status
+// exists. Any success completes (a paused or skipped review needs no action); anything not provably CodeRabbit's
+// or not dated is unknown.
+function classifyExternalReview(suites = [], statuses = []) {
+  if (!Array.isArray(suites) || !Array.isArray(statuses)) throw schemaError('external review records are not arrays');
+  const one = (source, state, description = null) => [{ provider: 'coderabbit', source, state, description }];
+  const matching = statuses.filter((item) => object(item) && /^coderabbit$/i.test(String(item.context)));
+  if (matching.length) {
+    const validTimestamp = (value) => {
+      if (typeof value !== 'string') return false;
+      const match = /^(\d{4})-(\d{2})-(\d{2})T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.exec(value);
+      if (!match || Number.isNaN(Date.parse(value))) return false;
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      const leapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+      const daysInMonth = [31, leapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1];
+    };
+    if (matching.some((item) => item.context !== 'CodeRabbit' || item.creator?.login !== 'coderabbitai[bot]' || !validTimestamp(item.created_at))) return one('status', 'unknown');
+    const latest = matching.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at) || Number(b.id) - Number(a.id))[0];
+    const states = { success: 'completed', pending: 'pending', failure: 'failed', error: 'failed' };
+    const state = Object.hasOwn(states, latest.state) ? states[latest.state] : 'unknown';
+    return one('status', state, latest.description ?? null);
+  }
+  const ours = suites.filter((item) => object(item) && item.app?.slug === 'coderabbitai' && item.latest_check_runs_count !== 0);
+  if (!ours.length) return [];
+  if (ours.some((item) => !Number.isSafeInteger(item.latest_check_runs_count) || item.latest_check_runs_count <= 0)) return one('check_suite', 'unknown');
+  if (ours.some((item) => !['queued', 'in_progress', 'completed'].includes(item.status))) return one('check_suite', 'unknown');
+  if (ours.some((item) => item.status !== 'completed')) return one('check_suite', 'pending');
+  const conclusion = ours.sort((a, b) => Number(b.id) - Number(a.id))[0].conclusion;
+  if (conclusion === 'success') return one('check_suite', 'completed');
+  if (['failure', 'cancelled', 'timed_out', 'action_required', 'stale', 'startup_failure'].includes(conclusion)) return one('check_suite', 'failed');
+  return one('check_suite', 'unknown');
+}
 async function collectAnnotations(transport, endpoint, checks, cwd) {
   const annotations = [];
   for (const check of checks) {
@@ -218,7 +254,7 @@ async function collectSnapshot({ owner, repo, number, cwd, transport = defaultTr
     return createResult('snapshot', {
       before, after, pull: pullBefore, comments, reviews, inline, threads, checks, statuses,
       checkSuites: suites, annotations,
-      policies: { branchProtection, rulesets: repositoryRulesets, organizationRulesets, defaultBranch: repository.default_branch, checks: classifiedChecks },
+      policies: { branchProtection, rulesets: repositoryRulesets, organizationRulesets, defaultBranch: repository.default_branch, checks: classifiedChecks, externalReview: classifyExternalReview(suites, statuses) },
       completeness: { rest: true, reviewThreads: true, nestedThreadComments: true, rulesetDetails: true, organizationRulesets: repository.owner?.type !== 'Organization' || organizationRulesets.length >= 0, checks: true, brackets: true },
     });
   } catch (error) {
@@ -226,4 +262,4 @@ async function collectSnapshot({ owner, repo, number, cwd, transport = defaultTr
   }
 }
 
-module.exports = { reviewThreadsQuery, collectSnapshot, restPages, reviewThreads, collectAnnotations, detailedRulesets, classifyChecks, identity, canonicalPull, MAX_PAGES };
+module.exports = { reviewThreadsQuery, collectSnapshot, restPages, reviewThreads, collectAnnotations, detailedRulesets, classifyChecks, classifyExternalReview, identity, canonicalPull, MAX_PAGES };

@@ -128,7 +128,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/validation.js|run|program|args|{ cwd, kind: 'validation', timeout: timeoutMs ?? DEFAULT_TIMEOUT_MS, killSignal: 'SIGKILL', maxBuffer: STREAM_BYTES, acceptAnyExit: true, phase: 'spawn' }`,
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
-const AGGREGATE_SMOKE_ALARM = 300000; // CL-D91 reviewed reset from 290,000 (CL-D89) for the gate payload file
+const AGGREGATE_SMOKE_ALARM = 310000; // CL-D92 reviewed reset from 300,000 (CL-D91) for the CodeRabbit classification
 const PER_FILE_SMOKE_ALARM = 30000;
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
@@ -268,6 +268,7 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'CL-D86 reset it a seventh time to 280,000 bytes',
     'CL-D89 reset it an eighth time to 290,000 bytes',
     'CL-D91 reset it a ninth time to 300,000 bytes',
+    'CL-D92 reset it a tenth time to 310,000 bytes',
     '30,000-byte per-file smoke alarm',
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);
