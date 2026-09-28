@@ -55,6 +55,8 @@ if (args[0] !== 'api') { process.stderr.write('unexpected gh ' + args.join(' '))
 if (f.failEndpoint && endpoint.includes(f.failEndpoint)) { process.stderr.write('HTTP 502: bad gateway'); process.exit(1); }
 if (args[1] === 'graphql') out({ data: { repository: { pullRequest: { reviewThreads: { nodes: f.threads || [], pageInfo: { hasNextPage: false, endCursor: null } } } } } });
 if (endpoint.includes('/statuses')) out(f.statuses || []);
+if (endpoint === 'repos/o/r/rulesets') out((f.rulesets || []).map(({ id, updated_at, enforcement }) => ({ id, updated_at, enforcement })));
+if (endpoint.startsWith('repos/o/r/rulesets/')) out((f.rulesets || []).find((r) => String(r.id) === endpoint.split('/').pop()));
 if (endpoint === 'repos/o/r/pulls/7') out(f.pull);
 if (endpoint === 'repos/o/r/issues/5') out(f.issue);
 if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [[]] : []);
@@ -513,4 +515,24 @@ test('Issue #196 a pull request whose head repository is gone fails before any r
   assert.notEqual(r.status, 0);
   assert.equal(fs.existsSync(t.runDir), false);
   assert.match(r.stderr, /head repository/);
+});
+
+// ADV-199-CODEOWNER-APPROVAL: an approval requirement the driver cannot verify from the snapshot (a code owner's
+// approval, or an approval after the last push) keeps readiness waiting, from branch protection or from a ruleset.
+test('Issue #196 a code-owner or last-push approval requirement waits, because the driver cannot verify it', () => {
+  const approved = (t) => [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: t.target.head, submitted_at: '2026-09-29T00:00:00Z' }];
+  const shapes = [
+    { protection: { required_pull_request_reviews: { required_approving_review_count: 1, require_code_owner_reviews: true } } },
+    { protection: { required_pull_request_reviews: { required_approving_review_count: 1, require_last_push_approval: true } } },
+    { rulesets: [{ id: 1, updated_at: '2026-09-29T00:00:00Z', enforcement: 'active', rules: [{ type: 'pull_request', parameters: { required_approving_review_count: 1, require_code_owner_review: true } }], bypass_actors: [] }] },
+  ];
+  for (const shape of shapes) {
+    const t = setup();
+    setFixture(t, { ...shape, reviews: approved(t) });
+    assert.equal(drive(t.start, t.e).status, 0);
+    throughGates(t);
+    const s = state(t.runDir);
+    assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(shape)}: ${s.reason}`);
+    assert.match(s.reason, /cannot be verified/);
+  }
 });
