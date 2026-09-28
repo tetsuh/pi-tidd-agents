@@ -135,6 +135,14 @@ function readiness(snapshot, headOid) {
   const required = Math.max(p.branchProtection?.required_pull_request_reviews?.required_approving_review_count || 0, ...fromRules, 0);
   const approved = [...decisive.values()].filter((r) => r.state === 'APPROVED' && (!r.commit_id || r.commit_id === headOid)).length;
   if (approved < required) pending.push(`required approvals ${approved} of ${required}`);
+  // A requirement the snapshot cannot prove, such as whose approval counts or when it came, keeps readiness waiting
+  // for a human to confirm it (ADV-199-CODEOWNER-APPROVAL).
+  const reviewRules = [p.branchProtection?.required_pull_request_reviews || {}, ...[...(p.rulesets || []), ...(p.organizationRulesets || [])].flatMap((r) => r.rules || []).filter((r) => r.type === 'pull_request').map((r) => r.parameters || {})];
+  const unverifiable = [...new Set(reviewRules.flatMap((r) => [
+    (r.require_code_owner_reviews || r.require_code_owner_review) && 'a code owner\'s approval',
+    r.require_last_push_approval && 'an approval after the last push',
+  ]).filter(Boolean))];
+  for (const what of unverifiable) pending.push(`${what} is required and cannot be verified from the snapshot`);
   const unresolved = (snapshot.threads || []).filter((th) => th.isResolved === false).map((th) => `${th.id} (${th.path || 'conversation'}, ${th.comments?.nodes?.[0]?.author?.login || 'unknown'})`);
   return { failed, pending, unresolved };
 }
