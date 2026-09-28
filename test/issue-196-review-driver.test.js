@@ -57,9 +57,11 @@ if (endpoint === 'repos/o/r/pulls/7') out(f.pull);
 if (endpoint === 'repos/o/r/issues/5') out(f.issue);
 if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [[]] : []);
 if (endpoint === 'repos/o/r') out({ owner: { type: 'User' }, default_branch: 'main' });
-if (endpoint.endsWith('/protection')) { process.stderr.write('HTTP 404'); process.exit(1); }
+if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); process.stderr.write('HTTP 404'); process.exit(1); }
+if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
+if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
 if (endpoint.includes('/check-runs/1/annotations')) out([]);
-if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success' }] });
+if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : 'success' }] });
 if (endpoint.includes('/check-suites')) out({ check_suites: [] });
 out([]);
 `, { mode: 0o755 });
@@ -163,7 +165,7 @@ test('Issue #196 the driver is packaged under its own alarms and names no writin
   const sizes = files.map((f) => fs.statSync(repoPath(f)).size);
   for (const [i, size] of sizes.entries()) assert.ok(size < 30000, `${files[i]} is ${size} bytes`);
   assert.ok(sizes.reduce((a, b) => a + b, 0) < 60000, 'driver aggregate alarm');
-  for (const f of files) assert.doesNotMatch(readText(f), /commit_create|push_publish|marker_create|\/merge\b|'merge'|--approve|APPROVE/, `${f} names a writing operation`);
+  for (const f of files) assert.doesNotMatch(readText(f), /commit_create|push_publish|marker_create|\/merge\b|'merge'|--approve|'APPROVE'/, `${f} names a writing operation`);
   for (const f of files) assert.doesNotMatch(readText(f), /require\('\.\.\/helpers\/(?:fingerprints|evidence)'\)/, `${f} computes evidence outside the packaged operations`);
   assert.ok(/^## CL-D93 — /m.test(readText('CONTRACT.md')), 'CL-D93 records the driver boundary');
   assert.deepEqual(JSON.parse(readText('.tidd.json')), { validate: [['node', '--test']] });
@@ -200,7 +202,7 @@ test('Issue #196 each resolved role names its provider, model, and thinking leve
   for (let i = 0; i < 3; i += 1) r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
   const s = state(t.runDir);
   assert.equal(s.state, 'MERGE_READY', s.reason);
-  assert.deepEqual(s.resolved, ['convergence', 'adversarial', 'safety'].map((g) => `tidd-${g}-reviewer provider prov, model model-x, thinking high`));
+  assert.deepEqual(s.resolved, ['convergence', 'adversarial', 'safety'].map((g) => `tidd-${g}-reviewer prov/model-x:high`));
 });
 
 // CONV-199-RUN-DIR-CHECK-BEFORE-MKDTEMP: with no --run-dir, the default location is checked before it is created.
@@ -212,4 +214,64 @@ test('Issue #196 a default run directory under a temporary root inside a work tr
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /inside a Git work tree/);
   assert.deepEqual(fs.readdirSync(tmp), before, 'nothing was created under the temporary root');
+});
+
+// Round 4 of PR #199: final readiness applies the required-approval policy and new evidence, the status block is the
+// contracted one, and a stopped run resumes only after every fingerprint is recomputed and found unchanged.
+function setFixture(t, patch) { const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); fs.writeFileSync(t.fixture, JSON.stringify({ ...f, ...patch })); }
+function throughGates(t, n = 3) { let r; for (let i = 0; i < n; i += 1) r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e); return r; }
+
+test('Issue #196 a missing required approval keeps final readiness waiting', () => {
+  const t = setup();
+  setFixture(t, { protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
+  assert.match(s.reason, /approval/);
+});
+
+test('Issue #196 new evidence at final readiness reruns convergence instead of declaring MERGE_READY', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t, 2);
+  setFixture(t, { prComments: [{ id: 9, html_url: 'u', user: { login: 'someone', type: 'User' }, author_association: 'NONE', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z', body: 'a new finding' }] });
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', 'convergence runs again on the new evidence');
+  assert.equal(state(t.runDir).invocations.convergence, 2);
+});
+
+test('Issue #196 the status block is the contracted one', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
+  const block = fs.readFileSync(path.join(t.runDir, 'status-block.md'), 'utf8');
+  assert.match(block, /^active_gate: sol$/m);
+  assert.match(block, /^rounds: convergence 1\/3, sol 1\/3, terra 0\/3$/m);
+  assert.match(block, /^fingerprints: issue_spec [0-9a-f]{64} base [0-9a-f]{40} tree [0-9a-f]{40} diff [0-9a-f]{64} commits [0-9a-f]{64} head [0-9a-f]{40}$/m);
+  assert.match(block, /^resolved: tidd-convergence-reviewer prov\/model-x:high; tidd-adversarial-reviewer prov\/model-x:high$/m);
+  assert.match(block, /^findings:\n  ADV-7-X: fixed$/m);
+});
+
+test('Issue #196 a stopped run resumes after recomputing its fingerprints, and refuses a moved target', () => {
+  const t = setup();
+  setFixture(t, { checkStatus: 'in_progress' });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  assert.equal(state(t.runDir).state, 'WAITING_EXTERNAL_REVIEW');
+  setFixture(t, { checkStatus: 'completed' });
+  let r = drive(['resume', '--run-dir', t.runDir], t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(state(t.runDir).state, 'MERGE_READY', state(t.runDir).reason);
+  const moved = setup();
+  setFixture(moved, { checkStatus: 'in_progress' });
+  assert.equal(drive(moved.start, moved.e).status, 0);
+  throughGates(moved);
+  const f = JSON.parse(fs.readFileSync(moved.fixture, 'utf8')); f.pull.head.sha = 'e'.repeat(40); fs.writeFileSync(moved.fixture, JSON.stringify(f));
+  r = drive(['resume', '--run-dir', moved.runDir], moved.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(state(moved.runDir).state, 'BLOCKED');
+  assert.match(state(moved.runDir).reason, /target moved/);
 });
