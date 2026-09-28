@@ -52,6 +52,8 @@ function start(opts) {
   for (const [name, value] of [['base commit', pull.base?.sha], ['base branch', pull.base?.ref], ['head commit', pull.head?.sha], ['head branch', pull.head?.ref], ['head repository', pull.head?.repo?.full_name]]) {
     if (typeof value !== 'string' || !value) die(`cannot bind pull request ${repository}#${number}: its ${name} is missing`);
   }
+  // A head from another repository is a foreign pull request, whatever objects happen to be local (CONV-199-FOREIGN-HEAD-LOCAL).
+  if (pull.head.repo.full_name.toLowerCase() !== pull.base.repo?.full_name?.toLowerCase()) die(`pull request ${repository}#${number} has its head in another repository (${pull.head.repo.full_name}); review it on the prose path of review-only.md`);
   // The driver reads the head and base from a local checkout. A foreign pull request, or one whose objects are not
   // local, stays with the prose path of review-only.md until the prompt switch (#196 PR-C) (ADV-199-NO-CHECKOUT-PR).
   for (const oid of [pull.base.sha, pull.head.sha]) {
@@ -158,7 +160,7 @@ function launch(run, gate, { fresh = false } = {}) {
   const settled = s.findings.filter((f) => f.recorded).map((f) => ({ findingId: f.findingId, sourceGate: f.gate, disposition: f.disposition, status: 'settled', summary: f.summary }));
   const volatile = { target: { repository: t.repository, number: t.number, headRepository: t.headRepository, headBranch: t.headBranch, baseOid: t.baseOid, headOid: t.headOid, mode: 'review-only', gate },
     fingerprints: s.fingerprints, body: s.body, diff: fs.readFileSync(path.join(run.dir, 'pr.diff'), 'utf8'), languageProfile: s.languageProfile, acceptanceCriteria: s.acceptanceCriteria, history: { unresolved: [], reopened: [], settled } };
-  if (gate === 'adversarial') { volatile.decisions = []; volatile.comments = JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter((c) => TRUSTED.includes(c.author_association)); }
+  if (gate === 'adversarial') { volatile.decisions = []; volatile.comments = JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter((c) => TRUSTED.includes(c.author_association) && c.user?.type !== 'Bot'); }
   const built = run.op('build_gate_launch', { expectation, expectationPath, volatile }).data;
   Object.assign(s, { activeGate: gate, state: 'GATE_LAUNCH_PENDING', pending: { gate, invocation, expectationPath, launch: run.file(`launch-${gate}-${invocation}.json`, built.request) }, rounds: rounds(s) });
   run.save();
@@ -188,7 +190,10 @@ function result(opts) {
   // CL-D85: a Minor whose correction changes no file of the head is recorded and advances; any other finding is open.
   // Whether a correction changes no file is not readable from a proposed disposition, so only the classes that change
   // none by construction are recorded (CONV-199-CLD85-MINOR-BYPASS).
-  const isRecorded = (x) => x.severity === 'Minor' && (x.anchoring === 'reword' || x.anchoring === 'follow-up' || x.outOfScope === true);
+  // A deferred follow-up that is not a Blocker is resolved by the validator's own rule, so it advances at any severity
+  // (CONV-199-MAJOR-FOLLOWUP-ADVANCES).
+  const isRecorded = (x) => (x.severity === 'Minor' && (x.anchoring === 'reword' || x.anchoring === 'follow-up' || x.outOfScope === true))
+    || (x.anchoring === 'follow-up' && x.proposedDisposition === 'deferred' && x.severity !== 'Blocker');
   const open = findings.filter((x) => !isRecorded(x));
   for (const x of findings) s.findings.push({ findingId: x.findingId, gate, recorded: isRecorded(x), summary: String(x.correction || '').slice(0, 200),
     disposition: isRecorded(x) ? `${x.proposedDisposition} (recorded under CL-D85)` : `${x.proposedDisposition} (proposed; correction pending)` });
