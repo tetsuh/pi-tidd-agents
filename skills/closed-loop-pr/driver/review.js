@@ -42,13 +42,17 @@ function start(opts) {
   const checkout = path.resolve(opts.checkout || process.cwd());
   // The location is judged before anything is created: the given directory, or the temporary root a default goes under.
   const problem = runDirProblem(opts['run-dir'] ? path.resolve(opts['run-dir']) : os.tmpdir()); if (problem) die(problem);
+  // The target is resolved before anything is created, so a lookup that fails leaves no half-run behind.
+  let repository, pull;
+  try {
+    repository = opts.repo || gh(['repo', 'view', '--json', 'nameWithOwner'], checkout).nameWithOwner;
+    pull = gh(['api', `repos/${repository}/pulls/${number}`], checkout);
+  } catch (error) { die(`cannot read pull request ${repository || ''}#${number}: ${String(error.message).split('\n')[0]}`); }
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${number}-review.`));
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
   const run = new Run(runDir), s = run.state;
-  const repository = opts.repo || gh(['repo', 'view', '--json', 'nameWithOwner'], checkout).nameWithOwner;
   Object.assign(s, { mode: 'review-only', checkout, startedAt: new Date().toISOString(), invocations: {}, verdicts: {}, findings: [], resolved: [], gateLog: [], languageProfile: opts['language-profile'] || LANGUAGE_PROFILE });
   s.rounds = rounds(s);
-  const pull = gh(['api', `repos/${repository}/pulls/${number}`], checkout);
   run.file('pr-before.json', pull);
   s.target = { repository, number, baseOid: pull.base.sha, baseBranch: pull.base.ref, headOid: pull.head.sha, headRepository: pull.head.repo.full_name, headBranch: pull.head.ref };
   s.body = pull.body || '';
@@ -125,7 +129,13 @@ function revalidate(run) {
 
 function launch(run, gate, { fresh = false } = {}) {
   const s = run.state, t = s.target;
-  if (!fresh) { revalidate(run); collectSnapshotEvidence(run); }
+  if (!fresh) {
+    revalidate(run);
+    const known = s.evidenceIds || [];
+    collectSnapshotEvidence(run);
+    // New external evidence before a later gate reruns convergence first (DEC-109-CONV-SNAPSHOT-001).
+    if (gate !== 'convergence' && s.evidenceIds.some((id) => !known.includes(id))) { s.verdicts = {}; s.invalidated = 'every gate verdict: new external evidence arrived before a later gate'; return launch(run, 'convergence', { fresh: true }); }
+  }
   // gate-contract.md: convergence at its cap hands the candidate to Sol; ROUND_LIMIT_REACHED is the formal gates'.
   if ((s.invocations[gate] || 0) >= ROUND_CAP) { if (gate === 'convergence') return launch(run, 'adversarial', { fresh: true }); run.stop('ROUND_LIMIT_REACHED', `${label(gate)} reached its ${ROUND_CAP}-round cap`); }
   s.invocations[gate] = (s.invocations[gate] || 0) + 1;
