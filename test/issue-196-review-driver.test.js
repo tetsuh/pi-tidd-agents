@@ -566,3 +566,38 @@ test('Issue #196 a validation command that switches the checkout stops before th
   assert.match(state(t.runDir).reason, /checkout is at/);
   assert.equal(nextRequest(r.stdout), null);
 });
+
+// Round 13 of PR #199: required checks that never reported (ADV-199-MISSING-REQUIRED-CHECKS), a reply added to an
+// existing thread (ADV-199-THREAD-REPLY-IDENTITY), and a pull request the driver cannot read from a local checkout
+// (ADV-199-NO-CHECKOUT-PR), which stays with the prose path until the prompt switch.
+test('Issue #196 a required check that never reported keeps readiness waiting, from protection or a ruleset', () => {
+  for (const shape of [{ protection: { required_status_checks: { strict: false, contexts: ['ci/build'] } } },
+    { rulesets: [{ id: 2, updated_at: '2026-09-29T00:00:00Z', enforcement: 'active', rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci/build' }] } }], bypass_actors: [] }] }]) {
+    const t = setup();
+    setFixture(t, shape);
+    assert.equal(drive(t.start, t.e).status, 0);
+    throughGates(t);
+    const s = state(t.runDir);
+    assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(shape)}: ${s.reason}`);
+    assert.match(s.reason, /ci\/build has not reported/);
+  }
+});
+
+test('Issue #196 a reply added to an existing review thread is new evidence', () => {
+  const t = setup();
+  const resolvedThread = (replies) => ({ ...thread('T9', true), comments: { totalCount: replies.length, nodes: replies.map((id) => ({ id, databaseId: 1, url: 'u', body: 'b', createdAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z', author: { login: 'h', __typename: 'User' } })), pageInfo: { endCursor: null, hasNextPage: false } } });
+  setFixture(t, { threads: [resolvedThread(['c1'])] });
+  assert.equal(drive(t.start, t.e).status, 0);
+  setFixture(t, { threads: [resolvedThread(['c1', 'c2'])] });
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', 'the reply reruns convergence');
+});
+
+test('Issue #196 a pull request with no local checkout of its head is left to the prose path, before any run directory', () => {
+  const t = setup();
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = 'd'.repeat(40); fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(fs.existsSync(t.runDir), false);
+  assert.match(r.stderr, /review it on the prose path/);
+});
