@@ -59,7 +59,7 @@ if (endpoint === 'repos/o/r/rulesets') out((f.rulesets || []).map(({ id, updated
 if (endpoint.startsWith('repos/o/r/rulesets/')) out((f.rulesets || []).find((r) => String(r.id) === endpoint.split('/').pop()));
 if (endpoint === 'repos/o/r/pulls/7') out(f.pull);
 if (endpoint === 'repos/o/r/issues/5') out(f.issue);
-if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [[]] : []);
+if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [f.issueComments || []] : (f.issueComments || []));
 if (endpoint === 'repos/o/r') out({ owner: { type: 'User' }, default_branch: 'main' });
 if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); process.stderr.write('HTTP 404'); process.exit(1); }
 if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
@@ -77,15 +77,15 @@ function drive(args, e) { return spawnSync(process.execPath, [DRIVER, ...args], 
 function nextRequest(stdout) { const lines = stdout.split('\n'); const i = lines.findIndex((l) => l.startsWith('NEXT:')); return i < 0 ? null : JSON.parse(lines[i + 1]); }
 
 // The gate child, faked: a completed pi-subagents run whose structured output is a validator-accepted envelope.
-function fakeGate(runDir, runs, { verdict = 'MERGE', severity = 'Major', disposition = 'fixed' } = {}) {
+function fakeGate(runDir, runs, { verdict = 'MERGE', severity = 'Major', disposition = 'fixed', anchoring = 'criterion-anchored' } = {}) {
   const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
   const state = JSON.parse(fs.readFileSync(path.join(runDir, 'state.json'), 'utf8'));
   const expected = JSON.parse(fs.readFileSync(state.pending.expectationPath, 'utf8'));
   const c = expected.correlation;
   const prefix = { convergence: 'CONV', adversarial: 'ADV', safety: 'SAFETY' }[c.gate];
-  const findings = verdict === 'MERGE' ? [] : [{ findingId: `${prefix}-${c.number}-X`, origin: 'fresh', gate: c.gate, headOid: c.headOid, raisedAgainstFingerprint: c.snapshotFingerprint, severity, anchoring: 'criterion-anchored', anchor: 'AC1', proposedDisposition: disposition, evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 't',
+  const findings = verdict === 'MERGE' ? [] : [{ findingId: `${prefix}-${c.number}-X`, origin: 'fresh', gate: c.gate, headOid: c.headOid, raisedAgainstFingerprint: c.snapshotFingerprint, severity, anchoring, ...(anchoring === 'criterion-anchored' ? { anchor: 'AC1' } : {}), ...(anchoring === 'follow-up' ? { proposedIssueTitle: 'later' } : {}), proposedDisposition: disposition, evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 't',
     workflowRecord: { sourceKind: 'gate', sourceId: 'a.js:1', authorIdentity: 'g', authorType: 'Bot', observedHeadOid: c.headOid, fingerprint: c.snapshotFingerprint, semanticFingerprint: c.snapshotFingerprint, correctiveChange: 'c' } }];
-  const envelope = { schemaVersion: 2, correlation: c, verdict: verdict === 'MERGE' ? 'MERGE' : 'FIX BEFORE MERGE', evidenceRead: expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: true })), findings, confirmations: [], decisions: [],
+  const envelope = { schemaVersion: 2, correlation: c, verdict: verdict === 'MERGE' || verdict === 'MERGE_WITH' ? 'MERGE' : 'FIX BEFORE MERGE', evidenceRead: expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: true })), findings, confirmations: [], decisions: [],
     adversarialResults: c.gate === 'adversarial' ? [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] : [] };
   const runId = crypto.randomUUID();
   const dir = path.join(runs, 'async-subagent-runs', runId, 'structured-output', 'fake'); fs.mkdirSync(dir, { recursive: true });
@@ -612,4 +612,35 @@ test('Issue #196 an ignored file that appears between gates stops the next launc
   const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
   assert.notEqual(r.status, 0);
   assert.match(state(t.runDir).reason, /ignored paths changed/);
+});
+
+// Round 15 of PR #199: bot comments are never authoritative (CONV-199-BOT-COMMENTS-TRUSTED); a head from another
+// repository goes to the prose path even when its objects are local (CONV-199-FOREIGN-HEAD-LOCAL); a validated MERGE
+// that carries a deferred follow-up advances (CONV-199-MAJOR-FOLLOWUP-ADVANCES).
+test('Issue #196 Sol receives trusted human issue comments and never a bot\'s', () => {
+  const t = setup();
+  const comment = (id, login, type) => ({ id, html_url: `u${id}`, user: { login, type }, author_association: 'MEMBER', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z', body: `from ${login}` });
+  setFixture(t, { issueComments: [comment(1, 'human', 'User'), comment(2, 'helper[bot]', 'Bot')] });
+  assert.equal(drive(t.start, t.e).status, 0);
+  drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  const launches = fs.readdirSync(t.runDir).filter((f) => f.endsWith('-build_gate_launch.request.json')).sort();
+  const sol = JSON.parse(fs.readFileSync(path.join(t.runDir, launches.at(-1)), 'utf8'));
+  assert.deepEqual(sol.data.volatile.comments.map((c) => c.user.login), ['human']);
+});
+
+test('Issue #196 a head from another repository goes to the prose path even when its objects are local', () => {
+  const t = setup();
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.repo = { full_name: 'fork/r' }; fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(fs.existsSync(t.runDir), false);
+  assert.match(r.stderr, /another repository.*prose path/);
+});
+
+test('Issue #196 a validated MERGE that carries a deferred follow-up advances', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'MERGE_WITH', severity: 'Major', anchoring: 'follow-up', disposition: 'deferred' })], t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
 });
