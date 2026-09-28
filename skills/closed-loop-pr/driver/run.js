@@ -108,6 +108,23 @@ function evidenceIds(snapshot) {
 // neutral pass), each commit status context's latest state, each human reviewer's latest decisive review, the approvals
 // branch protection and repository and organization rulesets require, CodeRabbit's classification (CL-D92), and the
 // review threads still unresolved, which are external findings the owner dispositions.
+// A ruleset counts when it is active, targets branches, and its conditions select this pull request's base branch and
+// repository (CONV-199-RULESET-APPLICABILITY). A condition the snapshot cannot evaluate, such as a repository property,
+// counts, so an unknown targeting keeps readiness waiting rather than passing it.
+function glob(pattern) { return new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\0').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\0/g, '.*')}$`); }
+function selects(condition, value, special) {
+  if (!condition || value === undefined) return true;
+  const hit = (list) => (list || []).some((p) => special(p) ?? glob(p).test(value));
+  return hit(condition.include) && !hit(condition.exclude);
+}
+function applicable(ruleset, snapshot) {
+  if (ruleset.enforcement !== 'active' || (ruleset.target && ruleset.target !== 'branch')) return false;
+  const c = ruleset.conditions || {}, after = snapshot.after || {}, fallback = snapshot.policies?.defaultBranch;
+  const ref = after.baseBranch && `refs/heads/${after.baseBranch}`;
+  const name = after.repository && after.repository.split('/')[1];
+  return selects(c.ref_name, ref, (p) => (p === '~ALL' ? true : p === '~DEFAULT_BRANCH' ? !fallback || ref === `refs/heads/${fallback}` : undefined))
+    && selects(c.repository_name, name, (p) => (p === '~ALL' ? true : undefined));
+}
 // Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
 const PASSED_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
@@ -129,7 +146,7 @@ function readiness(snapshot, headOid) {
   // A required check or status context that has not reported for this head is pending (ADV-199-MISSING-REQUIRED-CHECKS).
   const pol = snapshot.policies || {};
   const requiredContexts = [...(pol.branchProtection?.required_status_checks?.contexts || []), ...(pol.branchProtection?.required_status_checks?.checks || []).map((c) => c.context),
-    ...[...(pol.rulesets || []), ...(pol.organizationRulesets || [])].flatMap((r) => r.rules || []).filter((r) => r.type === 'required_status_checks').flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => c.context))];
+    ...[...(pol.rulesets || []), ...(pol.organizationRulesets || [])].filter((r) => applicable(r, snapshot)).flatMap((r) => r.rules || []).filter((r) => r.type === 'required_status_checks').flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => c.context))];
   const reported = new Set([...(snapshot.checks || []).map((c) => c.name), ...(snapshot.statuses || []).map((st) => st.context)]);
   for (const context of new Set(requiredContexts.filter(Boolean))) if (!reported.has(context)) pending.push(`required check ${context} has not reported`);
   for (const r of snapshot.policies?.externalReview || []) { if (r.state === 'failed') failed.push(`${r.provider} failed`); else if (r.state !== 'completed') pending.push(`${r.provider} ${r.state}`); }
@@ -140,13 +157,14 @@ function readiness(snapshot, headOid) {
   }
   for (const [login, r] of decisive) if (r.state === 'CHANGES_REQUESTED') failed.push(`changes requested by ${login}`);
   const p = snapshot.policies || {};
-  const fromRules = [...(p.rulesets || []), ...(p.organizationRulesets || [])].flatMap((r) => r.rules || []).filter((r) => r.type === 'pull_request').map((r) => r.parameters?.required_approving_review_count || 0);
+  const rules = [...(p.rulesets || []), ...(p.organizationRulesets || [])].filter((r) => applicable(r, snapshot)).flatMap((r) => r.rules || []);
+  const fromRules = rules.filter((r) => r.type === 'pull_request').map((r) => r.parameters?.required_approving_review_count || 0);
   const required = Math.max(p.branchProtection?.required_pull_request_reviews?.required_approving_review_count || 0, ...fromRules, 0);
   const approved = [...decisive.values()].filter((r) => r.state === 'APPROVED' && (!r.commit_id || r.commit_id === headOid)).length;
   if (approved < required) pending.push(`required approvals ${approved} of ${required}`);
   // A requirement the snapshot cannot prove, such as whose approval counts or when it came, keeps readiness waiting
   // for a human to confirm it (ADV-199-CODEOWNER-APPROVAL).
-  const reviewRules = [p.branchProtection?.required_pull_request_reviews || {}, ...[...(p.rulesets || []), ...(p.organizationRulesets || [])].flatMap((r) => r.rules || []).filter((r) => r.type === 'pull_request').map((r) => r.parameters || {})];
+  const reviewRules = [p.branchProtection?.required_pull_request_reviews || {}, ...rules.filter((r) => r.type === 'pull_request').map((r) => r.parameters || {})];
   const unverifiable = [...new Set(reviewRules.flatMap((r) => [
     (r.require_code_owner_reviews || r.require_code_owner_review) && 'a code owner\'s approval',
     r.require_last_push_approval && 'an approval after the last push',
