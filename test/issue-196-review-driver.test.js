@@ -52,7 +52,9 @@ const f = JSON.parse(require('fs').readFileSync(${JSON.stringify(fixture)}, 'utf
 const args = process.argv.slice(2), endpoint = args[args.length - 1];
 const out = (v) => { process.stdout.write(JSON.stringify(v)); process.exit(0); };
 if (args[0] !== 'api') { process.stderr.write('unexpected gh ' + args.join(' ')); process.exit(9); }
-if (args[1] === 'graphql') out({ data: { repository: { pullRequest: { reviewThreads: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } } } } });
+if (f.failEndpoint && endpoint.includes(f.failEndpoint)) { process.stderr.write('HTTP 502: bad gateway'); process.exit(1); }
+if (args[1] === 'graphql') out({ data: { repository: { pullRequest: { reviewThreads: { nodes: f.threads || [], pageInfo: { hasNextPage: false, endCursor: null } } } } } });
+if (endpoint.includes('/statuses')) out(f.statuses || []);
 if (endpoint === 'repos/o/r/pulls/7') out(f.pull);
 if (endpoint === 'repos/o/r/issues/5') out(f.issue);
 if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [[]] : []);
@@ -61,7 +63,7 @@ if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); pro
 if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
 if (endpoint.includes('/check-runs/1/annotations')) out([]);
-if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : 'success' }] });
+if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }] });
 if (endpoint.includes('/check-suites')) out({ check_suites: [] });
 out([]);
 `, { mode: 0o755 });
@@ -73,13 +75,13 @@ function drive(args, e) { return spawnSync(process.execPath, [DRIVER, ...args], 
 function nextRequest(stdout) { const lines = stdout.split('\n'); const i = lines.findIndex((l) => l.startsWith('NEXT:')); return i < 0 ? null : JSON.parse(lines[i + 1]); }
 
 // The gate child, faked: a completed pi-subagents run whose structured output is a validator-accepted envelope.
-function fakeGate(runDir, runs, { verdict = 'MERGE' } = {}) {
+function fakeGate(runDir, runs, { verdict = 'MERGE', severity = 'Major', disposition = 'fixed' } = {}) {
   const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
   const state = JSON.parse(fs.readFileSync(path.join(runDir, 'state.json'), 'utf8'));
   const expected = JSON.parse(fs.readFileSync(state.pending.expectationPath, 'utf8'));
   const c = expected.correlation;
   const prefix = { convergence: 'CONV', adversarial: 'ADV', safety: 'SAFETY' }[c.gate];
-  const findings = verdict === 'MERGE' ? [] : [{ findingId: `${prefix}-${c.number}-X`, origin: 'fresh', gate: c.gate, headOid: c.headOid, raisedAgainstFingerprint: c.snapshotFingerprint, severity: 'Major', anchoring: 'criterion-anchored', anchor: 'AC1', proposedDisposition: 'fixed', evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 't',
+  const findings = verdict === 'MERGE' ? [] : [{ findingId: `${prefix}-${c.number}-X`, origin: 'fresh', gate: c.gate, headOid: c.headOid, raisedAgainstFingerprint: c.snapshotFingerprint, severity, anchoring: 'criterion-anchored', anchor: 'AC1', proposedDisposition: disposition, evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 't',
     workflowRecord: { sourceKind: 'gate', sourceId: 'a.js:1', authorIdentity: 'g', authorType: 'Bot', observedHeadOid: c.headOid, fingerprint: c.snapshotFingerprint, semanticFingerprint: c.snapshotFingerprint, correctiveChange: 'c' } }];
   const envelope = { schemaVersion: 2, correlation: c, verdict: verdict === 'MERGE' ? 'MERGE' : 'FIX BEFORE MERGE', evidenceRead: expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: true })), findings, confirmations: [], decisions: [],
     adversarialResults: c.gate === 'adversarial' ? [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] : [] };
@@ -274,4 +276,128 @@ test('Issue #196 a stopped run resumes after recomputing its fingerprints, and r
   assert.notEqual(r.status, 0);
   assert.equal(state(moved.runDir).state, 'BLOCKED');
   assert.match(state(moved.runDir).reason, /target moved/);
+});
+
+// The pre-push conformance sweep of PR #199 (after round 4): every remaining review-only obligation the round owns.
+function thread(id, resolved) { return { id, isResolved: resolved, isOutdated: false, path: 'a.js', line: 1, originalLine: 1, comments: { totalCount: 1, nodes: [{ id: `c${id}`, databaseId: 1, url: 'u', body: 'please change this', createdAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z', author: { login: 'coderabbitai', __typename: 'Bot' } }], pageInfo: { endCursor: null, hasNextPage: false } } }; }
+function publishable(runDir) { const s = state(runDir); const body = fs.readFileSync(s.publication.comment, 'utf8'); return { s, body }; }
+
+test('Issue #196 an unresolved external review thread stops readiness WAITING_FOR_OWNER, and a resolved one does not', () => {
+  const t = setup();
+  setFixture(t, { threads: [thread('T1', false), thread('T2', true)] });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'WAITING_FOR_OWNER', s.reason);
+  assert.match(s.reason, /T1/);
+  assert.doesNotMatch(s.reason, /T2/);
+});
+
+test('Issue #196 a gate still running is not a result, and an unreadable result is relaunched once without a round', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const runId = fakeGate(t.runDir, t.runs);
+  const statusPath = path.join(t.runs, 'async-subagent-runs', runId, 'status.json');
+  const status = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+  fs.writeFileSync(statusPath, JSON.stringify({ ...status, state: 'running', steps: status.steps.map((x) => ({ ...x, status: 'running' })) }));
+  let r = drive(['result', '--run-dir', t.runDir, '--run-id', runId], t.e);
+  assert.match(r.stdout, /^WAIT: /m, r.stdout + r.stderr);
+  assert.equal(state(t.runDir).pending.gate, 'convergence', 'the gate stays pending');
+  fs.writeFileSync(statusPath, JSON.stringify(status));
+  fs.rmSync(status.steps[0].structuredOutputPath);
+  r = drive(['result', '--run-dir', t.runDir, '--run-id', runId], t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', 'the same launch is printed again');
+  assert.equal(state(t.runDir).invocations.convergence, 1, 'no round is spent');
+  r = drive(['result', '--run-dir', t.runDir, '--run-id', runId], t.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+});
+
+test('Issue #196 a dirty checkout stops BLOCKED before validation', () => {
+  const t = setup();
+  fs.writeFileSync(path.join(t.target.root, 'a.js'), 'module.exports = 99;\n');
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'BLOCKED');
+  assert.match(s.reason, /checkout is not clean/);
+  assert.equal(s.log.some((e) => e.operation === 'validation_run'), false);
+});
+
+test('Issue #196 an issue specification edited between gates stops the next launch', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.issue.body += '\n- AC2: another criterion.\n'; fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /issue_spec/);
+});
+
+test('Issue #196 readiness reads commit statuses and each reviewer\'s latest decisive review, and a skipped check passes', () => {
+  const failing = setup();
+  setFixture(failing, { statuses: [{ id: 1, context: 'ci/circle', state: 'failure', created_at: '2026-09-29T00:00:00Z', creator: { login: 'circleci' } }] });
+  assert.equal(drive(failing.start, failing.e).status, 0);
+  throughGates(failing);
+  assert.equal(state(failing.runDir).state, 'BLOCKED');
+  const changed = setup();
+  setFixture(changed, { checkConclusion: 'skipped', reviews: [
+    { id: 1, user: { login: 'h', type: 'User' }, state: 'CHANGES_REQUESTED', commit_id: changed.target.head, submitted_at: '2026-09-29T00:00:00Z' },
+    { id: 2, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: changed.target.head, submitted_at: '2026-09-29T01:00:00Z' },
+    { id: 3, user: { login: 'h', type: 'User' }, state: 'COMMENTED', commit_id: changed.target.head, submitted_at: '2026-09-29T02:00:00Z' }] });
+  assert.equal(drive(changed.start, changed.e).status, 0);
+  throughGates(changed);
+  assert.equal(state(changed.runDir).state, 'MERGE_READY', state(changed.runDir).reason);
+});
+
+test('Issue #196 a criterion-anchored Minor not proposed fixed is recorded and advances', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX', severity: 'Minor', disposition: 'accepted-as-designed' })], t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
+});
+
+test('Issue #196 an early stop still drafts publishable artifacts, with the full CL-D33 report', () => {
+  const t = setup({ config: { validate: [['node', '-e', 'process.exit(1)']] } });
+  const r = drive(t.start, t.e);
+  const { s, body } = publishable(t.runDir);
+  assert.equal(s.state, 'WAITING_FOR_OWNER');
+  assert.doesNotMatch(body, /undefined/);
+  assert.match(body, /observed at \d{4}-\d\d-\d\dT/);
+  assert.match(r.stdout, /bash "[^"]+\/publish-review\.sh"/);
+  assert.match(r.stdout, /changed head requires fresh review/);
+  assert.match(r.stdout, /sha256 [0-9a-f]{64}/);
+});
+
+test('Issue #196 an open finding is reported as proposed, not as fixed', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
+  assert.match(fs.readFileSync(path.join(t.runDir, 'status-block.md'), 'utf8'), /^  CONV-7-X: fixed \(proposed; correction pending\)$/m);
+});
+
+test('Issue #196 a gh failure mid-run stops with an outcome token, and a harness failure never becomes a verdict', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  setFixture(t, { failEndpoint: 'repos/o/r/pulls/7' });
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.equal(r.status, 1, r.stderr + r.stdout);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  const harness = setup({ config: { validate: [['definitely-not-a-program-196']] } });
+  drive(harness.start, harness.e);
+  assert.equal(state(harness.runDir).state, 'BLOCKED');
+  assert.match(state(harness.runDir).reason, /harness_failed/);
+});
+
+test('Issue #196 a resumed run reports its own observation time', () => {
+  const t = setup();
+  setFixture(t, { checkStatus: 'in_progress' });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  const before = state(t.runDir).observedFrom;
+  setFixture(t, { checkStatus: 'completed' });
+  drive(['resume', '--run-dir', t.runDir], t.e);
+  assert.notEqual(state(t.runDir).observedFrom, before);
 });
