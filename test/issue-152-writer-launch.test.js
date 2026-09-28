@@ -205,8 +205,9 @@ test('Issue #152 the contracted minimum is the one the package documents', () =>
 });
 
 // The receiver's own modules, loaded from the installation the run will use: no copy, no type stripping, no child
-// process. `typebox` is resolved through the receiver's own manifest, so this package assumes no dependency of its
-// own (#160).
+// process. `typebox` resolves through the receiver's own manifest when it carries one, and otherwise from the installed
+// pi package, which supplies it to pi-subagents 0.72 and later (#197); either way this package assumes no dependency
+// of its own (#160).
 let receiverApi;
 async function receiver() {
   if (!receiverApi) {
