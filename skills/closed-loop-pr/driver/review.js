@@ -12,7 +12,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, checkoutProblem, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -65,9 +65,7 @@ function start(opts) {
   guard(run);
   const target = s.target;
   if (pull.state !== 'open' || pull.draft) run.stop('BLOCKED', `the pull request is ${pull.state}${pull.draft ? ' (draft)' : ''}`);
-  const head = git(checkout, ['rev-parse', 'HEAD']).trim();
-  if (head !== target.headOid) run.stop('BLOCKED', `the checkout is at ${head}, not the public head ${target.headOid}`);
-  const dirty = dirtyCheckout(checkout); if (dirty) run.stop('BLOCKED', dirty);
+  const before = checkoutProblem(checkout, target.headOid); if (before) run.stop('BLOCKED', before);
   // The Issue this PR serves, its acceptance criteria, and the validation the base commit names; each gap stops here.
   const closes = opts.issue ? [null, String(opts.issue)] : /\b(?:closes|fixes|resolves)\s+#(\d+)/i.exec(s.body);
   if (!closes) run.stop('BLOCKED', 'the PR body names no `Closes #N` issue and no --issue was given');
@@ -90,7 +88,7 @@ function start(opts) {
     if (v.ok === false && v.error?.code !== 'validation_failed') run.stop('BLOCKED', `harness_failed: ${command.join(' ')}: ${v.error?.code} ${v.error?.message || ''}`.trim());
     if (v.data?.outcome !== 'passed') { s.nextAction = 'the author fixes the validation failure, then a fresh run'; run.stop('WAITING_FOR_OWNER', `validation failed: ${command.join(' ')}`); }
   }
-  const after = dirtyCheckout(checkout); if (after) run.stop('BLOCKED', `validation changed the checkout: ${after}`);
+  const after = checkoutProblem(checkout, target.headOid); if (after) run.stop('BLOCKED', `validation changed the checkout: ${after}`);
   collectSnapshotEvidence(run);
   launch(run, 'convergence', { fresh: true });
 }
@@ -123,10 +121,8 @@ function revalidate(run) {
   const s = run.state, t = s.target;
   const pull = gh(['api', `repos/${t.repository}/pulls/${t.number}`], s.checkout);
   const moved = targetMoved(t, pull); if (moved) run.stop('BLOCKED', moved);
-  const local = git(s.checkout, ['rev-parse', 'HEAD']).trim();
-  if (local !== t.headOid) run.stop('BLOCKED', `the checkout is at ${local}, not the public head ${t.headOid}`);
+  const checkout = checkoutProblem(s.checkout, t.headOid); if (checkout) run.stop('BLOCKED', checkout);
   if ((pull.body || '') !== s.body) run.stop('BLOCKED', 'the target moved: the pull request body changed');
-  const dirty = dirtyCheckout(s.checkout); if (dirty) run.stop('BLOCKED', dirty);
   const { issue, comments } = readIssue(run);
   const now = headFingerprints(run, { cwd: s.checkout, baseOid: t.baseOid, headOid: t.headOid, issue, comments }).values;
   const changed = Object.keys(now).filter((k) => now[k] !== s.fingerprints[k]);

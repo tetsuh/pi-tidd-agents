@@ -151,6 +151,11 @@ function readiness(snapshot, headOid) {
 // A runtime root may hold untracked files only while it is absent or a real directory, judged without following a
 // link; a tracked or staged change under it is a change like any other (CONV-199-CLD54-RUNTIME-ROOT-FILTER).
 const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];
+// The checkout the review reads: at the bound head, and clean (CONV-199-POST-VALIDATION-HEAD joins the two checks).
+function checkoutProblem(cwd, headOid) {
+  const local = git(cwd, ['rev-parse', 'HEAD']).trim();
+  return local === headOid ? dirtyCheckout(cwd) : `the checkout is at ${local}, not the public head ${headOid}`;
+}
 function dirtyCheckout(cwd) {
   for (const root of RUNTIME_ROOTS) {
     let stat = null; try { stat = fs.lstatSync(path.join(cwd, root)); } catch { /* absent is allowed */ }
@@ -243,4 +248,4 @@ class Run {
   }
 }
 
-module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, checkoutProblem, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
