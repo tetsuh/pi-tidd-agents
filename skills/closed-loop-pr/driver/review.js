@@ -48,6 +48,10 @@ function start(opts) {
     repository = opts.repo || gh(['repo', 'view', '--json', 'nameWithOwner'], checkout).nameWithOwner;
     pull = gh(['api', `repos/${repository}/pulls/${number}`], checkout);
   } catch (error) { die(`cannot read pull request ${repository || ''}#${number}: ${String(error.message).split('\n')[0]}`); }
+  // Every field the target binds is checked here too, so a missing one (a deleted fork's head repository) leaves no run.
+  for (const [name, value] of [['base commit', pull.base?.sha], ['base branch', pull.base?.ref], ['head commit', pull.head?.sha], ['head branch', pull.head?.ref], ['head repository', pull.head?.repo?.full_name]]) {
+    if (typeof value !== 'string' || !value) die(`cannot bind pull request ${repository}#${number}: its ${name} is missing`);
+  }
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${number}-review.`));
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
   const run = new Run(runDir), s = run.state;
@@ -119,6 +123,8 @@ function revalidate(run) {
   const s = run.state, t = s.target;
   const pull = gh(['api', `repos/${t.repository}/pulls/${t.number}`], s.checkout);
   const moved = targetMoved(t, pull); if (moved) run.stop('BLOCKED', moved);
+  const local = git(s.checkout, ['rev-parse', 'HEAD']).trim();
+  if (local !== t.headOid) run.stop('BLOCKED', `the checkout is at ${local}, not the public head ${t.headOid}`);
   if ((pull.body || '') !== s.body) run.stop('BLOCKED', 'the target moved: the pull request body changed');
   const dirty = dirtyCheckout(s.checkout); if (dirty) run.stop('BLOCKED', dirty);
   const { issue, comments } = readIssue(run);
@@ -175,7 +181,9 @@ function result(opts) {
   s.verdicts[gate] = envelope.verdict; s.pending = null;
   s.gateLog.push({ gate, invocation: p.invocation, head: s.target.headOid, verdict: envelope.verdict, findings: findings.map((x) => `${x.findingId} (${x.severity})`).join(', ') });
   // CL-D85: a Minor whose correction changes no file of the head is recorded and advances; any other finding is open.
-  const isRecorded = (x) => x.severity === 'Minor' && (x.anchoring === 'reword' || x.anchoring === 'follow-up' || x.outOfScope === true || x.proposedDisposition !== 'fixed');
+  // Whether a correction changes no file is not readable from a proposed disposition, so only the classes that change
+  // none by construction are recorded (CONV-199-CLD85-MINOR-BYPASS).
+  const isRecorded = (x) => x.severity === 'Minor' && (x.anchoring === 'reword' || x.anchoring === 'follow-up' || x.outOfScope === true);
   const open = findings.filter((x) => !isRecorded(x));
   for (const x of findings) s.findings.push({ findingId: x.findingId, gate, recorded: isRecorded(x), summary: String(x.correction || '').slice(0, 200),
     disposition: isRecorded(x) ? `${x.proposedDisposition} (recorded under CL-D85)` : `${x.proposedDisposition} (proposed; correction pending)` });

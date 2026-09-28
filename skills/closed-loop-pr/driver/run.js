@@ -140,9 +140,24 @@ function readiness(snapshot, headOid) {
 }
 // A checkout the review reads must hold exactly the head: no tracked, staged, or untracked change outside the runtime
 // roots (review-only.md, CL-D38/CL-D54). Ignored files, such as a validation delta, are not listed.
+// A runtime root may hold untracked files only while it is absent or a real directory, judged without following a
+// link; a tracked or staged change under it is a change like any other (CONV-199-CLD54-RUNTIME-ROOT-FILTER).
+const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];
 function dirtyCheckout(cwd) {
-  const entries = git(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']).split('\0').filter(Boolean).map((e) => e.slice(3));
-  const dirty = entries.filter((p) => !['.pi/', '.pi-subagents/'].some((root) => p === root.slice(0, -1) || p.startsWith(root)));
+  for (const root of RUNTIME_ROOTS) {
+    let stat = null; try { stat = fs.lstatSync(path.join(cwd, root)); } catch { /* absent is allowed */ }
+    if (stat && !stat.isDirectory()) return `the runtime root ${root} is not a directory`;
+  }
+  const records = git(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=all']).split('\0');
+  const dirty = [];
+  for (let i = 0; i < records.length; i += 1) {
+    const record = records[i]; if (!record) continue;
+    const code = record.slice(0, 2), file = record.slice(3);
+    if (code[0] === 'R' || code[0] === 'C') i += 1; // the rename or copy source follows
+    const underRoot = RUNTIME_ROOTS.some((root) => file === root || file.startsWith(`${root}/`));
+    if (code === '??' && underRoot) continue;
+    dirty.push(file);
+  }
   return dirty.length ? `the checkout is not clean: ${dirty.slice(0, 5).join(', ')}${dirty.length > 5 ? ` and ${dirty.length - 5} more` : ''}` : null;
 }
 
