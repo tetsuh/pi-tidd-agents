@@ -86,7 +86,7 @@ function fakeGate(runDir, runs, { verdict = 'MERGE' } = {}) {
   fs.writeFileSync(path.join(dir, 'output.json'), JSON.stringify(envelope));
   fs.writeFileSync(path.join(dir, 'schema.json'), JSON.stringify(SCHEMA));
   const agent = { convergence: 'tidd-convergence-reviewer', adversarial: 'tidd-adversarial-reviewer', safety: 'tidd-safety-reviewer' }[c.gate];
-  fs.writeFileSync(path.join(runs, 'async-subagent-runs', runId, 'status.json'), JSON.stringify({ runId, state: 'complete', cwd: state.checkout, steps: [{ agent, status: 'complete', model: 'fake/fake', structuredOutputPath: path.join(dir, 'output.json'), structuredOutputSchemaPath: path.join(dir, 'schema.json') }] }));
+  fs.writeFileSync(path.join(runs, 'async-subagent-runs', runId, 'status.json'), JSON.stringify({ runId, state: 'complete', cwd: state.checkout, steps: [{ agent, status: 'complete', model: 'prov/model-x:high', structuredOutputPath: path.join(dir, 'output.json'), structuredOutputSchemaPath: path.join(dir, 'schema.json') }] }));
   return runId;
 }
 
@@ -94,7 +94,7 @@ function setup(options) {
   const target = makeTarget(options);
   git(target.root, ['checkout', '-q', 'feature']);
   const bin = fakeGh(target), runs = temp('i196-runs-'), runDir = path.join(temp('i196-run-'), 'run');
-  return { target, e: env(bin, runs), runs, runDir, start: ['start', '--pr', '7', '--repo', 'o/r', '--checkout', target.root, '--run-dir', runDir] };
+  return { target, e: env(bin, runs), runs, runDir, fixture: path.join(bin, 'fixture.json'), start: ['start', '--pr', '7', '--repo', 'o/r', '--checkout', target.root, '--run-dir', runDir] };
 }
 const state = (runDir) => JSON.parse(fs.readFileSync(path.join(runDir, 'state.json'), 'utf8'));
 
@@ -166,4 +166,38 @@ test('Issue #196 the driver is packaged under its own alarms and names no writin
   for (const f of files) assert.doesNotMatch(readText(f), /require\('\.\.\/helpers\/(?:fingerprints|evidence)'\)/, `${f} computes evidence outside the packaged operations`);
   assert.ok(/^## CL-D93 — /m.test(readText('CONTRACT.md')), 'CL-D93 records the driver boundary');
   assert.deepEqual(JSON.parse(readText('.tidd.json')), { validate: [['node', '--test']] });
+});
+
+// Round 2 of PR #199: the target is re-resolved before every gate, the run directory never lies inside a work tree,
+// and each resolved role reports its provider, model, and thinking level.
+test('Issue #196 a target that moves between gates stops the run BLOCKED before the next launch', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const fixture = JSON.parse(fs.readFileSync(t.fixture, 'utf8'));
+  fixture.pull.head.sha = 'f'.repeat(40);
+  fs.writeFileSync(t.fixture, JSON.stringify(fixture));
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.notEqual(r.status, 0);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'BLOCKED');
+  assert.match(s.reason, /target moved/);
+  assert.equal(s.log.filter((e) => e.operation === 'build_gate_launch').length, 1, 'no second gate was launched');
+});
+
+test('Issue #196 a run directory inside a Git work tree is refused before anything is written', () => {
+  const t = setup();
+  const inside = path.join(t.target.root, 'run-inside');
+  const r = drive(['start', '--pr', '7', '--repo', 'o/r', '--checkout', t.target.root, '--run-dir', inside], t.e);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /inside a Git work tree/);
+  assert.equal(fs.existsSync(inside), false, 'the directory was not created');
+});
+
+test('Issue #196 each resolved role names its provider, model, and thinking level', () => {
+  const t = setup();
+  let r = drive(t.start, t.e);
+  for (let i = 0; i < 3; i += 1) r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.deepEqual(s.resolved, ['convergence', 'adversarial', 'safety'].map((g) => `tidd-${g}-reviewer provider prov, model model-x, thinking high`));
 });
