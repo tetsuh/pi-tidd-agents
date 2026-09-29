@@ -178,6 +178,12 @@ function runDirNotFresh(dir) {
 class Run {
   constructor(dir) {
     this.dir = dir;
+    // One driver command at a time holds a run, from before it reads the state until it exits; another is refused
+    // before it reads or writes anything (SAFETY-199-CONCURRENT-RESULT).
+    const lock = path.join(dir, 'lock');
+    try { fs.mkdirSync(lock); } catch (error) { if (error.code === 'EEXIST') die(`another driver command holds this run (${lock}); wait for it to finish, or remove the lock once no driver process runs`); throw error; }
+    fs.writeFileSync(path.join(lock, 'pid'), `${process.pid}\n`);
+    process.on('exit', () => fs.rmSync(lock, { recursive: true, force: true }));
     this.statePath = path.join(dir, 'state.json');
     this.state = fs.existsSync(this.statePath) ? JSON.parse(fs.readFileSync(this.statePath, 'utf8')) : { seq: 0, log: [] };
   }
