@@ -182,11 +182,19 @@ class Run {
     // before it reads or writes anything (SAFETY-199-CONCURRENT-RESULT).
     const lock = path.join(dir, 'lock');
     try { fs.mkdirSync(lock); } catch (error) { if (error.code === 'EEXIST') die(`another driver command holds this run (${lock}); wait for it to finish, or remove the lock once no driver process runs`); throw error; }
-    const fd = fs.openSync(path.join(lock, 'pid'), fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
-    try { fs.writeFileSync(fd, `${process.pid}\n`); } finally { fs.closeSync(fd); }
-    process.on('exit', () => fs.rmSync(lock, { recursive: true, force: true }));
-    this.statePath = path.join(dir, 'state.json');
-    this.state = fs.existsSync(this.statePath) ? JSON.parse(fs.readFileSync(this.statePath, 'utf8')) : { seq: 0, log: [] };
+    // The lock this process took is released on exit from here on, and at once if the rest of the construction fails
+    // (SAFETY-199-LOCK-CONSTRUCTION).
+    const release = () => fs.rmSync(lock, { recursive: true, force: true });
+    process.on('exit', release);
+    try {
+      const fd = fs.openSync(path.join(lock, 'pid'), fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+      try { fs.writeFileSync(fd, `${process.pid}\n`); } finally { fs.closeSync(fd); }
+      this.statePath = path.join(dir, 'state.json');
+      this.state = fs.existsSync(this.statePath) ? JSON.parse(fs.readFileSync(this.statePath, 'utf8')) : { seq: 0, log: [] };
+    } catch (error) {
+      release(); process.removeListener('exit', release);
+      throw new Error(`cannot hold the run ${dir}: ${error.message}`);
+    }
   }
   static open(opts) { return new Run(path.resolve(opts['run-dir'] || die('--run-dir is required'))); }
   save() { writeOwn(this.statePath, `${JSON.stringify(this.state, null, 2)}\n`); }
