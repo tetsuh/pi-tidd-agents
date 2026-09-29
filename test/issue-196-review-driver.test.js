@@ -1056,7 +1056,12 @@ test('Issue #196 a second driver command on a held run is refused before it touc
   assert.match(r.stderr, /another driver command holds/);
   assert.equal(nextRequest(r.stdout), null);
   assert.equal(fs.readFileSync(path.join(t.runDir, 'state.json'), 'utf8'), before, 'the run is untouched');
+  const status = drive(['status', '--run-dir', t.runDir], t.e);
+  assert.notEqual(status.status, 0, 'status is refused too');
+  assert.match(status.stderr, /another driver command holds/);
+  assert.equal(status.stdout, '');
   fs.rmdirSync(path.join(t.runDir, 'lock'));
+  assert.equal(JSON.parse(drive(['status', '--run-dir', t.runDir], t.e).stdout).state, 'GATE_LAUNCH_PENDING', 'status reads the run once it is free');
   r = drive(['result', '--run-dir', t.runDir, '--run-id', runId], t.e);
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
   assert.equal(fs.existsSync(path.join(t.runDir, 'lock')), false, 'a finished command releases the run');
