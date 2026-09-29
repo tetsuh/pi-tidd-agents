@@ -1144,3 +1144,27 @@ test('Issue #196 result, resume, and status refuse a run directory inside a work
     assert.equal(fs.existsSync(path.join(inside, 'lock')), false, `${args[0]} took no lock`);
   }
 });
+
+// The pre-push sweep after round 42: the driver's own Git calls carry the helpers' safe configuration, so a hook the
+// checkout's config names never runs (core.fsmonitor set by the head's validation), and a given run directory must be
+// the operator's own and closed to other writers.
+test('Issue #196 the driver\'s Git never runs a configured fsmonitor, and a run directory others can write is refused', () => {
+  const t = setup();
+  const marker = path.join(temp('i196-hook-'), 'ran');
+  const hook = path.join(temp('i196-hookbin-'), 'fsmonitor.sh');
+  fs.writeFileSync(hook, `#!/bin/sh\ntouch ${JSON.stringify(marker)}\nexit 1\n`, { mode: 0o755 });
+  git(t.target.root, ['checkout', '-q', 'main']);
+  fs.writeFileSync(path.join(t.target.root, '.tidd.json'), JSON.stringify({ validate: [['git', 'config', 'core.fsmonitor', hook]] }));
+  git(t.target.root, ['add', '.tidd.json']); git(t.target.root, ['commit', '-q', '-m', 'config']);
+  const newBase = git(t.target.root, ['rev-parse', 'HEAD']);
+  git(t.target.root, ['checkout', '-q', 'feature']); git(t.target.root, ['rebase', '-q', 'main']);
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8'));
+  f.pull.base.sha = newBase; f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f));
+  drive(t.start, t.e);
+  assert.equal(fs.existsSync(marker), false, 'the configured fsmonitor hook never ran');
+  const open = setup();
+  fs.mkdirSync(open.runDir, { recursive: true }); fs.chmodSync(open.runDir, 0o777);
+  const r = drive(open.start, open.e);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /writable by others/);
+});
