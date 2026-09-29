@@ -267,7 +267,7 @@ try {
   if (command === 'start') start(opts);
   else if (command === 'result') result(opts);
   else if (command === 'resume') resume(opts);
-  else if (command === 'status') process.stdout.write(fs.readFileSync(path.join(path.resolve(opts['run-dir'] || die('--run-dir is required')), 'state.json'), 'utf8'));
+  else if (command === 'status') process.stdout.write(`${JSON.stringify(Run.open(opts).state, null, 2)}\n`);
   else die('usage: review.js start|result|resume|status');
 } catch (error) {
   // A run with a directory ends through its guard, with a token and a status block; before that, a plain failure.
