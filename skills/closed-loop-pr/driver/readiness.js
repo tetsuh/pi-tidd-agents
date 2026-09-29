@@ -13,7 +13,9 @@
 // that never gate a merge waits, whatever its targeting reads, and so does every enabled branch-protection setting the
 // driver does not evaluate, its review requirements included.
 const NON_GATING_RULES = new Set(['deletion', 'non_fast_forward', 'creation']);
-const PROTECTION_SETTLED = new Set(['url', 'required_status_checks', 'enforce_admins', 'allow_force_pushes', 'allow_deletions', 'block_creations', 'required_linear_history', 'required_conversation_resolution', 'allow_fork_syncing']);
+// Settled: required checks and conversation resolution are evaluated here (the latter through unresolved threads); the
+// rest never gate a merge. Everything else enabled, required linear history included, waits (ADV-199-LINEAR-HISTORY-PROTECTION).
+const PROTECTION_SETTLED = new Set(['url', 'required_status_checks', 'required_conversation_resolution', 'enforce_admins', 'allow_force_pushes', 'allow_deletions', 'block_creations', 'allow_fork_syncing']);
 function humanConfirms(snapshot) {
   const out = [], p = snapshot.policies || {};
   for (const r of [...(p.rulesets || []), ...(p.organizationRulesets || [])]) {
