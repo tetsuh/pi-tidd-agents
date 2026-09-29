@@ -759,3 +759,18 @@ test('Issue #196 convergence at its cap with findings open hands the candidate t
   assert.deepEqual(expected.assignedFindings.map((a) => a.findingId), ['CONV-7-X']);
   assert.match(expected.assignedFindings[0].blockerKey, /\S/);
 });
+
+// Round 21 of PR #199: an inherited Git redirection never moves the driver's own Git reads off the checkout
+// (CONV-199-GIT-ENV-CHECKOUT).
+test('Issue #196 an inherited GIT_DIR and GIT_WORK_TREE do not hide a dirty checkout', () => {
+  const t = setup();
+  const clean = temp('i196-clean-tree-');
+  for (const name of fs.readdirSync(t.target.root).filter((n) => n !== '.git')) fs.cpSync(path.join(t.target.root, name), path.join(clean, name), { recursive: true });
+  fs.writeFileSync(path.join(t.target.root, 'a.js'), 'module.exports = 99;\n');
+  const r = drive(t.start, { ...t.e, GIT_DIR: path.join(t.target.root, '.git'), GIT_WORK_TREE: clean });
+  assert.notEqual(r.status, 0, r.stdout);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'BLOCKED');
+  assert.match(s.reason, /checkout is not clean/);
+  assert.equal(s.log.some((e) => e.operation === 'validation_run'), false);
+});
