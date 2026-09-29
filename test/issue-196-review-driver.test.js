@@ -730,3 +730,32 @@ test('Issue #196 a missing or malformed runner status record is relaunched once,
     assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', r.stderr + r.stdout);
   }
 });
+
+// Round 20 of PR #199: the base branch is part of the bound target (ADV-199-BASE-BRANCH-DRIFT), and convergence at its
+// cap with findings open hands the candidate to Sol with those findings assigned (CL-D62, ADV-199-CONVERGENCE-CAP-ASSIGNMENT).
+test('Issue #196 a base branch retargeted between gates stops the next launch', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.base.ref = 'release'; fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.notEqual(r.status, 0);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /target moved/);
+});
+
+test('Issue #196 convergence at its cap with findings open hands the candidate to Sol with them assigned', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const comment = (id) => ({ id, html_url: `u${id}`, user: { login: 'someone', type: 'User' }, author_association: 'NONE', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z', body: `comment ${id}` });
+  for (const n of [1, 2]) {
+    setFixture(t, { prComments: Array.from({ length: n }, (_, i) => comment(i + 1)) });
+    assert.equal(nextRequest(drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e).stdout)?.agent, 'tidd-convergence-reviewer');
+  }
+  assert.equal(state(t.runDir).invocations.convergence, 3);
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
+  const expected = JSON.parse(fs.readFileSync(state(t.runDir).pending.expectationPath, 'utf8'));
+  assert.deepEqual(expected.assignedFindings.map((a) => a.findingId), ['CONV-7-X']);
+  assert.match(expected.assignedFindings[0].blockerKey, /\S/);
+});
