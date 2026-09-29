@@ -9,7 +9,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
-const { sanitizedEnv } = require('../helpers/process');
+const { sanitizedEnv, gitArgs } = require('../helpers/process');
 const { readiness, externalTiming } = require('./readiness');
 
 const PACKAGE = path.resolve(__dirname, '..', '..', '..');
@@ -32,7 +32,8 @@ function parseArgs(argv) {
 // drops the same redirection and keeps its own credentials (CONV-199-GIT-ENV-CHECKOUT).
 const REDIRECT_ENV = /^GIT_(?:DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|NAMESPACE|CEILING_DIRECTORIES)$/i;
 function git(cwd, list, encoding = 'utf8') {
-  return execFileSync('git', ['-c', 'core.autocrlf=false', '-c', 'core.safecrlf=false', '--no-pager', ...list], { cwd, encoding, maxBuffer: 256 * 1024 * 1024, env: sanitizedEnv({ LC_ALL: 'C' }, 'git') });
+  // The helpers' safe configuration too, so no hook, fsmonitor, or external diff the checkout names ever runs.
+  return execFileSync('git', gitArgs(list), { cwd, encoding, maxBuffer: 256 * 1024 * 1024, env: sanitizedEnv({ LC_ALL: 'C' }, 'git') });
 }
 function gh(list, cwd) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !REDIRECT_ENV.test(key)));
@@ -175,6 +176,8 @@ function writeOwn(file, data) {
 function runDirNotFresh(dir) {
   let st; try { st = fs.lstatSync(dir); } catch { return null; }
   if (!st.isDirectory()) return `the run directory ${dir} is not a directory`;
+  // The operator's own and closed to other writers, so nothing can swap a path inside it (a publish directory) for a link.
+  if ((typeof process.getuid === 'function' && st.uid !== process.getuid()) || (st.mode & 0o022)) return `the run directory ${dir} is not the operator's own or is writable by others; give a fresh one`;
   return fs.readdirSync(dir).length ? `the run directory ${dir} is not empty; give a fresh one` : null;
 }
 class Run {
@@ -252,6 +255,8 @@ class Run {
     const body = `${visible}${marker}\n`;
     // Inside the run directory, which was verified outside every work tree before it was created.
     const pub = fs.mkdtempSync(path.join(this.dir, 'publish.'));
+    const made = fs.lstatSync(pub);
+    if (!made.isDirectory() || (typeof process.getuid === 'function' && made.uid !== process.getuid())) throw new Error(`the publication directory ${pub} is not the one just made`);
     writeOwn(path.join(pub, 'review-comment.md'), body);
     const template = fs.readFileSync(path.join(PACKAGE, 'skills', 'closed-loop-pr', 'references', 'publish-review.sh'), 'utf8');
     const script = template.replaceAll('__PI_REVIEW_REPOSITORY__', t.repository).replaceAll('__PI_REVIEW_PR_NUMBER__', String(t.number)).replaceAll('__PI_REVIEW_HEAD__', t.headOid)

@@ -761,7 +761,7 @@ test('Issue #196 an inherited GIT_DIR and GIT_WORK_TREE do not hide a dirty chec
 // (CONV-199-RUN-DIR-SYMLINK-WRITE).
 test('Issue #196 a run directory that is not empty is refused before anything is written', () => {
   const t = setup();
-  fs.mkdirSync(t.runDir, { recursive: true });
+  fs.mkdirSync(t.runDir, { recursive: true, mode: 0o700 }); fs.chmodSync(t.runDir, 0o700);
   fs.symlinkSync(path.join(t.target.root, 'a.js'), path.join(t.runDir, 'pr-before.json'));
   const before = fs.readFileSync(path.join(t.target.root, 'a.js'), 'utf8');
   const r = drive(t.start, t.e);
