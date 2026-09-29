@@ -118,8 +118,10 @@ function collectSnapshotEvidence(run) {
   if (moved) run.stop('BLOCKED', moved);
   const snap = snapshotFingerprint(run, snapshot);
   s.fingerprints.snapshot = snap.value; s.records.snapshot = snap.record;
+  const known = s.evidenceIds;
   s.observedFrom = new Date().toISOString(); s.origin = s.origin || s.observedFrom; s.evidenceIds = evidenceIds(snapshot);
-  s.external = `${describeExternal(snapshot)}; ${externalTiming(snapshot, s.origin).report}`;
+  if (known && s.evidenceIds.some((id) => !known.includes(id))) s.changedAt = s.observedFrom;
+  s.external = `${describeExternal(snapshot)}; ${externalTiming(snapshot, s.origin, Date.now(), s.changedAt).report}`;
   const captureIdentity = { repository: t.repository, number: t.number, baseOid: t.baseOid, baseBranch: t.baseBranch, headOid: t.headOid, headRepository: t.headRepository, headBranch: t.headBranch, state: 'open', draft: false };
   run.op('evidence_verify', { envelope: { schemaVersion: 1, captureIdentity, brackets: { before: snapshot.before, after: snapshot.after }, completeness: snapshot.completeness, fingerprints: s.records }, expected: { ...captureIdentity, fingerprints: s.fingerprints } });
   const fp = s.fingerprints;
@@ -239,7 +241,7 @@ function finalReadiness(run) {
   const snapshot = collectSnapshotEvidence(run);
   s.activeGate = 'external'; s.rounds = rounds(s);
   if (s.evidenceIds.some((id) => !known.includes(id))) { s.verdicts = {}; s.invalidated = 'every gate verdict: new external evidence arrived at final readiness'; return launch(run, 'convergence', { fresh: true }); }
-  const r = readiness(snapshot, s.target.headOid), timing = externalTiming(snapshot, s.origin);
+  const r = readiness(snapshot, s.target.headOid), timing = externalTiming(snapshot, s.origin, Date.now(), s.changedAt);
   if (timing.quiet) r.pending.push(timing.quiet);
   if (r.pending.length && timing.windowEnded) r.pending.push('the fifteen-minute observation window for this head has ended');
   if (r.unresolved.length) { s.nextAction = 'the owner dispositions the external findings, then a fresh run'; s.operatorActions = `disposition and resolve ${r.unresolved.length} external review thread(s)`; run.stop('WAITING_FOR_OWNER', `unresolved external finding(s): ${r.unresolved.join('; ')}`); }

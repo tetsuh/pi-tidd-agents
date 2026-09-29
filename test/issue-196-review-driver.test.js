@@ -166,7 +166,7 @@ test('Issue #196 an open finding stops review-only WAITING_FOR_OWNER with the fi
 
 test('Issue #196 the driver is packaged under its own alarms and names no writing operation', () => {
   const files = fs.readdirSync(repoPath(DRIVER_DIR)).filter((f) => f.endsWith('.js')).map((f) => `${DRIVER_DIR}/${f}`);
-  assert.deepEqual(files.sort(), [`${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`]);
+  assert.deepEqual(files.sort(), [`${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`]);
   const sizes = files.map((f) => fs.statSync(repoPath(f)).size);
   for (const [i, size] of sizes.entries()) assert.ok(size < 30000, `${files[i]} is ${size} bytes`);
   assert.ok(sizes.reduce((a, b) => a + b, 0) < 60000, 'driver aggregate alarm');
@@ -873,6 +873,10 @@ test('Issue #196 the status block names only a permitted next action, and MERGE_
   setFixture(t, { prComments: [prComment(1)] });
   drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
   throughGates(t);
+  // The comment's arrival started the quiet period; once it has passed, the resumed run is ready.
+  assert.equal(state(t.runDir).state, 'WAITING_EXTERNAL_REVIEW', state(t.runDir).reason);
+  const st = state(t.runDir); st.changedAt = new Date(Date.now() - 180000).toISOString(); fs.writeFileSync(path.join(t.runDir, 'state.json'), JSON.stringify(st));
+  drive(['resume', '--run-dir', t.runDir], t.e);
   assert.equal(state(t.runDir).state, 'MERGE_READY', state(t.runDir).reason);
   assert.match(state(t.runDir).statusBlock, /^invalidated_evidence: none$/m);
   assert.equal((state(t.runDir).statusBlock.match(/tidd-convergence-reviewer/g) || []).length, 1, 'resolved lists each role once');
@@ -998,7 +1002,7 @@ test('Issue #196 a commit message carrying U+0001 fingerprints as itself', () =>
   target.head = git(target.root, ['rev-parse', 'HEAD']); target.pull.head.sha = target.head;
   const bin = fakeGh(target), runs = temp('i196-runs-'), runDir = path.join(temp('i196-run-'), 'run');
   assert.equal(drive(['start', '--pr', '7', '--repo', 'o/r', '--checkout', target.root, '--run-dir', runDir], env(bin, runs)).status, 0);
-  const commits = git(target.root, ['rev-list', '--reverse', `${target.base}..${target.head}`]).split('\n').map((oid) => ({ oid, message: execFileSync('git', ['show', '-s', '--format=%B', oid], { cwd: target.root, encoding: 'utf8' }) }));
+  const commits = git(target.root, ['rev-list', '--reverse', `${target.base}..${target.head}`]).split('\n').map((oid) => ({ oid, message: execFileSync('git', ['cat-file', 'commit', oid], { cwd: target.root, encoding: 'utf8' }).split('\n\n').slice(1).join('\n\n') }));
   assert.ok(commits[1].message.includes('\u0001'));
   assert.equal(state(runDir).fingerprints.pr_commits, prCommitsFingerprint(commits));
 });
