@@ -93,7 +93,7 @@ function fakeGate(runDir, runs, { verdict = 'MERGE', severity = 'Major', disposi
   fs.writeFileSync(path.join(dir, 'output.json'), JSON.stringify(envelope));
   fs.writeFileSync(path.join(dir, 'schema.json'), JSON.stringify(SCHEMA));
   const agent = { convergence: 'tidd-convergence-reviewer', adversarial: 'tidd-adversarial-reviewer', safety: 'tidd-safety-reviewer' }[c.gate];
-  fs.writeFileSync(path.join(runs, 'async-subagent-runs', runId, 'status.json'), JSON.stringify({ runId, state: 'complete', cwd: state.checkout, steps: [{ agent, status: 'complete', model: 'prov/model-x:high', structuredOutputPath: path.join(dir, 'output.json'), structuredOutputSchemaPath: path.join(dir, 'schema.json') }] }));
+  fs.writeFileSync(path.join(runs, 'async-subagent-runs', runId, 'status.json'), JSON.stringify({ runId, state: 'complete', cwd: state.checkout, steps: [{ agent, status: 'complete', model: 'prov/model-x', thinking: 'high', structuredOutputPath: path.join(dir, 'output.json'), structuredOutputSchemaPath: path.join(dir, 'schema.json') }] }));
   return runId;
 }
 
@@ -1088,4 +1088,21 @@ test('Issue #196 a ruleset that can gate a merge, and protection it does not eva
   assert.match(pending({ protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } }).join(';'), /branch protection .*required_pull_request_reviews.*a human confirms/, 'met protection approvals');
   assert.match(pending({ protection: { required_signatures: { enabled: true } } }).join(';'), /required_signatures/, 'an enabled protection setting');
   assert.deepEqual(pending({ protection: { required_signatures: { enabled: false }, enforce_admins: { enabled: true }, allow_force_pushes: { enabled: false }, required_status_checks: { contexts: ['ci'], checks: [] } } }), [], 'settings that are off or evaluated');
+});
+
+// Round 40 of PR #199: branch protection's `strict` (the head must be up to date with the base) is a requirement the
+// driver does not settle, so it waits for a human (CONV-199-STRICT-REQUIRED-CHECKS); and a role's thinking level is
+// the runner's own `thinking` field, with a model suffix only as a fallback (CONV-199-ROLE-THINKING-STATUS).
+test('Issue #196 strict required checks wait for a human, and a role reports the runner\'s thinking field', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
+  const { roleLabel } = require('../skills/closed-loop-pr/driver/run');
+  const head = 'h'.repeat(40);
+  const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
+  const pending = (rsc) => readiness({ after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: [], policies: { branchProtection: { required_status_checks: rsc }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
+  assert.match(pending({ strict: true, contexts: ['ci'], checks: [] }).join(';'), /strict.*a human confirms/);
+  assert.deepEqual(pending({ strict: false, contexts: ['ci'], checks: [] }), []);
+  assert.equal(roleLabel('r', 'p/m', 'high'), 'r p/m:high');
+  assert.equal(roleLabel('r', 'p/m:max', 'max'), 'r p/m:max');
+  assert.equal(roleLabel('r', 'p/m:max'), 'r p/m:max');
+  assert.equal(roleLabel('r', 'p/m'), 'r p/m:unreported');
 });
