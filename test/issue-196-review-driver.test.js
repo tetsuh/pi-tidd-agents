@@ -1119,3 +1119,13 @@ test('Issue #196 readiness waits unless GitHub reports the pull request mergeabl
   const bot = [{ id: 1, user: { login: 'coderabbitai[bot]', type: 'Bot' }, state: 'CHANGES_REQUESTED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }];
   assert.match(run({ mergeable: true, mergeable_state: 'clean' }, bot).failed.join(';'), /changes requested by coderabbitai\[bot\]/);
 });
+
+// Round 41 of PR #199: required linear history constrains how the pull request is merged, which the driver does not
+// settle, so it waits for a human; only settings that never gate a merge are settled (ADV-199-LINEAR-HISTORY-PROTECTION).
+test('Issue #196 required linear history waits for a human, and only non-gating protection settings are settled', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
+  const pending = (bp) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], threads: [], reviews: [], policies: { branchProtection: bp, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, 'h'.repeat(40)).pending;
+  assert.match(pending({ required_linear_history: { enabled: true } }).join(';'), /required_linear_history.*a human confirms/);
+  for (const key of ['lock_branch', 'restrictions', 'required_signatures', 'a_future_setting']) assert.match(pending({ [key]: { enabled: true } }).join(';'), new RegExp(key), key);
+  assert.deepEqual(pending({ url: 'u', enforce_admins: { enabled: true }, allow_force_pushes: { enabled: true }, allow_deletions: { enabled: true }, block_creations: { enabled: true }, allow_fork_syncing: { enabled: true }, required_conversation_resolution: { enabled: true } }), []);
+});
