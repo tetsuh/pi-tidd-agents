@@ -960,3 +960,28 @@ test('Issue #196 a quoted branch name or validation argv never carries the publi
   assert.doesNotMatch(r.stderr, /observation time/, r.stderr);
   assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /^Reviewed public head: /m);
 });
+
+// Round 27 of PR #199: quoted values are folded as the publisher folds them, NEL included (ADV-199-PUBLISH-NEL), and a
+// convergence role the parent's role preflight found disabled is skipped and reported (CL-D62, ADV-199-DISABLED-CONVERGENCE).
+test('Issue #196 a quoted value with a NEL between the marker words stays publishable', () => {
+  const t = setup({ config: { validate: [['node', '-e', '0 // observed\u0085at suspicious']] } });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  const s = state(t.runDir);
+  const r = spawnSync('bash', [s.publication.script], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: temp('i196-home-') } });
+  assert.doesNotMatch(r.stderr, /observation time/, r.stderr);
+});
+
+test('Issue #196 a convergence role found disabled is skipped and reported as convergence: disabled', () => {
+  const t = setup();
+  const r = drive([...t.start, '--convergence', 'disabled'], t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
+  throughGates(t, 2);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.match(s.statusBlock, /^resolved: .*convergence: disabled/m);
+  assert.match(s.statusBlock, /^rounds: convergence disabled, /m);
+  assert.equal(s.invocations.convergence, undefined);
+  assert.notEqual(drive([...setup().start, '--convergence', 'off'], t.e).status, 0, 'only the value disabled is accepted');
+});
