@@ -12,7 +12,8 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, evidenceIds, readiness, checkoutProblem, ignoredInventory, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { isUtf8 } = require('node:buffer');
+const { Run, externalTiming, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, evidenceIds, readiness, checkoutProblem, ignoredInventory, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -54,6 +55,8 @@ function start(opts) {
   }
   // A head from another repository is a foreign pull request, whatever objects happen to be local (CONV-199-FOREIGN-HEAD-LOCAL).
   if (pull.head.repo.full_name.toLowerCase() !== pull.base.repo?.full_name?.toLowerCase()) die(`pull request ${repository}#${number} has its head in another repository (${pull.head.repo.full_name}); review it on the prose path of review-only.md`);
+  // The bound repository is GitHub's canonical name, whatever --repo spelled.
+  repository = pull.base.repo.full_name;
   // The driver reads the head and base from a local checkout. A foreign pull request, or one whose objects are not
   // local, stays with the prose path of review-only.md until the prompt switch (#196 PR-C) (ADV-199-NO-CHECKOUT-PR).
   for (const oid of [pull.base.sha, pull.head.sha]) {
@@ -85,6 +88,8 @@ function start(opts) {
   if (validation.problem) run.stop('BLOCKED', validation.problem);
   const evidence = headFingerprints(run, { cwd: checkout, baseOid: target.baseOid, headOid: target.headOid, issue, comments });
   run.file('pr.diff', evidence.diff);
+  // The gate receives the exact diff, so a diff that is not UTF-8 text stops here rather than reaching it altered.
+  if (!isUtf8(Buffer.from(evidence.diff))) run.stop('BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly; review it on the prose path of review-only.md');
   s.fingerprints = evidence.values; s.records = evidence.records;
   const results = [];
   for (const command of [...validation.commands, ['git', 'diff', '--check', `${target.baseOid}...${target.headOid}`]]) {
@@ -111,7 +116,8 @@ function collectSnapshotEvidence(run) {
   if (moved) run.stop('BLOCKED', moved);
   const snap = snapshotFingerprint(run, snapshot);
   s.fingerprints.snapshot = snap.value; s.records.snapshot = snap.record;
-  s.observedFrom = new Date().toISOString(); s.external = describeExternal(snapshot); s.evidenceIds = evidenceIds(snapshot);
+  s.observedFrom = new Date().toISOString(); s.origin = s.origin || s.observedFrom; s.evidenceIds = evidenceIds(snapshot);
+  s.external = `${describeExternal(snapshot)}; ${externalTiming(snapshot, s.origin).report}`;
   const captureIdentity = { repository: t.repository, number: t.number, baseOid: t.baseOid, baseBranch: t.baseBranch, headOid: t.headOid, headRepository: t.headRepository, headBranch: t.headBranch, state: 'open', draft: false };
   run.op('evidence_verify', { envelope: { schemaVersion: 1, captureIdentity, brackets: { before: snapshot.before, after: snapshot.after }, completeness: snapshot.completeness, fingerprints: s.records }, expected: { ...captureIdentity, fingerprints: s.fingerprints } });
   const fp = s.fingerprints;
@@ -173,12 +179,14 @@ function result(opts) {
   const run = Run.open(opts), s = run.state, p = s.pending;
   if (!p) die('no gate is pending in this run');
   guard(run);
+  s.nextAction = null; s.operatorActions = null;
   const read = run.op('gate_result_read', { runId: opts['run-id'] || die('--run-id is required'), expectationPath: p.expectationPath }, { allowFail: true });
   if (!read.ok) {
     const code = read.error?.code;
     if (code === 'run_in_progress') { process.stdout.write(`WAIT: the ${label(p.gate)} run is still in progress; when it completes, run: node ${__filename} result --run-dir ${run.dir} --run-id <runId>\n`); process.exit(3); }
     if (RELAUNCHABLE.has(code) && !p.relaunched) {
       p.relaunched = true; run.save();
+      revalidate(run);
       run.next(JSON.parse(fs.readFileSync(p.launch, 'utf8')), `${__filename} result`);
       return;
     }
@@ -186,7 +194,8 @@ function result(opts) {
   }
   const envelope = read.data.envelope, gate = p.gate, findings = envelope.findings || [];
   const status = read.data.statusPath ? JSON.parse(fs.readFileSync(read.data.statusPath, 'utf8')) : {};
-  s.resolved.push(roleLabel(ROLE[gate], ((status.steps || []).at(-1) || {}).model));
+  // One entry per role that ran, its latest resolution.
+  s.resolved = [...s.resolved.filter((x) => !x.startsWith(`${ROLE[gate]} `)), roleLabel(ROLE[gate], ((status.steps || []).at(-1) || {}).model)];
   s.verdicts[gate] = envelope.verdict; s.pending = null;
   s.gateLog.push({ gate, invocation: p.invocation, head: s.target.headOid, verdict: envelope.verdict, findings: findings.map((x) => `${x.findingId} (${x.severity})`).join(', ') });
   // CL-D85: a Minor whose correction changes no file of the head is recorded and advances; any other finding is open.
@@ -196,9 +205,13 @@ function result(opts) {
   // (CONV-199-MAJOR-FOLLOWUP-ADVANCES).
   const isRecorded = (x) => (x.severity === 'Minor' && (x.anchoring === 'reword' || x.anchoring === 'follow-up' || x.outOfScope === true))
     || (x.anchoring === 'follow-up' && x.proposedDisposition === 'deferred' && x.severity !== 'Blocker');
-  const open = findings.filter((x) => !isRecorded(x));
-  for (const x of findings) s.findings.push({ findingId: x.findingId, gate, recorded: isRecorded(x), summary: String(x.correction || '').slice(0, 200),
-    disposition: isRecorded(x) ? `${x.proposedDisposition} (recorded under CL-D85)` : `${x.proposedDisposition} (proposed; correction pending)` });
+  // An assigned finding the gate confirms is resolved on this unchanged head, unless it still asks for a fix or for the
+  // owner; the validated envelope is the confirmation authority (gate-contract.md).
+  const confirmed = new Set((envelope.confirmations || []).filter((c) => c.confirmation === 'confirmed').map((c) => c.findingId));
+  const settled = (x) => x.origin === 'assigned' && confirmed.has(x.findingId) && !['fixed', 'needs-owner-decision'].includes(x.proposedDisposition);
+  const open = findings.filter((x) => !isRecorded(x) && !settled(x));
+  for (const x of findings) s.findings = [...s.findings.filter((f) => f.findingId !== x.findingId), { findingId: x.findingId, gate, recorded: isRecorded(x) || settled(x), summary: String(x.correction || '').slice(0, 200),
+    disposition: settled(x) ? `${x.proposedDisposition} (confirmed by ${label(gate)})` : isRecorded(x) ? `${x.proposedDisposition} (recorded under CL-D85)` : `${x.proposedDisposition} (proposed; correction pending)` }];
   const decisions = (envelope.decisions || []).filter((d) => d.status === 'pending').map((d) => d.decisionId);
   if (envelope.verdict === 'NEEDS DECISION' || decisions.length) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; run.stop('WAITING_FOR_OWNER', `${label(gate)} returned NEEDS DECISION`); }
   // gate-contract.md (CL-D62): convergence at its cap with findings open hands the candidate to Sol with those findings
@@ -223,11 +236,13 @@ function finalReadiness(run) {
   const snapshot = collectSnapshotEvidence(run);
   s.activeGate = 'external'; s.rounds = rounds(s);
   if (s.evidenceIds.some((id) => !known.includes(id))) { s.verdicts = {}; s.invalidated = 'every gate verdict: new external evidence arrived at final readiness'; return launch(run, 'convergence', { fresh: true }); }
-  const r = readiness(snapshot, s.target.headOid);
+  const r = readiness(snapshot, s.target.headOid), timing = externalTiming(snapshot, s.origin);
+  if (timing.quiet) r.pending.push(timing.quiet);
+  if (r.pending.length && timing.windowEnded) r.pending.push('the fifteen-minute observation window for this head has ended');
   if (r.unresolved.length) { s.nextAction = 'the owner dispositions the external findings, then a fresh run'; s.operatorActions = `disposition and resolve ${r.unresolved.length} external review thread(s)`; run.stop('WAITING_FOR_OWNER', `unresolved external finding(s): ${r.unresolved.join('; ')}`); }
   if (r.failed.length) { s.nextAction = 'the author addresses the failure, then a fresh run'; run.stop('BLOCKED', `final policy failed: ${r.failed.join('; ')}`); }
   if (r.pending.length) { s.nextAction = `wait, then run: node ${__filename} resume --run-dir ${run.dir}`; run.stop('WAITING_EXTERNAL_REVIEW', `pending: ${r.pending.join('; ')}`); }
-  s.activeGate = 'none'; s.nextAction = 'human merge decision; the workflow never merges'; s.operatorActions = 'none; a human may merge';
+  s.activeGate = 'none'; s.nextAction = 'human merge decision; the workflow never merges'; s.operatorActions = 'none; a human may merge'; s.invalidated = null;
   run.stop('MERGE_READY', 'convergence, Sol and Terra returned MERGE on the unchanged head; the final policy passes');
 }
 
@@ -238,7 +253,7 @@ function resume(opts) {
   const run = Run.open(opts), s = run.state;
   if (s.state !== 'WAITING_EXTERNAL_REVIEW') die(`a ${s.state} run is not resumable; start a fresh run`);
   guard(run);
-  s.reason = null;
+  s.reason = null; s.nextAction = null; s.operatorActions = null;
   return finalReadiness(run);
 }
 

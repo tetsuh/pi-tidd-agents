@@ -232,6 +232,23 @@ function dirtyCheckout(cwd) {
   return dirty.length ? `the checkout is not clean: ${dirty.slice(0, 5).join(', ')}${dirty.length > 5 ? ` and ${dirty.length - 5} more` : ''}` : null;
 }
 
+// review-only.md: a two-minute quiet period after the latest external event, and a fifteen-minute observation window
+// from this run's first snapshot of the head; both are this run's own and are reported as such.
+// The single next permitted action when a stop names none of its own.
+const NEXT_ACTION = { BLOCKED: 'address the cause, then a fresh run', ROUND_LIMIT_REACHED: 'owner decision, then a fresh run', WAITING_FOR_OWNER: 'owner decision, then a fresh run' };
+const QUIET_MS = 2 * 60 * 1000, WINDOW_MS = 15 * 60 * 1000;
+function externalTiming(snapshot, origin, now = Date.now()) {
+  const times = [...(snapshot.comments || []).map((c) => c.updated_at || c.created_at), ...(snapshot.inline || []).map((c) => c.updated_at || c.created_at), ...(snapshot.reviews || []).map((r) => r.submitted_at),
+    ...(snapshot.threads || []).flatMap((th) => (th.comments?.nodes || []).map((c) => c.updatedAt || c.createdAt)), ...(snapshot.checks || []).map((c) => c.completed_at || c.started_at),
+    ...(snapshot.statuses || []).map((st) => st.updated_at || st.created_at)].map((v) => Date.parse(v)).filter((v) => Number.isFinite(v));
+  const latest = times.length ? Math.max(...times) : null, quietUntil = latest === null ? null : latest + QUIET_MS, windowEnds = Date.parse(origin) + WINDOW_MS;
+  const iso = (v) => new Date(v).toISOString();
+  return { quiet: quietUntil !== null && now < quietUntil ? `quiet period until ${iso(quietUntil)} after the latest external event at ${iso(latest)}` : null, windowEnded: now >= windowEnds,
+    report: `quiet period ${latest === null ? 'not started (no external event)' : `2 minutes after ${iso(latest)}`}; observation window 15 minutes from ${origin}, ${now >= windowEnds ? 'ended' : `until ${iso(windowEnds)}`}; this run only` };
+}
+// Untrusted text (reasons, commands, GitHub text) goes into the visible comment; the publisher refuses a command
+// substitution or a carriage return in it, so both are neutralised to keep every draft publishable.
+function publishable(text) { return text.replace(/\r/g, '').replace(/\$(?=[({])/g, '$ '); }
 // Every run artifact is written without following a link at its final path, so a link planted in the run directory
 // cannot redirect a write outside it (CONV-199-RUN-DIR-SYMLINK-WRITE).
 function writeOwn(file, data) {
@@ -286,15 +303,15 @@ class Run {
     // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
     const label = { adversarial: 'sol', safety: 'terra' };
     const findings = (s.findings || []).map((f) => `  ${f.findingId}: ${f.disposition}`);
-    const block = ['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${t.headBranch}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
+    const block = publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${t.headBranch}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${(s.resolved || []).join('; ') || 'none'}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
       'review_misses: none', `pending_decisions: ${(s.pendingDecisions || []).join(', ') || 'none'}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
-      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${s.operatorActions || 'none'}`, `invalidated_evidence: ${s.invalidated || 'none'}`, `next_action: ${s.nextAction || 'owner decision'}`, '```'].join('\n');
+      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${s.operatorActions || 'none'}`, `invalidated_evidence: ${s.invalidated || 'none'}`, `next_action: ${s.nextAction || NEXT_ACTION[s.state] || 'owner decision'}`, '```'].join('\n'));
     const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${g.verdict}${g.findings ? `; ${g.findings}` : ''}`).join('\n') || '- none';
-    const visible = [`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
+    const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
       `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
-      `Reason: ${s.reason || s.state}.`, '', '## Gates', gates, '', `Validation: ${s.validation || 'not run'}.`, '', block, ''].join('\n');
+      `Reason: ${s.reason || s.state}.`, '', '## Gates', gates, '', `Validation: ${s.validation || 'not run'}.`, '', block, ''].join('\n'));
     const marker = `<!-- pi-tidd-agents:review-publication:v1 repo=${t.repository} pr=${t.number} head=${t.headOid} visibleSha256=${sha256(visible)} -->`;
     const body = `${visible}${marker}\n`;
     // Inside the run directory, which was verified outside every work tree before it was created.
@@ -318,4 +335,4 @@ class Run {
   }
 }
 
-module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
