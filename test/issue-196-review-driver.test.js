@@ -1041,3 +1041,22 @@ test('Issue #196 a check completing, a comment removed, or a review dismissed be
     assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `${JSON.stringify(after)}: ${state(t.runDir).state} ${state(t.runDir).reason}`);
   }
 });
+
+// Round 31 of PR #199: one driver command at a time holds a run; another is refused before it reads or writes
+// anything, and a finished command releases the run (SAFETY-199-CONCURRENT-RESULT).
+test('Issue #196 a second driver command on a held run is refused before it touches the run', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const runId = fakeGate(t.runDir, t.runs);
+  const before = fs.readFileSync(path.join(t.runDir, 'state.json'), 'utf8');
+  fs.mkdirSync(path.join(t.runDir, 'lock'));
+  let r = drive(['result', '--run-dir', t.runDir, '--run-id', runId], t.e);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /another driver command holds/);
+  assert.equal(nextRequest(r.stdout), null);
+  assert.equal(fs.readFileSync(path.join(t.runDir, 'state.json'), 'utf8'), before, 'the run is untouched');
+  fs.rmdirSync(path.join(t.runDir, 'lock'));
+  r = drive(['result', '--run-dir', t.runDir, '--run-id', runId], t.e);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
+  assert.equal(fs.existsSync(path.join(t.runDir, 'lock')), false, 'a finished command releases the run');
+});
