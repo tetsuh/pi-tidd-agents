@@ -15,6 +15,7 @@ const HELPER_FILES = [
   'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js',
   'payload.js', 'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
+const DRIVER_FILES = ['run.js', 'readiness.js', 'review.js'].map((name) => `skills/closed-loop-pr/driver/${name}`);
 const ALLOWED_OPERATIONS = [
   'build_fingerprint_snapshot', 'build_gate_assignments', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
   'build_workspace_verify', 'build_writer_launch', 'commit_create', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
@@ -225,7 +226,8 @@ function validateBoundary(model) {
   for (const [file, size] of Object.entries(model.fileSizes)) if (size >= PER_FILE_SMOKE_ALARM) errors.push(`per-file helper smoke alarm exceeded: ${file}:${size}`);
 
   const packedCode = model.packedEntries.map((entry) => entry.path).filter((file) => /\.(?:js|mjs|cjs|ts)$/.test(file)).sort();
-  if (JSON.stringify(packedCode) !== JSON.stringify(HELPER_FILES.slice().sort())) errors.push('packed JavaScript differs from the helper allowlist');
+  // CL-D93: the driver ships beside the helpers under its own alarms (test/issue-196-review-driver.test.js).
+  if (JSON.stringify(packedCode) !== JSON.stringify([...HELPER_FILES, ...DRIVER_FILES].sort())) errors.push('packed JavaScript differs from the helper allowlist');
   if (model.packedEntries.some((entry) => entry.path.startsWith('test/') || /(?:controller|extension)/i.test(entry.path))) errors.push('test/controller/extension is packaged');
   if (model.packedEntries.some((entry) => Number(entry.mode) & 0o111)) errors.push('executable-mode package entry is forbidden');
   return errors;
