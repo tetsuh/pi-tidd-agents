@@ -1077,6 +1077,8 @@ test('Issue #196 a link planted at the lock pid path cannot alter its target', (
   fs.mkdirSync = (p, ...rest) => { const made = mkdir(p, ...rest); if (String(p).endsWith(`${path.sep}lock`)) fs.symlinkSync(victim, path.join(p, 'pid')); return made; };
   try { assert.throws(() => new Run(dir)); } finally { fs.mkdirSync = mkdir; }
   assert.equal(fs.readFileSync(victim, 'utf8'), 'keep');
+  assert.equal(fs.existsSync(path.join(dir, 'lock')), false, 'the failed construction releases the lock it took');
+  assert.ok(new Run(dir).state, 'the run is usable afterwards');
 });
 
 // Round 35 of PR #199: a ruleset condition the snapshot cannot evaluate keeps readiness waiting for a human, even when
