@@ -37,7 +37,7 @@ function makeTarget({ config = { validate: [['node', '-e', 'process.exit(0)']] }
   fs.writeFileSync(path.join(root, 'a.js'), 'module.exports = 2;\n');
   git(root, ['commit', '-q', '-am', 'feat: two (#5)']);
   const head = git(root, ['rev-parse', 'HEAD']);
-  const pull = { number: 7, state: 'open', draft: false, title: 't', body: 'Closes #5.\n', base: { sha: base, ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: head, ref: 'feature', repo: { full_name: 'o/r' } } };
+  const pull = { number: 7, state: 'open', draft: false, mergeable: true, mergeable_state: 'clean', title: 't', body: 'Closes #5.\n', base: { sha: base, ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: head, ref: 'feature', repo: { full_name: 'o/r' } } };
   const issue = { number: 5, body: issueBody ?? 'Spec.\n\n## Acceptance criteria\n\n- AC1: the module exports two.\n', user: { login: 'o' } };
   return { root, base, head, pull, issue };
 }
@@ -665,7 +665,7 @@ test('Issue #196 a required check pinned to an app is satisfied only by that app
   const { readiness } = require('../skills/closed-loop-pr/driver/run');
   const run = (appId) => ({ id: 1, name: 'build', status: 'completed', conclusion: 'success', app: { id: appId } });
   const status = { id: 1, context: 'build', state: 'success', created_at: '2026-09-29T00:00:00Z' };
-  const snapshot = (policies, checks, statuses = []) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses, reviews: [], threads: [], policies: { rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [], ...policies } });
+  const snapshot = (policies, checks, statuses = []) => ({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses, reviews: [], threads: [], policies: { rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [], ...policies } });
   const protection = (app_id) => ({ branchProtection: { required_status_checks: { contexts: ['build'], checks: [{ context: 'build', app_id }] } } });
   const ruleset = (integration_id) => ({ rulesets: [{ id: 1, enforcement: 'active', target: 'branch', bypass_actors: [], rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'build', integration_id }] } }] }] });
   const pending = (s) => readiness(s, 'h'.repeat(40)).pending;
@@ -928,7 +928,7 @@ test('Issue #196 an external record without a valid event time keeps readiness w
 // and a quoted value never carries the publisher's observation marker (ADV-199-DRAFT-OBSERVATION-TOKEN).
 test('Issue #196 branch protection contexts count beside its checks', () => {
   const { readiness } = require('../skills/closed-loop-pr/driver/run');
-  const snapshot = (rsc, checks = []) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses: [], reviews: [], threads: [], policies: { branchProtection: { required_status_checks: rsc }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } });
+  const snapshot = (rsc, checks = []) => ({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses: [], reviews: [], threads: [], policies: { branchProtection: { required_status_checks: rsc }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } });
   const pending = (s) => readiness(s, 'h'.repeat(40)).pending;
   assert.deepEqual(pending(snapshot({ contexts: ['ci/legacy'], checks: [] })), ['required check ci/legacy has not reported']);
   assert.deepEqual(pending(snapshot({ contexts: ['ci/legacy'], checks: [{ context: 'ci/modern', app_id: 123 }] })).sort(), ['required check ci/legacy has not reported', 'required check ci/modern from app 123 has not reported']);
@@ -1074,7 +1074,7 @@ test('Issue #196 a ruleset that can gate a merge, and protection it does not eva
   const head = 'h'.repeat(40);
   const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
   const approved = [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }];
-  const pending = ({ rulesets = [], protection = null }) => readiness({ after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: approved,
+  const pending = ({ rulesets = [], protection = null }) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: approved,
     policies: { branchProtection: protection, rulesets, organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
   const ruleset = (rules, extra = {}) => ({ id: 3, name: 'gate', enforcement: 'active', target: 'branch', bypass_actors: [], conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }, rules, ...extra });
   assert.deepEqual(pending({ rulesets: [ruleset([{ type: 'deletion' }, { type: 'non_fast_forward' }, { type: 'creation' }])] }), [], 'rules that never gate a merge');
@@ -1098,7 +1098,7 @@ test('Issue #196 strict required checks wait for a human, and a role reports the
   const { roleLabel } = require('../skills/closed-loop-pr/driver/run');
   const head = 'h'.repeat(40);
   const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
-  const pending = (rsc) => readiness({ after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: [], policies: { branchProtection: { required_status_checks: rsc }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
+  const pending = (rsc) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: [], policies: { branchProtection: { required_status_checks: rsc }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
   assert.match(pending({ strict: true, contexts: ['ci'], checks: [] }).join(';'), /strict.*a human confirms/);
   assert.deepEqual(pending({ strict: false, contexts: ['ci'], checks: [] }), []);
   assert.equal(roleLabel('r', 'p/m', 'high'), 'r p/m:high');

@@ -32,8 +32,14 @@ function humanConfirms(snapshot) {
 // Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
 const PASSED_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
+// GitHub's own mergeability, which any reader sees, settles what an unreadable protection or ruleset would hide (a
+// protection read answers 404 to a non-admin), a head behind its base, and a merge conflict; anything but a mergeable
+// state waits.
+const MERGEABLE_STATES = new Set(['clean', 'unstable', 'has_hooks']);
 function readiness(snapshot, headOid) {
   const failed = [], pending = [...humanConfirms(snapshot)];
+  const state = snapshot.pull?.mergeable_state ?? null;
+  if (!MERGEABLE_STATES.has(state)) pending.push(`GitHub reports the pull request mergeable_state ${state}${state === 'dirty' ? ' (a merge conflict)' : ''}; it must be clean, unstable, or has_hooks`);
   for (const c of snapshot.checks || []) {
     if (c.status !== 'completed' || c.conclusion === null) pending.push(`check ${c.name}`);
     else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);
@@ -65,7 +71,8 @@ function readiness(snapshot, headOid) {
   for (const r of snapshot.policies?.externalReview || []) { if (r.state === 'failed') failed.push(`${r.provider} failed`); else if (r.state !== 'completed') pending.push(`${r.provider} ${r.state}`); }
   const decisive = new Map();
   for (const r of [...(snapshot.reviews || [])].sort((x, y) => Date.parse(x.submitted_at || 0) - Date.parse(y.submitted_at || 0) || x.id - y.id)) {
-    if (r.user?.type === 'Bot' || !r.user?.login || !['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state)) continue;
+    // A bot's request for changes blocks like a human's; approvals are not counted at all (the #196 cut-off).
+    if (!r.user?.login || !['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(r.state)) continue;
     decisive.set(r.user.login, r);
   }
   for (const [login, r] of decisive) if (r.state === 'CHANGES_REQUESTED') failed.push(`changes requested by ${login}`);
