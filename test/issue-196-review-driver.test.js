@@ -1060,3 +1060,15 @@ test('Issue #196 a second driver command on a held run is refused before it touc
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
   assert.equal(fs.existsSync(path.join(t.runDir, 'lock')), false, 'a finished command releases the run');
 });
+
+// Round 32 of PR #199: the lock's pid file is written like every other run artifact, exclusively and without
+// following a link (CONV-199-LOCK-PID-NOFOLLOW).
+test('Issue #196 a link planted at the lock pid path cannot alter its target', () => {
+  const { Run } = require('../skills/closed-loop-pr/driver/run');
+  const dir = temp('i196-lock-link-'), victim = path.join(temp('i196-victim-'), 'v.txt');
+  fs.writeFileSync(victim, 'keep');
+  const mkdir = fs.mkdirSync;
+  fs.mkdirSync = (p, ...rest) => { const made = mkdir(p, ...rest); if (String(p).endsWith(`${path.sep}lock`)) fs.symlinkSync(victim, path.join(p, 'pid')); return made; };
+  try { assert.throws(() => new Run(dir)); } finally { fs.mkdirSync = mkdir; }
+  assert.equal(fs.readFileSync(victim, 'utf8'), 'keep');
+});
