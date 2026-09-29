@@ -774,3 +774,28 @@ test('Issue #196 an inherited GIT_DIR and GIT_WORK_TREE do not hide a dirty chec
   assert.match(s.reason, /checkout is not clean/);
   assert.equal(s.log.some((e) => e.operation === 'validation_run'), false);
 });
+
+// Round 22 of PR #199: the run directory is fresh, and no run artifact is written through a link
+// (CONV-199-RUN-DIR-SYMLINK-WRITE).
+test('Issue #196 a run directory that is not empty is refused before anything is written', () => {
+  const t = setup();
+  fs.mkdirSync(t.runDir, { recursive: true });
+  fs.symlinkSync(path.join(t.target.root, 'a.js'), path.join(t.runDir, 'pr-before.json'));
+  const before = fs.readFileSync(path.join(t.target.root, 'a.js'), 'utf8');
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /not empty/);
+  assert.equal(fs.readFileSync(path.join(t.target.root, 'a.js'), 'utf8'), before, 'the checkout file is untouched');
+});
+
+test('Issue #196 a run artifact is never written through a link', () => {
+  const { Run } = require('../skills/closed-loop-pr/driver/run');
+  const dir = temp('i196-run-links-'), victim = path.join(temp('i196-victim-'), 'v.txt');
+  fs.writeFileSync(victim, 'keep');
+  const run = new Run(dir);
+  fs.symlinkSync(victim, path.join(dir, 'x.json'));
+  assert.throws(() => run.file('x.json', { a: 1 }));
+  fs.symlinkSync(victim, path.join(dir, 'state.json'));
+  assert.throws(() => run.save());
+  assert.equal(fs.readFileSync(victim, 'utf8'), 'keep');
+});
