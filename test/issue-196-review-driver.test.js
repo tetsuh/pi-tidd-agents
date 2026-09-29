@@ -1020,3 +1020,17 @@ test('Issue #196 a thread resolved at final readiness starts the quiet period wh
   assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
   assert.match(s.reason, /quiet period/);
 });
+
+// Round 29 of PR #199: any change of the snapshot, not only a new record, invalidates the gate sequence, which restarts
+// at convergence (gate-contract.md, ADV-199-SNAPSHOT-INVALIDATION).
+test('Issue #196 a check completing, a comment removed, or a review dismissed between gates reruns convergence', () => {
+  const review = (state) => [{ id: 3, user: { login: 'h', type: 'User' }, state, body: 'r', submitted_at: '2026-09-29T00:00:00Z', commit_id: 'x' }];
+  for (const [before, after] of [[{ checkStatus: 'in_progress' }, { checkStatus: 'completed' }], [{ prComments: [prComment(1)] }, { prComments: [] }], [{ reviews: review('CHANGES_REQUESTED') }, { reviews: review('DISMISSED') }]]) {
+    const t = setup();
+    setFixture(t, before);
+    assert.equal(drive(t.start, t.e).status, 0);
+    setFixture(t, after);
+    const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+    assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `${JSON.stringify(after)}: ${state(t.runDir).state} ${state(t.runDir).reason}`);
+  }
+});
