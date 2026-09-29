@@ -1107,7 +1107,7 @@ test('Issue #196 a ruleset whose targeting cannot be read counts and waits', () 
   let p = readiness(snapshot(ruleset({ ref_name: {} })), head).pending.join(';');
   assert.match(p, /ci has not reported/, 'a ref condition without include counts');
   assert.match(p, /odd.*ref_name/, 'and waits');
-  p = readiness(snapshot(ruleset({ ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }), { defaultBranch: undefined, checks: ci }), head).pending.join(';');
+  p = readiness(snapshot(ruleset({ ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }), { defaultBranch: null, checks: ci }), head).pending.join(';');
   assert.match(p, /odd.*default branch/, '~DEFAULT_BRANCH with the default branch unknown waits even with its check met');
   assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }), { checks: ci }), head).pending, [], 'known and met');
   assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['refs/heads/release'], exclude: [] }, repository_name: {} })), head).pending, [], 'a known non-match settles it');

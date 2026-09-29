@@ -8,33 +8,43 @@
 // branch protection and repository and organization rulesets require, CodeRabbit's classification (CL-D92), and the
 // review threads still unresolved, which are external findings the owner dispositions.
 // A ruleset counts when it is active, targets branches, and its conditions select this pull request's base branch and
-// repository (CONV-199-RULESET-APPLICABILITY). A condition the snapshot cannot evaluate, such as a repository property,
-// counts, so an unknown targeting keeps readiness waiting rather than passing it.
+// repository (CONV-199-RULESET-APPLICABILITY).
 function glob(pattern) { return new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\0').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\0/g, '.*')}$`); }
-function selects(condition, value, special) {
-  if (!condition || value === undefined) return true;
-  const hit = (list) => (list || []).some((p) => special(p) ?? glob(p).test(value));
-  return hit(condition.include) && !hit(condition.exclude);
+// Each known condition selects the pull request (true), excludes it (false), or cannot be read (a reason): a condition
+// without include and exclude lists, a target value the snapshot lacks, or ~DEFAULT_BRANCH with the default branch
+// unknown (ADV-199-UNKNOWN-RULESET-TARGET). A definite exclusion settles the ruleset; an unreadable condition counts it.
+function selects(condition, value, special, label) {
+  if (condition === undefined || condition === null) return true;
+  if (typeof condition !== 'object' || !Array.isArray(condition.include) || (condition.exclude !== undefined && !Array.isArray(condition.exclude))) return `${label} has no readable include and exclude lists`;
+  if (value === undefined) return `${label}: the pull request's target is unknown`;
+  let unknown = null;
+  const hit = (list) => (list || []).some((p) => { const v = special(p); if (v === 'unknown') { unknown = `${label} ${p}: the default branch is unknown`; return false; } return v ?? (typeof p === 'string' && glob(p).test(value)); });
+  const included = hit(condition.include), excluded = hit(condition.exclude);
+  if (excluded) return false;
+  return unknown || included;
 }
-function applicable(ruleset, snapshot) {
-  if (ruleset.enforcement !== 'active' || (ruleset.target && ruleset.target !== 'branch')) return false;
-  const c = ruleset.conditions || {}, after = snapshot.after || {}, fallback = snapshot.policies?.defaultBranch;
-  const ref = after.baseBranch && `refs/heads/${after.baseBranch}`;
-  const name = after.repository && after.repository.split('/')[1];
-  return selects(c.ref_name, ref, (p) => (p === '~ALL' ? true : p === '~DEFAULT_BRANCH' ? !fallback || ref === `refs/heads/${fallback}` : undefined))
-    && selects(c.repository_name, name, (p) => (p === '~ALL' ? true : undefined));
-}
-// Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
-const PASSED_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
-const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
 // The ruleset conditions the snapshot can evaluate; any other key (a repository property, a repository id list) leaves
 // whether the ruleset applies unknown, which a human confirms (CONV-199-RULESET-UNCERTAINTY).
 const KNOWN_CONDITIONS = new Set(['ref_name', 'repository_name']);
+function applicability(ruleset, snapshot) {
+  if (ruleset.enforcement !== 'active' || (ruleset.target && ruleset.target !== 'branch')) return { applies: false, unknown: [] };
+  const c = ruleset.conditions || {}, after = snapshot.after || {}, fallback = snapshot.policies?.defaultBranch;
+  const ref = after.baseBranch && `refs/heads/${after.baseBranch}`;
+  const name = after.repository && after.repository.split('/')[1];
+  const results = [selects(c.ref_name, ref, (p) => (p === '~ALL' ? true : p === '~DEFAULT_BRANCH' ? (fallback ? ref === `refs/heads/${fallback}` : 'unknown') : undefined), 'ref_name'),
+    selects(c.repository_name, name, (p) => (p === '~ALL' ? true : undefined), 'repository_name')];
+  if (results.includes(false)) return { applies: false, unknown: [] };
+  return { applies: true, unknown: [...results.filter((r) => typeof r === 'string'), ...Object.keys(c).filter((k) => !KNOWN_CONDITIONS.has(k)).map((k) => `${k} cannot be evaluated from the snapshot`)] };
+}
+function applicable(ruleset, snapshot) { return applicability(ruleset, snapshot).applies; }
+// Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
+const PASSED_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
+const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
 function readiness(snapshot, headOid) {
   const failed = [], pending = [];
-  for (const r of [...(snapshot.policies?.rulesets || []), ...(snapshot.policies?.organizationRulesets || [])].filter((x) => applicable(x, snapshot))) {
-    const unknown = Object.keys(r.conditions || {}).filter((k) => !KNOWN_CONDITIONS.has(k));
-    if (unknown.length) pending.push(`ruleset ${r.name || r.id} has a condition the snapshot cannot evaluate (${unknown.join(', ')}); a human confirms whether it applies`);
+  for (const r of [...(snapshot.policies?.rulesets || []), ...(snapshot.policies?.organizationRulesets || [])]) {
+    const { applies, unknown } = applicability(r, snapshot);
+    if (applies && unknown.length) pending.push(`ruleset ${r.name || r.id}: ${unknown.join('; ')}; a human confirms whether it applies`);
   }
   for (const c of snapshot.checks || []) {
     if (c.status !== 'completed' || c.conclusion === null) pending.push(`check ${c.name}`);
