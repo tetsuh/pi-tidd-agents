@@ -1106,3 +1106,16 @@ test('Issue #196 strict required checks wait for a human, and a role reports the
   assert.equal(roleLabel('r', 'p/m:max'), 'r p/m:max');
   assert.equal(roleLabel('r', 'p/m'), 'r p/m:unreported');
 });
+
+// The pre-push sweep after round 40: GitHub's own mergeability, which any reader sees, settles what an unreadable
+// protection or ruleset would hide (a 404 on protection reads as unprotected to a non-admin), a branch behind its base,
+// and a merge conflict; and a bot's request for changes blocks like a human's.
+test('Issue #196 readiness waits unless GitHub reports the pull request mergeable, and a bot\'s request for changes blocks', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
+  const head = 'h'.repeat(40);
+  const run = (pull, reviews = []) => readiness({ pull, after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], threads: [], reviews, policies: { branchProtection: false, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head);
+  for (const state of ['clean', 'unstable', 'has_hooks']) assert.deepEqual(run({ mergeable: true, mergeable_state: state }).pending, [], state);
+  for (const state of ['blocked', 'behind', 'dirty', 'unknown', 'draft', null]) assert.match(run({ mergeable: state === 'dirty' ? false : null, mergeable_state: state }).pending.join(';'), /mergeable/, String(state));
+  const bot = [{ id: 1, user: { login: 'coderabbitai[bot]', type: 'Bot' }, state: 'CHANGES_REQUESTED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }];
+  assert.match(run({ mergeable: true, mergeable_state: 'clean' }, bot).failed.join(';'), /changes requested by coderabbitai\[bot\]/);
+});
