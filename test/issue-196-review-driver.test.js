@@ -938,3 +938,25 @@ test('Issue #196 an external record without a valid event time keeps readiness w
   }
   assert.equal(typeof readiness, 'function');
 });
+
+// Round 26 of PR #199: branch protection's legacy contexts count beside its checks (ADV-199-LEGACY-CONTEXT-OMITTED),
+// and a quoted value never carries the publisher's observation marker (ADV-199-DRAFT-OBSERVATION-TOKEN).
+test('Issue #196 branch protection contexts count beside its checks', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/run');
+  const snapshot = (rsc, checks = []) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses: [], reviews: [], threads: [], policies: { branchProtection: { required_status_checks: rsc }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } });
+  const pending = (s) => readiness(s, 'h'.repeat(40)).pending;
+  assert.deepEqual(pending(snapshot({ contexts: ['ci/legacy'], checks: [] })), ['required check ci/legacy has not reported']);
+  assert.deepEqual(pending(snapshot({ contexts: ['ci/legacy'], checks: [{ context: 'ci/modern', app_id: 123 }] })).sort(), ['required check ci/legacy has not reported', 'required check ci/modern from app 123 has not reported']);
+  assert.deepEqual(pending(snapshot({ contexts: ['build'], checks: [{ context: 'build', app_id: 123 }] }, [{ id: 1, name: 'build', status: 'completed', conclusion: 'success', app: { id: 999 } }])), ['required check build from app 123 has not reported'], 'the pin still holds');
+});
+
+test('Issue #196 a quoted branch name or validation argv never carries the publisher\'s observation marker', () => {
+  const t = setup({ config: { validate: [['node', '-e', '0 // observed at 0000']] } });
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.ref = 'feat/observed_from0'; fs.writeFileSync(t.fixture, JSON.stringify(f));
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  const s = state(t.runDir);
+  const r = spawnSync('bash', [s.publication.script], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: temp('i196-home-') } });
+  assert.doesNotMatch(r.stderr, /observation time/, r.stderr);
+  assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /^Reviewed public head: /m);
+});
