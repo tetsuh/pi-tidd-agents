@@ -168,7 +168,7 @@ function readiness(snapshot, headOid) {
   const rules = [...(p.rulesets || []), ...(p.organizationRulesets || [])].filter((r) => applicable(r, snapshot)).flatMap((r) => r.rules || []);
   const fromRules = rules.filter((r) => r.type === 'pull_request').map((r) => r.parameters?.required_approving_review_count || 0);
   const required = Math.max(p.branchProtection?.required_pull_request_reviews?.required_approving_review_count || 0, ...fromRules, 0);
-  const approved = [...decisive.values()].filter((r) => r.state === 'APPROVED' && (!r.commit_id || r.commit_id === headOid)).length;
+  const approved = [...decisive.values()].filter((r) => r.state === 'APPROVED' && r.commit_id === headOid).length;
   if (approved < required) pending.push(`required approvals ${approved} of ${required}`);
   // A requirement the snapshot cannot prove, such as whose approval counts or when it came, keeps readiness waiting
   // for a human to confirm it (ADV-199-CODEOWNER-APPROVAL).
