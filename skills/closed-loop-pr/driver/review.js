@@ -12,7 +12,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, checkoutProblem, ignoredInventory, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, evidenceIds, readiness, checkoutProblem, ignoredInventory, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -41,7 +41,7 @@ function start(opts) {
   const number = Number(opts.pr); if (!Number.isInteger(number) || number <= 0) die('--pr must be a pull request number');
   const checkout = path.resolve(opts.checkout || process.cwd());
   // The location is judged before anything is created: the given directory, or the temporary root a default goes under.
-  const problem = runDirProblem(opts['run-dir'] ? path.resolve(opts['run-dir']) : os.tmpdir()); if (problem) die(problem);
+  const problem = runDirProblem(opts['run-dir'] ? path.resolve(opts['run-dir']) : os.tmpdir()) || (opts['run-dir'] && runDirNotFresh(path.resolve(opts['run-dir']))); if (problem) die(problem);
   // The target is resolved before anything is created, so a lookup that fails leaves no half-run behind.
   let repository, pull;
   try {

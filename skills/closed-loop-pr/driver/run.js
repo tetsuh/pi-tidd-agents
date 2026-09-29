@@ -232,6 +232,18 @@ function dirtyCheckout(cwd) {
   return dirty.length ? `the checkout is not clean: ${dirty.slice(0, 5).join(', ')}${dirty.length > 5 ? ` and ${dirty.length - 5} more` : ''}` : null;
 }
 
+// Every run artifact is written without following a link at its final path, so a link planted in the run directory
+// cannot redirect a write outside it (CONV-199-RUN-DIR-SYMLINK-WRITE).
+function writeOwn(file, data) {
+  const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_TRUNC | fs.constants.O_NOFOLLOW, 0o600);
+  try { fs.writeFileSync(fd, data); } finally { fs.closeSync(fd); }
+}
+// A given run directory must be absent or an empty real directory, so nothing in it predates the run.
+function runDirNotFresh(dir) {
+  let st; try { st = fs.lstatSync(dir); } catch { return null; }
+  if (!st.isDirectory()) return `the run directory ${dir} is not a directory`;
+  return fs.readdirSync(dir).length ? `the run directory ${dir} is not empty; give a fresh one` : null;
+}
 class Run {
   constructor(dir) {
     this.dir = dir;
@@ -239,10 +251,10 @@ class Run {
     this.state = fs.existsSync(this.statePath) ? JSON.parse(fs.readFileSync(this.statePath, 'utf8')) : { seq: 0, log: [] };
   }
   static open(opts) { return new Run(path.resolve(opts['run-dir'] || die('--run-dir is required'))); }
-  save() { fs.writeFileSync(this.statePath, `${JSON.stringify(this.state, null, 2)}\n`, { mode: 0o600 }); }
+  save() { writeOwn(this.statePath, `${JSON.stringify(this.state, null, 2)}\n`); }
   file(name, value) {
     const p = path.join(this.dir, name);
-    fs.writeFileSync(p, Buffer.isBuffer(value) || typeof value === 'string' ? value : `${JSON.stringify(value, null, 2)}\n`, { mode: 0o600 });
+    writeOwn(p, Buffer.isBuffer(value) || typeof value === 'string' ? value : `${JSON.stringify(value, null, 2)}\n`);
     return p;
   }
   // One packaged operation through the helper CLI, recorded. A refusal ends the run with `status` unless `allowFail`.
@@ -287,11 +299,11 @@ class Run {
     const body = `${visible}${marker}\n`;
     // Inside the run directory, which was verified outside every work tree before it was created.
     const pub = fs.mkdtempSync(path.join(this.dir, 'publish.'));
-    fs.writeFileSync(path.join(pub, 'review-comment.md'), body, { mode: 0o600 });
+    writeOwn(path.join(pub, 'review-comment.md'), body);
     const template = fs.readFileSync(path.join(PACKAGE, 'skills', 'closed-loop-pr', 'references', 'publish-review.sh'), 'utf8');
     const script = template.replaceAll('__PI_REVIEW_REPOSITORY__', t.repository).replaceAll('__PI_REVIEW_PR_NUMBER__', String(t.number)).replaceAll('__PI_REVIEW_HEAD__', t.headOid)
       .replaceAll('__PI_REVIEW_PR_URL__', `https://github.com/${t.repository}/pull/${t.number}`).replaceAll('__PI_REVIEW_BODY_SHA256__', sha256(body)).replaceAll('__PI_REVIEW_MARKER__', marker);
-    fs.writeFileSync(path.join(pub, 'publish-review.sh'), script, { mode: 0o600 });
+    writeOwn(path.join(pub, 'publish-review.sh'), script);
     // CL-D33 drafts exactly two artifacts; the block also lives in the run's state and in the report below.
     s.statusBlock = block;
     s.publication = { comment: path.join(pub, 'review-comment.md'), script: path.join(pub, 'publish-review.sh') };
@@ -306,4 +318,4 @@ class Run {
   }
 }
 
-module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
