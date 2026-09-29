@@ -105,7 +105,7 @@ function start(opts) {
 function collectSnapshotEvidence(run) {
   const s = run.state, t = s.target, [owner, repo] = t.repository.split('/');
   const snapshot = run.op('snapshot', { owner, repo, number: t.number, cwd: s.checkout }).data;
-  const moved = targetMoved(t, { base: { sha: snapshot.after.base }, head: { sha: snapshot.after.head, ref: snapshot.after.headBranch, repo: { full_name: snapshot.after.headRepository } }, state: snapshot.after.state, draft: snapshot.after.draft });
+  const moved = targetMoved(t, { base: { sha: snapshot.after.base, ref: snapshot.after.baseBranch }, head: { sha: snapshot.after.head, ref: snapshot.after.headBranch, repo: { full_name: snapshot.after.headRepository } }, state: snapshot.after.state, draft: snapshot.after.draft });
   if (moved) run.stop('BLOCKED', moved);
   const snap = snapshotFingerprint(run, snapshot);
   s.fingerprints.snapshot = snap.value; s.records.snapshot = snap.record;
@@ -155,11 +155,11 @@ function launch(run, gate, { fresh = false } = {}) {
   const invocation = s.invocations[gate];
   run.op('required_evidence_check', { cwd: s.checkout, requiredEvidence: s.requiredEvidence });
   const correlation = { repository: t.repository, number: t.number, baseOid: t.baseOid, headRepository: t.headRepository, headBranch: t.headBranch, headOid: t.headOid, lifecycle: 'open', draft: false, gate, invocation, contractInput: s.contractInput, snapshotFingerprint: s.fingerprints.snapshot };
-  const expectation = run.op('build_gate_expectation', { workflow: 'pr', correlation, assignedFindings: [], requiredEvidence: s.requiredEvidence }).data;
+  const expectation = run.op('build_gate_expectation', { workflow: 'pr', correlation, assignedFindings: gate === 'adversarial' ? s.assigned || [] : [], requiredEvidence: s.requiredEvidence }).data;
   const expectationPath = run.file(`expectation-${gate}-${invocation}.json`, expectation.expected);
   const settled = s.findings.filter((f) => f.recorded).map((f) => ({ findingId: f.findingId, sourceGate: f.gate, disposition: f.disposition, status: 'settled', summary: f.summary }));
   const volatile = { target: { repository: t.repository, number: t.number, headRepository: t.headRepository, headBranch: t.headBranch, baseOid: t.baseOid, headOid: t.headOid, mode: 'review-only', gate },
-    fingerprints: s.fingerprints, body: s.body, diff: fs.readFileSync(path.join(run.dir, 'pr.diff'), 'utf8'), languageProfile: s.languageProfile, acceptanceCriteria: s.acceptanceCriteria, history: { unresolved: [], reopened: [], settled } };
+    fingerprints: s.fingerprints, body: s.body, diff: fs.readFileSync(path.join(run.dir, 'pr.diff'), 'utf8'), languageProfile: s.languageProfile, acceptanceCriteria: s.acceptanceCriteria, history: { unresolved: gate === 'adversarial' ? s.unresolved || [] : [], reopened: [], settled } };
   if (gate === 'adversarial') { volatile.decisions = []; volatile.comments = JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter((c) => TRUSTED.includes(c.author_association) && c.user?.type !== 'Bot'); }
   const built = run.op('build_gate_launch', { expectation, expectationPath, volatile }).data;
   Object.assign(s, { activeGate: gate, state: 'GATE_LAUNCH_PENDING', pending: { gate, invocation, expectationPath, launch: run.file(`launch-${gate}-${invocation}.json`, built.request) }, rounds: rounds(s) });
@@ -199,6 +199,13 @@ function result(opts) {
     disposition: isRecorded(x) ? `${x.proposedDisposition} (recorded under CL-D85)` : `${x.proposedDisposition} (proposed; correction pending)` });
   const decisions = (envelope.decisions || []).filter((d) => d.status === 'pending').map((d) => d.decisionId);
   if (envelope.verdict === 'NEEDS DECISION' || decisions.length) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; run.stop('WAITING_FOR_OWNER', `${label(gate)} returned NEEDS DECISION`); }
+  // gate-contract.md (CL-D62): convergence at its cap with findings open hands the candidate to Sol with those findings
+  // assigned, and convergence is not invoked again; earlier rounds stop for the author as before.
+  if (open.length && gate === 'convergence' && p.invocation >= ROUND_CAP) {
+    s.assigned = run.op('build_gate_assignments', { findings: open, settledKeys: [] }).data.assignedFindings;
+    s.unresolved = open.map((x) => ({ ...x, blockerKey: s.assigned.find((a) => a.findingId === x.findingId).blockerKey }));
+    return launch(run, 'adversarial');
+  }
   if (open.length) { s.nextAction = 'the author applies the smallest correction, then a fresh run'; s.invalidated = 'all head-bound evidence once a correction is pushed'; run.stop('WAITING_FOR_OWNER', `${label(gate)} returned ${envelope.verdict} with open finding(s): ${open.map((x) => x.findingId).join(', ')}`); }
   const next = GATES[GATES.indexOf(gate) + 1];
   if (next) return launch(run, next);

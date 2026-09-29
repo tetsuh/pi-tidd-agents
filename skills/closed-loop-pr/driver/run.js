@@ -87,8 +87,8 @@ function runDirProblem(dir) {
 }
 // The pull request as GitHub reports it now, against the identity the run bound (CONV-199-STALE-TARGET).
 function targetMoved(target, pull) {
-  const now = { baseOid: pull.base?.sha, headOid: pull.head?.sha, headRepository: pull.head?.repo?.full_name, headBranch: pull.head?.ref, state: pull.state, draft: pull.draft };
-  const was = { baseOid: target.baseOid, headOid: target.headOid, headRepository: target.headRepository, headBranch: target.headBranch, state: 'open', draft: false };
+  const now = { baseOid: pull.base?.sha, baseBranch: pull.base?.ref, headOid: pull.head?.sha, headRepository: pull.head?.repo?.full_name, headBranch: pull.head?.ref, state: pull.state, draft: pull.draft };
+  const was = { baseOid: target.baseOid, baseBranch: target.baseBranch, headOid: target.headOid, headRepository: target.headRepository, headBranch: target.headBranch, state: 'open', draft: false };
   const moved = Object.keys(was).filter((k) => now[k] !== was[k]);
   return moved.length ? `the target moved: ${moved.map((k) => `${k} ${was[k]} -> ${now[k]}`).join(', ')}` : null;
 }
