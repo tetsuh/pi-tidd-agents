@@ -27,8 +27,15 @@ function applicable(ruleset, snapshot) {
 // Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
 const PASSED_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
+// The ruleset conditions the snapshot can evaluate; any other key (a repository property, a repository id list) leaves
+// whether the ruleset applies unknown, which a human confirms (CONV-199-RULESET-UNCERTAINTY).
+const KNOWN_CONDITIONS = new Set(['ref_name', 'repository_name']);
 function readiness(snapshot, headOid) {
   const failed = [], pending = [];
+  for (const r of [...(snapshot.policies?.rulesets || []), ...(snapshot.policies?.organizationRulesets || [])].filter((x) => applicable(x, snapshot))) {
+    const unknown = Object.keys(r.conditions || {}).filter((k) => !KNOWN_CONDITIONS.has(k));
+    if (unknown.length) pending.push(`ruleset ${r.name || r.id} has a condition the snapshot cannot evaluate (${unknown.join(', ')}); a human confirms whether it applies`);
+  }
   for (const c of snapshot.checks || []) {
     if (c.status !== 'completed' || c.conclusion === null) pending.push(`check ${c.name}`);
     else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);

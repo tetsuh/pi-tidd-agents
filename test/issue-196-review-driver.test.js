@@ -670,7 +670,7 @@ test('Issue #196 readiness counts only active rulesets whose conditions target t
   assert.deepEqual(counted(snapshot([], [ruleset('x', { conditions: { ref_name: { include: ['~ALL'], exclude: [] }, repository_name: { include: ['other'], exclude: [] } } })])), [], 'another repository');
   for (const [name, set] of [['default branch', ruleset('a', refs(['~DEFAULT_BRANCH']))], ['pattern', ruleset('a', refs(['refs/heads/ma*']))], ['all', ruleset('a', refs(['~ALL']))], ['untargeted', ruleset('a')],
     ['unknown condition', ruleset('a', { conditions: { ref_name: { include: ['~ALL'], exclude: [] }, repository_property: { include: [{ name: 'tier', property_values: ['x'] }], exclude: [] } } })]]) {
-    assert.deepEqual(counted(snapshot([set])), ['required check ci/a has not reported', 'required approvals 0 of 1'], name);
+    assert.deepEqual(counted(snapshot([set])).filter((p) => !p.startsWith('ruleset ')), ['required check ci/a has not reported', 'required approvals 0 of 1'], name);
   }
   assert.deepEqual(counted(snapshot([], [ruleset('a', { conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] }, repository_name: { include: ['r*'], exclude: [] } } })])), ['required check ci/a has not reported', 'required approvals 0 of 1'], 'this repository');
 });
