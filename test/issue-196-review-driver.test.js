@@ -713,3 +713,20 @@ test('Issue #196 an approval without a commit binding does not count toward requ
   assert.deepEqual(readiness(snapshot({ commit_id: 'e'.repeat(40) }), head).pending, ['required approvals 0 of 1'], 'another head');
   assert.deepEqual(readiness(snapshot({ commit_id: head }), head).pending, [], 'this head');
 });
+
+// Round 19 of PR #199: a missing or malformed runner status record is a missing result, relaunched once like a missing
+// output, and the relaunched run's result is read normally (ADV-199-STATUS-RELAUNCH).
+test('Issue #196 a missing or malformed runner status record is relaunched once, and the second run is read', () => {
+  for (const damage of [(p) => fs.rmSync(p), (p) => fs.writeFileSync(p, '{not json')]) {
+    const t = setup();
+    assert.equal(drive(t.start, t.e).status, 0);
+    const runId = fakeGate(t.runDir, t.runs);
+    damage(path.join(t.runs, 'async-subagent-runs', runId, 'status.json'));
+    let r = drive(['result', '--run-dir', t.runDir, '--run-id', runId], t.e);
+    assert.equal(r.status, 0, r.stderr + r.stdout);
+    assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', 'the same launch is printed again');
+    assert.equal(state(t.runDir).invocations.convergence, 1, 'no round is spent');
+    r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+    assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', r.stderr + r.stdout);
+  }
+});
