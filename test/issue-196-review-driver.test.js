@@ -1129,3 +1129,18 @@ test('Issue #196 required linear history waits for a human, and only non-gating 
   for (const key of ['lock_branch', 'restrictions', 'required_signatures', 'a_future_setting']) assert.match(pending({ [key]: { enabled: true } }).join(';'), new RegExp(key), key);
   assert.deepEqual(pending({ url: 'u', enforce_admins: { enabled: true }, allow_force_pushes: { enabled: true }, allow_deletions: { enabled: true }, block_creations: { enabled: true }, allow_fork_syncing: { enabled: true }, required_conversation_resolution: { enabled: true } }), []);
 });
+
+// Round 42 of PR #199: every command that opens a run judges its directory as start does, so result, resume, and
+// status never create a lock or write inside a Git work tree (CONV-199-RUN-DIR-OPEN-CHECK).
+test('Issue #196 result, resume, and status refuse a run directory inside a work tree before writing anything', () => {
+  const t = setup();
+  const inside = path.join(t.target.root, 'run-inside');
+  fs.mkdirSync(inside);
+  fs.writeFileSync(path.join(inside, 'state.json'), JSON.stringify({ seq: 0, log: [], state: 'WAITING_EXTERNAL_REVIEW', pending: { gate: 'convergence' } }));
+  for (const args of [['result', '--run-dir', inside, '--run-id', 'x'], ['resume', '--run-dir', inside], ['status', '--run-dir', inside]]) {
+    const r = drive(args, t.e);
+    assert.notEqual(r.status, 0, args[0]);
+    assert.match(r.stderr, /inside a Git work tree/, args[0]);
+    assert.equal(fs.existsSync(path.join(inside, 'lock')), false, `${args[0]} took no lock`);
+  }
+});
