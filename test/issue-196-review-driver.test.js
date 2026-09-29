@@ -1095,3 +1095,20 @@ test('Issue #196 an unevaluable ruleset condition waits even when its requiremen
   }
   assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['refs/heads/release'], exclude: [] }, repository_property: { include: [], exclude: [] } }), true), head).pending, [], 'a ruleset the known conditions exclude');
 });
+
+// Round 36 of PR #199: a ruleset whose targeting cannot be read (a ref condition without an include list, or
+// ~DEFAULT_BRANCH with the default branch unknown) counts and waits for a human (ADV-199-UNKNOWN-RULESET-TARGET).
+test('Issue #196 a ruleset whose targeting cannot be read counts and waits', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
+  const head = 'h'.repeat(40);
+  const ruleset = (conditions) => ({ id: 8, name: 'odd', enforcement: 'active', target: 'branch', bypass_actors: [], conditions, rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }] });
+  const snapshot = (set, { defaultBranch = 'main', checks = [] } = {}) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses: [], threads: [], reviews: [], policies: { rulesets: [set], organizationRulesets: [], defaultBranch, externalReview: [] } });
+  const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
+  let p = readiness(snapshot(ruleset({ ref_name: {} })), head).pending.join(';');
+  assert.match(p, /ci has not reported/, 'a ref condition without include counts');
+  assert.match(p, /odd.*ref_name/, 'and waits');
+  p = readiness(snapshot(ruleset({ ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }), { defaultBranch: undefined, checks: ci }), head).pending.join(';');
+  assert.match(p, /odd.*default branch/, '~DEFAULT_BRANCH with the default branch unknown waits even with its check met');
+  assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }), { checks: ci }), head).pending, [], 'known and met');
+  assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['refs/heads/release'], exclude: [] }, repository_name: {} })), head).pending, [], 'a known non-match settles it');
+});
