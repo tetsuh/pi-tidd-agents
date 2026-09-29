@@ -97,6 +97,8 @@ function start(opts) {
   }
   const after = checkoutProblem(checkout, target.headOid); if (after) run.stop('BLOCKED', `validation changed the checkout: ${after}`);
   s.ignoredDelta = ignoredInventory(checkout); run.save();
+  // Validation takes time; the target and its body are revalidated before the first gate (CONV-199-FIRST-BODY-REVALIDATION).
+  revalidate(run);
   collectSnapshotEvidence(run);
   launch(run, 'convergence', { fresh: true });
 }

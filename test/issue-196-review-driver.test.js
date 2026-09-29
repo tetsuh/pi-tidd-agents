@@ -49,7 +49,8 @@ function fakeGh(target) {
   fs.writeFileSync(fixture, JSON.stringify({ pull: target.pull, issue: target.issue, head: target.head }));
   fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env node
 const f = JSON.parse(require('fs').readFileSync(${JSON.stringify(fixture)}, 'utf8'));
-const args = process.argv.slice(2), endpoint = args[args.length - 1];
+const args = process.argv.slice(2), raw = args[args.length - 1], endpoint = raw.slice(0, 9).toLowerCase() === 'repos/o/r' ? 'repos/o/r' + raw.slice(9) : raw;
+if (args.includes('repo') && args.includes('view')) { process.stdout.write(JSON.stringify({ nameWithOwner: 'o/r' })); process.exit(0); }
 const out = (v) => { process.stdout.write(JSON.stringify(v)); process.exit(0); };
 if (args[0] !== 'api') { process.stderr.write('unexpected gh ' + args.join(' ')); process.exit(9); }
 if (f.failEndpoint && endpoint.includes(f.failEndpoint)) { process.stderr.write('HTTP 502: bad gateway'); process.exit(1); }
@@ -817,4 +818,103 @@ test('Issue #196 a body edited during validation stops before the first gate', (
   assert.equal(nextRequest(r.stdout), null);
   assert.equal(state(t.runDir).state, 'BLOCKED');
   assert.match(state(t.runDir).reason, /body changed/);
+});
+
+// The pre-push sweep after round 23 of PR #199: a confirmed assigned finding is resolved, a relaunch revalidates, the
+// status block names only a permitted action, the drafted artifacts stay publishable, the gate receives the exact diff,
+// `resolved:` lists each role once, the repository is GitHub's canonical name, and the quiet period and observation
+// window are applied and reported for this run.
+function solConfirming(runDir, runs) {
+  const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
+  const st = state(runDir), expected = JSON.parse(fs.readFileSync(st.pending.expectationPath, 'utf8')), c = expected.correlation;
+  const findings = expected.assignedFindings.map((a) => ({ findingId: a.findingId, blockerKey: a.blockerKey, origin: 'assigned', gate: c.gate, headOid: c.headOid, raisedAgainstFingerprint: c.snapshotFingerprint, severity: 'Major', anchoring: 'criterion-anchored', anchor: 'AC1', proposedDisposition: 'accepted-as-designed', evidence: 'e', impact: 'i', rationale: 'r', correction: 'none', transport: 't',
+    workflowRecord: { sourceKind: 'gate', sourceId: 'a.js:1', authorIdentity: 'g', authorType: 'Bot', observedHeadOid: c.headOid, fingerprint: c.snapshotFingerprint, semanticFingerprint: c.snapshotFingerprint } }));
+  const confirmations = expected.assignedFindings.map((a) => ({ findingId: a.findingId, gate: c.gate, headOid: c.headOid, confirmation: 'confirmed', evidence: 'as designed' }));
+  const envelope = { schemaVersion: 2, correlation: c, verdict: 'MERGE', evidenceRead: expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: true })), findings, confirmations, decisions: [], adversarialResults: [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] };
+  const runId = crypto.randomUUID(), dir = path.join(runs, 'async-subagent-runs', runId, 'structured-output', 'fake'); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'output.json'), JSON.stringify(envelope)); fs.writeFileSync(path.join(dir, 'schema.json'), JSON.stringify(SCHEMA));
+  fs.writeFileSync(path.join(runs, 'async-subagent-runs', runId, 'status.json'), JSON.stringify({ runId, state: 'complete', cwd: st.checkout, steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', model: 'p/m:high', structuredOutputPath: path.join(dir, 'output.json'), structuredOutputSchemaPath: path.join(dir, 'schema.json') }] }));
+  return runId;
+}
+const prComment = (id, extra = {}) => ({ id, html_url: `u${id}`, user: { login: 'someone', type: 'User' }, author_association: 'MEMBER', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z', body: `comment ${id}`, ...extra });
+
+test('Issue #196 Sol confirming an assigned convergence finding resolves it', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  for (const n of [1, 2]) { setFixture(t, { prComments: Array.from({ length: n }, (_, i) => prComment(i + 1)) }); drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e); }
+  assert.equal(nextRequest(drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e).stdout)?.agent, 'tidd-adversarial-reviewer');
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', solConfirming(t.runDir, t.runs)], t.e);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-safety-reviewer', `${state(t.runDir).state}: ${state(t.runDir).reason}`);
+});
+
+test('Issue #196 a relaunch revalidates the target first', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.body = 'edited'; fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const runId = fakeGate(t.runDir, t.runs);
+  fs.rmSync(path.join(t.runs, 'async-subagent-runs', runId, 'status.json'));
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', runId], t.e);
+  assert.equal(nextRequest(r.stdout), null);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /body changed/);
+});
+
+test('Issue #196 the status block names only a permitted next action, and MERGE_READY carries no stale invalidation', () => {
+  let t = setup();
+  setFixture(t, { checkStatus: 'in_progress' });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = 'e'.repeat(40); fs.writeFileSync(t.fixture, JSON.stringify(f));
+  drive(['resume', '--run-dir', t.runDir], t.e);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.doesNotMatch(state(t.runDir).statusBlock, /next_action: .*resume/);
+  t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  setFixture(t, { prComments: [prComment(1)] });
+  drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  throughGates(t);
+  assert.equal(state(t.runDir).state, 'MERGE_READY', state(t.runDir).reason);
+  assert.match(state(t.runDir).statusBlock, /^invalidated_evidence: none$/m);
+  assert.equal((state(t.runDir).statusBlock.match(/tidd-convergence-reviewer/g) || []).length, 1, 'resolved lists each role once');
+});
+
+test('Issue #196 the drafted comment never carries a command substitution from untrusted text', () => {
+  const t = setup({ config: { validate: [['sh', '-c', 'exit ${CODE:-0} $(true)']] } });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  const body = fs.readFileSync(state(t.runDir).publication.comment, 'utf8');
+  assert.doesNotMatch(body, /\$\(|\$\{/);
+});
+
+test('Issue #196 a diff that is not UTF-8 stops before any gate instead of reaching it altered', () => {
+  const target = makeTarget();
+  git(target.root, ['checkout', '-q', 'feature']);
+  fs.writeFileSync(path.join(target.root, 'l1.txt'), Buffer.from([0x63, 0x61, 0x66, 0xe9, 0x0a]));
+  git(target.root, ['add', 'l1.txt']); git(target.root, ['commit', '-q', '-m', 'latin1']);
+  target.head = git(target.root, ['rev-parse', 'HEAD']); target.pull.head.sha = target.head;
+  const bin = fakeGh(target), runs = temp('i196-runs-'), runDir = path.join(temp('i196-run-'), 'run');
+  const r = drive(['start', '--pr', '7', '--repo', 'o/r', '--checkout', target.root, '--run-dir', runDir], env(bin, runs));
+  assert.equal(nextRequest(r.stdout), null);
+  assert.equal(state(runDir).state, 'BLOCKED');
+  assert.match(state(runDir).reason, /UTF-8/);
+});
+
+test('Issue #196 the bound repository is GitHub\'s canonical name, whatever --repo spelled', () => {
+  const t = setup();
+  const r = drive(t.start.map((a) => (a === 'o/r' ? 'O/R' : a)), t.e);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(state(t.runDir).target.repository, 'o/r');
+});
+
+test('Issue #196 a recent external event keeps readiness in its quiet period, and the block reports quiet and window', () => {
+  const t = setup();
+  const now = new Date().toISOString();
+  setFixture(t, { prComments: [prComment(1, { created_at: now, updated_at: now })] });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
+  assert.match(s.reason, /quiet period/);
+  assert.match(s.external, /quiet/);
+  assert.match(s.external, /window/);
 });
