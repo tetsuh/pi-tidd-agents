@@ -233,7 +233,7 @@ test('Issue #196 a missing required approval keeps final readiness waiting', () 
   throughGates(t);
   const s = state(t.runDir);
   assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
-  assert.match(s.reason, /approval/);
+  assert.match(s.reason, /required_pull_request_reviews; a human confirms/);
 });
 
 test('Issue #196 new evidence at final readiness reruns convergence instead of declaring MERGE_READY', () => {
@@ -527,7 +527,7 @@ test('Issue #196 a pull request whose head repository is gone fails before any r
 
 // ADV-199-CODEOWNER-APPROVAL: an approval requirement the driver cannot verify from the snapshot (a code owner's
 // approval, or an approval after the last push) keeps readiness waiting, from branch protection or from a ruleset.
-test('Issue #196 a code-owner or last-push approval requirement waits, because the driver cannot verify it', () => {
+test('Issue #196 a code-owner or last-push approval requirement waits for a human, even with an approval', () => {
   const approved = (t) => [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: t.target.head, submitted_at: '2026-09-29T00:00:00Z' }];
   const shapes = [
     { protection: { required_pull_request_reviews: { required_approving_review_count: 1, require_code_owner_reviews: true } } },
@@ -541,7 +541,7 @@ test('Issue #196 a code-owner or last-push approval requirement waits, because t
     throughGates(t);
     const s = state(t.runDir);
     assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(shape)}: ${s.reason}`);
-    assert.match(s.reason, /cannot be verified/);
+    assert.match(s.reason, /a human confirms/);
   }
 });
 
@@ -579,6 +579,7 @@ test('Issue #196 a validation command that switches the checkout stops before th
 // existing thread (ADV-199-THREAD-REPLY-IDENTITY), and a pull request the driver cannot read from a local checkout
 // (ADV-199-NO-CHECKOUT-PR), which stays with the prose path until the prompt switch.
 test('Issue #196 a required check that never reported keeps readiness waiting, from protection or a ruleset', () => {
+  // A ruleset's required check waits for a human (the #196 cut-off); protection's is judged here.
   for (const shape of [{ protection: { required_status_checks: { strict: false, contexts: ['ci/build'] } } },
     { rulesets: [{ id: 2, updated_at: '2026-09-29T00:00:00Z', enforcement: 'active', rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci/build' }] } }], bypass_actors: [] }] }]) {
     const t = setup();
@@ -587,7 +588,7 @@ test('Issue #196 a required check that never reported keeps readiness waiting, f
     throughGates(t);
     const s = state(t.runDir);
     assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(shape)}: ${s.reason}`);
-    assert.match(s.reason, /ci\/build has not reported/);
+    assert.match(s.reason, /ci\/build has not reported|ruleset 2 can gate the merge/);
   }
 });
 
@@ -656,24 +657,6 @@ test('Issue #196 a validated MERGE that carries a deferred follow-up advances', 
 // Round 16 of PR #199: a ruleset counts only when it is active and its conditions target this pull request's base
 // branch and repository (CONV-199-RULESET-APPLICABILITY). A condition the snapshot cannot evaluate counts, so an
 // unknown targeting keeps readiness waiting rather than passing it.
-test('Issue #196 readiness counts only active rulesets whose conditions target the base branch and repository', () => {
-  const { readiness } = require('../skills/closed-loop-pr/driver/run');
-  const rule = (context) => [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context }] } }, { type: 'pull_request', parameters: { required_approving_review_count: 1 } }];
-  const ruleset = (id, extra) => ({ id, enforcement: 'active', target: 'branch', rules: rule(`ci/${id}`), bypass_actors: [], ...extra });
-  const refs = (include, exclude = []) => ({ conditions: { ref_name: { include, exclude } } });
-  const snapshot = (rulesets, organizationRulesets = []) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], reviews: [], threads: [], policies: { rulesets, organizationRulesets, defaultBranch: 'main', externalReview: [] } });
-  const counted = (r) => readiness(r, 'h'.repeat(40)).pending;
-  for (const [name, set] of [['disabled', ruleset('x', { enforcement: 'disabled' })], ['evaluate', ruleset('x', { enforcement: 'evaluate' })], ['tag', ruleset('x', { target: 'tag' })],
-    ['other branch', ruleset('x', refs(['refs/heads/release/*']))], ['excluded', ruleset('x', refs(['~ALL'], ['refs/heads/main']))], ['no branch', ruleset('x', refs([]))]]) {
-    assert.deepEqual(counted(snapshot([set])), [], name);
-  }
-  assert.deepEqual(counted(snapshot([], [ruleset('x', { conditions: { ref_name: { include: ['~ALL'], exclude: [] }, repository_name: { include: ['other'], exclude: [] } } })])), [], 'another repository');
-  for (const [name, set] of [['default branch', ruleset('a', refs(['~DEFAULT_BRANCH']))], ['pattern', ruleset('a', refs(['refs/heads/ma*']))], ['all', ruleset('a', refs(['~ALL']))], ['untargeted', ruleset('a')],
-    ['unknown condition', ruleset('a', { conditions: { ref_name: { include: ['~ALL'], exclude: [] }, repository_property: { include: [{ name: 'tier', property_values: ['x'] }], exclude: [] } } })]]) {
-    assert.deepEqual(counted(snapshot([set])).filter((p) => !p.startsWith('ruleset ')), ['required check ci/a has not reported', 'required approvals 0 of 1'], name);
-  }
-  assert.deepEqual(counted(snapshot([], [ruleset('a', { conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] }, repository_name: { include: ['r*'], exclude: [] } } })])), ['required check ci/a has not reported', 'required approvals 0 of 1'], 'this repository');
-});
 
 // Round 17 of PR #199: a required check pinned to an app is satisfied only by that app's check run
 // (ADV-199-REQUIRED-APP-ID), and the frozen ignored delta covers every descendant of an ignored directory by content
@@ -686,13 +669,13 @@ test('Issue #196 a required check pinned to an app is satisfied only by that app
   const protection = (app_id) => ({ branchProtection: { required_status_checks: { contexts: ['build'], checks: [{ context: 'build', app_id }] } } });
   const ruleset = (integration_id) => ({ rulesets: [{ id: 1, enforcement: 'active', target: 'branch', bypass_actors: [], rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'build', integration_id }] } }] }] });
   const pending = (s) => readiness(s, 'h'.repeat(40)).pending;
-  for (const policy of [protection(123), ruleset(123)]) {
+  for (const policy of [protection(123)]) {
     assert.match(pending(snapshot(policy, [run(999)])).join(';'), /build/, 'another app');
     assert.match(pending(snapshot(policy, [], [status])).join(';'), /build/, 'a legacy status');
     assert.deepEqual(pending(snapshot(policy, [run(123)])), [], 'the pinned app');
   }
   assert.deepEqual(pending(snapshot(protection(null), [run(999)])), [], 'an unpinned check');
-  assert.deepEqual(pending(snapshot(ruleset(undefined), [], [status])), [], 'an unpinned context');
+  assert.match(pending(snapshot(ruleset(undefined), [], [status])).join(';'), /a human confirms/, 'a ruleset check waits for a human');
 });
 
 test('Issue #196 the ignored inventory covers every descendant of an ignored directory by content', () => {
@@ -712,15 +695,6 @@ test('Issue #196 the ignored inventory covers every descendant of an ignored dir
 });
 
 // Round 18 of PR #199: an approval counts only when it is bound to the reviewed head (CONV-199-UNBOUND-APPROVAL).
-test('Issue #196 an approval without a commit binding does not count toward required approvals', () => {
-  const { readiness } = require('../skills/closed-loop-pr/driver/run');
-  const head = 'h'.repeat(40);
-  const snapshot = (review) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], threads: [], reviews: [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', submitted_at: '2026-09-29T00:00:00Z', ...review }],
-    policies: { branchProtection: { required_pull_request_reviews: { required_approving_review_count: 1 } }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } });
-  assert.deepEqual(readiness(snapshot({}), head).pending, ['required approvals 0 of 1'], 'no commit_id');
-  assert.deepEqual(readiness(snapshot({ commit_id: 'e'.repeat(40) }), head).pending, ['required approvals 0 of 1'], 'another head');
-  assert.deepEqual(readiness(snapshot({ commit_id: head }), head).pending, [], 'this head');
-});
 
 // Round 19 of PR #199: a missing or malformed runner status record is a missing result, relaunched once like a missing
 // output, and the relaunched run's result is read normally (ADV-199-STATUS-RELAUNCH).
@@ -1083,53 +1057,12 @@ test('Issue #196 a link planted at the lock pid path cannot alter its target', (
 
 // Round 35 of PR #199: a ruleset condition the snapshot cannot evaluate keeps readiness waiting for a human, even when
 // every requirement of that ruleset is met (CONV-199-RULESET-UNCERTAINTY).
-test('Issue #196 an unevaluable ruleset condition waits even when its requirements are met', () => {
-  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
-  const head = 'h'.repeat(40);
-  const ruleset = (conditions) => ({ id: 7, name: 'tiered', enforcement: 'active', target: 'branch', bypass_actors: [], conditions, rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }, { type: 'pull_request', parameters: { required_approving_review_count: 1 } }] });
-  const snapshot = (set, org = false) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks: [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }], statuses: [], threads: [],
-    reviews: [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }],
-    policies: { rulesets: org ? [] : [set], organizationRulesets: org ? [set] : [], defaultBranch: 'main', externalReview: [] } });
-  const all = { ref_name: { include: ['~ALL'], exclude: [] } };
-  assert.deepEqual(readiness(snapshot(ruleset(all)), head).pending, [], 'every requirement met, every condition known');
-  for (const [key, value, org] of [['repository_property', { include: [{ name: 'tier', property_values: ['x'] }], exclude: [] }, true], ['repository_id', { repository_ids: [1] }, true]]) {
-    assert.match(readiness(snapshot(ruleset({ ...all, [key]: value }), org), head).pending.join(';'), new RegExp(`tiered.*${key}`), key);
-  }
-  assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['refs/heads/release'], exclude: [] }, repository_property: { include: [], exclude: [] } }), true), head).pending, [], 'a ruleset the known conditions exclude');
-});
 
 // Round 36 of PR #199: a ruleset whose targeting cannot be read (a ref condition without an include list, or
 // ~DEFAULT_BRANCH with the default branch unknown) counts and waits for a human (ADV-199-UNKNOWN-RULESET-TARGET).
-test('Issue #196 a ruleset whose targeting cannot be read counts and waits', () => {
-  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
-  const head = 'h'.repeat(40);
-  const ruleset = (conditions) => ({ id: 8, name: 'odd', enforcement: 'active', target: 'branch', bypass_actors: [], conditions, rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }] });
-  const snapshot = (set, { defaultBranch = 'main', checks = [] } = {}) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses: [], threads: [], reviews: [], policies: { rulesets: [set], organizationRulesets: [], defaultBranch, externalReview: [] } });
-  const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
-  let p = readiness(snapshot(ruleset({ ref_name: {} })), head).pending.join(';');
-  assert.match(p, /ci has not reported/, 'a ref condition without include counts');
-  assert.match(p, /odd.*ref_name/, 'and waits');
-  p = readiness(snapshot(ruleset({ ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }), { defaultBranch: null, checks: ci }), head).pending.join(';');
-  assert.match(p, /odd.*default branch/, '~DEFAULT_BRANCH with the default branch unknown waits even with its check met');
-  assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }), { checks: ci }), head).pending, [], 'known and met');
-  assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['refs/heads/release'], exclude: [] }, repository_name: {} })), head).pending, [], 'a known non-match settles it');
-});
 
 // Round 38 of PR #199: a ruleset whose target or enforcement is missing or unrecognised has unknown applicability; only
 // a known non-branch target or a known inactive enforcement excludes it (CONV-199-MISSING-RULESET-TARGET).
-test('Issue #196 a ruleset with a missing or unrecognised target or enforcement counts and waits', () => {
-  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
-  const head = 'h'.repeat(40);
-  const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
-  const ruleset = (extra) => ({ id: 9, name: 'bare', bypass_actors: [], rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }], ...extra });
-  const pending = (set) => readiness({ after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: [], policies: { rulesets: [set], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
-  for (const extra of [{ enforcement: 'active' }, { enforcement: 'active', target: null }, { enforcement: 'active', target: 'future' }, { target: 'branch' }, { target: 'branch', enforcement: 'sometimes' }]) {
-    assert.match(pending(ruleset(extra)).join(';'), /bare.*a human confirms/, JSON.stringify(extra));
-  }
-  for (const extra of [{ enforcement: 'active', target: 'tag' }, { enforcement: 'active', target: 'push' }, { enforcement: 'disabled', target: 'branch' }, { enforcement: 'evaluate', target: 'branch' }, { enforcement: 'active', target: 'branch' }]) {
-    assert.deepEqual(pending(ruleset(extra)), [], JSON.stringify(extra));
-  }
-});
 
 // Owner decision https://github.com/tetsuh/pi-tidd-agents/issues/196#issuecomment-5892010180 (the PR #199 cut-off):
 // readiness defers to a human what it cannot settle exactly. It never decides whether a ruleset applies or whether

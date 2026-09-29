@@ -4,51 +4,33 @@
 // stays under its alarm: the final policy over a snapshot, and the quiet period and observation window.
 
 // Final policy from a snapshot on the head (review-only.md "Before declaring MERGE_READY"): check runs (skipped and
-// neutral pass), each commit status context's latest state, each human reviewer's latest decisive review, the approvals
-// branch protection and repository and organization rulesets require, CodeRabbit's classification (CL-D92), and the
-// review threads still unresolved, which are external findings the owner dispositions.
-// A ruleset counts when it is active, targets branches, and its conditions select this pull request's base branch and
-// repository (CONV-199-RULESET-APPLICABILITY).
-function glob(pattern) { return new RegExp(`^${pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*\*/g, '\0').replace(/\*/g, '[^/]*').replace(/\?/g, '[^/]').replace(/\0/g, '.*')}$`); }
-// Each known condition selects the pull request (true), excludes it (false), or cannot be read (a reason): a condition
-// without include and exclude lists, a target value the snapshot lacks, or ~DEFAULT_BRANCH with the default branch
-// unknown (ADV-199-UNKNOWN-RULESET-TARGET). A definite exclusion settles the ruleset; an unreadable condition counts it.
-function selects(condition, value, special, label) {
-  if (condition === undefined || condition === null) return true;
-  if (typeof condition !== 'object' || !Array.isArray(condition.include) || (condition.exclude !== undefined && !Array.isArray(condition.exclude))) return `${label} has no readable include and exclude lists`;
-  if (value === undefined) return `${label}: the pull request's target is unknown`;
-  let unknown = null;
-  const hit = (list) => (list || []).some((p) => { const v = special(p); if (v === 'unknown') { unknown = `${label} ${p}: the default branch is unknown`; return false; } return v ?? (typeof p === 'string' && glob(p).test(value)); });
-  const included = hit(condition.include), excluded = hit(condition.exclude);
-  if (excluded) return false;
-  return unknown || included;
+// neutral pass), each commit status context's latest state, branch protection's required checks, each human reviewer's
+// latest decisive review, CodeRabbit's classification (CL-D92), and the review threads still unresolved, which are
+// external findings the owner dispositions.
+// What the snapshot cannot settle exactly waits for a human and never passes (owner decision,
+// https://github.com/tetsuh/pi-tidd-agents/issues/196#issuecomment-5892010180): the driver never decides whether a
+// ruleset applies or whether approvals satisfy one. Every ruleset not known disabled that carries a rule besides those
+// that never gate a merge waits, whatever its targeting reads, and so does every enabled branch-protection setting the
+// driver does not evaluate, its review requirements included.
+const NON_GATING_RULES = new Set(['deletion', 'non_fast_forward', 'creation']);
+const PROTECTION_SETTLED = new Set(['url', 'required_status_checks', 'enforce_admins', 'allow_force_pushes', 'allow_deletions', 'block_creations', 'required_linear_history', 'required_conversation_resolution', 'allow_fork_syncing']);
+function humanConfirms(snapshot) {
+  const out = [], p = snapshot.policies || {};
+  for (const r of [...(p.rulesets || []), ...(p.organizationRulesets || [])]) {
+    if (r?.enforcement === 'disabled') continue;
+    const gating = Array.isArray(r?.rules) ? [...new Set(r.rules.map((x) => x?.type ?? 'an unreadable rule').filter((t) => !NON_GATING_RULES.has(t)))] : ['unreadable rules'];
+    if (gating.length) out.push(`ruleset ${r?.name || r?.id} can gate the merge (${gating.join(', ')}); a human confirms it`);
+  }
+  const bp = p.branchProtection;
+  const unsettled = bp && typeof bp === 'object' ? Object.entries(bp).filter(([k, v]) => !PROTECTION_SETTLED.has(k) && v !== null && v !== false && v?.enabled !== false).map(([k]) => k) : [];
+  if (unsettled.length) out.push(`branch protection requires ${unsettled.join(', ')}; a human confirms it`);
+  return out;
 }
-// The ruleset conditions the snapshot can evaluate; any other key (a repository property, a repository id list) leaves
-// whether the ruleset applies unknown, which a human confirms (CONV-199-RULESET-UNCERTAINTY).
-const KNOWN_CONDITIONS = new Set(['ref_name', 'repository_name']);
-function applicability(ruleset, snapshot) {
-  // Only a known inactive enforcement or a known non-branch target excludes; a missing or unrecognised one is unknown
-  // (CONV-199-MISSING-RULESET-TARGET).
-  if (['disabled', 'evaluate'].includes(ruleset.enforcement) || ['tag', 'push'].includes(ruleset.target)) return { applies: false, unknown: [] };
-  const known = [...(ruleset.enforcement === 'active' ? [] : [`enforcement ${JSON.stringify(ruleset.enforcement ?? null)} is not a known value`]), ...(ruleset.target === 'branch' ? [] : [`target ${JSON.stringify(ruleset.target ?? null)} is not a known value`])];
-  const c = ruleset.conditions || {}, after = snapshot.after || {}, fallback = snapshot.policies?.defaultBranch;
-  const ref = after.baseBranch && `refs/heads/${after.baseBranch}`;
-  const name = after.repository && after.repository.split('/')[1];
-  const results = [selects(c.ref_name, ref, (p) => (p === '~ALL' ? true : p === '~DEFAULT_BRANCH' ? (fallback ? ref === `refs/heads/${fallback}` : 'unknown') : undefined), 'ref_name'),
-    selects(c.repository_name, name, (p) => (p === '~ALL' ? true : undefined), 'repository_name')];
-  if (results.includes(false)) return { applies: false, unknown: [] };
-  return { applies: true, unknown: [...known, ...results.filter((r) => typeof r === 'string'), ...Object.keys(c).filter((k) => !KNOWN_CONDITIONS.has(k)).map((k) => `${k} cannot be evaluated from the snapshot`)] };
-}
-function applicable(ruleset, snapshot) { return applicability(ruleset, snapshot).applies; }
 // Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
 const PASSED_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
 function readiness(snapshot, headOid) {
-  const failed = [], pending = [];
-  for (const r of [...(snapshot.policies?.rulesets || []), ...(snapshot.policies?.organizationRulesets || [])]) {
-    const { applies, unknown } = applicability(r, snapshot);
-    if (applies && unknown.length) pending.push(`ruleset ${r.name || r.id}: ${unknown.join('; ')}; a human confirms whether it applies`);
-  }
+  const failed = [], pending = [...humanConfirms(snapshot)];
   for (const c of snapshot.checks || []) {
     if (c.status !== 'completed' || c.conclusion === null) pending.push(`check ${c.name}`);
     else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);
@@ -63,13 +45,12 @@ function readiness(snapshot, headOid) {
     else if (st.state !== 'success') pending.push(`status ${context} unknown state ${st.state}`);
   }
   // A required check or status context that has not reported for this head is pending (ADV-199-MISSING-REQUIRED-CHECKS).
-  // A requirement pinned to an app (protection `app_id`, ruleset `integration_id`; -1 or none accepts any source) is
+  // A requirement pinned to an app (protection `app_id`; -1 or none accepts any source) is
   // met only by that app's check run, never by another app's or a legacy status (ADV-199-REQUIRED-APP-ID).
   const pol = snapshot.policies || {}, rsc = pol.branchProtection?.required_status_checks || {};
   // Protection's legacy contexts and its checks both count; a pinned check stays pinned beside an unpinned context
   // of the same name, since each requirement is met on its own (ADV-199-LEGACY-CONTEXT-OMITTED).
-  const requiredChecks = [...(rsc.contexts || []).map((context) => ({ context })), ...(Array.isArray(rsc.checks) ? rsc.checks.map((c) => ({ context: c.context, app: c.app_id })) : []),
-    ...[...(pol.rulesets || []), ...(pol.organizationRulesets || [])].filter((r) => applicable(r, snapshot)).flatMap((r) => r.rules || []).filter((r) => r.type === 'required_status_checks').flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => ({ context: c.context, app: c.integration_id })))];
+  const requiredChecks = [...(rsc.contexts || []).map((context) => ({ context })), ...(Array.isArray(rsc.checks) ? rsc.checks.map((c) => ({ context: c.context, app: c.app_id })) : [])];
   const reported = new Set([...(snapshot.checks || []).map((c) => c.name), ...(snapshot.statuses || []).map((st) => st.context)]);
   const seen = new Set();
   for (const { context, app } of requiredChecks.filter((r) => r.context)) {
@@ -85,20 +66,6 @@ function readiness(snapshot, headOid) {
     decisive.set(r.user.login, r);
   }
   for (const [login, r] of decisive) if (r.state === 'CHANGES_REQUESTED') failed.push(`changes requested by ${login}`);
-  const p = snapshot.policies || {};
-  const rules = [...(p.rulesets || []), ...(p.organizationRulesets || [])].filter((r) => applicable(r, snapshot)).flatMap((r) => r.rules || []);
-  const fromRules = rules.filter((r) => r.type === 'pull_request').map((r) => r.parameters?.required_approving_review_count || 0);
-  const required = Math.max(p.branchProtection?.required_pull_request_reviews?.required_approving_review_count || 0, ...fromRules, 0);
-  const approved = [...decisive.values()].filter((r) => r.state === 'APPROVED' && r.commit_id === headOid).length;
-  if (approved < required) pending.push(`required approvals ${approved} of ${required}`);
-  // A requirement the snapshot cannot prove, such as whose approval counts or when it came, keeps readiness waiting
-  // for a human to confirm it (ADV-199-CODEOWNER-APPROVAL).
-  const reviewRules = [p.branchProtection?.required_pull_request_reviews || {}, ...rules.filter((r) => r.type === 'pull_request').map((r) => r.parameters || {})];
-  const unverifiable = [...new Set(reviewRules.flatMap((r) => [
-    (r.require_code_owner_reviews || r.require_code_owner_review) && 'a code owner\'s approval',
-    r.require_last_push_approval && 'an approval after the last push',
-  ]).filter(Boolean))];
-  for (const what of unverifiable) pending.push(`${what} is required and cannot be verified from the snapshot`);
   const unresolved = (snapshot.threads || []).filter((th) => th.isResolved === false).map((th) => `${th.id} (${th.path || 'conversation'}, ${th.comments?.nodes?.[0]?.author?.login || 'unknown'})`);
   return { failed, pending, unresolved };
 }
