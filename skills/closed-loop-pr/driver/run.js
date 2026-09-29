@@ -153,7 +153,9 @@ function readiness(snapshot, headOid) {
   // A requirement pinned to an app (protection `app_id`, ruleset `integration_id`; -1 or none accepts any source) is
   // met only by that app's check run, never by another app's or a legacy status (ADV-199-REQUIRED-APP-ID).
   const pol = snapshot.policies || {}, rsc = pol.branchProtection?.required_status_checks || {};
-  const requiredChecks = [...(Array.isArray(rsc.checks) ? rsc.checks.map((c) => ({ context: c.context, app: c.app_id })) : (rsc.contexts || []).map((context) => ({ context }))),
+  // Protection's legacy contexts and its checks both count; a pinned check stays pinned beside an unpinned context
+  // of the same name, since each requirement is met on its own (ADV-199-LEGACY-CONTEXT-OMITTED).
+  const requiredChecks = [...(rsc.contexts || []).map((context) => ({ context })), ...(Array.isArray(rsc.checks) ? rsc.checks.map((c) => ({ context: c.context, app: c.app_id })) : []),
     ...[...(pol.rulesets || []), ...(pol.organizationRulesets || [])].filter((r) => applicable(r, snapshot)).flatMap((r) => r.rules || []).filter((r) => r.type === 'required_status_checks').flatMap((r) => (r.parameters?.required_status_checks || []).map((c) => ({ context: c.context, app: c.integration_id })))];
   const reported = new Set([...(snapshot.checks || []).map((c) => c.name), ...(snapshot.statuses || []).map((st) => st.context)]);
   const seen = new Set();
@@ -251,6 +253,10 @@ function externalTiming(snapshot, origin, now = Date.now()) {
 }
 // Untrusted text (reasons, commands, GitHub text) goes into the visible comment; the publisher refuses a command
 // substitution or a carriage return in it, so both are neutralised to keep every draft publishable.
+// A value quoted from outside the driver (a branch name, a command, a gate's or GitHub's text) is one line and never
+// carries the publisher's observation marker, which only the driver's own observation fields may carry
+// (ADV-199-DRAFT-OBSERVATION-TOKEN); the publisher drops zero-width characters and folds spaces before it scans.
+function quoted(value) { return String(value).replace(/[\u200b-\u200d\u2060\ufeff]/g, '').replace(/[\r\n]+/g, ' ').replace(/observed(_|\s+)(from|at)/gi, 'observed-$2'); }
 function publishable(text) { return text.replace(/\r/g, '').replace(/\$(?=[({])/g, '$ '); }
 // Every run artifact is written without following a link at its final path, so a link planted in the run directory
 // cannot redirect a write outside it (CONV-199-RUN-DIR-SYMLINK-WRITE).
@@ -305,16 +311,16 @@ class Run {
     const unknown = 'not computed', fp = s.fingerprints || {}, observed = s.observedFrom || s.startedAt;
     // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
     const label = { adversarial: 'sol', safety: 'terra' };
-    const findings = (s.findings || []).map((f) => `  ${f.findingId}: ${f.disposition}`);
-    const block = publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${t.headBranch}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
+    const findings = (s.findings || []).map((f) => `  ${quoted(f.findingId)}: ${quoted(f.disposition)}`);
+    const block = publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
-      `rounds: ${s.rounds || 'none'}`, `resolved: ${(s.resolved || []).join('; ') || 'none'}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
-      'review_misses: none', `pending_decisions: ${(s.pendingDecisions || []).join(', ') || 'none'}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
-      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${s.operatorActions || 'none'}`, `invalidated_evidence: ${s.invalidated || 'none'}`, `next_action: ${s.nextAction || NEXT_ACTION[s.state] || 'owner decision'}`, '```'].join('\n'));
-    const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${g.verdict}${g.findings ? `; ${g.findings}` : ''}`).join('\n') || '- none';
+      `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
+      'review_misses: none', `pending_decisions: ${quoted((s.pendingDecisions || []).join(', ') || 'none')}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
+      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted(s.operatorActions || 'none')}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
+    const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${quoted(g.findings)}` : ''}`).join('\n') || '- none';
     const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
       `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
-      `Reason: ${s.reason || s.state}.`, '', '## Gates', gates, '', `Validation: ${s.validation || 'not run'}.`, '', block, ''].join('\n'));
+      `Reason: ${quoted(s.reason || s.state)}.`, '', '## Gates', gates, '', `Validation: ${quoted(s.validation || 'not run')}.`, '', block, ''].join('\n'));
     const marker = `<!-- pi-tidd-agents:review-publication:v1 repo=${t.repository} pr=${t.number} head=${t.headOid} visibleSha256=${sha256(visible)} -->`;
     const body = `${visible}${marker}\n`;
     // Inside the run directory, which was verified outside every work tree before it was created.
