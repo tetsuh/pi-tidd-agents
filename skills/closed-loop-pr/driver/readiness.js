@@ -27,14 +27,17 @@ function selects(condition, value, special, label) {
 // whether the ruleset applies unknown, which a human confirms (CONV-199-RULESET-UNCERTAINTY).
 const KNOWN_CONDITIONS = new Set(['ref_name', 'repository_name']);
 function applicability(ruleset, snapshot) {
-  if (ruleset.enforcement !== 'active' || (ruleset.target && ruleset.target !== 'branch')) return { applies: false, unknown: [] };
+  // Only a known inactive enforcement or a known non-branch target excludes; a missing or unrecognised one is unknown
+  // (CONV-199-MISSING-RULESET-TARGET).
+  if (['disabled', 'evaluate'].includes(ruleset.enforcement) || ['tag', 'push'].includes(ruleset.target)) return { applies: false, unknown: [] };
+  const known = [...(ruleset.enforcement === 'active' ? [] : [`enforcement ${JSON.stringify(ruleset.enforcement ?? null)} is not a known value`]), ...(ruleset.target === 'branch' ? [] : [`target ${JSON.stringify(ruleset.target ?? null)} is not a known value`])];
   const c = ruleset.conditions || {}, after = snapshot.after || {}, fallback = snapshot.policies?.defaultBranch;
   const ref = after.baseBranch && `refs/heads/${after.baseBranch}`;
   const name = after.repository && after.repository.split('/')[1];
   const results = [selects(c.ref_name, ref, (p) => (p === '~ALL' ? true : p === '~DEFAULT_BRANCH' ? (fallback ? ref === `refs/heads/${fallback}` : 'unknown') : undefined), 'ref_name'),
     selects(c.repository_name, name, (p) => (p === '~ALL' ? true : undefined), 'repository_name')];
   if (results.includes(false)) return { applies: false, unknown: [] };
-  return { applies: true, unknown: [...results.filter((r) => typeof r === 'string'), ...Object.keys(c).filter((k) => !KNOWN_CONDITIONS.has(k)).map((k) => `${k} cannot be evaluated from the snapshot`)] };
+  return { applies: true, unknown: [...known, ...results.filter((r) => typeof r === 'string'), ...Object.keys(c).filter((k) => !KNOWN_CONDITIONS.has(k)).map((k) => `${k} cannot be evaluated from the snapshot`)] };
 }
 function applicable(ruleset, snapshot) { return applicability(ruleset, snapshot).applies; }
 // Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
