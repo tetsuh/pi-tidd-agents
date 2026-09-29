@@ -240,10 +240,13 @@ const QUIET_MS = 2 * 60 * 1000, WINDOW_MS = 15 * 60 * 1000;
 function externalTiming(snapshot, origin, now = Date.now()) {
   const times = [...(snapshot.comments || []).map((c) => c.updated_at || c.created_at), ...(snapshot.inline || []).map((c) => c.updated_at || c.created_at), ...(snapshot.reviews || []).map((r) => r.submitted_at),
     ...(snapshot.threads || []).flatMap((th) => (th.comments?.nodes || []).map((c) => c.updatedAt || c.createdAt)), ...(snapshot.checks || []).map((c) => c.completed_at || c.started_at),
-    ...(snapshot.statuses || []).map((st) => st.updated_at || st.created_at)].map((v) => Date.parse(v)).filter((v) => Number.isFinite(v));
+    ...(snapshot.statuses || []).map((st) => st.updated_at || st.created_at)].map((v) => Date.parse(v));
+  // A record without a valid event time cannot place the quiet period, so it keeps readiness waiting (fail closed).
+  const undated = times.filter((v) => !Number.isFinite(v)).length;
+  if (undated) times.splice(0, times.length, ...times.filter((v) => Number.isFinite(v)));
   const latest = times.length ? Math.max(...times) : null, quietUntil = latest === null ? null : latest + QUIET_MS, windowEnds = Date.parse(origin) + WINDOW_MS;
   const iso = (v) => new Date(v).toISOString();
-  return { quiet: quietUntil !== null && now < quietUntil ? `quiet period until ${iso(quietUntil)} after the latest external event at ${iso(latest)}` : null, windowEnded: now >= windowEnds,
+  return { quiet: undated ? `quiet period unknown: ${undated} external record(s) carry no valid event time` : quietUntil !== null && now < quietUntil ? `quiet period until ${iso(quietUntil)} after the latest external event at ${iso(latest)}` : null, windowEnded: now >= windowEnds,
     report: `quiet period ${latest === null ? 'not started (no external event)' : `2 minutes after ${iso(latest)}`}; observation window 15 minutes from ${origin}, ${now >= windowEnds ? 'ended' : `until ${iso(windowEnds)}`}; this run only` };
 }
 // Untrusted text (reasons, commands, GitHub text) goes into the visible comment; the publisher refuses a command
