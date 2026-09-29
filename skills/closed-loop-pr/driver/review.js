@@ -247,7 +247,7 @@ function finalReadiness(run) {
   if (r.failed.length) { s.nextAction = 'the author addresses the failure, then a fresh run'; run.stop('BLOCKED', `final policy failed: ${r.failed.join('; ')}`); }
   if (r.pending.length) { s.nextAction = `wait, then run: node ${__filename} resume --run-dir ${run.dir}`; run.stop('WAITING_EXTERNAL_REVIEW', `pending: ${r.pending.join('; ')}`); }
   s.activeGate = 'none'; s.nextAction = 'human merge decision; the workflow never merges'; s.operatorActions = 'none; a human may merge'; s.invalidated = null;
-  run.stop('MERGE_READY', 'convergence, Sol and Terra returned MERGE on the unchanged head; the final policy passes');
+  run.stop('MERGE_READY', `${s.convergenceDisabled ? 'convergence was disabled; Sol and Terra' : 'convergence, Sol and Terra'} returned MERGE on the unchanged head; the final policy passes`);
 }
 
 // review-only.md: a stopped run resumes only after every fingerprint is recomputed, never trusting recorded state; a
