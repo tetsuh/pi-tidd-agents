@@ -799,3 +799,22 @@ test('Issue #196 a run artifact is never written through a link', () => {
   assert.throws(() => run.save());
   assert.equal(fs.readFileSync(victim, 'utf8'), 'keep');
 });
+
+// Round 23 of PR #199: the target and body are revalidated after validation, before the first gate
+// (CONV-199-FIRST-BODY-REVALIDATION).
+test('Issue #196 a body edited during validation stops before the first gate', () => {
+  const t = setup();
+  const edit = `const fs=require('fs');const f=JSON.parse(fs.readFileSync(${JSON.stringify(t.fixture)},'utf8'));f.pull.body+='Edited during validation.\\n';fs.writeFileSync(${JSON.stringify(t.fixture)},JSON.stringify(f));`;
+  git(t.target.root, ['checkout', '-q', 'main']);
+  fs.writeFileSync(path.join(t.target.root, '.tidd.json'), JSON.stringify({ validate: [['node', '-e', edit]] }));
+  git(t.target.root, ['add', '.tidd.json']); git(t.target.root, ['commit', '-q', '-m', 'config']);
+  const newBase = git(t.target.root, ['rev-parse', 'HEAD']);
+  git(t.target.root, ['checkout', '-q', 'feature']); git(t.target.root, ['rebase', '-q', 'main']);
+  const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8'));
+  f.pull.base.sha = newBase; f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f));
+  const r = drive(t.start, t.e);
+  assert.notEqual(r.status, 0, r.stdout);
+  assert.equal(nextRequest(r.stdout), null);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /body changed/);
+});
