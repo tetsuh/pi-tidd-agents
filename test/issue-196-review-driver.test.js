@@ -993,6 +993,7 @@ test('Issue #196 a convergence role found disabled is skipped and reported as co
   assert.equal(s.state, 'MERGE_READY', s.reason);
   assert.match(s.statusBlock, /^resolved: .*convergence: disabled/m);
   assert.match(s.statusBlock, /^rounds: convergence disabled, /m);
+  assert.match(s.reason, /^convergence was disabled; Sol and Terra returned MERGE/, 'the reason names the gates that ran');
   assert.equal(s.invocations.convergence, undefined);
   assert.notEqual(drive([...setup().start, '--convergence', 'off'], t.e).status, 0, 'only the value disabled is accepted');
 });
