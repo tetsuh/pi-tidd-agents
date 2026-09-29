@@ -10,7 +10,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 const { sanitizedEnv } = require('../helpers/process');
-const { evidenceIds, readiness, externalTiming } = require('./readiness');
+const { readiness, externalTiming } = require('./readiness');
 
 const PACKAGE = path.resolve(__dirname, '..', '..', '..');
 const CLI = path.join(PACKAGE, 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
@@ -249,4 +249,4 @@ class Run {
   }
 }
 
-module.exports = { externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, evidenceIds, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };

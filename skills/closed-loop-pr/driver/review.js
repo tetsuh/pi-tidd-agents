@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { isUtf8 } = require('node:buffer');
-const { Run, externalTiming, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, evidenceIds, readiness, checkoutProblem, ignoredInventory, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { Run, externalTiming, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, readiness, checkoutProblem, ignoredInventory, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -117,10 +117,11 @@ function collectSnapshotEvidence(run) {
   const moved = targetMoved(t, { base: { sha: snapshot.after.base, ref: snapshot.after.baseBranch }, head: { sha: snapshot.after.head, ref: snapshot.after.headBranch, repo: { full_name: snapshot.after.headRepository } }, state: snapshot.after.state, draft: snapshot.after.draft });
   if (moved) run.stop('BLOCKED', moved);
   const snap = snapshotFingerprint(run, snapshot);
-  s.fingerprints.snapshot = snap.value; s.records.snapshot = snap.record;
-  const known = s.evidenceIds;
-  s.observedFrom = new Date().toISOString(); s.origin = s.origin || s.observedFrom; s.evidenceIds = evidenceIds(snapshot);
-  if (known && s.evidenceIds.some((id) => !known.includes(id))) s.changedAt = s.observedFrom;
+  // Any change of the snapshot, not only a new record, invalidates the gate sequence (ADV-199-SNAPSHOT-INVALIDATION).
+  const previous = s.fingerprints.snapshot;
+  s.fingerprints.snapshot = snap.value; s.records.snapshot = snap.record; s.snapshotChanged = Boolean(previous) && previous !== snap.value;
+  s.observedFrom = new Date().toISOString(); s.origin = s.origin || s.observedFrom;
+  if (s.snapshotChanged) s.changedAt = s.observedFrom;
   s.external = `${describeExternal(snapshot)}; ${externalTiming(snapshot, s.origin, Date.now(), s.changedAt).report}`;
   const captureIdentity = { repository: t.repository, number: t.number, baseOid: t.baseOid, baseBranch: t.baseBranch, headOid: t.headOid, headRepository: t.headRepository, headBranch: t.headBranch, state: 'open', draft: false };
   run.op('evidence_verify', { envelope: { schemaVersion: 1, captureIdentity, brackets: { before: snapshot.before, after: snapshot.after }, completeness: snapshot.completeness, fingerprints: s.records }, expected: { ...captureIdentity, fingerprints: s.fingerprints } });
@@ -157,10 +158,9 @@ function launch(run, gate, { fresh = false } = {}) {
   if (gate === 'convergence' && s.convergenceDisabled) return launch(run, 'adversarial', { fresh });
   if (!fresh) {
     revalidate(run);
-    const known = s.evidenceIds || [];
     collectSnapshotEvidence(run);
     // New external evidence before a later gate reruns convergence first (DEC-109-CONV-SNAPSHOT-001).
-    if (gate !== 'convergence' && s.evidenceIds.some((id) => !known.includes(id))) { s.verdicts = {}; s.invalidated = 'every gate verdict: new external evidence arrived before a later gate'; return launch(run, 'convergence', { fresh: true }); }
+    if (gate !== 'convergence' && s.snapshotChanged) { s.verdicts = {}; s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; return launch(run, 'convergence', { fresh: true }); }
   }
   // gate-contract.md: convergence at its cap hands the candidate to Sol; ROUND_LIMIT_REACHED is the formal gates'.
   if ((s.invocations[gate] || 0) >= ROUND_CAP) { if (gate === 'convergence') return launch(run, 'adversarial', { fresh: true }); run.stop('ROUND_LIMIT_REACHED', `${label(gate)} reached its ${ROUND_CAP}-round cap`); }
@@ -237,10 +237,9 @@ function result(opts) {
 function finalReadiness(run) {
   const s = run.state;
   revalidate(run);
-  const known = s.evidenceIds || [];
   const snapshot = collectSnapshotEvidence(run);
   s.activeGate = 'external'; s.rounds = rounds(s);
-  if (s.evidenceIds.some((id) => !known.includes(id))) { s.verdicts = {}; s.invalidated = 'every gate verdict: new external evidence arrived at final readiness'; return launch(run, 'convergence', { fresh: true }); }
+  if (s.snapshotChanged) { s.verdicts = {}; s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return launch(run, 'convergence', { fresh: true }); }
   const r = readiness(snapshot, s.target.headOid), timing = externalTiming(snapshot, s.origin, Date.now(), s.changedAt);
   if (timing.quiet) r.pending.push(timing.quiet);
   if (r.pending.length && timing.windowEnded) r.pending.push('the fifteen-minute observation window for this head has ended');

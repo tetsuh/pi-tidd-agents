@@ -1,16 +1,8 @@
 'use strict';
 
 // CL-D93 (#196): the external half of review-only readiness, split from run.js without change so each driver file
-// stays under its alarm: the identities of external evidence, the final policy over a snapshot, and the quiet period
-// and observation window.
+// stays under its alarm: the final policy over a snapshot, and the quiet period and observation window.
 
-// The identities of the external records a snapshot carries, to tell new evidence from a check changing state.
-// A thread is identified by each of its comments too, so a reply or an edit inside it is new (ADV-199-THREAD-REPLY-IDENTITY).
-function evidenceIds(snapshot) {
-  const flat = ['comments', 'reviews', 'inline'].flatMap((kind) => (snapshot[kind] || []).map((x) => `${kind}:${x.id}:${x.updated_at || x.submitted_at || ''}`));
-  const threads = (snapshot.threads || []).flatMap((th) => [`threads:${th.id}:${th.isResolved}`, ...(th.comments?.nodes || []).map((c) => `threads:${th.id}:${c.id}:${c.updatedAt || ''}`)]);
-  return [...flat, ...threads].sort();
-}
 // Final policy from a snapshot on the head (review-only.md "Before declaring MERGE_READY"): check runs (skipped and
 // neutral pass), each commit status context's latest state, each human reviewer's latest decisive review, the approvals
 // branch protection and repository and organization rulesets require, CodeRabbit's classification (CL-D92), and the
@@ -108,4 +100,4 @@ function externalTiming(snapshot, origin, now = Date.now(), changedAt = null) {
     report: `quiet period ${latest === null ? 'not started (no external event)' : `2 minutes after ${iso(latest)}`}; observation window 15 minutes from ${origin}, ${now >= windowEnds ? 'ended' : `until ${iso(windowEnds)}`}; this run only` };
 }
 
-module.exports = { evidenceIds, readiness, externalTiming };
+module.exports = { readiness, externalTiming };
