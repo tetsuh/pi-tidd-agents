@@ -1114,3 +1114,19 @@ test('Issue #196 a ruleset whose targeting cannot be read counts and waits', () 
   assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }), { checks: ci }), head).pending, [], 'known and met');
   assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['refs/heads/release'], exclude: [] }, repository_name: {} })), head).pending, [], 'a known non-match settles it');
 });
+
+// Round 38 of PR #199: a ruleset whose target or enforcement is missing or unrecognised has unknown applicability; only
+// a known non-branch target or a known inactive enforcement excludes it (CONV-199-MISSING-RULESET-TARGET).
+test('Issue #196 a ruleset with a missing or unrecognised target or enforcement counts and waits', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
+  const head = 'h'.repeat(40);
+  const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
+  const ruleset = (extra) => ({ id: 9, name: 'bare', bypass_actors: [], rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }], ...extra });
+  const pending = (set) => readiness({ after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: [], policies: { rulesets: [set], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
+  for (const extra of [{ enforcement: 'active' }, { enforcement: 'active', target: null }, { enforcement: 'active', target: 'future' }, { target: 'branch' }, { target: 'branch', enforcement: 'sometimes' }]) {
+    assert.match(pending(ruleset(extra)).join(';'), /bare.*a human confirms/, JSON.stringify(extra));
+  }
+  for (const extra of [{ enforcement: 'active', target: 'tag' }, { enforcement: 'active', target: 'push' }, { enforcement: 'disabled', target: 'branch' }, { enforcement: 'evaluate', target: 'branch' }, { enforcement: 'active', target: 'branch' }]) {
+    assert.deepEqual(pending(ruleset(extra)), [], JSON.stringify(extra));
+  }
+});
