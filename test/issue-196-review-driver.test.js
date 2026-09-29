@@ -166,7 +166,8 @@ test('Issue #196 an open finding stops review-only WAITING_FOR_OWNER with the fi
 
 test('Issue #196 the driver is packaged under its own alarms and names no writing operation', () => {
   const files = fs.readdirSync(repoPath(DRIVER_DIR)).filter((f) => f.endsWith('.js')).map((f) => `${DRIVER_DIR}/${f}`);
-  assert.deepEqual(files.sort(), [`${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`]);
+  // phases.js holds the phases of a review-only round that a later driver shares with review.js.
+  assert.deepEqual(files.sort(), [`${DRIVER_DIR}/phases.js`, `${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`]);
   const sizes = files.map((f) => fs.statSync(repoPath(f)).size);
   for (const [i, size] of sizes.entries()) assert.ok(size < 30000, `${files[i]} is ${size} bytes`);
   assert.ok(sizes.reduce((a, b) => a + b, 0) < 60000, 'driver aggregate alarm');
