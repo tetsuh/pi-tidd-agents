@@ -4636,6 +4636,45 @@
       ]
     },
     {
+      "id": "CL-D96-driver",
+      "marker": "CL-D96",
+      "title": "The autofix driver runs the writer's guarded batch",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths })",
+        "step('commit_create', { created: s.created, captured: s.captured, message: b.message })",
+        "run.op('push_publish', { created: s.created, captured: s.captured }, { allowFail: true })",
+        "function correctable(x)"
+      ]
+    },
+    {
+      "id": "CL-D96-record",
+      "marker": "CL-D96",
+      "title": "CL-D96 records the autofix driver and its mechanised judgments",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D96 \u2014 The packaged autofix driver runs correction cycles; the writer's process commits and pushes",
+      "requires": [
+        "issues/191#issuecomment-5857263114",
+        "Letting the driver itself commit or push, widening the correctable class, or deriving `authorizedPaths` from anything but the findings and the changed files requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D96-tests",
+      "marker": "CL-D96",
+      "title": "The CL-D96 fixtures drive a correction cycle to MERGE_READY",
+      "files": [
+        "test/issue-196-autofix-driver.test.js"
+      ],
+      "requires": [
+        "Issue #196 the packaged autofix driver corrects a finding through the writer batch and reaches MERGE_READY",
+        "Issue #196 an edit outside the authorized paths is refused before any commit, and the run stops BLOCKED"
+      ]
+    },
+    {
       "id": "CL-D93-phases",
       "marker": "CL-D93",
       "title": "The review-only round's phases live in one shared module",
