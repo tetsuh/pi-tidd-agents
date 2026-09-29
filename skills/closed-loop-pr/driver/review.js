@@ -18,9 +18,9 @@ const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
 const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-pr/references/review-only.md', 'skills/closed-loop-pr/references/helper-map.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];
 const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
-// gate-contract.md: a missing or unparsable result is relaunched once without spending a round; still running is
+// gate-contract.md: a missing or unparsable result, its runner status record included, is relaunched once without spending a round; still running is
 // neither a result nor a failure.
-const RELAUNCHABLE = new Set(['designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent']);
+const RELAUNCHABLE = new Set(['status_absent', 'status_unparsable', 'designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent']);
 
 function label(gate) { return { adversarial: 'sol', safety: 'terra' }[gate] || gate; }
 function rounds(s) { return GATES.map((g) => `${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`).join(', '); }
