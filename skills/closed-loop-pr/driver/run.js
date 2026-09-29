@@ -182,7 +182,8 @@ class Run {
     // before it reads or writes anything (SAFETY-199-CONCURRENT-RESULT).
     const lock = path.join(dir, 'lock');
     try { fs.mkdirSync(lock); } catch (error) { if (error.code === 'EEXIST') die(`another driver command holds this run (${lock}); wait for it to finish, or remove the lock once no driver process runs`); throw error; }
-    fs.writeFileSync(path.join(lock, 'pid'), `${process.pid}\n`);
+    const fd = fs.openSync(path.join(lock, 'pid'), fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+    try { fs.writeFileSync(fd, `${process.pid}\n`); } finally { fs.closeSync(fd); }
     process.on('exit', () => fs.rmSync(lock, { recursive: true, force: true }));
     this.statePath = path.join(dir, 'state.json');
     this.state = fs.existsSync(this.statePath) ? JSON.parse(fs.readFileSync(this.statePath, 'utf8')) : { seq: 0, log: [] };
