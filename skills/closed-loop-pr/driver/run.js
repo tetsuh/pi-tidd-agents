@@ -198,7 +198,12 @@ class Run {
       throw new Error(`cannot hold the run ${dir}: ${error.message}`);
     }
   }
-  static open(opts) { return new Run(path.resolve(opts['run-dir'] || die('--run-dir is required'))); }
+  // Every command that opens a run judges its directory as start does, before the lock or any write (CONV-199-RUN-DIR-OPEN-CHECK).
+  static open(opts) {
+    const dir = path.resolve(opts['run-dir'] || die('--run-dir is required'));
+    const problem = runDirProblem(dir); if (problem) die(problem);
+    return new Run(dir);
+  }
   save() { writeOwn(this.statePath, `${JSON.stringify(this.state, null, 2)}\n`); }
   file(name, value) {
     const p = path.join(this.dir, name);
