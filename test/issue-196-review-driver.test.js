@@ -1078,3 +1078,20 @@ test('Issue #196 a link planted at the lock pid path cannot alter its target', (
   try { assert.throws(() => new Run(dir)); } finally { fs.mkdirSync = mkdir; }
   assert.equal(fs.readFileSync(victim, 'utf8'), 'keep');
 });
+
+// Round 35 of PR #199: a ruleset condition the snapshot cannot evaluate keeps readiness waiting for a human, even when
+// every requirement of that ruleset is met (CONV-199-RULESET-UNCERTAINTY).
+test('Issue #196 an unevaluable ruleset condition waits even when its requirements are met', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
+  const head = 'h'.repeat(40);
+  const ruleset = (conditions) => ({ id: 7, name: 'tiered', enforcement: 'active', target: 'branch', bypass_actors: [], conditions, rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }, { type: 'pull_request', parameters: { required_approving_review_count: 1 } }] });
+  const snapshot = (set, org = false) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks: [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }], statuses: [], threads: [],
+    reviews: [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }],
+    policies: { rulesets: org ? [] : [set], organizationRulesets: org ? [set] : [], defaultBranch: 'main', externalReview: [] } });
+  const all = { ref_name: { include: ['~ALL'], exclude: [] } };
+  assert.deepEqual(readiness(snapshot(ruleset(all)), head).pending, [], 'every requirement met, every condition known');
+  for (const [key, value, org] of [['repository_property', { include: [{ name: 'tier', property_values: ['x'] }], exclude: [] }, true], ['repository_id', { repository_ids: [1] }, true]]) {
+    assert.match(readiness(snapshot(ruleset({ ...all, [key]: value }), org), head).pending.join(';'), new RegExp(`tiered.*${key}`), key);
+  }
+  assert.deepEqual(readiness(snapshot(ruleset({ ref_name: { include: ['refs/heads/release'], exclude: [] }, repository_property: { include: [], exclude: [] } }), true), head).pending, [], 'a ruleset the known conditions exclude');
+});
