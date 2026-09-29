@@ -985,3 +985,34 @@ test('Issue #196 a convergence role found disabled is skipped and reported as co
   assert.equal(s.invocations.convergence, undefined);
   assert.notEqual(drive([...setup().start, '--convergence', 'off'], t.e).status, 0, 'only the value disabled is accepted');
 });
+
+// Round 28 of PR #199: commit messages are framed by NUL, which Git never stores in one, so a message carrying U+0001
+// fingerprints as itself (ADV-199-COMMIT-FRAME-CONTROL); and an observed change of external state that carries no event
+// time of its own, such as a thread resolved, starts the quiet period when it is observed (ADV-199-THREAD-QUIET-UNTIMED).
+test('Issue #196 a commit message carrying U+0001 fingerprints as itself', () => {
+  const { prCommitsFingerprint } = require('../skills/closed-loop-pr/helpers/fingerprints');
+  const target = makeTarget();
+  git(target.root, ['checkout', '-q', 'feature']);
+  fs.writeFileSync(path.join(target.root, 'b.js'), 'module.exports = 3;\n');
+  git(target.root, ['add', 'b.js']); git(target.root, ['commit', '-q', '--cleanup=verbatim', '-m', 'feat: allow control\u0001byte\n\nbody\n']);
+  target.head = git(target.root, ['rev-parse', 'HEAD']); target.pull.head.sha = target.head;
+  const bin = fakeGh(target), runs = temp('i196-runs-'), runDir = path.join(temp('i196-run-'), 'run');
+  assert.equal(drive(['start', '--pr', '7', '--repo', 'o/r', '--checkout', target.root, '--run-dir', runDir], env(bin, runs)).status, 0);
+  const commits = git(target.root, ['rev-list', '--reverse', `${target.base}..${target.head}`]).split('\n').map((oid) => ({ oid, message: execFileSync('git', ['show', '-s', '--format=%B', oid], { cwd: target.root, encoding: 'utf8' }) }));
+  assert.ok(commits[1].message.includes('\u0001'));
+  assert.equal(state(runDir).fingerprints.pr_commits, prCommitsFingerprint(commits));
+});
+
+test('Issue #196 a thread resolved at final readiness starts the quiet period when it is observed', () => {
+  const t = setup();
+  const old = { id: 'T1', isResolved: false, isOutdated: false, path: 'a.js', line: 1, originalLine: 1, comments: { totalCount: 1, nodes: [{ id: 'c1', databaseId: 1, url: 'u', body: 'b', createdAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z', author: { login: 'h', __typename: 'User' } }], pageInfo: { endCursor: null, hasNextPage: false } } };
+  setFixture(t, { threads: [old] });
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t, 2);
+  setFixture(t, { threads: [{ ...old, isResolved: true }] });
+  throughGates(t, 1);
+  throughGates(t, 3);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
+  assert.match(s.reason, /quiet period/);
+});
