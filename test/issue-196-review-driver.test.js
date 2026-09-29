@@ -1130,3 +1130,29 @@ test('Issue #196 a ruleset with a missing or unrecognised target or enforcement 
     assert.deepEqual(pending(ruleset(extra)), [], JSON.stringify(extra));
   }
 });
+
+// Owner decision https://github.com/tetsuh/pi-tidd-agents/issues/196#issuecomment-5892010180 (the PR #199 cut-off):
+// readiness defers to a human what it cannot settle exactly. It never decides whether a ruleset applies or whether
+// approvals satisfy it: every ruleset not known disabled that carries a rule other than deletion, non_fast_forward, or
+// creation waits for a human, whatever its targeting reads (ADV-199-UNKNOWN-RULESET-SELECTOR included), and so do
+// branch protection's review requirements and any other enabled protection setting the driver does not evaluate.
+test('Issue #196 a ruleset that can gate a merge, and protection it does not evaluate, wait for a human', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
+  const head = 'h'.repeat(40);
+  const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
+  const approved = [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }];
+  const pending = ({ rulesets = [], protection = null }) => readiness({ after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: approved,
+    policies: { branchProtection: protection, rulesets, organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
+  const ruleset = (rules, extra = {}) => ({ id: 3, name: 'gate', enforcement: 'active', target: 'branch', bypass_actors: [], conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }, rules, ...extra });
+  assert.deepEqual(pending({ rulesets: [ruleset([{ type: 'deletion' }, { type: 'non_fast_forward' }, { type: 'creation' }])] }), [], 'rules that never gate a merge');
+  assert.deepEqual(pending({ rulesets: [ruleset([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }], { enforcement: 'disabled' })] }), [], 'a disabled ruleset');
+  for (const [name, set] of [['met required check', ruleset([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }])],
+    ['met approval', ruleset([{ type: 'pull_request', parameters: { required_approving_review_count: 1 } }])], ['unknown rule', ruleset([{ type: 'future_rule' }])], ['unreadable rules', ruleset(undefined)],
+    ['unknown selector', ruleset([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci/unreported' }] } }], { conditions: { ref_name: { include: [{ future: 'all-branches' }], exclude: [] } } })],
+    ['excluded by its targeting', ruleset([{ type: 'pull_request' }], { conditions: { ref_name: { include: ['refs/heads/release'], exclude: [] } } })]]) {
+    assert.match(pending({ rulesets: [set] }).join(';'), /ruleset gate .*a human confirms/, name);
+  }
+  assert.match(pending({ protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } }).join(';'), /branch protection .*required_pull_request_reviews.*a human confirms/, 'met protection approvals');
+  assert.match(pending({ protection: { required_signatures: { enabled: true } } }).join(';'), /required_signatures/, 'an enabled protection setting');
+  assert.deepEqual(pending({ protection: { required_signatures: { enabled: false }, enforce_admins: { enabled: true }, allow_force_pushes: { enabled: false }, required_status_checks: { contexts: ['ci'], checks: [] } } }), [], 'settings that are off or evaluated');
+});
