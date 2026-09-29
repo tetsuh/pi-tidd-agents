@@ -66,7 +66,7 @@ if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); pro
 if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
 if (endpoint.includes('/check-runs/1/annotations')) out([]);
-if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }] });
+if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', started_at: '2026-09-29T00:00:00Z', ...(f.checkStatus && f.checkStatus !== 'completed' ? {} : { completed_at: '2026-09-29T00:00:00Z' }), status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }] });
 if (endpoint.includes('/check-suites')) out({ check_suites: [] });
 out([]);
 `, { mode: 0o755 });
@@ -917,4 +917,24 @@ test('Issue #196 a recent external event keeps readiness in its quiet period, an
   assert.match(s.reason, /quiet period/);
   assert.match(s.external, /quiet/);
   assert.match(s.external, /window/);
+});
+
+// Round 24 of PR #199: an external record without a valid event time cannot place the quiet period, so readiness waits
+// (ADV-199-MISSING-EVENT-TIMESTAMP).
+test('Issue #196 an external record without a valid event time keeps readiness waiting, in every event class', () => {
+  const { readiness, externalTiming } = require('../skills/closed-loop-pr/driver/run');
+  const dated = '2026-09-29T00:00:00Z', origin = '2026-09-29T00:00:00Z', later = Date.parse('2026-09-29T01:00:00Z');
+  const records = {
+    comments: (t) => ({ comments: [{ id: 1, updated_at: t, created_at: t }] }),
+    inline: (t) => ({ inline: [{ id: 1, updated_at: t, created_at: t }] }),
+    reviews: (t) => ({ reviews: [{ id: 1, user: { login: 'h', type: 'User' }, state: 'COMMENTED', submitted_at: t }] }),
+    threads: (t) => ({ threads: [{ id: 'T', isResolved: true, comments: { nodes: [{ id: 'c', updatedAt: t, createdAt: t }] } }] }),
+    checks: (t) => ({ checks: [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: t, completed_at: t }] }),
+    statuses: (t) => ({ statuses: [{ id: 1, context: 'ci', state: 'success', created_at: t, updated_at: t }] }),
+  };
+  for (const [name, make] of Object.entries(records)) {
+    assert.equal(externalTiming(make(dated), origin, later).quiet, null, `${name} dated`);
+    for (const bad of [undefined, 'not a date']) assert.match(String(externalTiming(make(bad), origin, later).quiet), /no valid event time/, `${name} ${bad}`);
+  }
+  assert.equal(typeof readiness, 'function');
 });
