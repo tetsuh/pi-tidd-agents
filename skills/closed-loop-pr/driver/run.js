@@ -255,8 +255,12 @@ function externalTiming(snapshot, origin, now = Date.now()) {
 // substitution or a carriage return in it, so both are neutralised to keep every draft publishable.
 // A value quoted from outside the driver (a branch name, a command, a gate's or GitHub's text) is one line and never
 // carries the publisher's observation marker, which only the driver's own observation fields may carry
-// (ADV-199-DRAFT-OBSERVATION-TOKEN); the publisher drops zero-width characters and folds spaces before it scans.
-function quoted(value) { return String(value).replace(/[\u200b-\u200d\u2060\ufeff]/g, '').replace(/[\r\n]+/g, ' ').replace(/observed(_|\s+)(from|at)/gi, 'observed-$2'); }
+// (ADV-199-DRAFT-OBSERVATION-TOKEN). It is folded first exactly as the publisher folds before it scans: zero-width
+// characters dropped, and every space it folds, NEL included, made one ASCII space (ADV-199-PUBLISH-NEL).
+function quoted(value) {
+  return String(value).replace(/[\u200b-\u200d\u2060\ufeff]/g, '').replace(/[\r\n\t\v\f\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+/g, ' ')
+    .replace(/observed(_| +)(from|at)/gi, 'observed-$2');
+}
 function publishable(text) { return text.replace(/\r/g, '').replace(/\$(?=[({])/g, '$ '); }
 // Every run artifact is written without following a link at its final path, so a link planted in the run directory
 // cannot redirect a write outside it (CONV-199-RUN-DIR-SYMLINK-WRITE).

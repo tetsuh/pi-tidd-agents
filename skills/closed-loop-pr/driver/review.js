@@ -4,7 +4,7 @@
 // order review-only.md states and leaves the parent one thing per gate: the `subagent` call it prints. Gates judge;
 // the driver never does.
 //
-//   node review.js start  --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--language-profile P]
+//   node review.js start  --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--language-profile P] [--convergence disabled]
 //   node review.js result --run-dir DIR --run-id ID
 //   node review.js resume --run-dir DIR
 //   node review.js status --run-dir DIR
@@ -24,7 +24,7 @@ const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 const RELAUNCHABLE = new Set(['status_absent', 'status_unparsable', 'designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent']);
 
 function label(gate) { return { adversarial: 'sol', safety: 'terra' }[gate] || gate; }
-function rounds(s) { return GATES.map((g) => `${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`).join(', '); }
+function rounds(s) { return GATES.map((g) => (g === 'convergence' && s.convergenceDisabled ? 'convergence disabled' : `${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`)).join(', '); }
 function describeExternal(snapshot) {
   const r = readiness(snapshot, snapshot.after.head);
   return `${(snapshot.comments || []).length} comments, ${(snapshot.reviews || []).length} reviews, ${(snapshot.threads || []).length} threads (${r.unresolved.length} unresolved), ${(snapshot.checks || []).length} checks and ${(snapshot.statuses || []).length} statuses (${r.failed.length} failing, ${r.pending.length} pending)`;
@@ -39,6 +39,8 @@ function readIssue(run) {
 function guard(run) { process.on('uncaughtException', (error) => run.stop('BLOCKED', `the driver failed: ${String(error.message).split('\n')[0]}`)); }
 
 function start(opts) {
+  // CL-D62: a convergence role the parent's role preflight found disabled is skipped; nothing else is accepted here.
+  if (opts.convergence !== undefined && opts.convergence !== 'disabled') die('--convergence takes only the value disabled');
   const number = Number(opts.pr); if (!Number.isInteger(number) || number <= 0) die('--pr must be a pull request number');
   const checkout = path.resolve(opts.checkout || process.cwd());
   // The location is judged before anything is created: the given directory, or the temporary root a default goes under.
@@ -65,7 +67,7 @@ function start(opts) {
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${number}-review.`));
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
   const run = new Run(runDir), s = run.state;
-  Object.assign(s, { mode: 'review-only', checkout, startedAt: new Date().toISOString(), invocations: {}, verdicts: {}, findings: [], resolved: [], gateLog: [], languageProfile: opts['language-profile'] || LANGUAGE_PROFILE });
+  Object.assign(s, { mode: 'review-only', checkout, startedAt: new Date().toISOString(), invocations: {}, verdicts: {}, findings: [], convergenceDisabled: opts.convergence === 'disabled', resolved: opts.convergence === 'disabled' ? ['convergence: disabled'] : [], gateLog: [], languageProfile: opts['language-profile'] || LANGUAGE_PROFILE });
   s.rounds = rounds(s);
   run.file('pr-before.json', pull);
   s.target = { repository, number, baseOid: pull.base.sha, baseBranch: pull.base.ref, headOid: pull.head.sha, headRepository: pull.head.repo.full_name, headBranch: pull.head.ref };
@@ -150,6 +152,7 @@ function revalidate(run) {
 
 function launch(run, gate, { fresh = false } = {}) {
   const s = run.state, t = s.target;
+  if (gate === 'convergence' && s.convergenceDisabled) return launch(run, 'adversarial', { fresh });
   if (!fresh) {
     revalidate(run);
     const known = s.evidenceIds || [];
