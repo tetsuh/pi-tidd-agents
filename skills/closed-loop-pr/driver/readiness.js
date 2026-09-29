@@ -23,6 +23,9 @@ function humanConfirms(snapshot) {
   }
   const bp = p.branchProtection;
   const unsettled = bp && typeof bp === 'object' ? Object.entries(bp).filter(([k, v]) => !PROTECTION_SETTLED.has(k) && v !== null && v !== false && v?.enabled !== false).map(([k]) => k) : [];
+  // A strict required-checks setting asks that the head be up to date with the base, which the driver does not settle
+  // (CONV-199-STRICT-REQUIRED-CHECKS).
+  if (bp && typeof bp === 'object' && bp.required_status_checks?.strict === true) unsettled.push('required_status_checks.strict (the head up to date with the base)');
   if (unsettled.length) out.push(`branch protection requires ${unsettled.join(', ')}; a human confirms it`);
   return out;
 }

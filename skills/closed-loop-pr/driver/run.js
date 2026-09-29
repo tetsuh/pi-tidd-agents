@@ -101,9 +101,11 @@ function targetMoved(target, pull) {
   return moved.length ? `the target moved: ${moved.map((k) => `${k} ${was[k]} -> ${now[k]}`).join(', ')}` : null;
 }
 // A role as the runner reported it, in the contracted `role provider/model:thinking` form (CONV-199-STATUS-TELEMETRY).
-function roleLabel(role, reported) {
+// The runner records the thinking level in its own field; a model suffix is the fallback (CONV-199-ROLE-THINKING-STATUS).
+function roleLabel(role, reported, thinking) {
   const m = /^([^/]+)\/([^:]+)(?::(.+))?$/.exec(String(reported || ''));
-  return m ? `${role} ${m[1]}/${m[2]}:${m[3] || 'unreported'}` : `${role} unreported/${reported || 'unreported'}:unreported`;
+  const level = (typeof thinking === 'string' && thinking) || m?.[3] || 'unreported';
+  return m ? `${role} ${m[1]}/${m[2]}:${level}` : `${role} unreported/${reported || 'unreported'}:${level}`;
 }
 // A checkout the review reads must hold exactly the head: no tracked, staged, or untracked change outside the runtime
 // roots (review-only.md, CL-D38/CL-D54). Ignored files, such as a validation delta, are not listed.

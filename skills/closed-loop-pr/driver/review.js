@@ -200,7 +200,7 @@ function result(opts) {
   const envelope = read.data.envelope, gate = p.gate, findings = envelope.findings || [];
   const status = read.data.statusPath ? JSON.parse(fs.readFileSync(read.data.statusPath, 'utf8')) : {};
   // One entry per role that ran, its latest resolution.
-  s.resolved = [...s.resolved.filter((x) => !x.startsWith(`${ROLE[gate]} `)), roleLabel(ROLE[gate], ((status.steps || []).at(-1) || {}).model)];
+  s.resolved = [...s.resolved.filter((x) => !x.startsWith(`${ROLE[gate]} `)), roleLabel(ROLE[gate], ((status.steps || []).at(-1) || {}).model, ((status.steps || []).at(-1) || {}).thinking)];
   s.verdicts[gate] = envelope.verdict; s.pending = null;
   s.gateLog.push({ gate, invocation: p.invocation, head: s.target.headOid, verdict: envelope.verdict, findings: findings.map((x) => `${x.findingId} (${x.severity})`).join(', ') });
   // CL-D85: a Minor whose correction changes no file of the head is recorded and advances; any other finding is open.
