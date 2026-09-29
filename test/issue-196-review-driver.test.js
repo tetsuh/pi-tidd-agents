@@ -702,3 +702,14 @@ test('Issue #196 the ignored inventory covers every descendant of an ignored dir
   fs.writeFileSync(path.join(root, 'scratch', 'x'), 'two');
   assert.notDeepEqual(ignoredInventory(root), frozen, 'an edited ignored file');
 });
+
+// Round 18 of PR #199: an approval counts only when it is bound to the reviewed head (CONV-199-UNBOUND-APPROVAL).
+test('Issue #196 an approval without a commit binding does not count toward required approvals', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/run');
+  const head = 'h'.repeat(40);
+  const snapshot = (review) => ({ after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], threads: [], reviews: [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', submitted_at: '2026-09-29T00:00:00Z', ...review }],
+    policies: { branchProtection: { required_pull_request_reviews: { required_approving_review_count: 1 } }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } });
+  assert.deepEqual(readiness(snapshot({}), head).pending, ['required approvals 0 of 1'], 'no commit_id');
+  assert.deepEqual(readiness(snapshot({ commit_id: 'e'.repeat(40) }), head).pending, ['required approvals 0 of 1'], 'another head');
+  assert.deepEqual(readiness(snapshot({ commit_id: head }), head).pending, [], 'this head');
+});
