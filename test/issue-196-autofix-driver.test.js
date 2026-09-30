@@ -588,3 +588,14 @@ test('Issue #196 new external evidence while a gate runs stops the writer and re
   assert.equal(state(t.runDir).writerLaunched, undefined);
   assert.equal(originHead(t), t.target.head);
 });
+
+test('Issue #196 paths.js names tracked paths whole and longest first, and names nothing for an ambiguous name', () => {
+  // Split from autofix.js under the per-file alarm (owner, option B): the name matching is pure and tested directly.
+  const { namedPaths } = require('../skills/closed-loop-pr/driver/paths');
+  const tracked = ['a.js', 'lib/b.js', 'foo bar.js', 'bar.js', 'x/c.js', 'y/c.js', 'Makefile'];
+  assert.deepEqual([...namedPaths('foo bar.js:3 is wrong', tracked)], ['foo bar.js']);
+  assert.deepEqual([...namedPaths('change b.js and ./a.js.', tracked)].sort(), ['a.js', 'lib/b.js']);
+  assert.deepEqual([...namedPaths('c.js differs', tracked)], []);
+  assert.deepEqual([...namedPaths('see `Makefile`', tracked)], ['Makefile']);
+  assert.deepEqual([...namedPaths('a.js.bak and xa.js', tracked)], []);
+});
