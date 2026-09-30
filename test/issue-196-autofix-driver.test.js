@@ -430,3 +430,105 @@ test('Issue #196 the autofix driver stops before any gate without .tidd.json or 
     assert.match(state(t.runDir).reason, pattern, label);
   }
 });
+
+// PR #208 round 2, the findings where the driver could proceed wrongly (owner cut-off, pull/208#issuecomment-5913850841).
+test('Issue #196 new external evidence at the convergence cap reruns Sol before Terra and before readiness', () => {
+  const comment = { prComments: [{ id: 9, html_url: 'u9', user: { login: 'human', type: 'User' }, author_association: 'MEMBER', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z', body: 'one more thing' }] };
+  // Before Terra: Sol returns MERGE, then the snapshot changes.
+  let t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  setCounters(t, { conv: 4 });
+  assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-adversarial-reviewer');
+  setFixture(t.bin, comment);
+  let r = result(t);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', `Sol reruns on the changed snapshot: ${r.stdout}${r.stderr}`);
+  // At readiness: Terra returns MERGE, then the snapshot changes.
+  t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  setCounters(t, { conv: 4 });
+  result(t); result(t);
+  setFixture(t.bin, comment);
+  r = result(t);
+  assert.notEqual(state(t.runDir).state, 'MERGE_READY', 'no readiness on a snapshot no formal gate saw');
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', r.stdout + r.stderr);
+});
+
+test('Issue #196 an assigned finding that is no longer correctable goes to the owner, not the writer', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  assert.equal(writerBatch(t, 'module.exports = 3;\n').status, 0);
+  const r = result(t, { unconfirmed: true, disposition: 'accepted-as-designed' });
+  assert.equal(nextRequest(r.stdout), null, `no writer: ${r.stdout}`);
+  assert.equal(state(t.runDir).state, 'WAITING_FOR_OWNER');
+});
+
+test('Issue #196 a finding from an external source is never corrected by the writer', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  const r = result(t, { fresh: true, sourceKind: 'issue-comment' });
+  assert.equal(nextRequest(r.stdout), null, `no writer: ${r.stdout}${r.stderr}`);
+  assert.equal(state(t.runDir).state, 'WAITING_FOR_OWNER');
+});
+
+test('Issue #196 authorizedPaths never authorizes the suffix of a longer tracked path', () => {
+  const t = setup({ files: { 'foo bar.js': 'x\n', 'bar.js': 'y\n' } });
+  assert.equal(drive(t.start, t.env).status, 0);
+  const r = result(t, { fresh: true, path: 'foo bar.js' });
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-autofix-worker', r.stdout + r.stderr);
+  assert.deepEqual(state(t.runDir).batch.authorizedPaths, ['a.js', 'foo bar.js']);
+});
+
+test('Issue #196 the batch refuses to push when the pull request closed, turned draft, or changed base', () => {
+  for (const [label, patch] of [['closed', { prState: 'closed' }], ['draft', { prDraft: true }], ['base', { base: 'f'.repeat(40) }]]) {
+    const t = setup();
+    assert.equal(drive(t.start, t.env).status, 0);
+    result(t, { fresh: true });
+    const ws = state(t.runDir).workspace;
+    assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+    fs.writeFileSync(path.join(ws, 'a.js'), 'module.exports = 3;\n');
+    setFixture(t.bin, patch);
+    const b = drive(['batch', '--run-dir', t.runDir], t.env, ws);
+    assert.doesNotMatch(b.stdout, /BATCH_OK/, `${label}: ${b.stdout}`);
+    assert.equal(originHead(t), t.target.head, `${label}: nothing pushed`);
+  }
+});
+
+test('Issue #196 the first gate refuses an issue or body changed after the run read them', () => {
+  // The validation command edits what GitHub reports, between the issue read and the first gate's recheck.
+  for (const [label, edit] of [['issue', "f.issue.body += '- AC2: more.\\n'"], ['body', "f.body += 'Edited.\\n'"]]) {
+    const t = setup();
+    const fixture = path.join(t.bin, 'fixture.json');
+    const script = `const fs=require('fs');const f=JSON.parse(fs.readFileSync(${JSON.stringify(fixture)},'utf8'));${edit};fs.writeFileSync(${JSON.stringify(fixture)},JSON.stringify(f));`;
+    const cfg = { validate: [['node', '-e', script]] };
+    git(t.target.checkout, ['checkout', '-q', 'main']);
+    fs.writeFileSync(path.join(t.target.checkout, '.tidd.json'), `${JSON.stringify(cfg)}\n`);
+    git(t.target.checkout, ['commit', '-q', '-am', 'config']); git(t.target.checkout, ['push', '-q', 'origin', 'main']);
+    setFixture(t.bin, { base: git(t.target.checkout, ['rev-parse', 'HEAD']) });
+    git(t.target.checkout, ['checkout', '-q', 'feature']);
+    const r = drive(t.start, t.env);
+    assert.equal(nextRequest(r.stdout), null, `${label}: no gate launch on changed evidence: ${r.stdout}`);
+    assert.equal(state(t.runDir).state, 'BLOCKED', label);
+  }
+});
+
+test('Issue #196 a diff that is not valid UTF-8 never reaches a gate', () => {
+  const t = setup();
+  fs.writeFileSync(path.join(t.target.checkout, 'bin.txt'), Buffer.from([0x61, 0xff, 0xfe, 0x0a]));
+  git(t.target.checkout, ['add', 'bin.txt']); git(t.target.checkout, ['commit', '-q', '-m', 'bytes']); git(t.target.checkout, ['push', '-q', 'origin', 'feature']);
+  const r = drive(t.start, t.env);
+  assert.equal(nextRequest(r.stdout), null, r.stdout);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /UTF-8/);
+});
+
+test('Issue #196 a refused workspace cleanup never ends MERGE_READY', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t); result(t);
+  // The receipt no longer matches, so workspace_cleanup_created refuses.
+  const file = path.join(t.runDir, 'state.json'), s0 = state(t.runDir);
+  s0.created = { ...s0.created, receipt: { ...s0.created.receipt, id: 'someone-else' } }; fs.writeFileSync(file, JSON.stringify(s0));
+  result(t);
+  assert.notEqual(state(t.runDir).state, 'MERGE_READY', state(t.runDir).reason);
+});

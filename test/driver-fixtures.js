@@ -52,7 +52,7 @@ const out = (v) => { process.stdout.write(JSON.stringify(v)); process.exit(0); }
 if (args[0] !== 'api') { process.stderr.write('unexpected gh ' + args.join(' ')); process.exit(9); }
 if (f.failEndpoint && endpoint.includes(f.failEndpoint)) { process.stderr.write('HTTP 502: bad gateway'); process.exit(1); }
 if (args[1] === 'graphql') out({ data: { repository: { pullRequest: { reviewThreads: { nodes: f.threads || [], pageInfo: { hasNextPage: false, endCursor: null } } } } } });
-if (endpoint === 'repos/o/r/pulls/7') out({ number: 7, state: 'open', draft: false, mergeable: true, mergeable_state: 'clean', title: 't', body: f.body, base: { sha: f.base, ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: head, ref: 'feature', repo: { full_name: f.headRepo || 'o/r' } } });
+if (endpoint === 'repos/o/r/pulls/7') out({ number: 7, state: f.prState || 'open', draft: f.prDraft || false, mergeable: true, mergeable_state: 'clean', title: 't', body: f.body, base: { sha: f.base, ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: head, ref: 'feature', repo: { full_name: f.headRepo || 'o/r' } } });
 if (endpoint === 'repos/o/r/issues/5') out(f.issue);
 if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [f.issueComments || []] : (f.issueComments || []));
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
@@ -71,14 +71,15 @@ function readFixture(bin) { return JSON.parse(fs.readFileSync(path.join(bin, 'fi
 
 // The gate child, faked. `fresh` adds one finding naming `path` (a criterion-anchored Major unless `severity`,
 // `anchoring`, or `disposition` say otherwise; `verdict` overrides the derived one); assigned findings the expectation
-// carries are returned confirmed unless `unconfirmed`; `counterexample` makes Sol link a counterexample to each of them.
-function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unconfirmed = false, severity = 'Major', anchoring = 'criterion-anchored', disposition = 'fixed', verdict: forced, counterexample = false } = {}) {
+// carries are returned confirmed unless `unconfirmed`; `counterexample` makes Sol link a counterexample to each of them; `sourceKind` sets the record's source (external kinds carry their required fields).
+function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unconfirmed = false, severity = 'Major', anchoring = 'criterion-anchored', disposition = 'fixed', verdict: forced, counterexample = false, sourceKind = 'gate' } = {}) {
   const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
   const state = JSON.parse(fs.readFileSync(path.join(runDir, 'state.json'), 'utf8'));
   const expected = JSON.parse(fs.readFileSync(state.pending.expectationPath, 'utf8'));
   const c = expected.correlation;
   const prefix = { convergence: 'CONV', adversarial: 'ADV', safety: 'SAFETY' }[c.gate];
-  const record = (id) => ({ sourceKind: 'gate', sourceId: `${findingPath}:1`, authorIdentity: 'g', authorType: 'Bot', observedHeadOid: c.headOid, fingerprint: c.snapshotFingerprint, semanticFingerprint: c.snapshotFingerprint, correctiveChange: `correct ${id}` });
+  const external = sourceKind === 'gate' ? {} : { sourceUrl: 'https://example.com/c/1', bodyDigest: 'e'.repeat(64), createdAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z' };
+  const record = (id) => ({ sourceKind, ...external, sourceId: `${findingPath}:1`, authorIdentity: 'g', authorType: 'Bot', observedHeadOid: c.headOid, fingerprint: c.snapshotFingerprint, semanticFingerprint: c.snapshotFingerprint, correctiveChange: `correct ${id}` });
   const finding = (findingId, origin, extra = {}) => ({ findingId, origin, gate: c.gate, headOid: c.headOid, raisedAgainstFingerprint: c.snapshotFingerprint, severity, anchoring, ...(anchoring === 'criterion-anchored' ? { anchor: 'AC1' } : {}), ...(anchoring === 'follow-up' ? { proposedIssueTitle: 'later' } : {}), proposedDisposition: disposition, evidence: `${findingPath}:1 is wrong`, impact: 'i', rationale: 'r', correction: `change ${findingPath}`, transport: 't', workflowRecord: record(findingId), ...extra });
   const assigned = (expected.assignedFindings || []).map(({ findingId, blockerKey }) => finding(findingId, 'assigned', { blockerKey, validationEvidence: 'the validation commands passed on this head' }));
   const findings = [...assigned, ...(fresh ? [finding(`${prefix}-${c.number}-X${c.invocation}`, 'fresh')] : [])];
