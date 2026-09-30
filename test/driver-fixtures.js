@@ -70,8 +70,8 @@ function readFixture(bin) { return JSON.parse(fs.readFileSync(path.join(bin, 'fi
 
 // The gate child, faked. `fresh` adds one finding naming `path` (a criterion-anchored Major unless `severity`,
 // `anchoring`, or `disposition` say otherwise; `verdict` overrides the derived one); assigned findings the expectation
-// carries are returned confirmed unless `unconfirmed`.
-function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unconfirmed = false, severity = 'Major', anchoring = 'criterion-anchored', disposition = 'fixed', verdict: forced } = {}) {
+// carries are returned confirmed unless `unconfirmed`; `counterexample` makes Sol link a counterexample to each of them.
+function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unconfirmed = false, severity = 'Major', anchoring = 'criterion-anchored', disposition = 'fixed', verdict: forced, counterexample = false } = {}) {
   const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
   const state = JSON.parse(fs.readFileSync(path.join(runDir, 'state.json'), 'utf8'));
   const expected = JSON.parse(fs.readFileSync(state.pending.expectationPath, 'utf8'));
@@ -82,9 +82,9 @@ function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unc
   const assigned = (expected.assignedFindings || []).map(({ findingId, blockerKey }) => finding(findingId, 'assigned', { blockerKey, validationEvidence: 'the validation commands passed on this head' }));
   const findings = [...assigned, ...(fresh ? [finding(`${prefix}-${c.number}-X${c.invocation}`, 'fresh')] : [])];
   const confirmations = assigned.map((x) => ({ findingId: x.findingId, gate: c.gate, headOid: c.headOid, confirmation: unconfirmed ? 'rejected' : 'confirmed', evidence: 'e' }));
-  const verdict = forced || (fresh || (unconfirmed && assigned.length) ? 'FIX BEFORE MERGE' : 'MERGE');
+  const verdict = forced || (fresh || counterexample || (unconfirmed && assigned.length) ? 'FIX BEFORE MERGE' : 'MERGE');
   const envelope = { schemaVersion: 2, correlation: c, verdict, evidenceRead: expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: true })), findings, confirmations, decisions: [],
-    adversarialResults: c.gate === 'adversarial' ? [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] : [] };
+    adversarialResults: c.gate !== 'adversarial' ? [] : counterexample ? assigned.map((x) => ({ claim: 'c', searched: 's', outcome: 'counterexample', evidence: 'e', findingId: x.findingId })) : [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] };
   const runId = crypto.randomUUID();
   const dir = path.join(runs, 'async-subagent-runs', runId, 'structured-output', 'fake'); fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'output.json'), JSON.stringify(envelope));

@@ -283,3 +283,56 @@ test('Issue #196 the writer commit message carries test provenance (CL-D25)', ()
   result(t, { fresh: true });
   assert.match(state(t.runDir).batch.message, /^Test provenance: /m);
 });
+
+test('Issue #196 the writer batch refuses to push when the pull request head moved, even to an ancestor', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  const ws = state(t.runDir).workspace;
+  assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+  // Someone rewinds the branch while the writer works: a plain push would fast-forward over the rewind.
+  git(t.target.root, ['--git-dir', t.target.origin, 'update-ref', 'refs/heads/feature', t.target.base]);
+  fs.writeFileSync(path.join(ws, 'a.js'), 'module.exports = 3;\n');
+  const b = drive(['batch', '--run-dir', t.runDir], t.env, ws);
+  assert.doesNotMatch(b.stdout, /BATCH_OK/, b.stdout + b.stderr);
+  assert.equal(originHead(t), t.target.base, 'nothing was pushed over the rewind');
+  const r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  assert.equal(nextRequest(r.stdout), null);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /target_moved/);
+});
+
+test('Issue #196 a fix Sol answers with a counterexample is not settled', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  const ws = state(t.runDir).workspace;
+  assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+  fs.writeFileSync(path.join(ws, 'a.js'), 'module.exports = 3;\n');
+  assert.match(drive(['batch', '--run-dir', t.runDir], t.env, ws).stdout, /BATCH_OK/);
+  // Convergence at its cap hands the assigned finding to Sol (CL-D62); this stands in for four more convergence rounds.
+  const file = path.join(t.runDir, 'state.json'), s0 = state(t.runDir);
+  s0.counters.conv = 5; fs.writeFileSync(file, JSON.stringify(s0));
+  let r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', r.stdout + r.stderr);
+  r = result(t, { counterexample: true });
+  const s = state(t.runDir);
+  assert.notEqual(s.state, 'MERGE_READY', s.reason);
+  assert.notEqual(s.ledger.find((e) => e.findingId === 'CONV-7-X1').status, 'settled', 'a counterexample leaves the fix unresolved');
+});
+
+test('Issue #196 writer-done waits while the writer run is still going, even after its batch finished', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  const ws = state(t.runDir).workspace;
+  assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+  fs.writeFileSync(path.join(ws, 'a.js'), 'module.exports = 3;\n');
+  assert.match(drive(['batch', '--run-dir', t.runDir], t.env, ws).stdout, /BATCH_OK/);
+  const dir = path.join(t.runs, 'async-subagent-runs', 'writer-run'); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId: 'writer-run', state: 'running', steps: [{ agent: 'tidd-autofix-worker', status: 'running' }] }));
+  const r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  assert.equal(r.status, 3, r.stdout + r.stderr);
+  assert.match(r.stdout, /^WAIT: /m);
+  assert.equal(state(t.runDir).pending.kind, 'writer', 'no gate launches in the workspace the writer still holds');
+});
