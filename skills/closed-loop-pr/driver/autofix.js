@@ -166,7 +166,9 @@ function result(opts) {
   const confirmations = new Map((envelope.confirmations || []).map((c) => [c.findingId, c]));
   for (const x of findings.filter((y) => y.origin === 'assigned')) {
     const entry = s.ledger.find((e) => e.findingId === x.findingId);
-    if (confirmations.get(x.findingId)?.confirmation === 'confirmed' && x.proposedDisposition === 'fixed') { Object.assign(entry, { status: 'settled', disposition: 'fixed', confirmedBy: gate }); continue; }
+    // Sol's counterexample against the fix leaves it unresolved, confirmed or not (gate-result.js).
+    const countered = (envelope.adversarialResults || []).some((r) => r.findingId === x.findingId);
+    if (!countered && confirmations.get(x.findingId)?.confirmation === 'confirmed' && x.proposedDisposition === 'fixed') { Object.assign(entry, { status: 'settled', disposition: 'fixed', confirmedBy: gate }); continue; }
     entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x;
     if (entry.noProgress >= CAP.noProgress) end(run, 'ROUND_LIMIT_REACHED', `no_progress: ${x.findingId} observed unresolved ${entry.noProgress} times`);
   }
@@ -268,6 +270,9 @@ function batch(opts) {
   step('message_verify', { cwd: ws, expected: b.message });
   for (let i = 0; i < 2; i += 1) step('workspace_verify', step('build_workspace_verify', { created: s.created, transition: { from: b.parentHead, to: commit } }).request.data); // AFTER_COMMIT, BEFORE_PUSH
   b.commit = commit; run.save();
+  // A plain push fast-forwards over a branch rewound to an ancestor, so the head the batch built on is rechecked last.
+  let remote; try { remote = gh(['api', `repos/${s.target.repository}/pulls/${s.target.number}`], s.checkout).head.sha; } catch (error) { batchFail(run, 'remote_head', error.message); }
+  if (remote !== b.parentHead) batchFail(run, 'remote_head', `target_moved: the pull request head is ${remote}, the batch built on ${b.parentHead}`);
   const pushed = run.op('push_publish', { created: s.created, captured: s.captured }, { allowFail: true });
   if (!pushed.ok) batchFail(run, 'push_publish', `${pushed.error?.code} ${pushed.error?.message || ''}`.trim());
   b.done = true; run.save();
@@ -279,7 +284,7 @@ function writerDone(opts) {
   // The writer is async: while its run is still going, its batch is not judged (CL-D93's WAIT, for the writer).
   const statusPath = path.join(runsRoot(), String(opts['run-id'] || die('--run-id is required')), 'status.json');
   const status = fs.existsSync(statusPath) ? JSON.parse(fs.readFileSync(statusPath, 'utf8')) : {};
-  if (!b.done && !b.failed && ['queued', 'running'].includes(status.state)) { process.stdout.write(`WAIT: the writer run is still in progress; when it completes, run: node ${SELF} writer-done --run-dir ${run.dir} --run-id ${opts['run-id']}\n`); process.exit(3); }
+  if (['queued', 'running'].includes(status.state)) { process.stdout.write(`WAIT: the writer run is still in progress; when it completes, run: node ${SELF} writer-done --run-dir ${run.dir} --run-id ${opts['run-id']}\n`); process.exit(3); }
   guard(run);
   s.resolved.push(`tidd-autofix-worker run ${opts['run-id'] || 'unknown'}`);
   if (b.failed) {
