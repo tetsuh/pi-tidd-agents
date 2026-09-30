@@ -15,6 +15,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { isUtf8 } = require('node:buffer');
 const { Run, headFingerprints, targetMoved, roleLabel, ROLE, LANGUAGE_PROFILE, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 const { bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
 const { runSync, gitArgs } = require('../helpers/process');
@@ -38,7 +39,11 @@ function end(run, state, reason) {
     // A failed terminal recheck is an operator change (autofix.md), so the stop is BLOCKED and the workspace kept.
     const recheck = revalidate(run, { allowFail: true });
     if (!recheck.ok && state !== 'BLOCKED') { reason = `operator_changed at the terminal recheck: ${recheck.error?.code || recheck.data?.code} (the run was stopping ${state}: ${reason})`; state = 'BLOCKED'; }
-    if (state !== 'BLOCKED' && s.created) run.op('workspace_cleanup_created', { created: s.created }, { allowFail: true });
+    if (state !== 'BLOCKED' && s.created) {
+      // A refused cleanup leaves a workspace behind (ADV-208-TERMINAL-CLEANUP).
+      const c = run.op('workspace_cleanup_created', { created: s.created }, { allowFail: true });
+      if (!c.ok || c.data?.ok === false) { reason = `workspace_cleanup refused: ${c.error?.code || c.data?.code} (the run was stopping ${state}: ${reason})`; state = 'BLOCKED'; }
+    }
   }
   s.rounds = rounds(s);
   s.findings = (s.ledger || []).map((e) => ({ findingId: e.findingId, disposition: e.status === 'settled' ? e.disposition : 'open' }));
@@ -79,6 +84,7 @@ function start(opts) {
   s.issueNumber = Number(closes[1]);
   const { issue, comments } = readIssue(run);
   run.file('issue.json', issue); run.file('issue-comments.json', comments);
+  s.issueBody = issue.body || '';
   s.acceptanceCriteria = acceptanceCriteria(issue.body);
   if (!s.acceptanceCriteria.length) end(run, 'BLOCKED', `issue #${s.issueNumber} has no Acceptance criteria section with at least one criterion`);
   const validation = validationCommands(checkout, target.baseOid);
@@ -112,8 +118,15 @@ function recheck(run) {
   const moved = targetMoved(t, pull); if (moved) end(run, 'BLOCKED', moved);
   revalidate(run);
   verifyWorkspace(run);
-  const now = s.fingerprints ? sameSpec(run, pull, s.workspace, s.fingerprintHead === t.headOid ? undefined : ['issue_spec'])
-    : headFingerprints(run, { cwd: s.workspace, baseOid: t.baseOid, headOid: t.headOid, ...readIssue(run) });
+  let now;
+  if (s.fingerprints) now = sameSpec(run, pull, s.workspace, s.fingerprintHead === t.headOid ? undefined : ['issue_spec']);
+  else {
+    // What the run read at start, or nothing (ADV-208-GATE-EVIDENCE).
+    const spec = readIssue(run);
+    if ((spec.issue.body || '') !== s.issueBody) end(run, 'BLOCKED', 'issue_spec changed after the run read its acceptance criteria');
+    if ((pull.body || '') !== s.body) end(run, 'BLOCKED', 'the body changed after the run read it');
+    now = headFingerprints(run, { cwd: s.workspace, baseOid: t.baseOid, headOid: t.headOid, ...spec });
+  }
   // The last snapshot's fingerprint is kept, so the next snapshot is compared with it.
   Object.assign(s, { fingerprints: { ...now.values, snapshot: s.fingerprints?.snapshot }, records: { ...now.records, snapshot: s.records?.snapshot }, fingerprintHead: t.headOid });
   return now;
@@ -124,8 +137,10 @@ function arm(run, gate) {
   const s = run.state, t = s.target;
   if (gate !== 'convergence' && s.counters.gates >= CAP.gates) end(run, 'ROUND_LIMIT_REACHED', 'gate_limit');
   const evidence = recheck(run);
-  // New external evidence before a later gate reruns convergence first, within its cap (DEC-109-CONV-SNAPSHOT-001).
-  if (collectSnapshotEvidence(run, s.workspace).fresh && gate !== 'convergence' && s.counters.conv < CAP.conv) { s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; return arm(run, 'convergence'); }
+  if (!isUtf8(Buffer.from(evidence.diff))) end(run, 'BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly');
+  // New external evidence restarts the sequence: convergence within its cap, else Sol (ADV-208-SNAPSHOT-CAP).
+  const restart = s.counters.conv < CAP.conv ? 'convergence' : 'adversarial';
+  if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restart)) { s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; return arm(run, restart); }
   const requiredEvidence = s.requiredEvidence, fp = s.fingerprints;
   run.op('required_evidence_check', { cwd: s.workspace, requiredEvidence });
   s.invocations[gate] = (s.invocations[gate] || 0) + 1;
@@ -147,7 +162,8 @@ function arm(run, gate) {
 }
 
 // CL-D85's recorded findings advance (isRecorded); the correctable class is corrected; anything else is the owner's.
-function correctable(x) { return x.anchoring === 'criterion-anchored' && ['Major', 'Minor'].includes(x.severity) && ['fixed', 'deferred'].includes(x.proposedDisposition) && x.outOfScope !== true; }
+// Only a formal gate's own finding is corrected (#196).
+function correctable(x) { return x.workflowRecord?.sourceKind === 'gate' && x.anchoring === 'criterion-anchored' && ['Major', 'Minor'].includes(x.severity) && ['fixed', 'deferred'].includes(x.proposedDisposition) && x.outOfScope !== true; }
 
 function result(opts) {
   const run = openRun(opts), s = run.state, p = s.pending;
@@ -169,13 +185,15 @@ function result(opts) {
     // Sol's counterexample against the fix leaves it unresolved, confirmed or not (gate-result.js).
     const countered = (envelope.adversarialResults || []).some((r) => r.findingId === x.findingId);
     if (!countered && confirmations.get(x.findingId)?.confirmation === 'confirmed' && x.proposedDisposition === 'fixed') { Object.assign(entry, { status: 'settled', disposition: 'fixed', confirmedBy: gate }); continue; }
+    if (isRecorded(x)) { Object.assign(entry, { status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, record: x }); continue; }
     entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x;
     if (entry.noProgress >= CAP.noProgress) end(run, 'ROUND_LIMIT_REACHED', `no_progress: ${x.findingId} observed unresolved ${entry.noProgress} times`);
   }
   const decisions = (envelope.decisions || []).filter((d) => d.status === 'pending').map((d) => d.decisionId);
   if (envelope.verdict === 'NEEDS DECISION' || decisions.length || findings.some((x) => x.proposedDisposition === 'needs-owner-decision')) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; end(run, 'WAITING_FOR_OWNER', `owner_decision_required: ${gate} returned ${envelope.verdict}`); }
   const fresh = findings.filter((x) => x.origin !== 'assigned');
-  const owner = fresh.filter((x) => !isRecorded(x) && !correctable(x));
+  // Assigned findings are classified too (ADV-208-ASSIGNED-CLASS).
+  const owner = [...fresh.filter((x) => !isRecorded(x)), ...s.ledger.filter((e) => e.status === 'open').map((e) => e.record)].filter((x) => !correctable(x));
   if (owner.length) { s.nextAction = 'the owner decides the findings the driver may not correct'; end(run, 'WAITING_FOR_OWNER', `owner_decision_required: ${owner.map((x) => `${x.findingId} (${x.severity}, ${x.anchoring || 'out of scope'}, ${x.proposedDisposition})`).join(', ')} is outside the mechanised correction class`); }
   const keys = fresh.length ? data(run.op('build_gate_assignments', { findings: fresh, settledKeys: s.ledger.filter((e) => e.status === 'settled').map((e) => e.blockerKey) })).assignedFindings : [];
   for (const x of fresh) {
@@ -192,24 +210,40 @@ function result(opts) {
 }
 
 // authorizedPaths: tracked paths the findings name (a basename counts when exactly one tracked file carries it), plus
-// the pull request's changed files.
+// the pull request's changed files. Names match whole and longest first (ADV-208-AUTHORIZED-PATHS).
+const PATH_CHAR = /[\p{L}\p{N}_.\-/]/u;
+function namedPaths(text, tracked) {
+  const byBase = new Map(); for (const p of tracked) { const b = path.posix.basename(p); byBase.set(b, byBase.has(b) ? null : p); }
+  const candidates = [...tracked.map((p) => [p, p]), ...[...byBase].filter(([b, p]) => p && p !== b)].sort((a, b) => b[0].length - a[0].length);
+  const taken = [], named = new Set();
+  const bounded = (i, end) => {
+    const before = text[i - 1], after = text[end];
+    const startOk = before === undefined || !PATH_CHAR.test(before) || (text.slice(i - 2, i) === './' && (i < 3 || !PATH_CHAR.test(text[i - 3])));
+    const endOk = after === undefined || !PATH_CHAR.test(after) || (after === '.' && (text[end + 1] === undefined || !PATH_CHAR.test(text[end + 1])));
+    return startOk && endOk;
+  };
+  for (const [needle, target] of candidates) {
+    for (let i = text.indexOf(needle); i >= 0; i = text.indexOf(needle, i + 1)) {
+      const end = i + needle.length;
+      if (!bounded(i, end) || taken.some(([a, b]) => i < b && a < end)) continue;
+      taken.push([i, end]); named.add(target);
+    }
+  }
+  return named;
+}
 function authorizedPaths(run, open) {
   const s = run.state, ws = s.workspace;
-  const tracked = git(ws, ['ls-files', '-z']).split('\0').filter(Boolean);
-  const byBase = new Map(); for (const p of tracked) { const b = path.posix.basename(p); byBase.set(b, byBase.has(b) ? null : p); }
-  const known = new Set(tracked), named = new Set();
+  const tracked = git(ws, ['ls-files', '-z']).split('\0').filter(Boolean), named = new Set();
   for (const e of open) {
     const w = e.record.workflowRecord || {};
-    for (const m of [e.record.evidence, e.record.correction, e.record.impact, w.path, w.sourceId, w.correctiveChange].filter(Boolean).join('\n').matchAll(/[A-Za-z0-9_.\-/]+\.[A-Za-z0-9]+/g)) {
-      const p = m[0].replace(/^\.\//, '').replace(/:\d+$/, '');
-      if (known.has(p)) named.add(p); else if (!p.includes('/') && byBase.get(p)) named.add(byBase.get(p));
-    }
+    for (const p of namedPaths([e.record.evidence, e.record.correction, e.record.impact, w.path, w.sourceId, w.correctiveChange].filter(Boolean).join('\n'), tracked)) named.add(p);
   }
   if (!named.size) end(run, 'WAITING_FOR_OWNER', `owner_decision_required: no finding names a tracked path (${open.map((e) => e.findingId).join(', ')})`);
   const changed = git(ws, ['diff', '--name-only', '-z', `${s.target.baseOid}...${s.target.headOid}`]).split('\0').filter(Boolean);
   return [...new Set([...named, ...changed])].sort();
 }
 function launchWriter(run, open) {
+  recheck(run);
   const s = run.state, t = s.target, paths = authorizedPaths(run, open), ids = open.map((e) => e.findingId);
   const message = `fix: ${ids.join(', ')} (#${s.issueNumber})\n\n${open.map((e) => `- ${e.findingId}: ${String(e.record.correction).replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')}\n\n`
     + `Test provenance: ${[...s.validationCommands, ['git', 'diff', '--check', 'HEAD']].map((c) => c.join(' ')).join('; ')} passed in the run-owned workspace before this commit.\n`;
@@ -270,9 +304,12 @@ function batch(opts) {
   step('message_verify', { cwd: ws, expected: b.message });
   for (let i = 0; i < 2; i += 1) step('workspace_verify', step('build_workspace_verify', { created: s.created, transition: { from: b.parentHead, to: commit } }).request.data); // AFTER_COMMIT, BEFORE_PUSH
   b.commit = commit; run.save();
-  // A plain push fast-forwards over a branch rewound to an ancestor, so the head the batch built on is rechecked last.
-  let remote; try { remote = gh(['api', `repos/${s.target.repository}/pulls/${s.target.number}`], s.checkout).head.sha; } catch (error) { batchFail(run, 'remote_head', error.message); }
-  if (remote !== b.parentHead) batchFail(run, 'remote_head', `target_moved: the pull request head is ${remote}, the batch built on ${b.parentHead}`);
+  // The whole target, last: a plain push fast-forwards over a rewind (ADV-208-MUTATION-IDENTITY).
+  let pull; try { pull = gh(['api', `repos/${s.target.repository}/pulls/${s.target.number}`], s.checkout); } catch (error) { batchFail(run, 'remote_head', error.message); }
+  const moved = targetMoved({ ...s.target, headOid: b.parentHead }, pull);
+  if (moved) batchFail(run, 'remote_head', `target_moved: ${moved}`);
+  const operator = revalidate(run, { allowFail: true });
+  if (!operator.ok || operator.data?.ok === false) batchFail(run, 'operator_revalidate', operator.error?.code || operator.data?.code);
   const pushed = run.op('push_publish', { created: s.created, captured: s.captured }, { allowFail: true });
   if (!pushed.ok) batchFail(run, 'push_publish', `${pushed.error?.code} ${pushed.error?.message || ''}`.trim());
   b.done = true; run.save();
@@ -317,7 +354,7 @@ function finish(run) {
   recheck(run);
   const { snapshot, fresh } = collectSnapshotEvidence(run, s.workspace);
   s.activeGate = 'external';
-  if (fresh && s.counters.conv < CAP.conv) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, 'convergence'); }
+  if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, s.counters.conv < CAP.conv ? 'convergence' : 'adversarial'); }
   finalPolicy(run, snapshot, 'wait for checks and external review on this head, then a fresh run');
   end(run, 'MERGE_READY', `convergence, Sol and Terra returned MERGE on ${s.target.headOid.slice(0, 12)} after ${s.counters.pushes} correction push(es); the final policy passes`);
 }
