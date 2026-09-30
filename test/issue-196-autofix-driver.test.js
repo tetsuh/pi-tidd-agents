@@ -396,3 +396,37 @@ test('Issue #196 the third unresolved observation of one finding stops ROUND_LIM
   assert.equal(state(t.runDir).state, 'ROUND_LIMIT_REACHED');
   assert.match(state(t.runDir).reason, /^no_progress: CONV-7-X1 observed unresolved 3 times/);
 });
+
+// The mechanised judgments and the stops before any gate, as #196's body and AC4 name them.
+test('Issue #196 authorizedPaths resolves a unique basename and refuses an ambiguous one', () => {
+  let t = setup({ files: { 'lib/b.js': 'b\n', 'x/c.js': 'c\n', 'y/c.js': 'c\n' } });
+  assert.equal(drive(t.start, t.env).status, 0);
+  let r = result(t, { fresh: true, path: 'b.js' });
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-autofix-worker', r.stdout + r.stderr);
+  assert.deepEqual(state(t.runDir).batch.authorizedPaths, ['a.js', 'lib/b.js'], 'the one tracked b.js, plus the changed file');
+  t = setup({ files: { 'lib/b.js': 'b\n', 'x/c.js': 'c\n', 'y/c.js': 'c\n' } });
+  assert.equal(drive(t.start, t.env).status, 0);
+  r = result(t, { fresh: true, path: 'c.js' });
+  assert.equal(nextRequest(r.stdout), null, 'two tracked c.js name no one path');
+  assert.equal(state(t.runDir).state, 'WAITING_FOR_OWNER');
+  assert.match(state(t.runDir).reason, /no finding names a tracked path/);
+});
+
+test('Issue #196 a criterion-anchored Minor, fixed or deferred, is in the correctable class', () => {
+  for (const disposition of ['fixed', 'deferred']) {
+    const t = setup();
+    assert.equal(drive(t.start, t.env).status, 0);
+    const r = result(t, { fresh: true, severity: 'Minor', disposition });
+    assert.equal(nextRequest(r.stdout)?.agent, 'tidd-autofix-worker', `${disposition}: ${r.stdout}${r.stderr}`);
+  }
+});
+
+test('Issue #196 the autofix driver stops before any gate without .tidd.json or acceptance criteria', () => {
+  for (const [label, options, pattern] of [['no .tidd.json', { config: null }, /tidd\.json/], ['no acceptance criteria', { issueBody: 'Spec only.\n' }, /[Aa]cceptance/]]) {
+    const t = setup(options);
+    const r = drive(t.start, t.env);
+    assert.equal(nextRequest(r.stdout), null, `${label}: no gate launch`);
+    assert.equal(state(t.runDir).state, 'BLOCKED', label);
+    assert.match(state(t.runDir).reason, pattern, label);
+  }
+});

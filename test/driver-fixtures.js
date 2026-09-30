@@ -16,7 +16,7 @@ function git(cwd, args) { return execFileSync('git', args, { cwd, encoding: 'utf
 
 // A base commit with `.tidd.json` (unless `config` is null) and one head commit on `feature`, pushed to a bare origin;
 // the checkout is on `feature` tracking it, with a commit identity of its own for the writer's commit.
-function makeTarget({ config = { validate: [['node', '-e', 'process.exit(0)']] }, issueBody } = {}) {
+function makeTarget({ config = { validate: [['node', '-e', 'process.exit(0)']] }, issueBody, files = {} } = {}) {
   const root = temp('i196-target-');
   const origin = path.join(root, 'origin.git'), checkout = path.join(root, 'checkout');
   git(root, ['init', '-q', '--bare', origin]);
@@ -24,6 +24,7 @@ function makeTarget({ config = { validate: [['node', '-e', 'process.exit(0)']] }
   git(checkout, ['config', 'user.name', 'Operator']); git(checkout, ['config', 'user.email', 'operator@example.com']);
   fs.writeFileSync(path.join(checkout, 'a.js'), 'module.exports = 1;\n');
   if (config) fs.writeFileSync(path.join(checkout, '.tidd.json'), `${JSON.stringify(config)}\n`);
+  for (const [name, text] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(checkout, name)), { recursive: true }); fs.writeFileSync(path.join(checkout, name), text); }
   git(checkout, ['add', '.']); git(checkout, ['commit', '-q', '-m', 'base']);
   const base = git(checkout, ['rev-parse', 'HEAD']);
   git(checkout, ['remote', 'add', 'origin', origin]);
