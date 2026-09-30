@@ -4714,6 +4714,18 @@
       ]
     },
     {
+      "id": "CL-D93-readiness-scope",
+      "marker": "CL-D93",
+      "title": "CL-D93 states what readiness reads and what the owner reads",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
+      "requires": [
+        "Readiness reads unresolved review threads and review states only: pull-request conversation comments and `COMMENTED` review bodies are not evaluated, and the owner who merges reads them (https://github.com/tetsuh/pi-tidd-agents/issues/203#issuecomment-5900278433)."
+      ]
+    },
+    {
       "id": "CL-D93-tests",
       "marker": "CL-D93",
       "title": "The CL-D93 fixtures drive a review round",
