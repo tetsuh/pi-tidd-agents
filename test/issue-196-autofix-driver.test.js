@@ -532,3 +532,49 @@ test('Issue #196 a refused workspace cleanup never ends MERGE_READY', () => {
   result(t);
   assert.notEqual(state(t.runDir).state, 'MERGE_READY', state(t.runDir).reason);
 });
+
+// The round-2 pre-push sweep: an ambiguous basename still covers its span, the frozen issue comments are the ones
+// fingerprinted, and the writer-side rechecks are pinned.
+test('Issue #196 an ambiguous name still covers its span, so its tail authorizes nothing', () => {
+  const t = setup({ files: { 'lib/foo bar.js': 'x\n', 'test/foo bar.js': 'y\n', 'bar.js': 'z\n' } });
+  assert.equal(drive(t.start, t.env).status, 0);
+  const r = result(t, { fresh: true, path: 'foo bar.js' });
+  assert.equal(nextRequest(r.stdout)?.agent, undefined, `no writer on an ambiguous name: ${r.stdout}`);
+  assert.equal(state(t.runDir).state, 'WAITING_FOR_OWNER');
+});
+
+test('Issue #196 the first gate refuses issue comments added after the run read them', () => {
+  const t = setup();
+  const fixture = path.join(t.bin, 'fixture.json');
+  const add = `const fs=require('fs');const f=JSON.parse(fs.readFileSync(${JSON.stringify(fixture)},'utf8'));f.issueComments=[{id:3,html_url:'u3',user:{login:'o',type:'User'},author_association:'OWNER',created_at:'2026-09-29T00:00:00Z',updated_at:'2026-09-29T00:00:00Z',body:'also this'}];fs.writeFileSync(${JSON.stringify(fixture)},JSON.stringify(f));`;
+  git(t.target.checkout, ['checkout', '-q', 'main']);
+  fs.writeFileSync(path.join(t.target.checkout, '.tidd.json'), `${JSON.stringify({ validate: [['node', '-e', add]] })}\n`);
+  git(t.target.checkout, ['commit', '-q', '-am', 'config']); git(t.target.checkout, ['push', '-q', 'origin', 'main']);
+  setFixture(t.bin, { base: git(t.target.checkout, ['rev-parse', 'HEAD']) });
+  git(t.target.checkout, ['checkout', '-q', 'feature']);
+  const r = drive(t.start, t.env);
+  assert.equal(nextRequest(r.stdout), null, r.stdout);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+});
+
+test('Issue #196 the writer is not launched on a target that moved after the gate launched', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  setFixture(t.bin, { prDraft: true });
+  const r = result(t, { fresh: true });
+  assert.equal(nextRequest(r.stdout), null, r.stdout);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+});
+
+test('Issue #196 the batch refuses to push after the operator checkout changed', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  const ws = state(t.runDir).workspace;
+  assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+  fs.writeFileSync(path.join(ws, 'a.js'), 'module.exports = 3;\n');
+  git(t.target.checkout, ['checkout', '-q', 'main']);
+  const b = drive(['batch', '--run-dir', t.runDir], t.env, ws);
+  assert.doesNotMatch(b.stdout, /BATCH_OK/, b.stdout + b.stderr);
+  assert.equal(originHead(t), t.target.head, 'nothing pushed');
+});
