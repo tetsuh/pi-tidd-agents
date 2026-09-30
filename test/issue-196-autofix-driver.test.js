@@ -55,7 +55,8 @@ test('Issue #196 the packaged autofix driver corrects a finding through the writ
   assert.equal(s.state, 'MERGE_READY', s.reason);
   assert.equal(s.target.headOid, pushed);
   assert.deepEqual(s.counters, { gates: 2, conv: 2, pushes: 1 });
-  assert.deepEqual(s.ledger.map((e) => [e.findingId, e.status, e.confirmedBy]), [['CONV-7-X1', 'settled', 'convergence']]);
+  // Convergence confirms the fix; only Sol, finding no counterexample, settles it (CONV-208-SETTLE-ONLY-AFTER-SOL).
+  assert.deepEqual(s.ledger.map((e) => [e.findingId, e.status, e.confirmedBy]), [['CONV-7-X1', 'settled', 'adversarial']]);
   assert.ok(s.log.every((entry) => entry.ok), `every packaged operation succeeded: ${JSON.stringify(s.log.filter((e) => !e.ok))}`);
 });
 
@@ -624,4 +625,18 @@ test('Issue #196 writer-done waits, changing nothing, when the writer run has no
   r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
   assert.equal(r.status, 3, r.stdout + r.stderr);
   assert.equal(state(t.runDir).pending.kind, 'writer');
+});
+
+test('Issue #196 a fix convergence confirms stays unresolved until Sol finds no counterexample', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  assert.equal(writerBatch(t, 'module.exports = 3;\n').status, 0);
+  let r = result(t); // convergence confirms the fix
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', r.stdout + r.stderr);
+  assert.notEqual(state(t.runDir).ledger[0].status, 'settled', 'not settled by convergence alone');
+  r = result(t, { counterexample: true }); // Sol links a counterexample to the confirmed fix
+  const s = state(t.runDir);
+  assert.notEqual(s.state, 'MERGE_READY', s.reason);
+  assert.notEqual(s.ledger[0].status, 'settled');
 });
