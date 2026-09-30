@@ -266,7 +266,9 @@ function buildGateLaunch(data) {
     // #184, CL-D90: the schema is the gate role's own `outputSchema` (its agent definition), so the request carries none and the
     // parent has nothing to re-type; a parent-typed schema displaced every `required` array into `properties`.
     const payload = `${parts.join('\n\n')}\n`;
-    const request = { agent, task: '', context: 'fresh', async: true, outputMode: 'inline', acceptance: false };
+    // CL-D94 (#202): a bound the package states, not the receiver's 30-minute default, which ended two rounds of PR #199;
+    // no checkpoint request, since a gate is read-only and its result is all-or-nothing.
+    const request = { agent, task: '', context: 'fresh', async: true, outputMode: 'inline', acceptance: false, timeoutMs: 3600000 };
     // CL-D82: an exact-autofix gate reads the tree the run works in, so the launch names it; review-only has no
     // workspace and its child inherits the operator checkout, which is the tree it reviews. The envelope already
     // states which mode this is, so the two are related here rather than left to the parent's memory: an autofix

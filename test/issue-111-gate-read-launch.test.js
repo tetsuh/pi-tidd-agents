@@ -200,8 +200,12 @@ test('Issue #111 build_gate_launch composes the request from the package and can
       assert.equal(request.agent, role, `${workflow}/${gate} role`);
       // No `cwd` here: this composition supplies no workspace, which is review-only's shape (CL-D82).
       // #184: the request carries no schema; the gate role's agent definition declares it.
-      assert.deepEqual(Object.keys(request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'task'], `${workflow}/${gate}: exactly the launch fields, no output file`);
+      assert.deepEqual(Object.keys(request).sort(), ['acceptance', 'agent', 'async', 'context', 'outputMode', 'task', 'timeoutMs'], `${workflow}/${gate}: exactly the launch fields, no output file`);
       assert.deepEqual({ context: request.context, async: request.async, outputMode: request.outputMode, acceptance: request.acceptance }, { context: 'fresh', async: true, outputMode: 'inline', acceptance: false });
+      // CL-D94 (#202): every gate child is bounded at 60 minutes by the package, not by the receiver's 30-minute default,
+      // and carries no checkpoint request: a gate is read-only and its result is all-or-nothing.
+      assert.equal(request.timeoutMs, 3600000, `${workflow}/${gate}: the gate bound`);
+      assert.equal(Object.hasOwn(request, 'checkpointBeforeDeadlineMs'), false, `${workflow}/${gate}: no checkpoint request`);
       assert.equal(Object.hasOwn(request, 'outputSchema'), false, 'no schema travels through the parent');
       assert.equal(payloadOf(built), composed(workflow, gate, volatile, expectationPath, expectation.expected), `${workflow}/${gate}: the task is exactly the verbatim blocks, the volatile envelope, the expectation as data, and the two machine lines`);
       if (gate !== 'convergence') assert.ok(payloadOf(built).includes(`\n\n${roleLine(workflow, gate === 'adversarial' ? 'Sol' : 'Terra')}\n\n`), `${workflow}/${gate}: the selected role block line appears verbatim, never reworded`);
