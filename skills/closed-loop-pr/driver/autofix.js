@@ -49,7 +49,7 @@ function end(run, state, reason) {
     }
   }
   s.rounds = rounds(s);
-  s.findings = (s.ledger || []).map((e) => ({ findingId: e.findingId, disposition: e.status === 'settled' ? e.disposition : 'open' }));
+  s.findings = (s.ledger || []).map((e) => ({ findingId: e.findingId, disposition: e.status === 'settled' ? e.disposition : e.status === 'confirmed' ? 'confirmed, awaiting Sol' : 'open' }));
   Run.prototype.stop.call(run, state, reason);
 }
 // A helper refusal ends the run through `end`, so every stop takes the terminal recheck and cleanup.
@@ -148,7 +148,7 @@ function arm(run, gate) {
   run.op('required_evidence_check', { cwd: s.workspace, requiredEvidence });
   s.invocations[gate] = (s.invocations[gate] || 0) + 1;
   const invocation = s.invocations[gate];
-  const open = s.ledger.filter((e) => e.status === 'open');
+  const open = s.ledger.filter((e) => e.status !== 'settled'); // confirmed fixes stay assigned until Sol
   const correlation = { repository: t.repository, number: t.number, baseOid: t.baseOid, headRepository: t.headRepository, headBranch: t.headBranch, headOid: t.headOid, lifecycle: 'open', draft: false, gate, invocation, contractInput: s.contractInput, snapshotFingerprint: fp.snapshot };
   const expectation = data(run.op('build_gate_expectation', { workflow: 'pr', correlation, assignedFindings: open.map((e) => ({ findingId: e.findingId, blockerKey: e.blockerKey })), requiredEvidence }));
   const expectationPath = run.file(`expectation-${gate}-${invocation}.json`, expectation.expected);
@@ -181,13 +181,14 @@ function result(opts) {
   s.resolved = [...s.resolved.filter((x) => !x.startsWith(`${ROLE[gate]} `)), roleLabel(ROLE[gate], ((status.steps || []).at(-1) || {}).model, ((status.steps || []).at(-1) || {}).thinking)];
   s.gateLog.push({ gate, invocation: p.invocation, head: p.head, verdict: envelope.verdict, findings: findings.map((x) => `${x.findingId} (${x.severity}${x.origin === 'assigned' ? ', assigned' : ''})`).join(', ') });
   s.pending = null;
-  // An assigned finding settles when this gate confirms its fix; otherwise it is one more unresolved observation.
+  // An assigned fix Sol confirms settles; an earlier gate's confirmation routes it to Sol; otherwise one more observation.
   const confirmations = new Map((envelope.confirmations || []).map((c) => [c.findingId, c]));
   for (const x of findings.filter((y) => y.origin === 'assigned')) {
     const entry = s.ledger.find((e) => e.findingId === x.findingId);
     // Sol's counterexample against the fix leaves it unresolved, confirmed or not (gate-result.js).
     const countered = (envelope.adversarialResults || []).some((r) => r.findingId === x.findingId);
-    if (!countered && confirmations.get(x.findingId)?.confirmation === 'confirmed' && x.proposedDisposition === 'fixed') { Object.assign(entry, { status: 'settled', disposition: 'fixed', confirmedBy: gate }); continue; }
+    // CONV-208-SETTLE-ONLY-AFTER-SOL
+    if (!countered && confirmations.get(x.findingId)?.confirmation === 'confirmed' && x.proposedDisposition === 'fixed') { Object.assign(entry, gate === 'adversarial' ? { status: 'settled', disposition: 'fixed', confirmedBy: gate } : { status: 'confirmed', confirmedBy: gate, record: x }); continue; }
     if (isRecorded(x)) { Object.assign(entry, { status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, record: x }); continue; }
     entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x;
     if (entry.noProgress >= CAP.noProgress) end(run, 'ROUND_LIMIT_REACHED', `no_progress: ${x.findingId} observed unresolved ${entry.noProgress} times`);
@@ -206,7 +207,7 @@ function result(opts) {
   }
   run.save();
   const open = s.ledger.filter((e) => e.status === 'open');
-  if (!open.length) { const next = GATES[GATES.indexOf(gate) + 1]; return next ? arm(run, next) : finish(run); }
+  if (!open.length) { const next = GATES[GATES.indexOf(gate) + 1]; if (!next && s.ledger.some((e) => e.status === 'confirmed')) return arm(run, 'adversarial'); return next ? arm(run, next) : finish(run); }
   if (gate === 'convergence' && s.counters.conv >= CAP.conv) return arm(run, 'adversarial');
   if (s.counters.pushes >= CAP.pushes) end(run, 'ROUND_LIMIT_REACHED', 'push_limit');
   return launchWriter(run, open);
