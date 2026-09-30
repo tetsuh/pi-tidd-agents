@@ -336,3 +336,63 @@ test('Issue #196 writer-done waits while the writer run is still going, even aft
   assert.match(r.stdout, /^WAIT: /m);
   assert.equal(state(t.runDir).pending.kind, 'writer', 'no gate launches in the workspace the writer still holds');
 });
+
+// Issue #196 AC2's refusals and caps, each at its boundary (CONV-208-EMPTY-EDIT-TEST, CONV-208-AUTOFIX-CAPS-TEST).
+// Reaching a cap by real cycles costs a push each, so a counter is set one short of it in state.json and the next
+// step is driven; the step itself is the driver's own code.
+const setCounters = (t, patch) => { const file = path.join(t.runDir, 'state.json'), s = state(t.runDir); Object.assign(s.counters, patch); fs.writeFileSync(file, JSON.stringify(s)); };
+
+test('Issue #196 the writer batch refuses an empty edit before any commit or push', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  const ws = state(t.runDir).workspace;
+  assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+  const b = drive(['batch', '--run-dir', t.runDir], t.env, ws);
+  assert.doesNotMatch(b.stdout, /BATCH_OK/, b.stdout + b.stderr);
+  assert.equal(state(t.runDir).batch.failed.step, 'overlay_freeze');
+  assert.equal(originHead(t), t.target.head, 'nothing was pushed');
+  assert.equal(nextRequest(drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env).stdout), null);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+});
+
+test('Issue #196 convergence at its cap of 5 hands a finding to Sol instead of the writer', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  setCounters(t, { conv: 4 });
+  const r = result(t, { fresh: true });
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', r.stdout + r.stderr);
+  assert.equal(state(t.runDir).counters.conv, 5);
+});
+
+test('Issue #196 Sol and Terra stop ROUND_LIMIT_REACHED at their shared cap of 15', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  setCounters(t, { gates: 15 });
+  const r = result(t);
+  assert.equal(nextRequest(r.stdout), null, 'no sixteenth formal gate launches');
+  assert.deepEqual([state(t.runDir).state, state(t.runDir).reason], ['ROUND_LIMIT_REACHED', 'gate_limit']);
+});
+
+test('Issue #196 a sixth push is never prepared: the push cap of 5 stops before the writer', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  setCounters(t, { pushes: 5 });
+  const r = result(t, { fresh: true });
+  assert.equal(nextRequest(r.stdout), null, 'no writer launch');
+  assert.deepEqual([state(t.runDir).state, state(t.runDir).reason], ['ROUND_LIMIT_REACHED', 'push_limit']);
+  assert.equal(originHead(t), t.target.head);
+});
+
+test('Issue #196 the third unresolved observation of one finding stops ROUND_LIMIT_REACHED', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  assert.equal(writerBatch(t, 'module.exports = 3;\n').status, 0);
+  const file = path.join(t.runDir, 'state.json'), s0 = state(t.runDir);
+  s0.ledger.find((e) => e.findingId === 'CONV-7-X1').noProgress = 2; fs.writeFileSync(file, JSON.stringify(s0));
+  const r = result(t, { unconfirmed: true });
+  assert.equal(nextRequest(r.stdout), null, 'no further writer or gate');
+  assert.equal(state(t.runDir).state, 'ROUND_LIMIT_REACHED');
+  assert.match(state(t.runDir).reason, /^no_progress: CONV-7-X1 observed unresolved 3 times/);
+});
