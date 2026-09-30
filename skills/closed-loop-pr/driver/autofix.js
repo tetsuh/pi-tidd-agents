@@ -20,6 +20,7 @@ const { Run, headFingerprints, targetMoved, roleLabel, ROLE, LANGUAGE_PROFILE, d
 const { bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
+const { namedPaths } = require('./paths');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const CAP = { gates: 15, conv: 5, pushes: 5, noProgress: 3 };
@@ -28,6 +29,8 @@ const SELF = __filename;
 
 function sleep(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
 function data(result) { return result.data; }
+// Where a restarted sequence begins: convergence within its cap, else Sol (CL-D62), so no formal gate is skipped.
+function restartAt(s) { return s.counters.conv < CAP.conv ? 'convergence' : 'adversarial'; }
 function rounds(s) { return `convergence ${s.counters.conv}/${CAP.conv}, gates ${s.counters.gates}/${CAP.gates}, pushes ${s.counters.pushes}/${CAP.pushes}`; }
 
 // Every stop: the terminal operator recheck is recorded, the linked workspace is removed unless the run is BLOCKED
@@ -139,9 +142,8 @@ function arm(run, gate) {
   if (gate !== 'convergence' && s.counters.gates >= CAP.gates) end(run, 'ROUND_LIMIT_REACHED', 'gate_limit');
   const evidence = recheck(run);
   if (!isUtf8(Buffer.from(evidence.diff))) end(run, 'BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly');
-  // New external evidence restarts the sequence: convergence within its cap, else Sol (ADV-208-SNAPSHOT-CAP).
-  const restart = s.counters.conv < CAP.conv ? 'convergence' : 'adversarial';
-  if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restart)) { s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; return arm(run, restart); }
+  // New external evidence restarts the sequence (ADV-208-SNAPSHOT-CAP).
+  if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s))) { s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; return arm(run, restartAt(s)); }
   const requiredEvidence = s.requiredEvidence, fp = s.fingerprints;
   run.op('required_evidence_check', { cwd: s.workspace, requiredEvidence });
   s.invocations[gate] = (s.invocations[gate] || 0) + 1;
@@ -211,28 +213,7 @@ function result(opts) {
 }
 
 // authorizedPaths: tracked paths the findings name (a basename counts when exactly one tracked file carries it), plus
-// the pull request's changed files. Names match whole and longest first (ADV-208-AUTHORIZED-PATHS).
-const PATH_CHAR = /[\p{L}\p{N}_.\-/]/u;
-function namedPaths(text, tracked) {
-  const byBase = new Map(); for (const p of tracked) { const b = path.posix.basename(p); byBase.set(b, byBase.has(b) ? null : p); }
-  // An ambiguous basename (null) still takes its span, so its tail names nothing; it names no path itself.
-  const candidates = [...tracked.map((p) => [p, p]), ...[...byBase].filter(([b, p]) => p !== b)].sort((a, b) => b[0].length - a[0].length);
-  const taken = [], named = new Set();
-  const bounded = (i, end) => {
-    const before = text[i - 1], after = text[end];
-    const startOk = before === undefined || !PATH_CHAR.test(before) || (text.slice(i - 2, i) === './' && (i < 3 || !PATH_CHAR.test(text[i - 3])));
-    const endOk = after === undefined || !PATH_CHAR.test(after) || (after === '.' && (text[end + 1] === undefined || !PATH_CHAR.test(text[end + 1])));
-    return startOk && endOk;
-  };
-  for (const [needle, target] of candidates) {
-    for (let i = text.indexOf(needle); i >= 0; i = text.indexOf(needle, i + 1)) {
-      const end = i + needle.length;
-      if (!bounded(i, end) || taken.some(([a, b]) => i < b && a < end)) continue;
-      taken.push([i, end]); if (target) named.add(target);
-    }
-  }
-  return named;
-}
+// the pull request's changed files; the names are matched in driver/paths.js.
 function authorizedPaths(run, open) {
   const s = run.state, ws = s.workspace;
   const tracked = git(ws, ['ls-files', '-z']).split('\0').filter(Boolean), named = new Set();
@@ -246,6 +227,8 @@ function authorizedPaths(run, open) {
 }
 function launchWriter(run, open) {
   recheck(run);
+  // ...and before any mutation (CONV-208-SNAPSHOT-STALE-WRITER).
+  if (collectSnapshotEvidence(run, run.state.workspace).fresh) { run.state.invalidated = 'every gate verdict: the external snapshot changed before the writer'; return arm(run, restartAt(run.state)); }
   const s = run.state, t = s.target, paths = authorizedPaths(run, open), ids = open.map((e) => e.findingId);
   const message = `fix: ${ids.join(', ')} (#${s.issueNumber})\n\n${open.map((e) => `- ${e.findingId}: ${String(e.record.correction).replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')}\n\n`
     + `Test provenance: ${[...s.validationCommands, ['git', 'diff', '--check', 'HEAD']].map((c) => c.join(' ')).join('; ')} passed in the run-owned workspace before this commit.\n`;
@@ -346,7 +329,7 @@ function writerDone(opts) {
   s.batch = null; s.pending = null; run.save();
   verifyWorkspace(run);
   revalidate(run);
-  arm(run, s.counters.conv < CAP.conv ? 'convergence' : 'adversarial');
+  arm(run, restartAt(s));
 }
 
 // Final readiness from a fresh snapshot on the same head: new external evidence reruns convergence within its cap, then
@@ -356,7 +339,7 @@ function finish(run) {
   recheck(run);
   const { snapshot, fresh } = collectSnapshotEvidence(run, s.workspace);
   s.activeGate = 'external';
-  if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, s.counters.conv < CAP.conv ? 'convergence' : 'adversarial'); }
+  if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }
   finalPolicy(run, snapshot, 'wait for checks and external review on this head, then a fresh run');
   end(run, 'MERGE_READY', `convergence, Sol and Terra returned MERGE on ${s.target.headOid.slice(0, 12)} after ${s.counters.pushes} correction push(es); the final policy passes`);
 }
