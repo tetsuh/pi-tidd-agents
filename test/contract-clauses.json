@@ -4738,6 +4738,81 @@
       ]
     },
     {
+      "id": "CL-D95-template",
+      "marker": "CL-D95",
+      "title": "The PR Skill lets a repository's own template govern the body's sections",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "section": "### PR body template (CL-D67)",
+      "requires": [
+        "Where the target repository has a pull-request template of its own — a template file GitHub applies, such as `.github/pull_request_template.md`, or a template its `CONTRIBUTING.md` or `AGENTS.md` requires — that template governs the body's sections instead of the three parts above; the rules below still apply wherever the template leaves the wording to the author, and a body's section layout alone is never a finding (CL-D95)."
+      ]
+    },
+    {
+      "id": "CL-D95-record",
+      "marker": "CL-D95",
+      "title": "CL-D95 records the precedence and what it leaves unchanged",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D95 — A repository's own pull-request template governs the body's sections",
+      "requires": [
+        "issues/201#issuecomment-5900278630",
+        "Recording per repository which body contract applies is deferred",
+        "CL-D67's per-head rule, the exact-autofix grant, and every gate's authority are unchanged"
+      ]
+    },
+    {
+      "id": "CL-D95-tests",
+      "marker": "CL-D95",
+      "title": "The CL-D95 fixtures pin the sentence and the record",
+      "files": [
+        "test/issue-201-repo-pr-template.test.js"
+      ],
+      "requires": [
+        "Issue #201 a repository",
+        "Issue #201 CL-D95 records the precedence",
+        "Issue #201 every gate reads"
+      ]
+    },
+    {
+      "id": "CL-D95-gate",
+      "marker": "CL-D95",
+      "title": "Every gate reads that a body's layout alone is never a finding",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Every-gate invariant payload block (CL-D2)",
+      "requires": [
+        "A pull-request body's section layout alone is never a finding; its claims are judged for accuracy against the head (CL-D95)."
+      ]
+    },
+    {
+      "id": "CL-D95-forward-d85",
+      "marker": "CL-D95",
+      "title": "CL-D85 names the narrowing",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D85 — Wording-only Minors do not stop a run",
+      "requires": [
+        "CL-D95 later let a repository's own pull-request template govern the body's sections, so the three parts named here apply where the repository has none."
+      ]
+    },
+    {
+      "id": "CL-D95-forward-d67",
+      "marker": "CL-D95",
+      "title": "CL-D67 names the narrowing",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D67 — Pull-request bodies carry no per-head facts",
+      "requires": [
+        "CL-D95 later let a repository's own pull-request template govern the sections in place of the three parts, keeping the rules on per-head facts and chronology."
+      ]
+    },
+    {
       "id": "CL-D90-launch",
       "marker": "CL-D90",
       "title": "The launch request carries no schema",
