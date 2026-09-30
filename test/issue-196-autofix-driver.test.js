@@ -578,3 +578,13 @@ test('Issue #196 the batch refuses to push after the operator checkout changed',
   assert.doesNotMatch(b.stdout, /BATCH_OK/, b.stdout + b.stderr);
   assert.equal(originHead(t), t.target.head, 'nothing pushed');
 });
+
+test('Issue #196 new external evidence while a gate runs stops the writer and restarts the sequence', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  setFixture(t.bin, { prComments: [{ id: 9, html_url: 'u9', user: { login: 'human', type: 'User' }, author_association: 'MEMBER', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z', body: 'one more thing' }] });
+  const r = result(t, { fresh: true });
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `no writer on a stale snapshot: ${r.stdout}${r.stderr}`);
+  assert.equal(state(t.runDir).writerLaunched, undefined);
+  assert.equal(originHead(t), t.target.head);
+});
