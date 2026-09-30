@@ -125,6 +125,7 @@ function recheck(run) {
     const spec = readIssue(run);
     if ((spec.issue.body || '') !== s.issueBody) end(run, 'BLOCKED', 'issue_spec changed after the run read its acceptance criteria');
     if ((pull.body || '') !== s.body) end(run, 'BLOCKED', 'the body changed after the run read it');
+    if (JSON.stringify(spec.comments) !== JSON.stringify(JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')))) end(run, 'BLOCKED', 'issue comments changed after the run read them');
     now = headFingerprints(run, { cwd: s.workspace, baseOid: t.baseOid, headOid: t.headOid, ...spec });
   }
   // The last snapshot's fingerprint is kept, so the next snapshot is compared with it.
@@ -214,7 +215,8 @@ function result(opts) {
 const PATH_CHAR = /[\p{L}\p{N}_.\-/]/u;
 function namedPaths(text, tracked) {
   const byBase = new Map(); for (const p of tracked) { const b = path.posix.basename(p); byBase.set(b, byBase.has(b) ? null : p); }
-  const candidates = [...tracked.map((p) => [p, p]), ...[...byBase].filter(([b, p]) => p && p !== b)].sort((a, b) => b[0].length - a[0].length);
+  // An ambiguous basename (null) still takes its span, so its tail names nothing; it names no path itself.
+  const candidates = [...tracked.map((p) => [p, p]), ...[...byBase].filter(([b, p]) => p !== b)].sort((a, b) => b[0].length - a[0].length);
   const taken = [], named = new Set();
   const bounded = (i, end) => {
     const before = text[i - 1], after = text[end];
@@ -226,7 +228,7 @@ function namedPaths(text, tracked) {
     for (let i = text.indexOf(needle); i >= 0; i = text.indexOf(needle, i + 1)) {
       const end = i + needle.length;
       if (!bounded(i, end) || taken.some(([a, b]) => i < b && a < end)) continue;
-      taken.push([i, end]); named.add(target);
+      taken.push([i, end]); if (target) named.add(target);
     }
   }
   return named;
