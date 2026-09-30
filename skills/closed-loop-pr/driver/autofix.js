@@ -305,8 +305,10 @@ function writerDone(opts) {
   if (s.pending?.kind !== 'writer' || !b) die('no writer is pending in this run');
   // The writer is async: while its run is still going, its batch is not judged (CL-D93's WAIT, for the writer).
   const statusPath = path.join(runsRoot(), String(opts['run-id'] || die('--run-id is required')), 'status.json');
-  const status = fs.existsSync(statusPath) ? JSON.parse(fs.readFileSync(statusPath, 'utf8')) : {};
-  if (['queued', 'running'].includes(status.state)) { process.stdout.write(`WAIT: the writer run is still in progress; when it completes, run: node ${SELF} writer-done --run-dir ${run.dir} --run-id ${opts['run-id']}\n`); process.exit(3); }
+  let status = {}; try { status = JSON.parse(fs.readFileSync(statusPath, 'utf8')) || {}; } catch { /* absent or unreadable: not terminal */ }
+  // Only the autofix worker's own run, recorded terminal, is judged; anything else waits (CONV-208-WRITER-RUN-STATUS-FAIL-CLOSED).
+  const done = ['complete', 'completed', 'failed', 'partial', 'paused', 'rejected', 'stopped'].includes(status.state) && (status.steps || []).at(-1)?.agent === 'tidd-autofix-worker';
+  if (!done) { process.stdout.write(`WAIT: the writer run has no terminal record yet; when it completes, run: node ${SELF} writer-done --run-dir ${run.dir} --run-id ${opts['run-id']}\n`); process.exit(3); }
   guard(run);
   s.resolved.push(`tidd-autofix-worker run ${opts['run-id'] || 'unknown'}`);
   if (b.failed) {
