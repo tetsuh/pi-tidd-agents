@@ -45,7 +45,7 @@ test('Issue #196 the packaged autofix driver corrects a finding through the writ
   const pushed = originHead(t);
   assert.notEqual(pushed, t.target.head, 'the public head moved');
   assert.equal(git(t.target.root, ['--git-dir', t.target.origin, 'log', '-1', '--format=%an <%ae>|%s', pushed]), 'Operator <operator@example.com>|fix: CONV-7-X1 (#5)');
-  r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  r = writerDone(t);
   assert.equal(r.status, 0, r.stderr + r.stdout);
   for (const gate of ['convergence', 'adversarial', 'safety']) {
     assert.equal(nextRequest(r.stdout).agent, { convergence: 'tidd-convergence-reviewer', adversarial: 'tidd-adversarial-reviewer', safety: 'tidd-safety-reviewer' }[gate]);
@@ -69,7 +69,7 @@ test('Issue #196 an edit outside the authorized paths is refused before any comm
   const b = drive(['batch', '--run-dir', t.runDir], t.env, ws);
   assert.match(b.stdout, /^FAILED overlay_freeze: guard_failed/m, b.stdout);
   assert.equal(originHead(t), t.target.head, 'nothing was pushed');
-  const r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  const r = writerDone(t);
   assert.notEqual(r.status, 0);
   assert.equal(state(t.runDir).state, 'BLOCKED');
   assert.match(state(t.runDir).reason, /guard_failed at overlay_freeze/);
@@ -210,13 +210,20 @@ test('Issue #196 an autofix driver failure after the run directory exists still 
 
 // The pre-push adversarial review of PR-B: exact autofix keeps CL-D51's relaunch key (autofix.md), the async writer is
 // read before its batch is judged, and a failed terminal operator recheck is a BLOCKED stop.
+// writer-done reads the writer's own runner record: an explicit terminal state for the autofix worker, never an absence.
+function writerStatus(t, runState = 'complete') {
+  const dir = path.join(t.runs, 'async-subagent-runs', 'writer-run'); fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, 'status.json');
+  if (!fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify({ runId: 'writer-run', state: runState, steps: [{ agent: 'tidd-autofix-worker', status: runState }] }));
+}
+function writerDone(t) { writerStatus(t); return drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env); }
 const outputPath = (t, runId) => JSON.parse(fs.readFileSync(path.join(t.runs, 'async-subagent-runs', runId, 'status.json'), 'utf8')).steps[0].structuredOutputPath;
 function writerBatch(t, content) {
   const ws = state(t.runDir).workspace;
   assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
   fs.writeFileSync(path.join(ws, 'a.js'), content);
   assert.match(drive(['batch', '--run-dir', t.runDir], t.env, ws).stdout, /BATCH_OK/);
-  return drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  return writerDone(t);
 }
 
 test('Issue #196 exact autofix stops on malformed gate output instead of relaunching it', () => {
@@ -258,7 +265,7 @@ test('Issue #196 writer-done waits while the async writer is still running', () 
   drive(['pre-edit', '--run-dir', t.runDir], t.env, ws);
   const dir = path.join(t.runs, 'async-subagent-runs', 'writer-run'); fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId: 'writer-run', state: 'running', steps: [{ agent: 'tidd-autofix-worker', status: 'running' }] }));
-  const r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  const r = writerDone(t);
   assert.equal(r.status, 3, r.stdout + r.stderr);
   assert.match(r.stdout, /^WAIT: /m);
   assert.equal(state(t.runDir).pending.kind, 'writer', 'the writer stays pending');
@@ -296,7 +303,7 @@ test('Issue #196 the writer batch refuses to push when the pull request head mov
   const b = drive(['batch', '--run-dir', t.runDir], t.env, ws);
   assert.doesNotMatch(b.stdout, /BATCH_OK/, b.stdout + b.stderr);
   assert.equal(originHead(t), t.target.base, 'nothing was pushed over the rewind');
-  const r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  const r = writerDone(t);
   assert.equal(nextRequest(r.stdout), null);
   assert.equal(state(t.runDir).state, 'BLOCKED');
   assert.match(state(t.runDir).reason, /target_moved/);
@@ -313,7 +320,7 @@ test('Issue #196 a fix Sol answers with a counterexample is not settled', () => 
   // Convergence at its cap hands the assigned finding to Sol (CL-D62); this stands in for four more convergence rounds.
   const file = path.join(t.runDir, 'state.json'), s0 = state(t.runDir);
   s0.counters.conv = 5; fs.writeFileSync(file, JSON.stringify(s0));
-  let r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  let r = writerDone(t);
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', r.stdout + r.stderr);
   r = result(t, { counterexample: true });
   const s = state(t.runDir);
@@ -331,7 +338,7 @@ test('Issue #196 writer-done waits while the writer run is still going, even aft
   assert.match(drive(['batch', '--run-dir', t.runDir], t.env, ws).stdout, /BATCH_OK/);
   const dir = path.join(t.runs, 'async-subagent-runs', 'writer-run'); fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId: 'writer-run', state: 'running', steps: [{ agent: 'tidd-autofix-worker', status: 'running' }] }));
-  const r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  const r = writerDone(t);
   assert.equal(r.status, 3, r.stdout + r.stderr);
   assert.match(r.stdout, /^WAIT: /m);
   assert.equal(state(t.runDir).pending.kind, 'writer', 'no gate launches in the workspace the writer still holds');
@@ -352,7 +359,7 @@ test('Issue #196 the writer batch refuses an empty edit before any commit or pus
   assert.doesNotMatch(b.stdout, /BATCH_OK/, b.stdout + b.stderr);
   assert.equal(state(t.runDir).batch.failed.step, 'overlay_freeze');
   assert.equal(originHead(t), t.target.head, 'nothing was pushed');
-  assert.equal(nextRequest(drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env).stdout), null);
+  assert.equal(nextRequest(writerDone(t).stdout), null);
   assert.equal(state(t.runDir).state, 'BLOCKED');
 });
 
@@ -598,4 +605,23 @@ test('Issue #196 paths.js names tracked paths whole and longest first, and names
   assert.deepEqual([...namedPaths('c.js differs', tracked)], []);
   assert.deepEqual([...namedPaths('see `Makefile`', tracked)], ['Makefile']);
   assert.deepEqual([...namedPaths('a.js.bak and xa.js', tracked)], []);
+});
+
+test('Issue #196 writer-done waits, changing nothing, when the writer run has no terminal record', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  const ws = state(t.runDir).workspace;
+  assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+  fs.writeFileSync(path.join(ws, 'a.js'), 'module.exports = 3;\n');
+  assert.match(drive(['batch', '--run-dir', t.runDir], t.env, ws).stdout, /BATCH_OK/);
+  // No record at all, then a record for another agent: neither is the writer's terminal state.
+  let r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  assert.equal(r.status, 3, r.stdout + r.stderr);
+  assert.equal(state(t.runDir).pending.kind, 'writer', 'the writer stays pending');
+  const dir = path.join(t.runs, 'async-subagent-runs', 'writer-run'); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ runId: 'writer-run', state: 'complete', steps: [{ agent: 'tidd-safety-reviewer', status: 'complete' }] }));
+  r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', 'writer-run'], t.env);
+  assert.equal(r.status, 3, r.stdout + r.stderr);
+  assert.equal(state(t.runDir).pending.kind, 'writer');
 });
