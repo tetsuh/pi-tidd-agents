@@ -4636,6 +4636,19 @@
       ]
     },
     {
+      "id": "CL-D93-phases",
+      "marker": "CL-D93",
+      "title": "The review-only round's phases live in one shared module",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "function bindTarget(opts, kind)",
+        "function readGate(run, runId, self, { codes = RELAUNCHABLE, may = (p) => !p.relaunched, before = () => {} } = {})",
+        "function finalPolicy(run, snapshot, waitAction)"
+      ]
+    },
+    {
       "id": "CL-D93-driver",
       "marker": "CL-D93",
       "title": "The review-only driver sequences helpers through the packaged CLI",

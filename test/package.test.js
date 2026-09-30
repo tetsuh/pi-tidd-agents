@@ -34,7 +34,7 @@ const PR_HELPER_MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
 // CL-D93: the packaged driver, under its own alarms; it is invoked with node, never a bin, main, or exports entry.
-const PR_DRIVER_FILES = ['run.js', 'readiness.js', 'review.js'].map((file) => `skills/closed-loop-pr/driver/${file}`);
+const PR_DRIVER_FILES = ['run.js', 'readiness.js', 'phases.js', 'review.js'].map((file) => `skills/closed-loop-pr/driver/${file}`);
 const PR_HELPER_FILES = ['validation.js', 'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js', 'payload.js', 'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
 // The pre-split PR Skill's size. This is not a budget: it encodes the claim that progressive
 // disclosure is smaller than the monolith it replaced, so raising it would falsify what it
@@ -593,8 +593,9 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
     });
 
     // 41 since CL-D89 added helpers/publish.js, the writer's packaged commit and push; 42 since CL-D91 added helpers/payload.js;
-    // 44 since CL-D93 added the driver's run.js and review.js; 45 since its readiness.js split from run.js.
-    assert.equal(files.length, 45, `packed file count changed: ${files.join(', ')}`);
+    // 44 since CL-D93 added the driver's run.js and review.js; 45 since its readiness.js split from run.js; 46 since
+    // phases.js holds the phases a later driver shares with it.
+    assert.equal(files.length, 46, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);

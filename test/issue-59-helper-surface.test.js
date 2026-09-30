@@ -15,7 +15,7 @@ const HELPER_FILES = [
   'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js',
   'payload.js', 'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'validation.js', 'workspace.js', 'writability.js',
 ].map((name) => `${HELPER_DIR}/${name}`);
-const DRIVER_FILES = ['run.js', 'readiness.js', 'review.js'].map((name) => `skills/closed-loop-pr/driver/${name}`);
+const DRIVER_FILES = ['run.js', 'readiness.js', 'phases.js', 'review.js'].map((name) => `skills/closed-loop-pr/driver/${name}`);
 const ALLOWED_OPERATIONS = [
   'build_fingerprint_snapshot', 'build_gate_assignments', 'build_gate_expectation', 'build_gate_launch', 'build_manifest_capture', 'build_manifest_compare', 'build_operator_revalidate', 'build_workspace_cleanup',
   'build_workspace_verify', 'build_writer_launch', 'commit_create', 'evidence_verify', 'guard_before_edit', 'manifest_compare', 'overlay_compare', 'overlay_freeze', 'fingerprint_issue_spec', 'fingerprint_pr_base', 'fingerprint_pr_commits', 'fingerprint_pr_diff',
