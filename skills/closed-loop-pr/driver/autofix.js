@@ -6,7 +6,7 @@
 // (https://github.com/tetsuh/pi-tidd-agents/issues/191#issuecomment-5857263114): authorizedPaths, the commit message,
 // and the correctable class.
 //
-//   node autofix.js start       --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR]
+//   node autofix.js start       --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--convergence disabled]
 //   node autofix.js result      --run-dir DIR --run-id ID     (after a gate run completes)
 //   node autofix.js pre-edit    --run-dir DIR                 (the writer, before editing)
 //   node autofix.js batch       --run-dir DIR                 (the writer, after editing)
@@ -31,8 +31,8 @@ const SELF = __filename;
 function sleep(ms) { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); }
 function data(result) { return result.data; }
 // Where a restarted sequence begins: convergence within its cap, else Sol (CL-D62), so no formal gate is skipped.
-function restartAt(s) { return s.counters.conv < CAP.conv ? 'convergence' : 'adversarial'; }
-function rounds(s) { return `convergence ${s.counters.conv}/${CAP.conv}, gates ${s.counters.gates}/${CAP.gates}, pushes ${s.counters.pushes}/${CAP.pushes}`; }
+function restartAt(s) { return s.counters.conv < CAP.conv && !s.convergenceDisabled ? 'convergence' : 'adversarial'; }
+function rounds(s) { return `${s.convergenceDisabled ? 'convergence disabled' : `convergence ${s.counters.conv}/${CAP.conv}`}, gates ${s.counters.gates}/${CAP.gates}, pushes ${s.counters.pushes}/${CAP.pushes}`; }
 
 // Every stop: the terminal operator recheck is recorded, the linked workspace is removed unless the run is BLOCKED
 // (kept for inspection), and the ledger becomes the published findings.
@@ -73,6 +73,8 @@ function snapshotOf(run) {
 }
 
 function start(opts) {
+  // CL-D62: a convergence role the role preflight found disabled is skipped, as in review.js.
+  if (opts.convergence !== undefined && opts.convergence !== 'disabled') die('--convergence takes only the value disabled');
   const { checkout, runDir, pull, target } = bindTarget(opts, 'autofix');
   const run = bind(new Run(runDir)), s = run.state;
   const { repository, number } = target, [owner, repo] = repository.split('/');
@@ -80,6 +82,7 @@ function start(opts) {
   Object.assign(s, { mode: 'autofix', target, checkout, startedAt: new Date().toISOString(), body: pull.body || '', counters: { gates: 0, conv: 0, pushes: 0 }, pushes: [], pushHistory: [], ledger: [], gateLog: [], resolved: [], invocations: {},
     grant: `autofix run ${path.basename(runDir)}: one commit and one non-force push per batch, at most ${CAP.pushes} pushes` });
   s.contractInput = contractInput(CONTRACT_INPUT_FILES);
+  if (opts.convergence === 'disabled') Object.assign(s, { convergenceDisabled: true, resolved: ['convergence: disabled'] });
   run.save();
   guard(run);
   if (pull.state !== 'open' || pull.draft) end(run, 'BLOCKED', `the pull request is ${pull.state}${pull.draft ? ' (draft)' : ''}`);
@@ -110,7 +113,7 @@ function start(opts) {
     if (v.data?.outcome !== 'passed') { s.validation = results.join('; '); end(run, 'BLOCKED', `validation_failed on the starting head: ${command.join(' ')}`); }
   }
   s.validation = results.join('; ');
-  arm(run, 'convergence');
+  arm(run, restartAt(s));
 }
 
 // Before every gate and at final readiness: the target, the operator capture, the workspace, the body, and the issue
@@ -343,7 +346,7 @@ function finish(run) {
   s.activeGate = 'external';
   if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }
   finalPolicy(run, snapshot, 'wait for checks and external review on this head, then a fresh run');
-  end(run, 'MERGE_READY', `convergence, Sol and Terra returned MERGE on ${s.target.headOid.slice(0, 12)} after ${s.counters.pushes} correction push(es); the final policy passes`);
+  end(run, 'MERGE_READY', `${s.convergenceDisabled ? 'convergence was disabled; Sol and Terra' : 'convergence, Sol and Terra'} returned MERGE on ${s.target.headOid.slice(0, 12)} after ${s.counters.pushes} correction push(es); the final policy passes`);
 }
 
 try {
