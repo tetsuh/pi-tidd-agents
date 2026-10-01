@@ -678,3 +678,14 @@ test('Issue #196 writer-done takes only this batch\'s writer run: a UUID, its ow
   r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', writerId(t)], t.env);
   assert.equal(r.status, 3, r.stdout + r.stderr); assert.equal(state(t.runDir).pending.kind, 'writer');
 });
+
+test('Issue #196 a run directory a shell would split is refused before anything is created', () => {
+  // CONV-208-RUN-DIR-SHELL-PATH: the printed commands name the run directory and the driver for a shell to run.
+  const t = setup();
+  const runDir = path.join(temp('i196-run-'), 'run with spaces');
+  const r = drive([...t.start.slice(0, -1), runDir], t.env);
+  assert.notEqual(r.status, 0, r.stdout);
+  assert.equal(nextRequest(r.stdout), null);
+  assert.match(r.stdout + r.stderr, /plain path/);
+  assert.equal(fs.existsSync(runDir), false, 'no run directory was created');
+});
