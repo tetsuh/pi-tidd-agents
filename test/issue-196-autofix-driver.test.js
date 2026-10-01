@@ -217,7 +217,7 @@ const writerId = (t) => `00000000-0000-4000-8000-${String(state(t.runDir).counte
 function writerStatus(t, runState = 'complete') {
   const dir = path.join(t.runs, 'async-subagent-runs', writerId(t)); fs.mkdirSync(dir, { recursive: true });
   const file = path.join(dir, 'status.json');
-  if (!fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify({ runId: writerId(t), state: runState, steps: [{ agent: 'tidd-autofix-worker', status: runState }] }));
+  if (!fs.existsSync(file)) fs.writeFileSync(file, JSON.stringify({ runId: writerId(t), state: runState, cwd: state(t.runDir).workspace, startedAt: Date.now(), steps: [{ agent: 'tidd-autofix-worker', status: runState }] }));
 }
 function writerDone(t) { writerStatus(t); return drive(['writer-done', '--run-dir', t.runDir, '--run-id', writerId(t)], t.env); }
 const outputPath = (t, runId) => JSON.parse(fs.readFileSync(path.join(t.runs, 'async-subagent-runs', runId, 'status.json'), 'utf8')).steps[0].structuredOutputPath;
@@ -688,4 +688,23 @@ test('Issue #196 a run directory a shell would split is refused before anything 
   assert.equal(nextRequest(r.stdout), null);
   assert.match(r.stdout + r.stderr, /plain path/);
   assert.equal(fs.existsSync(runDir), false, 'no run directory was created');
+});
+
+test('Issue #196 writer-done takes a terminal worker record only from this launch, in this workspace', () => {
+  // ADV-208-WRITER-BATCH-RUN-BINDING: an unused UUID of a finished worker elsewhere is not this batch's writer.
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  const ws = state(t.runDir).workspace;
+  assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+  fs.writeFileSync(path.join(ws, 'a.js'), 'module.exports = 3;\n');
+  assert.match(drive(['batch', '--run-dir', t.runDir], t.env, ws).stdout, /BATCH_OK/);
+  const dir = path.join(t.runs, 'async-subagent-runs', writerId(t)); fs.mkdirSync(dir, { recursive: true });
+  const base = { runId: writerId(t), state: 'complete', steps: [{ agent: 'tidd-autofix-worker', status: 'complete' }] };
+  for (const [label, extra] of [['another workspace', { cwd: '/tmp/other-workspace', startedAt: Date.now() }], ['started before this launch', { cwd: ws, startedAt: 1 }], ['no cwd or start', {}]]) {
+    fs.writeFileSync(path.join(dir, 'status.json'), JSON.stringify({ ...base, ...extra }));
+    const r = drive(['writer-done', '--run-dir', t.runDir, '--run-id', writerId(t)], t.env);
+    assert.equal(r.status, 3, `${label}: ${r.stdout}${r.stderr}`);
+    assert.equal(state(t.runDir).pending.kind, 'writer', `${label}: the writer stays pending`);
+  }
 });
