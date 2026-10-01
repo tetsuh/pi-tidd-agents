@@ -106,7 +106,7 @@ function start(opts) {
   s.captured = run.op('operator_capture', { cwd: checkout, identity });
   run.save();
   run.op('writability', { owner, repo, branchRef: `refs/heads/${target.headBranch}`, cwd: checkout, enterprisePolicyComplete: true, enterpriseRulesets: [] });
-  const made = run.op('workspace_create', { cwd: checkout, head: target.headOid, tree: git(checkout, ['rev-parse', `${target.headOid}^{tree}`]).trim() }, { allowFail: true });
+  const made = run.op('workspace_create', { cwd: checkout, head: target.headOid, tree: git(checkout, ['rev-parse', `${target.headOid}^{tree}`]).trim(), allowCloneFallback: false }, { allowFail: true }); // gates enter only a linked workspace (CL-D82)
   if (!made.ok) { retain(s, made.error?.details?.root); end(run, 'BLOCKED', `workspace_create refused: ${made.error?.code} ${made.error?.message || ''}`.trim()); }
   s.created = made.data;
   s.workspace = s.created.path;
