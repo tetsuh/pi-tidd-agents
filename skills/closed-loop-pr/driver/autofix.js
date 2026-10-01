@@ -21,6 +21,7 @@ const { bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, col
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
 const { namedPaths } = require('./paths');
+const { writerFinished } = require('./writer');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const CAP = { gates: 15, conv: 5, pushes: 5, noProgress: 3 };
@@ -248,7 +249,7 @@ function launchWriter(run, open) {
     'Corrections (each finding exactly as the gate reported it):',
     ...open.map((e) => `\n### ${e.findingId} (${e.record.severity}, ${e.record.gate})\nEvidence: ${e.record.evidence}\nImpact: ${e.record.impact}\nCorrection: ${e.record.correction}`),
   ].join('\n');
-  s.batch = { findings: ids, authorizedPaths: paths, message, parentHead: t.headOid, preEdit: false, done: false };
+  s.batch = { findings: ids, authorizedPaths: paths, message, parentHead: t.headOid, preEdit: false, done: false, launchedAt: Date.now() };
   s.writerLaunched = true;
   const built = data(run.op('build_writer_launch', { created: s.created, task }));
   Object.assign(s, { pending: { kind: 'writer', head: t.headOid }, activeGate: 'writer', state: 'WRITER_LAUNCH_PENDING' });
@@ -304,13 +305,9 @@ function batch(opts) {
 function writerDone(opts) {
   const run = openRun(opts), s = run.state, b = s.batch;
   if (s.pending?.kind !== 'writer' || !b) die('no writer is pending in this run');
-  // The writer is async: while its run is still going, its batch is not judged (CL-D93's WAIT, for the writer).
+  // The writer is async: its batch is judged only once the runner records it finished (driver/writer.js).
   const id = String(opts['run-id'] || die('--run-id is required'));
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) die('--run-id must be the runner run id (a UUID)');
-  const statusPath = path.join(runsRoot(), id, 'status.json');
-  let status = {}; try { status = JSON.parse(fs.readFileSync(statusPath, 'utf8')) || {}; } catch { /* absent or unreadable: not terminal */ }
-  // Only the autofix worker's own run, recorded terminal, is judged; anything else waits (CONV-208-WRITER-RUN-STATUS-FAIL-CLOSED).
-  const done = status.runId === id && !s.resolved.includes(`tidd-autofix-worker run ${id}`) && ['complete', 'completed', 'failed', 'partial', 'paused', 'rejected', 'stopped'].includes(status.state) && (status.steps || []).at(-1)?.agent === 'tidd-autofix-worker';
+  let done; try { done = writerFinished(runsRoot(), id, s); } catch (error) { die(error.message); }
   if (!done) { process.stdout.write(`WAIT: the writer run has no terminal record yet; when it completes, run: node ${SELF} writer-done --run-dir ${run.dir} --run-id ${opts['run-id']}\n`); process.exit(3); }
   guard(run);
   s.resolved.push(`tidd-autofix-worker run ${id}`);
