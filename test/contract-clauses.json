@@ -4734,7 +4734,7 @@
       ],
       "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
       "requires": [
-        "Readiness reads unresolved review threads and review states only: pull-request conversation comments and `COMMENTED` review bodies are not evaluated, and the owner who merges reads them (https://github.com/tetsuh/pi-tidd-agents/issues/203#issuecomment-5900278433)."
+        "Readiness takes external findings only from unresolved review threads and review states: pull-request conversation comments and `COMMENTED` review bodies are not evaluated as findings, and the owner who merges reads them (https://github.com/tetsuh/pi-tidd-agents/issues/203#issuecomment-5900278433). CL-D96 later added `autofix.js` and `paths.js` to `driver/` and reset the aggregate driver alarm to 100,000 bytes."
       ]
     },
     {
