@@ -724,3 +724,18 @@ test('Issue #196 writer.js judges a writer record: this run id, this workspace, 
   record(good); assert.equal(writerFinished(root, id, { ...s, resolved: [`tidd-autofix-worker run ${id}`] }), false, 'an earlier batch\'s run');
   assert.throws(() => writerFinished(root, '../x', s), /UUID/);
 });
+
+test('Issue #196 a convergence role preflight found disabled is skipped at start and at every restart (CL-D62)', () => {
+  // CONV-208-DISABLED-ROLE: review.js already honours --convergence disabled; the autofix driver does the same.
+  assert.notEqual(drive([...setup().start, '--convergence', 'off'], setup().env).status, 0, 'only the value disabled is accepted');
+  const t = setup();
+  let r = drive([...t.start, '--convergence', 'disabled'], t.env);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', r.stdout + r.stderr);
+  assert.ok(state(t.runDir).resolved.includes('convergence: disabled'));
+  r = result(t, { fresh: true }); // Sol raises a correctable finding
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-autofix-worker', r.stdout + r.stderr);
+  r = writerBatch(t, 'module.exports = 3;\n');
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', `the post-push restart skips convergence: ${r.stdout}${r.stderr}`);
+  assert.equal(state(t.runDir).counters.conv, 0);
+  assert.match(state(t.runDir).rounds, /convergence disabled/);
+});
