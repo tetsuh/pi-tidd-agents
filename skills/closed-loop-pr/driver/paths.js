@@ -8,8 +8,9 @@
 const path = require('node:path');
 const { git } = require('./run');
 
-// A name continues through any letter, number, or combining mark, read as whole code points (ADV-208-PATH-UNICODE).
-const PATH_CHAR = /^[\p{L}\p{N}\p{M}_.\-/]$/u;
+// A name ends only at whitespace or listed punctuation, read as whole code points; anything else beside it continues it,
+// so an unrecognised name waits for the owner rather than authorizing its tail (ADV-208-PATH-UNICODE).
+const END = /^[\s\p{Ps}\p{Pe}\p{Pi}\p{Pf},;:!?'"`*<>]$/u;
 function namedPaths(text, tracked) {
   const byBase = new Map(); for (const p of tracked) { const b = path.posix.basename(p); byBase.set(b, byBase.has(b) ? null : p); }
   // An ambiguous basename (null) still takes its span, so its tail names nothing; it names no path itself.
@@ -18,7 +19,7 @@ function namedPaths(text, tracked) {
   // The code point ending at i, and the one starting at i; undefined past either end.
   const before = (i) => (i <= 0 ? undefined : [...text.slice(Math.max(0, i - 2), i)].at(-1));
   const at = (i) => (i >= text.length ? undefined : String.fromCodePoint(text.codePointAt(i)));
-  const plain = (c) => c === undefined || !PATH_CHAR.test(c);
+  const plain = (c) => c === undefined || END.test(c);
   const bounded = (i, end) => {
     const startOk = plain(before(i)) || (text.slice(i - 2, i) === './' && plain(before(i - 2)));
     const endOk = plain(at(end)) || (at(end) === '.' && plain(at(end + 1)));

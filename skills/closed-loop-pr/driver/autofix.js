@@ -21,7 +21,7 @@ const { gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trust
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
 const { authorizedPaths } = require('./paths');
-const { writerFinished, writerMessage, writerTask } = require('./writer');
+const { writerFinished, writerMessage, writerTask, retain } = require('./writer');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const CAP = { gates: 15, conv: 5, pushes: 5, noProgress: 3 };
@@ -54,11 +54,6 @@ function end(run, state, reason) {
   s.rounds = rounds(s);
   s.findings = (s.ledger || []).map((e) => ({ findingId: e.findingId, disposition: e.status === 'settled' ? e.disposition : e.status === 'confirmed' ? 'confirmed, awaiting Sol' : 'open' }));
   Run.prototype.stop.call(run, state, reason);
-}
-// This run's unremoved workspace roots, reported with their count (ADV-208-RETAINED-ROOT-REPORT).
-function retain(s, root) {
-  if (root && !(s.retained ||= []).includes(root)) s.retained.push(root);
-  if (s.retained?.length) s.operatorActions = `inspect, then remove this run's retained workspace roots (${s.retained.length}): ${s.retained.join(', ')}`;
 }
 // A helper refusal ends the run through `end`, so every stop takes the terminal recheck and cleanup.
 function bind(run) { run.stop = (state, reason) => end(run, state, reason); return run; }

@@ -41,4 +41,12 @@ function writerTask(s, open, paths, self, runDir) {
   ].join('\n');
 }
 
-module.exports = { writerFinished, writerMessage, writerTask };
+// This run's unremoved workspace roots and their count, after any earlier operator action (ADV-208-RETAINED-ROOT-REPORT).
+function retain(s, root) {
+  if (root && !(s.retained ||= []).includes(root)) s.retained.push(root);
+  if (!s.retained?.length) return;
+  const prior = s.operatorActions && !/^none\b/.test(s.operatorActions) ? String(s.operatorActions).replace(/(; )?inspect, then remove this run's retained workspace roots .*$/, '') : '';
+  s.operatorActions = `${prior ? `${prior}; ` : ''}inspect, then remove this run's retained workspace roots (${s.retained.length}): ${s.retained.join(', ')}`;
+}
+
+module.exports = { writerFinished, writerMessage, writerTask, retain };
