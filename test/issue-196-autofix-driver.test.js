@@ -718,7 +718,7 @@ test('Issue #196 writer.js judges a writer record: this run id, this workspace, 
   const good = { runId: id, cwd: '/w', startedAt: 2000, state: 'complete', steps: [{ agent: 'tidd-autofix-worker' }] };
   assert.equal(writerFinished(root, id, s), false, 'no record');
   record(good); assert.equal(writerFinished(root, id, s), true);
-  for (const bad of [{ runId: 'x' }, { cwd: '/other' }, { startedAt: 999 }, { startedAt: undefined }, { state: 'running' }, { state: 'unknown' }, { steps: [{ agent: 'tidd-safety-reviewer' }] }]) {
+  for (const bad of [{ runId: 'x' }, { cwd: '/other' }, { startedAt: 999 }, { startedAt: undefined }, { startedAt: '2000' }, { state: 'running' }, { state: 'unknown' }, { steps: [{ agent: 'tidd-safety-reviewer' }] }]) {
     record({ ...good, ...bad }); assert.equal(writerFinished(root, id, s), false, JSON.stringify(bad));
   }
   record(good); assert.equal(writerFinished(root, id, { ...s, resolved: [`tidd-autofix-worker run ${id}`] }), false, 'an earlier batch\'s run');
