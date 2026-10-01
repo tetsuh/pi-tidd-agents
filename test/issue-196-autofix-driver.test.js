@@ -866,3 +866,27 @@ test('Issue #196 a refused workspace_create reports the root it kept', () => {
     assert.ok(fs.readFileSync(s.publication.comment, 'utf8').includes(s.retained[0]), 'the drafted comment names it');
   } finally { fs.chmodSync(worktrees, 0o755); }
 });
+
+test('Issue #196 the batch refuses an ignored path the writer changed before validation', () => {
+  // CONV-208-IGNORED-WRITER-DRIFT: the writer's own ignored-path changes are drift; only validation's additions are adopted.
+  const t = setup({ files: { '.gitignore': 'build/\n' } });
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  const ws = state(t.runDir).workspace;
+  assert.match(drive(['pre-edit', '--run-dir', t.runDir], t.env, ws).stdout, /PRE_EDIT_OK/);
+  fs.writeFileSync(path.join(ws, 'a.js'), 'module.exports = 3;\n');
+  fs.mkdirSync(path.join(ws, 'build'), { recursive: true }); fs.writeFileSync(path.join(ws, 'build', 'planted'), 'x');
+  const b = drive(['batch', '--run-dir', t.runDir], t.env, ws);
+  assert.doesNotMatch(b.stdout, /BATCH_OK/, b.stdout + b.stderr);
+  assert.match(b.stdout, /ignored/);
+  assert.equal(originHead(t), t.target.head, 'nothing pushed');
+});
+
+test('Issue #196 ignored paths validation creates in the batch are adopted, not refused', () => {
+  const mk = "require('fs').mkdirSync('build',{recursive:true});require('fs').writeFileSync('build/cache','c')";
+  const t = setup({ files: { '.gitignore': 'build/\n' }, config: { validate: [['node', '-e', mk]] } });
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t, { fresh: true });
+  assert.equal(writerBatch(t, 'module.exports = 3;\n').status, 0);
+  assert.notEqual(state(t.runDir).state, 'BLOCKED', state(t.runDir).reason);
+});
