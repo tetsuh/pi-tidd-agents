@@ -87,6 +87,8 @@ function snapshotFingerprint(run, snapshot) {
 // The run directory holds state and payload pointers, so it never lies inside a Git work tree, judged by where it
 // resolves (CONV-199-RUN-DIR-WRITE); checked before anything is created.
 function runDirProblem(dir) {
+  // The driver prints commands naming this directory and itself for a shell, unquoted (CONV-208-RUN-DIR-SHELL-PATH).
+  for (const p of [path.resolve(dir), PACKAGE]) if (!/^[A-Za-z0-9_.\/-]+$/.test(p)) return `${p} must be a plain path (letters, digits, _ . / -): the driver prints commands naming it for a shell`;
   let at = path.resolve(dir);
   while (!fs.existsSync(at)) at = path.dirname(at);
   for (let real = fs.realpathSync.native(at); ; real = path.dirname(real)) {
