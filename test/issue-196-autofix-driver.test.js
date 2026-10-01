@@ -778,3 +778,13 @@ test('Issue #196 MERGE_READY names Sol and Terra, only the gates that returned M
   assert.match(s.reason, /sol and terra returned MERGE/);
   assert.equal(s.invalidated, null, 'a ready run carries no invalidated evidence');
 });
+
+test('Issue #196 paths.js reads whole code points and combining marks at every name boundary', () => {
+  // ADV-208-PATH-UNICODE: a supplementary letter or number, or a combining mark, beside a name continues it.
+  const { namedPaths } = require('../skills/closed-loop-pr/driver/paths');
+  const tracked = ['a.js', 'lib/b.js', 'README.md'];
+  for (const text of ['\u{10400}a.js', 'a.js\u{10400}', '\u{1D7D8}a.js', 'a.js\u{1D7D8}', '\u{10400}./a.js', 'a.js.\u{10400}bak', 'a.jś', '́a.js', '\u{10400}lib/b.js', 'b.js\u{10400}', '\u{10400}README.md']) {
+    assert.deepEqual([...namedPaths(`fix ${text} now`, tracked)], [], JSON.stringify(text));
+  }
+  assert.deepEqual([...namedPaths('fix a.js, then b.js.', tracked)].sort(), ['a.js', 'lib/b.js'], 'plain punctuation still bounds a name');
+});
