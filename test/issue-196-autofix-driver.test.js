@@ -819,3 +819,33 @@ test('Issue #196 writer.js composes the writer task and the commit message from 
   assert.match(task, /\n   - a\.js\n/);
   assert.match(task, /### CONV-7-X1 \(Major, convergence\)/);
 });
+
+test('Issue #196 paths.js ends a name only at whitespace or listed punctuation, and retain keeps an earlier action', () => {
+  // Round-10 pre-push sweep: connector punctuation, format characters, other dots, and ASCII symbols are not boundaries.
+  const { namedPaths } = require('../skills/closed-loop-pr/driver/paths');
+  const tracked = ['a.js', 'lib/b.js'];
+  for (const text of ['x‿a.js', 'x＿a.js', 'a.js⁀x', 'x‍a.js', 'a.js‍x', 'foo­a.js', 'x⁠a.js', 'x​a.js', '‍./a.js', 'x·a.js', 'x·a.js', 'x・a.js', 'x\u{1F600}a.js', '@lib/b.js', 'x+a.js', 'x$a.js', 'x~a.js', 'x#a.js', 'x^a.js', 'x\\a.js', 'x=a.js']) {
+    assert.deepEqual([...namedPaths(`fix ${text} now`, tracked)], [], JSON.stringify(text));
+  }
+  for (const [text, want] of [['(a.js)', ['a.js']], ['"lib/b.js",', ['lib/b.js']], ['a.js:12', ['a.js']], ['`a.js`.', ['a.js']], ['«a.js»', ['a.js']], ['./a.js;', ['a.js']]]) {
+    assert.deepEqual([...namedPaths(text, tracked)], want, text);
+  }
+});
+
+test('Issue #196 a retained root is added to an earlier operator action, never replacing it', () => {
+  const t = setup();
+  setFixture(t.bin, { threads: [thread('T1', false)] });
+  assert.equal(drive(t.start, t.env).status, 0);
+  for (let i = 0; i < 3; i += 1) result(t);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'WAITING_FOR_OWNER', s.reason);
+  const before = s.operatorActions;
+  assert.ok(before && !/retained workspace roots/.test(before), before);
+  // The function the stop uses (writer.js): an earlier action survives, and the root is joined after it.
+  const { retain } = require('../skills/closed-loop-pr/driver/writer');
+  const st = { operatorActions: before }; retain(st, '/tmp/root-x');
+  assert.ok(st.operatorActions.startsWith(`${before}; `), st.operatorActions);
+  assert.match(st.operatorActions, /retained workspace roots \(1\): \/tmp\/root-x$/);
+  const none = { operatorActions: 'none' }; retain(none, '/tmp/root-y');
+  assert.match(none.operatorActions, /^inspect, then remove this run's retained workspace roots \(1\)/);
+});
