@@ -71,8 +71,8 @@ function readFixture(bin) { return JSON.parse(fs.readFileSync(path.join(bin, 'fi
 
 // The gate child, faked. `fresh` adds one finding naming `path` (a criterion-anchored Major unless `severity`,
 // `anchoring`, or `disposition` say otherwise; `verdict` overrides the derived one); assigned findings the expectation
-// carries are returned confirmed unless `unconfirmed`; `counterexample` makes Sol link a counterexample to each of them; `sourceKind` sets the record's source (external kinds carry their required fields).
-function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unconfirmed = false, severity = 'Major', anchoring = 'criterion-anchored', disposition = 'fixed', verdict: forced, counterexample = false, sourceKind = 'gate' } = {}) {
+// carries are returned confirmed unless `unconfirmed`; `counterexample` makes Sol link a counterexample to each of them; `reject` lists assigned IDs returned rejected; `sourceKind` sets the record's source (external kinds carry their required fields).
+function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unconfirmed = false, severity = 'Major', anchoring = 'criterion-anchored', disposition = 'fixed', verdict: forced, counterexample = false, sourceKind = 'gate', reject = [] } = {}) {
   const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
   const state = JSON.parse(fs.readFileSync(path.join(runDir, 'state.json'), 'utf8'));
   const expected = JSON.parse(fs.readFileSync(state.pending.expectationPath, 'utf8'));
@@ -83,8 +83,8 @@ function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unc
   const finding = (findingId, origin, extra = {}) => ({ findingId, origin, gate: c.gate, headOid: c.headOid, raisedAgainstFingerprint: c.snapshotFingerprint, severity, anchoring, ...(anchoring === 'criterion-anchored' ? { anchor: 'AC1' } : {}), ...(anchoring === 'follow-up' ? { proposedIssueTitle: 'later' } : {}), proposedDisposition: disposition, evidence: `${findingPath}:1 is wrong`, impact: 'i', rationale: 'r', correction: `change ${findingPath}`, transport: 't', workflowRecord: record(findingId), ...extra });
   const assigned = (expected.assignedFindings || []).map(({ findingId, blockerKey }) => finding(findingId, 'assigned', { blockerKey, validationEvidence: 'the validation commands passed on this head' }));
   const findings = [...assigned, ...(fresh ? [finding(`${prefix}-${c.number}-X${c.invocation}`, 'fresh')] : [])];
-  const confirmations = assigned.map((x) => ({ findingId: x.findingId, gate: c.gate, headOid: c.headOid, confirmation: unconfirmed ? 'rejected' : 'confirmed', evidence: 'e' }));
-  const verdict = forced || (fresh || counterexample || (unconfirmed && assigned.length) ? 'FIX BEFORE MERGE' : 'MERGE');
+  const confirmations = assigned.map((x) => ({ findingId: x.findingId, gate: c.gate, headOid: c.headOid, confirmation: unconfirmed || reject.includes(x.findingId) ? 'rejected' : 'confirmed', evidence: 'e' }));
+  const verdict = forced || (fresh || counterexample || ((unconfirmed && assigned.length) || reject.length) ? 'FIX BEFORE MERGE' : 'MERGE');
   const envelope = { schemaVersion: 2, correlation: c, verdict, evidenceRead: expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: true })), findings, confirmations, decisions: [],
     adversarialResults: c.gate !== 'adversarial' ? [] : counterexample ? assigned.map((x) => ({ claim: 'c', searched: 's', outcome: 'counterexample', evidence: 'e', findingId: x.findingId })) : [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] };
   const runId = crypto.randomUUID();
