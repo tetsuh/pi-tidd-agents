@@ -190,7 +190,7 @@ function result(opts) {
     // CONV-208-SETTLE-ONLY-AFTER-SOL
     if (!countered && confirmations.get(x.findingId)?.confirmation === 'confirmed' && x.proposedDisposition === 'fixed') { Object.assign(entry, gate === 'adversarial' ? { status: 'settled', disposition: 'fixed', confirmedBy: gate } : { status: 'confirmed', confirmedBy: gate, record: x }); continue; }
     if (isRecorded(x)) { Object.assign(entry, { status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, record: x }); continue; }
-    entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x;
+    entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x; entry.status = 'open';
     if (entry.noProgress >= CAP.noProgress) end(run, 'ROUND_LIMIT_REACHED', `no_progress: ${x.findingId} observed unresolved ${entry.noProgress} times`);
   }
   const decisions = (envelope.decisions || []).filter((d) => d.status === 'pending').map((d) => d.decisionId);
@@ -305,13 +305,15 @@ function writerDone(opts) {
   const run = openRun(opts), s = run.state, b = s.batch;
   if (s.pending?.kind !== 'writer' || !b) die('no writer is pending in this run');
   // The writer is async: while its run is still going, its batch is not judged (CL-D93's WAIT, for the writer).
-  const statusPath = path.join(runsRoot(), String(opts['run-id'] || die('--run-id is required')), 'status.json');
+  const id = String(opts['run-id'] || die('--run-id is required'));
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) die('--run-id must be the runner run id (a UUID)');
+  const statusPath = path.join(runsRoot(), id, 'status.json');
   let status = {}; try { status = JSON.parse(fs.readFileSync(statusPath, 'utf8')) || {}; } catch { /* absent or unreadable: not terminal */ }
   // Only the autofix worker's own run, recorded terminal, is judged; anything else waits (CONV-208-WRITER-RUN-STATUS-FAIL-CLOSED).
-  const done = ['complete', 'completed', 'failed', 'partial', 'paused', 'rejected', 'stopped'].includes(status.state) && (status.steps || []).at(-1)?.agent === 'tidd-autofix-worker';
+  const done = status.runId === id && !s.resolved.includes(`tidd-autofix-worker run ${id}`) && ['complete', 'completed', 'failed', 'partial', 'paused', 'rejected', 'stopped'].includes(status.state) && (status.steps || []).at(-1)?.agent === 'tidd-autofix-worker';
   if (!done) { process.stdout.write(`WAIT: the writer run has no terminal record yet; when it completes, run: node ${SELF} writer-done --run-dir ${run.dir} --run-id ${opts['run-id']}\n`); process.exit(3); }
   guard(run);
-  s.resolved.push(`tidd-autofix-worker run ${opts['run-id'] || 'unknown'}`);
+  s.resolved.push(`tidd-autofix-worker run ${id}`);
   if (b.failed) {
     if (b.failed.step === 'push_publish') { const snap = snapshotOf(run); end(run, 'BLOCKED', `${snap.after.head === s.target.headOid ? 'local_commit_unpushed' : 'push_outcome_unknown'}: ${b.failed.reason}`); }
     end(run, 'BLOCKED', `${b.failed.step === 'validation_run' ? 'validation_failed' : `guard_failed at ${b.failed.step}`}: ${b.failed.reason}`);
