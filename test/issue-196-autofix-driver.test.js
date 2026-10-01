@@ -739,3 +739,42 @@ test('Issue #196 a convergence role preflight found disabled is skipped at start
   assert.equal(state(t.runDir).counters.conv, 0);
   assert.match(state(t.runDir).rounds, /convergence disabled/);
 });
+
+// The round-9 parity sweep against review.js (CL-D96 holds every CL-D93 obligation).
+test('Issue #196 ignored paths that change after validation stop the next gate', () => {
+  const t = setup({ files: { '.gitignore': 'build/\n' } });
+  assert.equal(drive(t.start, t.env).status, 0);
+  const ws = state(t.runDir).workspace;
+  fs.mkdirSync(path.join(ws, 'build'), { recursive: true }); fs.writeFileSync(path.join(ws, 'build', 'x'), 'x');
+  const r = result(t);
+  assert.equal(nextRequest(r.stdout), null, r.stdout);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /ignored paths changed/);
+});
+
+test('Issue #196 the autofix driver passes --language-profile to the gates', () => {
+  const t = setup();
+  assert.equal(drive([...t.start, '--language-profile', 'ja-JP'], t.env).status, 0);
+  const payload = fs.readdirSync(t.runDir).find((f) => f.startsWith('gate-payload-'));
+  assert.match(fs.readFileSync(path.join(t.runDir, payload), 'utf8'), /"languageProfile": "ja-JP"/);
+});
+
+test('Issue #196 a validation harness that cannot run is harness_failed, not validation_failed', () => {
+  const t = setup({ config: { validate: [['/nonexistent/validator']] } });
+  drive(t.start, t.env);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /^harness_failed/);
+});
+
+test('Issue #196 MERGE_READY names Sol and Terra, only the gates that returned MERGE on the final head', () => {
+  // Convergence at its cap returns FIX BEFORE MERGE and hands the finding to Sol; it never returned MERGE on this head.
+  const t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  setCounters(t, { conv: 4 });
+  result(t, { fresh: true }); result(t); result(t);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.doesNotMatch(s.reason, /convergence/, s.reason);
+  assert.match(s.reason, /sol and terra returned MERGE/);
+  assert.equal(s.invalidated, null, 'a ready run carries no invalidated evidence');
+});
