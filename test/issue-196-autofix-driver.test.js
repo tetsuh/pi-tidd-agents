@@ -849,3 +849,20 @@ test('Issue #196 a retained root is added to an earlier operator action, never r
   const none = { operatorActions: 'none' }; retain(none, '/tmp/root-y');
   assert.match(none.operatorActions, /^inspect, then remove this run's retained workspace roots \(1\)/);
 });
+
+test('Issue #196 a refused workspace_create reports the root it kept', () => {
+  // CONV-208-RETAINED-CREATE-COVERAGE: git cannot add a worktree under a read-only .git/worktrees, after the run root exists.
+  const t = setup();
+  const worktrees = path.join(t.target.checkout, '.git', 'worktrees');
+  fs.mkdirSync(worktrees, { recursive: true }); fs.chmodSync(worktrees, 0o555);
+  try {
+    drive(t.start, t.env);
+    const s = state(t.runDir);
+    assert.equal(s.state, 'BLOCKED', s.reason);
+    assert.match(s.reason, /^workspace_create refused/);
+    assert.equal(s.retained?.length, 1, JSON.stringify(s.retained));
+    assert.ok(fs.existsSync(s.retained[0]), 'the reported root is the one the failed create kept');
+    assert.ok(s.operatorActions.includes(`retained workspace roots (1): ${s.retained[0]}`), s.operatorActions);
+    assert.ok(fs.readFileSync(s.publication.comment, 'utf8').includes(s.retained[0]), 'the drafted comment names it');
+  } finally { fs.chmodSync(worktrees, 0o755); }
+});
