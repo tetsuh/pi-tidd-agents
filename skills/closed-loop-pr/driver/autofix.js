@@ -21,7 +21,7 @@ const { gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trust
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
 const { authorizedPaths } = require('./paths');
-const { writerFinished } = require('./writer');
+const { writerFinished, writerMessage, writerTask } = require('./writer');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const CAP = { gates: 15, conv: 5, pushes: 5, noProgress: 3 };
@@ -43,15 +43,22 @@ function end(run, state, reason) {
     // A failed terminal recheck is an operator change (autofix.md), so the stop is BLOCKED and the workspace kept.
     const recheck = revalidate(run, { allowFail: true });
     if (!recheck.ok && state !== 'BLOCKED') { reason = `operator_changed at the terminal recheck: ${recheck.error?.code || recheck.data?.code} (the run was stopping ${state}: ${reason})`; state = 'BLOCKED'; }
+    let kept = state === 'BLOCKED' && s.created ? s.created.root : null;
     if (state !== 'BLOCKED' && s.created) {
       // A refused cleanup leaves a workspace behind (ADV-208-TERMINAL-CLEANUP).
       const c = run.op('workspace_cleanup_created', { created: s.created }, { allowFail: true });
-      if (!c.ok || c.data?.ok === false) { reason = `workspace_cleanup refused: ${c.error?.code || c.data?.code} (the run was stopping ${state}: ${reason})`; state = 'BLOCKED'; }
+      if (!c.ok || c.data?.ok === false) { kept = s.created.root; reason = `workspace_cleanup refused: ${c.error?.code || c.data?.code} (the run was stopping ${state}: ${reason})`; state = 'BLOCKED'; } else kept = c.data?.retainedRoot || null;
     }
+    retain(s, kept);
   }
   s.rounds = rounds(s);
   s.findings = (s.ledger || []).map((e) => ({ findingId: e.findingId, disposition: e.status === 'settled' ? e.disposition : e.status === 'confirmed' ? 'confirmed, awaiting Sol' : 'open' }));
   Run.prototype.stop.call(run, state, reason);
+}
+// This run's unremoved workspace roots, reported with their count (ADV-208-RETAINED-ROOT-REPORT).
+function retain(s, root) {
+  if (root && !(s.retained ||= []).includes(root)) s.retained.push(root);
+  if (s.retained?.length) s.operatorActions = `inspect, then remove this run's retained workspace roots (${s.retained.length}): ${s.retained.join(', ')}`;
 }
 // A helper refusal ends the run through `end`, so every stop takes the terminal recheck and cleanup.
 function bind(run) { run.stop = (state, reason) => end(run, state, reason); return run; }
@@ -104,7 +111,9 @@ function start(opts) {
   s.captured = run.op('operator_capture', { cwd: checkout, identity });
   run.save();
   run.op('writability', { owner, repo, branchRef: `refs/heads/${target.headBranch}`, cwd: checkout, enterprisePolicyComplete: true, enterpriseRulesets: [] });
-  s.created = data(run.op('workspace_create', { cwd: checkout, head: target.headOid, tree: git(checkout, ['rev-parse', `${target.headOid}^{tree}`]).trim() }));
+  const made = run.op('workspace_create', { cwd: checkout, head: target.headOid, tree: git(checkout, ['rev-parse', `${target.headOid}^{tree}`]).trim() }, { allowFail: true });
+  if (!made.ok) { retain(s, made.error?.details?.root); end(run, 'BLOCKED', `workspace_create refused: ${made.error?.code} ${made.error?.message || ''}`.trim()); }
+  s.created = made.data;
   s.workspace = s.created.path;
   run.save();
   const results = [];
@@ -231,23 +240,7 @@ function launchWriter(run, open) {
   // ...and before any mutation (CONV-208-SNAPSHOT-STALE-WRITER).
   if (collectSnapshotEvidence(run, run.state.workspace).fresh) { run.state.invalidated = 'every gate verdict: the external snapshot changed before the writer'; return arm(run, restartAt(run.state)); }
   const s = run.state, t = s.target, paths = authorized(run, open), ids = open.map((e) => e.findingId);
-  const message = `fix: ${ids.join(', ')} (#${s.issueNumber})\n\n${open.map((e) => `- ${e.findingId}: ${String(e.record.correction).replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')}\n\n`
-    + `Test provenance: ${[...s.validationCommands, ['git', 'diff', '--check', 'HEAD']].map((c) => c.join(' ')).join('; ')} passed in the run-owned workspace before this commit.\n`;
-  const task = [
-    `You are the sole writer for one exact-autofix correction batch on ${t.repository}#${t.number} (branch ${t.headBranch}, head ${t.headOid}).`,
-    `Your working directory is the run-owned workspace ${s.workspace}. Work only there.`, '',
-    'Do these steps in order. Stop at the first failure and report it; never retry, repair the tooling, or improvise a step.',
-    `1. Run: node ${SELF} pre-edit --run-dir ${run.dir}   It must print PRE_EDIT_OK.`,
-    '2. Apply the corrections below, and nothing else. Edit only these paths (you may leave any of them untouched):',
-    ...paths.map((p) => `   - ${p}`),
-    '   Keep each change minimal. Where a correction asks for a regression test, add it to a test file in the list. Copy any literal a correction pins verbatim.',
-    `3. You may run the validation commands to iterate: ${s.validationCommands.map((c) => c.join(' ')).join('; ')}.`,
-    `4. Run: node ${SELF} batch --run-dir ${run.dir}   It validates, stages, commits with the approved message, and pushes. It must print BATCH_OK.`,
-    '   Never run git add, git commit, git push, or any other Git write yourself. Never touch the operator checkout.',
-    '5. End with one line: BATCH_OK <commit> or FAILED <step>: <reason>.', '',
-    'Corrections (each finding exactly as the gate reported it):',
-    ...open.map((e) => `\n### ${e.findingId} (${e.record.severity}, ${e.record.gate})\nEvidence: ${e.record.evidence}\nImpact: ${e.record.impact}\nCorrection: ${e.record.correction}`),
-  ].join('\n');
+  const message = writerMessage(s, open), task = writerTask(s, open, paths, SELF, run.dir);
   s.batch = { findings: ids, authorizedPaths: paths, message, parentHead: t.headOid, preEdit: false, done: false, launchedAt: Date.now() };
   s.writerLaunched = true;
   const built = data(run.op('build_writer_launch', { created: s.created, task }));
