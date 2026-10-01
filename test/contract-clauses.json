@@ -4663,6 +4663,18 @@
       ]
     },
     {
+      "id": "CL-D96-alarm-scope",
+      "marker": "CL-D96",
+      "title": "CL-D96 counts the files the aggregate driver alarm covers",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D96 — The packaged autofix driver runs correction cycles; the writer's process commits and pushes",
+      "requires": [
+        "because the aggregate now covers six files"
+      ]
+    },
+    {
       "id": "CL-D96-tests",
       "marker": "CL-D96",
       "title": "The CL-D96 fixtures drive a correction cycle to MERGE_READY",
