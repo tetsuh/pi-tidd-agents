@@ -788,3 +788,34 @@ test('Issue #196 paths.js reads whole code points and combining marks at every n
   }
   assert.deepEqual([...namedPaths('fix a.js, then b.js.', tracked)].sort(), ['a.js', 'lib/b.js'], 'plain punctuation still bounds a name');
 });
+
+test('Issue #196 a stop reports this run\'s retained workspace roots and their count', () => {
+  // ADV-208-RETAINED-ROOT-REPORT (owner: implemented here): a BLOCKED stop keeps the workspace; the report names its root.
+  let t = setup({ config: { validate: [['node', '-e', 'process.exit(1)']] } });
+  drive(t.start, t.env);
+  let s = state(t.runDir);
+  assert.equal(s.state, 'BLOCKED', s.reason);
+  assert.match(s.operatorActions, new RegExp(`retained workspace roots \\(1\\): ${s.created.root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+  assert.ok(fs.readFileSync(s.publication.comment, 'utf8').includes(s.created.root), 'the drafted comment names the root');
+  // A refused cleanup keeps it too.
+  t = setup();
+  assert.equal(drive(t.start, t.env).status, 0);
+  result(t); result(t);
+  const file = path.join(t.runDir, 'state.json'), s0 = state(t.runDir);
+  s0.created = { ...s0.created, receipt: { ...s0.created.receipt, id: 'someone-else' } }; fs.writeFileSync(file, JSON.stringify(s0));
+  result(t);
+  s = state(t.runDir);
+  assert.equal(s.state, 'BLOCKED');
+  assert.match(s.operatorActions, /retained workspace roots \(1\)/);
+});
+
+test('Issue #196 writer.js composes the writer task and the commit message from the run state', () => {
+  const { writerTask, writerMessage } = require('../skills/closed-loop-pr/driver/writer');
+  const s = { issueNumber: 5, workspace: '/w', validationCommands: [['node', '--test']], target: { repository: 'o/r', number: 7, headBranch: 'f', headOid: 'a'.repeat(40) } };
+  const open = [{ findingId: 'CONV-7-X1', record: { severity: 'Major', gate: 'convergence', evidence: 'e', impact: 'i', correction: 'change  a.js' } }];
+  assert.equal(writerMessage(s, open), 'fix: CONV-7-X1 (#5)\n\n- CONV-7-X1: change a.js\n\nTest provenance: node --test; git diff --check HEAD passed in the run-owned workspace before this commit.\n');
+  const task = writerTask(s, open, ['a.js'], '/pkg/autofix.js', '/run');
+  assert.match(task, /1\. Run: node \/pkg\/autofix\.js pre-edit --run-dir \/run/);
+  assert.match(task, /\n   - a\.js\n/);
+  assert.match(task, /### CONV-7-X1 \(Major, convergence\)/);
+});
