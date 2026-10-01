@@ -169,7 +169,7 @@ test('Issue #196 the driver is packaged under its own alarms and names no writin
   // phases.js holds the phases of a review-only round that autofix.js shares with review.js; CL-D96 adds autofix.js,
   // the one driver file that names the writer operations (test/issue-196-autofix-driver.test.js), and reset the
   // aggregate alarm from 60,000 to 100,000.
-  assert.deepEqual(files.sort(), [`${DRIVER_DIR}/autofix.js`, `${DRIVER_DIR}/paths.js`, `${DRIVER_DIR}/phases.js`, `${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`]);
+  assert.deepEqual(files.sort(), [`${DRIVER_DIR}/autofix.js`, `${DRIVER_DIR}/paths.js`, `${DRIVER_DIR}/phases.js`, `${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`, `${DRIVER_DIR}/writer.js`]);
   const sizes = files.map((f) => fs.statSync(repoPath(f)).size);
   for (const [i, size] of sizes.entries()) assert.ok(size < 30000, `${files[i]} is ${size} bytes`);
   assert.ok(sizes.reduce((a, b) => a + b, 0) < 100000, 'driver aggregate alarm');

@@ -708,3 +708,19 @@ test('Issue #196 writer-done takes a terminal worker record only from this launc
     assert.equal(state(t.runDir).pending.kind, 'writer', `${label}: the writer stays pending`);
   }
 });
+
+test('Issue #196 writer.js judges a writer record: this run id, this workspace, after this launch, terminal, the worker', () => {
+  // Split from autofix.js under the per-file alarm (owner, option b): the judgment is pure and tested directly.
+  const { writerFinished } = require('../skills/closed-loop-pr/driver/writer');
+  const id = '00000000-0000-4000-8000-000000000001', root = temp('i196-writer-');
+  const s = { workspace: '/w', resolved: [], batch: { launchedAt: 1000 } };
+  const record = (r) => { fs.mkdirSync(path.join(root, id), { recursive: true }); fs.writeFileSync(path.join(root, id, 'status.json'), JSON.stringify(r)); };
+  const good = { runId: id, cwd: '/w', startedAt: 2000, state: 'complete', steps: [{ agent: 'tidd-autofix-worker' }] };
+  assert.equal(writerFinished(root, id, s), false, 'no record');
+  record(good); assert.equal(writerFinished(root, id, s), true);
+  for (const bad of [{ runId: 'x' }, { cwd: '/other' }, { startedAt: 999 }, { startedAt: undefined }, { state: 'running' }, { state: 'unknown' }, { steps: [{ agent: 'tidd-safety-reviewer' }] }]) {
+    record({ ...good, ...bad }); assert.equal(writerFinished(root, id, s), false, JSON.stringify(bad));
+  }
+  record(good); assert.equal(writerFinished(root, id, { ...s, resolved: [`tidd-autofix-worker run ${id}`] }), false, 'an earlier batch\'s run');
+  assert.throws(() => writerFinished(root, '../x', s), /UUID/);
+});
