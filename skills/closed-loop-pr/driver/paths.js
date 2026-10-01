@@ -1,10 +1,12 @@
 'use strict';
 
-// CL-D96 (#196): which tracked paths a finding's text names, split from autofix.js under the per-file alarm. Names match
+// CL-D96 (#196): which tracked paths a finding's text names, and so which paths a writer may edit, split from autofix.js
+// under the per-file alarm. Names match
 // whole and longest first, so the tail of a longer tracked or ambiguous name is never a name of its own
 // (ADV-208-AUTHORIZED-PATHS); a basename counts when exactly one tracked file carries it.
 
 const path = require('node:path');
+const { git } = require('./run');
 
 const PATH_CHAR = /[\p{L}\p{N}_.\-/]/u;
 function namedPaths(text, tracked) {
@@ -27,5 +29,17 @@ function namedPaths(text, tracked) {
   }
   return named;
 }
+// authorizedPaths: tracked paths the open findings name, plus the pull request's changed files; null when no finding
+// names a tracked path.
+function authorizedPaths(ws, open, target) {
+  const tracked = git(ws, ['ls-files', '-z']).split('\0').filter(Boolean), named = new Set();
+  for (const e of open) {
+    const w = e.record.workflowRecord || {};
+    for (const p of namedPaths([e.record.evidence, e.record.correction, e.record.impact, w.path, w.sourceId, w.correctiveChange].filter(Boolean).join('\n'), tracked)) named.add(p);
+  }
+  if (!named.size) return null;
+  const changed = git(ws, ['diff', '--name-only', '-z', `${target.baseOid}...${target.headOid}`]).split('\0').filter(Boolean);
+  return [...new Set([...named, ...changed])].sort();
+}
 
-module.exports = { namedPaths };
+module.exports = { namedPaths, authorizedPaths };

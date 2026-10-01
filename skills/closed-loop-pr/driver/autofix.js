@@ -6,7 +6,7 @@
 // (https://github.com/tetsuh/pi-tidd-agents/issues/191#issuecomment-5857263114): authorizedPaths, the commit message,
 // and the correctable class.
 //
-//   node autofix.js start       --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--convergence disabled]
+//   node autofix.js start       --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--convergence disabled] [--language-profile P]
 //   node autofix.js result      --run-dir DIR --run-id ID     (after a gate run completes)
 //   node autofix.js pre-edit    --run-dir DIR                 (the writer, before editing)
 //   node autofix.js batch       --run-dir DIR                 (the writer, after editing)
@@ -16,11 +16,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { isUtf8 } = require('node:buffer');
-const { Run, headFingerprints, targetMoved, roleLabel, ROLE, LANGUAGE_PROFILE, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
-const { bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
+const { Run, headFingerprints, targetMoved, roleLabel, ignoredInventory, ROLE, LANGUAGE_PROFILE, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
-const { namedPaths } = require('./paths');
+const { authorizedPaths } = require('./paths');
 const { writerFinished } = require('./writer');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
@@ -83,6 +83,7 @@ function start(opts) {
     grant: `autofix run ${path.basename(runDir)}: one commit and one non-force push per batch, at most ${CAP.pushes} pushes` });
   s.contractInput = contractInput(CONTRACT_INPUT_FILES);
   if (opts.convergence === 'disabled') Object.assign(s, { convergenceDisabled: true, resolved: ['convergence: disabled'] });
+  s.languageProfile = opts['language-profile'] || LANGUAGE_PROFILE;
   run.save();
   guard(run);
   if (pull.state !== 'open' || pull.draft) end(run, 'BLOCKED', `the pull request is ${pull.state}${pull.draft ? ' (draft)' : ''}`);
@@ -110,9 +111,10 @@ function start(opts) {
   for (const command of [...s.validationCommands, ['git', 'diff', '--check', `${target.baseOid}...${target.headOid}`]]) {
     const v = run.op('validation_run', { cwd: s.workspace, command, timeoutMs: 1800000 }, { allowFail: true });
     results.push(`${command.join(' ')}: ${v.data?.outcome || v.error?.code}`);
-    if (v.data?.outcome !== 'passed') { s.validation = results.join('; '); end(run, 'BLOCKED', `validation_failed on the starting head: ${command.join(' ')}`); }
+    if (v.data?.outcome !== 'passed') { s.validation = results.join('; '); end(run, 'BLOCKED', `${v.ok === false && v.error?.code !== 'validation_failed' ? 'harness_failed' : 'validation_failed'} on the starting head: ${command.join(' ')}`); }
   }
   s.validation = results.join('; ');
+  s.ignoredDelta = ignoredInventory(s.workspace);
   arm(run, restartAt(s));
 }
 
@@ -125,6 +127,7 @@ function recheck(run) {
   const moved = targetMoved(t, pull); if (moved) end(run, 'BLOCKED', moved);
   revalidate(run);
   verifyWorkspace(run);
+  const drift = ignoredDrift(s.ignoredDelta || [], s.workspace); if (drift) end(run, 'BLOCKED', `the workspace's ignored paths changed after validation: ${drift}`);
   let now;
   if (s.fingerprints) now = sameSpec(run, pull, s.workspace, s.fingerprintHead === t.headOid ? undefined : ['issue_spec']);
   else {
@@ -159,7 +162,7 @@ function arm(run, gate) {
   const history = { unresolved: open.map((e) => ({ ...e.record, blockerKey: e.blockerKey })), reopened: [],
     settled: s.ledger.filter((e) => e.status === 'settled').map((e) => ({ findingId: e.findingId, sourceGate: e.gate, disposition: e.disposition, status: 'settled', summary: e.summary })) };
   const volatile = { target: { repository: t.repository, number: t.number, headRepository: t.headRepository, headBranch: t.headBranch, baseOid: t.baseOid, headOid: t.headOid, mode: 'autofix', gate },
-    fingerprints: fp, body: s.body, diff: evidence.diff.toString('utf8'), languageProfile: LANGUAGE_PROFILE, acceptanceCriteria: s.acceptanceCriteria, history };
+    fingerprints: fp, body: s.body, diff: evidence.diff.toString('utf8'), languageProfile: s.languageProfile, acceptanceCriteria: s.acceptanceCriteria, history };
   if (gate === 'adversarial') { volatile.decisions = []; volatile.comments = trustedComments(run); }
   const built = data(run.op('build_gate_launch', { expectation, expectationPath, volatile, created: s.created }));
   Object.assign(s, { activeGate: gate, state: 'GATE_LAUNCH_PENDING', pending: { kind: 'gate', gate, invocation, expectationPath, head: t.headOid, launch: run.file(`launch-${gate}-${invocation}.json`, built.request) }, rounds: rounds(s) });
@@ -198,7 +201,7 @@ function result(opts) {
     if (entry.noProgress >= CAP.noProgress) end(run, 'ROUND_LIMIT_REACHED', `no_progress: ${x.findingId} observed unresolved ${entry.noProgress} times`);
   }
   const decisions = (envelope.decisions || []).filter((d) => d.status === 'pending').map((d) => d.decisionId);
-  if (envelope.verdict === 'NEEDS DECISION' || decisions.length || findings.some((x) => x.proposedDisposition === 'needs-owner-decision')) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; end(run, 'WAITING_FOR_OWNER', `owner_decision_required: ${gate} returned ${envelope.verdict}`); }
+  if (envelope.verdict === 'NEEDS DECISION' || decisions.length || findings.some((x) => x.proposedDisposition === 'needs-owner-decision')) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; end(run, 'WAITING_FOR_OWNER', `owner_decision_required: ${gateLabel(gate)} returned ${envelope.verdict}`); }
   const fresh = findings.filter((x) => x.origin !== 'assigned');
   // Assigned findings are classified too (ADV-208-ASSIGNED-CLASS).
   const owner = [...fresh.filter((x) => !isRecorded(x)), ...s.ledger.filter((e) => e.status === 'open').map((e) => e.record)].filter((x) => !correctable(x));
@@ -217,24 +220,17 @@ function result(opts) {
   return launchWriter(run, open);
 }
 
-// authorizedPaths: tracked paths the findings name (a basename counts when exactly one tracked file carries it), plus
-// the pull request's changed files; the names are matched in driver/paths.js.
-function authorizedPaths(run, open) {
-  const s = run.state, ws = s.workspace;
-  const tracked = git(ws, ['ls-files', '-z']).split('\0').filter(Boolean), named = new Set();
-  for (const e of open) {
-    const w = e.record.workflowRecord || {};
-    for (const p of namedPaths([e.record.evidence, e.record.correction, e.record.impact, w.path, w.sourceId, w.correctiveChange].filter(Boolean).join('\n'), tracked)) named.add(p);
-  }
-  if (!named.size) end(run, 'WAITING_FOR_OWNER', `owner_decision_required: no finding names a tracked path (${open.map((e) => e.findingId).join(', ')})`);
-  const changed = git(ws, ['diff', '--name-only', '-z', `${s.target.baseOid}...${s.target.headOid}`]).split('\0').filter(Boolean);
-  return [...new Set([...named, ...changed])].sort();
+// authorizedPaths (driver/paths.js); a finding set naming no tracked path is the owner's.
+function authorized(run, open) {
+  const s = run.state, paths = authorizedPaths(s.workspace, open, s.target);
+  if (!paths) end(run, 'WAITING_FOR_OWNER', `owner_decision_required: no finding names a tracked path (${open.map((e) => e.findingId).join(', ')})`);
+  return paths;
 }
 function launchWriter(run, open) {
   recheck(run);
   // ...and before any mutation (CONV-208-SNAPSHOT-STALE-WRITER).
   if (collectSnapshotEvidence(run, run.state.workspace).fresh) { run.state.invalidated = 'every gate verdict: the external snapshot changed before the writer'; return arm(run, restartAt(run.state)); }
-  const s = run.state, t = s.target, paths = authorizedPaths(run, open), ids = open.map((e) => e.findingId);
+  const s = run.state, t = s.target, paths = authorized(run, open), ids = open.map((e) => e.findingId);
   const message = `fix: ${ids.join(', ')} (#${s.issueNumber})\n\n${open.map((e) => `- ${e.findingId}: ${String(e.record.correction).replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')}\n\n`
     + `Test provenance: ${[...s.validationCommands, ['git', 'diff', '--check', 'HEAD']].map((c) => c.join(' ')).join('; ')} passed in the run-owned workspace before this commit.\n`;
   const task = [
@@ -282,8 +278,9 @@ function batch(opts) {
   const overlay = step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths });
   for (const command of [...s.validationCommands, ['git', 'diff', '--check', 'HEAD']]) {
     const v = run.op('validation_run', { cwd: ws, command, timeoutMs: 1800000 }, { allowFail: true });
-    if (v.data?.outcome !== 'passed') batchFail(run, 'validation_run', `validation_failed: ${command.join(' ')}`);
+    if (v.data?.outcome !== 'passed') batchFail(run, 'validation_run', `${v.ok === false && v.error?.code !== 'validation_failed' ? 'harness_failed' : 'validation_failed'}: ${command.join(' ')}`);
   }
+  b.ignored = ignoredInventory(ws);
   step('overlay_compare', { cwd: ws, overlay }); // AFTER_VALIDATION
   step('overlay_compare', { cwd: ws, overlay }); // BEFORE_STAGING
   try { runSync('git', gitArgs(['add', '--', ...overlay.entries.map((e) => e.path)]), { cwd: ws, phase: 'stage' }); } catch (error) { batchFail(run, 'stage', error.message); }
@@ -316,7 +313,7 @@ function writerDone(opts) {
   s.resolved.push(`tidd-autofix-worker run ${id}`);
   if (b.failed) {
     if (b.failed.step === 'push_publish') { const snap = snapshotOf(run); end(run, 'BLOCKED', `${snap.after.head === s.target.headOid ? 'local_commit_unpushed' : 'push_outcome_unknown'}: ${b.failed.reason}`); }
-    end(run, 'BLOCKED', `${b.failed.step === 'validation_run' ? 'validation_failed' : `guard_failed at ${b.failed.step}`}: ${b.failed.reason}`);
+    end(run, 'BLOCKED', b.failed.step === 'validation_run' ? b.failed.reason : `guard_failed at ${b.failed.step}: ${b.failed.reason}`);
   }
   if (!b.preEdit) end(run, 'BLOCKED', 'the writer ended without running the pre-edit guard');
   if (!b.done) end(run, 'BLOCKED', 'the writer ended without a completed batch');
@@ -331,7 +328,7 @@ function writerDone(opts) {
   // not a change of the old head's.
   s.origin = null; s.changedAt = null; s.fingerprints.snapshot = null;
   s.invalidated = `every gate verdict before ${b.commit.slice(0, 12)}`;
-  s.batch = null; s.pending = null; run.save();
+  s.ignoredDelta = b.ignored; s.batch = null; s.pending = null; run.save();
   verifyWorkspace(run);
   revalidate(run);
   arm(run, restartAt(s));
@@ -346,7 +343,8 @@ function finish(run) {
   s.activeGate = 'external';
   if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }
   finalPolicy(run, snapshot, 'wait for checks and external review on this head, then a fresh run');
-  end(run, 'MERGE_READY', `${s.convergenceDisabled ? 'convergence was disabled; Sol and Terra' : 'convergence, Sol and Terra'} returned MERGE on ${s.target.headOid.slice(0, 12)} after ${s.counters.pushes} correction push(es); the final policy passes`);
+  s.invalidated = null;
+  end(run, 'MERGE_READY', `${readyGates(s.gateLog, s.target.headOid)} returned MERGE on ${s.target.headOid.slice(0, 12)} after ${s.counters.pushes} correction push(es)${s.convergenceDisabled ? ' (convergence disabled)' : ''}; the final policy passes`);
 }
 
 try {

@@ -9,7 +9,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { externalTiming, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, readiness, sha256, die, git, gh } = require('./run');
+const { externalTiming, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, readiness, ignoredInventory, sha256, die, git, gh } = require('./run');
 
 const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 // gate-contract.md: a missing or unparsable result, its runner status record included, is relaunched once without spending a round; still running is
@@ -134,4 +134,13 @@ function finalPolicy(run, snapshot, waitAction) {
   s.activeGate = 'none'; s.nextAction = 'human merge decision; the workflow never merges'; s.operatorActions = 'none; a human may merge';
 }
 
-module.exports = { TRUSTED, gateLabel, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
+// Ignored paths a validation, a gate, or a writer changed since the run took them (review-only.md, autofix.md): a list
+// of up to five, or null.
+function ignoredDrift(saved, cwd) {
+  const now = ignoredInventory(cwd), drift = [...now.filter((x) => !saved.includes(x)), ...saved.filter((x) => !now.includes(x))];
+  return drift.length ? drift.slice(0, 5).join(', ') : null;
+}
+// The gates that returned MERGE on the head the run ends on, by label, for the MERGE_READY reason.
+function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.head === head && g.verdict === 'MERGE').map((g) => gateLabel(g.gate)))].join(' and '); }
+
+module.exports = { TRUSTED, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
