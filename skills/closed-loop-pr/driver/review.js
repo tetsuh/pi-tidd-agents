@@ -51,7 +51,7 @@ function start(opts) {
   // The gate receives the exact diff, so a diff that is not UTF-8 text stops here rather than reaching it altered.
   if (!isUtf8(Buffer.from(evidence.diff))) run.stop('BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly; review it on the prose path of review-only.md');
   s.fingerprints = evidence.values; s.records = evidence.records;
-  const results = validation.source === 'none' ? ['no validation commands configured'] : [];
+  const results = [`source: ${validation.source}`, ...(validation.source === 'none' ? ['no validation commands configured'] : [])];
   for (const command of [...validation.commands, ['git', 'diff', '--check', `${target.baseOid}...${target.headOid}`]]) {
     const v = run.op('validation_run', { cwd: checkout, command, timeoutMs: 1800000 }, { allowFail: true });
     results.push(`${command.join(' ')}: ${v.data?.outcome || v.error?.code}`);

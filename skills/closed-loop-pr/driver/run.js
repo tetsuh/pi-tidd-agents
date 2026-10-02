@@ -50,11 +50,15 @@ function acceptanceCriteria(body) {
   const section = (String(body || '').replace(/\r\n?/g, '\n').split(/\n##+\s*Acceptance criteria\s*\n/i)[1] || '').split(/\n##+ /)[0];
   return section.split('\n').filter((line) => /^\s*[-*]\s+/.test(line)).map((line) => line.replace(/^\s*[-*]\s+/, '').trim());
 }
-// Validation commands come from `.tidd.json` at the base commit, so the change under review cannot choose them.
-// #209: the validation commands come from outside the pull request under review, in this order: `.tidd.json` at the
-// base commit; otherwise `--validate` (a JSON list of argv lists) or the operator's own configuration at
-// $XDG_CONFIG_HOME/tidd/<owner>/<repo>.json; otherwise none. The head is never a source.
-function operatorConfig(repository, env = process.env) { return path.join(env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'tidd', ...repository.split('/')) + '.json'; }
+// #209 (CL-D97): the validation commands come from outside the pull request under review, in this order: `.tidd.json`
+// at the base commit; otherwise `--validate` when given (a JSON list of argv lists), else the operator's own
+// configuration at $XDG_CONFIG_HOME/tidd/<owner>/<repo>.json (~/.config when unset or relative); otherwise none.
+// The head is never a source.
+const OPERATOR_CONFIG = '~/.config/tidd/<owner>/<repo>.json';
+function operatorConfig(repository, env = process.env) {
+  const base = env.XDG_CONFIG_HOME && path.isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : path.join(os.homedir(), '.config');
+  return path.join(base, 'tidd', ...repository.split('/')) + '.json';
+}
 function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   const parse = (text, where, list) => {
     let config;
@@ -63,12 +67,14 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
     const ok = Array.isArray(commands) && commands.length > 0 && commands.every((c) => Array.isArray(c) && c.length > 0 && c.every((a) => typeof a === 'string' && a.length > 0));
     return ok ? { commands } : { problem: `${where} must carry ${list ? '' : 'validate: '}a nonempty list of nonempty argv lists` };
   };
-  let text; try { text = git(cwd, ['show', `${baseOid}:.tidd.json`]); } catch { text = null; }
-  if (text !== null) return { ...parse(text, '.tidd.json at the base commit'), source: 'base .tidd.json' };
+  try { git(cwd, ['cat-file', '-e', `${baseOid}^{commit}`]); } catch { return { problem: `the base commit ${baseOid} is not available to read .tidd.json from`, source: 'none' }; }
+  let present = true; try { git(cwd, ['cat-file', '-e', `${baseOid}:.tidd.json`]); } catch { present = false; }
+  if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`]), '.tidd.json at the base commit'), source: 'base .tidd.json' };
   if (validate !== undefined) return { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
-  if (fs.existsSync(file)) return { ...parse(fs.readFileSync(file, 'utf8'), file), source: file };
-  return { commands: [], source: 'none' };
+  if (!fs.existsSync(file)) return { commands: [], source: 'none' };
+  let text; try { text = fs.readFileSync(file, 'utf8'); } catch (error) { return { problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${error.code}`, source: 'operator configuration' }; }
+  return { ...parse(text, `the operator configuration ${OPERATOR_CONFIG}`), source: 'operator configuration' };
 }
 
 // The six head fingerprints (CL-D9), each through its packaged operation, so a value and its record are the helper's
@@ -259,7 +265,7 @@ class Run {
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
       'review_misses: none', `pending_decisions: ${quoted((s.pendingDecisions || []).join(', ') || 'none')}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
-      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted([s.operatorActions || 'none', ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${operatorConfig(t.repository)}`] : [])].join('; '))}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
+      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted([...(s.operatorActions && !/^none\b/.test(s.operatorActions) ? [s.operatorActions] : []), ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', t.repository)}`] : [])].join('; ') || s.operatorActions || 'none')}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
     const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${quoted(g.findings)}` : ''}`).join('\n') || '- none';
     const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
       `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
@@ -289,4 +295,4 @@ class Run {
   }
 }
 
-module.exports = { operatorConfig, externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { OPERATOR_CONFIG, operatorConfig, externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
