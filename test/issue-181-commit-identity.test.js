@@ -187,6 +187,27 @@ test('Issue #181 push_publish never forces over a remote that moved', () => {
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), remote, 'the remote branch is unchanged');
 });
 
+test('Issue #207 push_publish refuses a remote rewound to an ancestor and pushes nothing', () => {
+  // CL-D99 (#207): a plain push fast-forwards over a rewind and restores what was removed; the lease refuses it.
+  const env = bareHome(), repo = repository();
+  const first = repo.head;
+  fs.writeFileSync(path.join(repo.root, 'second.txt'), 'second\n');
+  git(repo.root, ['add', 'second.txt']); git(repo.root, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'test: second']);
+  git(repo.root, ['push', 'origin', 'main']);
+  const head = git(repo.root, ['rev-parse', 'HEAD']);
+  const captured = cli('operator_capture', { cwd: repo.root, identity: { ...repo.identity, publicHead: head } }, env);
+  assert.equal(captured.ok, true, JSON.stringify(captured));
+  const made = cli('workspace_create', { cwd: repo.root, head, tree: git(repo.root, ['rev-parse', 'HEAD^{tree}']) }, env);
+  assert.equal(made.ok, true, JSON.stringify(made));
+  const created = made.data;
+  stageCorrection(created.path);
+  assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+  git(repo.bare, ['update-ref', 'refs/heads/main', first]);
+  const pushed = cli('push_publish', { created, captured }, env);
+  assert.deepEqual([pushed.ok, pushed.error?.phase], [false, 'push_publish'], JSON.stringify(pushed));
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), first, 'nothing was pushed over the rewind');
+});
+
 test('Issue #181 push_publish checks the push URL the workspace would actually use', () => {
   // CONV-182-PUSH-URL-ACTUAL-001: the capture's URL is only a record; Git pushes through the workspace's origin.
   const { repo, captured, created, env } = run();
@@ -321,14 +342,18 @@ test('Issue #181 gh reads the operator configuration directory on every platform
 
 test('Issue #181 the push names exactly one credential helper, gh, and no force', () => {
   const { pushArgs } = require('../skills/closed-loop-pr/helpers/publish');
-  const args = pushArgs('feat/x');
+  const lease = 'a'.repeat(40);
+  const args = pushArgs('feat/x', lease);
   const helpers = args.flatMap((arg, index) => (args[index - 1] === '-c' && arg.startsWith('credential.helper=') ? [arg] : []));
   assert.equal(helpers.at(-1), 'credential.helper=!gh auth git-credential', 'the named helper is the last one configured');
   assert.equal(helpers.filter((entry) => entry !== 'credential.helper=').length, 1, 'no other helper is configured');
   assert.ok(helpers.indexOf('credential.helper=') < helpers.indexOf('credential.helper=!gh auth git-credential'), 'the inherited list is cleared first');
   // Configuration cannot widen the push beyond the one branch: no tags, no submodules, no signing (CL-D30's one push).
-  assert.deepEqual(args.slice(args.indexOf('push')), ['push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', 'origin', 'HEAD:refs/heads/feat/x']);
-  assert.ok(!args.some((arg) => /^(?:-f|--force.*|\+.*)$/.test(arg)), 'no force in any form');
+  // CL-D99 (#207): the one lease, on exactly the pushed branch and the head the batch built on, is the only force-named
+  // flag; it refuses the push unless the remote is exactly that head, so it never overwrites anything.
+  assert.deepEqual(args.slice(args.indexOf('push')), ['push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/feat/x:${lease}`, 'origin', 'HEAD:refs/heads/feat/x']);
+  assert.ok(!args.some((arg) => /^(?:-f|--force(?!-with-lease=refs\/heads\/feat\/x:a{40}$).*|\+.*)$/.test(arg)), 'no force beyond the one lease');
+  assert.throws(() => pushArgs('feat/x'), /expected head/, 'the push never runs without its lease');
 });
 
 test('Issue #181 the map, the addendum, and CL-D89 route the commit and push through the packaged operations', () => {

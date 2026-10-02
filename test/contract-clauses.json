@@ -4700,6 +4700,44 @@
       ]
     },
     {
+      "id": "CL-D99-record",
+      "marker": "CL-D99",
+      "title": "CL-D99 records the lease and why it is the one force-named flag",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D99 — The correction push carries a lease on the head it was built on",
+      "requires": [
+        "tetsuh/pi-tidd-agents#207",
+        "`--force-with-lease=refs/heads/<branch>:<parent>`",
+        "`--force`, a `+` refspec, and any other force-named flag stay forbidden"
+      ]
+    },
+    {
+      "id": "CL-D99-forward",
+      "marker": "CL-D99",
+      "title": "CL-D89 names the lease",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D89 — The writer commits and pushes through packaged operations with the operator identity",
+      "requires": [
+        "CL-D99 later made the one push carry a lease on the head the batch built on"
+      ]
+    },
+    {
+      "id": "CL-D99-tests",
+      "marker": "CL-D99",
+      "title": "The lease is pinned",
+      "files": [
+        "test/issue-181-commit-identity.test.js"
+      ],
+      "requires": [
+        "Issue #207 push_publish refuses a remote rewound to an ancestor and pushes nothing",
+        "CL-D99 (#207)"
+      ]
+    },
+    {
       "id": "CL-D97-record",
       "marker": "CL-D97",
       "title": "CL-D97 records where validation commands come from and what none means",
