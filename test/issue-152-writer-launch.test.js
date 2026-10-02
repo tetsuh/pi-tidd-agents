@@ -277,7 +277,9 @@ test('Issue #152 the receiver refuses what the parent composed by hand', { skip:
   const request = build({}).data.request;
   // PR #149 run 1: `preflight` beside a one-child launch. The builder emits no such key; here the receiver says why.
   const withPreflight = await askReceiver({ ...request, preflight: { lanes: [] } });
-  assert.deepEqual([withPreflight.normalized.ok, withPreflight.normalized.error], [false, 'preflight requires workflowScript or workflowScriptPath.']);
+  // pi-subagents 0.74.0 reworded the refusal; the refusal itself is what this pins.
+  assert.equal(withPreflight.normalized.ok, false);
+  assert.match(withPreflight.normalized.error, /^preflight requires (?:workflowScript or workflowScriptPath|workflow: true or a workflow script path)\.$/);
   // Issue #150: an evidence kind pi-subagents does not know. The builder emits `acceptance: false`, which it accepts.
   const invented = await askReceiver({ ...request, acceptance: { level: 'checked', evidence: ['tests-pass'] } });
   assert.equal(invented.acceptanceErrors.length, 1, JSON.stringify(invented.acceptanceErrors));
