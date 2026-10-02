@@ -510,6 +510,26 @@ test('Issue #209 validation commands resolve from the base file, then --validate
     assert.match(state(t.runDir).reason, /operator configuration .*EACCES/);
     assert.equal(fs.readdirSync(t.runDir).some((f) => /-(validation_run|build_gate_launch)\.request\.json$/.test(f)), false);
   } finally { fs.chmodSync(path.join(locked, 'tidd', 'o'), 0o755); }
+  // CONV-211-XDG-IN-REPO: an operator configuration inside the target checkout is the pull request's own tracked file,
+  // not the operator's, whether XDG_CONFIG_HOME points into the checkout directly or through a link from outside.
+  const inRepo = () => {
+    const u = setup({ config: null });
+    fs.mkdirSync(path.join(u.target.root, '.config', 'tidd', 'o'), { recursive: true });
+    fs.writeFileSync(path.join(u.target.root, '.config', 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "in-repo"]]}');
+    git(u.target.root, ['add', '.config']); git(u.target.root, ['commit', '-q', '-m', 'config at head']);
+    const f = JSON.parse(fs.readFileSync(u.fixture, 'utf8')); f.pull.head.sha = git(u.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(u.fixture, JSON.stringify(f));
+    return u;
+  };
+  t = inRepo();
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(t.target.root, '.config') }).status, 0);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  assert.ok(!ran(state(t.runDir), 'in-repo'));
+  t = inRepo();
+  const link = path.join(temp('i209-link-'), 'cfg'); fs.symlinkSync(path.join(t.target.root, '.config'), link);
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: link }).status, 0);
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  assert.ok(!ran(state(t.runDir), 'in-repo'));
   t = setup({ config: null });
   assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: 'relative-config' }).status, 0);
   assert.equal(state(t.runDir).validationSource, 'none', 'a relative XDG_CONFIG_HOME is not a source');
