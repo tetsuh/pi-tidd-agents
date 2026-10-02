@@ -54,10 +54,12 @@ function commitCreate(data) {
 
 // Isolation empties `credential.helper` and replaces HOME, so the operator's helper never runs. The push clears the
 // inherited list and names exactly one helper; gh is the authentication the run already uses for snapshots and
-// replies. No force in any form: a remote that moved refuses the push. Configuration cannot widen it either: no tags,
-// no submodules, no signing ride along with the one branch.
-function pushArgs(branch) {
-  return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', 'origin', `HEAD:refs/heads/${branch}`]);
+// replies. No force: the one lease (CL-D99, #207) makes Git refuse the push unless the remote branch is exactly the
+// head the batch built on, so a remote that moved any way, rewound to an ancestor included, refuses it. Configuration
+// cannot widen it either: no tags, no submodules, no signing ride along with the one branch.
+function pushArgs(branch, expected) {
+  if (!/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(String(expected))) throw Object.assign(new Error('the push needs the expected head of the branch for its lease'), { code: 'invalid_request' });
+  return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/${branch}:${expected}`, 'origin', `HEAD:refs/heads/${branch}`]);
 }
 // gh finds its own configuration from the operator's environment, not the isolated one: the isolation sets
 // XDG_CONFIG_HOME on every platform, and gh consults it before its Windows default, so the directory is always named.
@@ -103,7 +105,10 @@ function pushPublish(data) {
     // The pushed history is this run's: HEAD descends from the public head the capture verified.
     try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), head], phase); }
     catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'HEAD does not descend from the captured public head', phase, { captured: String(captured.data.head), head }); throw error; }
-    runSync('git', pushArgs(branch), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
+    // The lease is the head the batch built on: the new commit's sole parent (commit_create made exactly one).
+    const parents = git(cwd, ['rev-list', '--parents', '-n', '1', 'HEAD'], phase).trim().split(' ').slice(1);
+    if (parents.length !== 1) fail('guard_failed', 'HEAD is not a single commit on the head the batch built on', phase, { parents });
+    runSync('git', pushArgs(branch, parents[0]), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
     return { head, ref: `refs/heads/${branch}` };
   });
 }
