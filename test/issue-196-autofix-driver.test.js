@@ -433,12 +433,14 @@ test('Issue #196 a criterion-anchored Minor, fixed or deferred, is in the correc
 
 test('Issue #196 the autofix driver stops before any gate without .tidd.json or acceptance criteria', () => {
   // #209: exact autofix with no validation commands stops, naming both places they can come from.
-  for (const [label, options, pattern] of [['no .tidd.json', { config: null }, /\.tidd\.json at the base.*\.config\/tidd\/o\/r\.json/], ['no acceptance criteria', { issueBody: 'Spec only.\n' }, /[Aa]cceptance/]]) {
+  for (const [label, options, pattern] of [['no .tidd.json', { config: null }, /\.tidd\.json at the base or ~\/\.config\/tidd\/o\/r\.json/], ['no acceptance criteria', { issueBody: 'Spec only.\n' }, /[Aa]cceptance/]]) {
     const t = setup(options);
     const r = drive(t.start, t.env);
     assert.equal(nextRequest(r.stdout), null, `${label}: no gate launch`);
     assert.equal(state(t.runDir).state, 'BLOCKED', label);
     assert.match(state(t.runDir).reason, pattern, label);
+    // Before the operator capture and any workspace (#209 AC3).
+    assert.equal(fs.readdirSync(t.runDir).some((f) => /-(operator_capture|workspace_create)\.request\.json$/.test(f)), false, label);
   }
 });
 

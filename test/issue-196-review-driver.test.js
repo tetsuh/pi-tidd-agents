@@ -73,7 +73,8 @@ out([]);
   return bin;
 }
 
-function env(bin, runs) { return { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, PI_SUBAGENTS_TEMP_ROOT: runs }; }
+// The operator's configuration directory is the test's own, never the machine's (#209).
+function env(bin, runs) { return { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, PI_SUBAGENTS_TEMP_ROOT: runs, XDG_CONFIG_HOME: temp('i196-xdg-') }; }
 function drive(args, e) { return spawnSync(process.execPath, [DRIVER, ...args], { encoding: 'utf8', env: e, timeout: 120000 }); }
 function nextRequest(stdout) { const lines = stdout.split('\n'); const i = lines.findIndex((l) => l.startsWith('NEXT:')); return i < 0 ? null : JSON.parse(lines[i + 1]); }
 
@@ -455,8 +456,9 @@ test('Issue #209 review-only with no validation commands runs git diff --check o
   const s = state(t.runDir);
   assert.equal(s.state, 'MERGE_READY', s.reason);
   assert.equal(s.validationSource, 'none');
-  assert.match(s.validation, /^no validation commands configured; git diff --check/);
-  assert.match(s.statusBlock, /operator_actions: .*no validation commands configured/);
+  assert.match(s.validation, /^source: none; no validation commands configured; git diff --check/);
+  assert.match(s.statusBlock, /operator_actions: "?no validation commands configured: add \.tidd\.json at the base or ~\/\.config\/tidd\/o\/r\.json/);
+  assert.doesNotMatch(fs.readFileSync(s.publication.comment, 'utf8'), new RegExp(os.homedir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'no operator home path is published');
   assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /no validation commands configured/);
 });
 
@@ -469,17 +471,20 @@ test('Issue #209 validation commands resolve from the base file, then --validate
   // The operator configuration, read from $XDG_CONFIG_HOME/tidd/<owner>/<repo>.json when the base has no file.
   let t = setup({ config: null });
   assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
-  assert.equal(state(t.runDir).validationSource, path.join(config, 'tidd', 'o', 'r.json'));
+  assert.equal(state(t.runDir).validationSource, 'operator configuration');
+  assert.match(state(t.runDir).validation, /^source: operator configuration; /);
   assert.ok(ran(state(t.runDir), 'operator-config'));
   // --validate, a JSON list of argv lists, in place of the operator configuration.
   t = setup({ config: null });
   assert.equal(drive([...t.start, '--validate', '[["node", "-e", "process.exit(0)", "flag"]]'], { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
   assert.equal(state(t.runDir).validationSource, '--validate');
+  assert.match(state(t.runDir).validation, /^source: --validate; /);
   assert.ok(ran(state(t.runDir), 'flag'));
   // The base file wins over both.
   t = setup({ config: { validate: [['node', '-e', 'process.exit(0)', 'base-file']] } });
   assert.equal(drive([...t.start, '--validate', '[["node", "-e", "process.exit(0)", "flag"]]'], { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
   assert.equal(state(t.runDir).validationSource, 'base .tidd.json');
+  assert.match(state(t.runDir).validation, /^source: base \.tidd\.json; /);
   assert.ok(ran(state(t.runDir), 'base-file'));
   assert.ok(!ran(state(t.runDir), 'flag') && !ran(state(t.runDir), 'operator-config'));
   // A malformed --validate stops before any gate.
@@ -487,6 +492,17 @@ test('Issue #209 validation commands resolve from the base file, then --validate
   const r = drive([...t.start, '--validate', 'not json'], t.e);
   assert.notEqual(r.status, 0);
   assert.match(state(t.runDir).reason, /--validate/);
+  // A malformed operator file, or a directory in its place, stops before any gate; a relative XDG_CONFIG_HOME is ignored.
+  for (const [label, write] of [['not JSON', (f) => fs.writeFileSync(f, 'nope')], ['empty list', (f) => fs.writeFileSync(f, '{"validate": []}')], ['a directory', (f) => fs.mkdirSync(f)]]) {
+    const home = temp('i209-bad-'); fs.mkdirSync(path.join(home, 'tidd', 'o'), { recursive: true }); write(path.join(home, 'tidd', 'o', 'r.json'));
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: home }).status, 0, label);
+    assert.equal(state(t.runDir).state, 'BLOCKED', label);
+    assert.match(state(t.runDir).reason, /operator configuration/, label);
+  }
+  t = setup({ config: null });
+  assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: 'relative-config' }).status, 0);
+  assert.equal(state(t.runDir).validationSource, 'none', 'a relative XDG_CONFIG_HOME is not a source');
 });
 
 // CONV-199-BODY-ID-CLI: the helpers define no body fingerprint, so CL-D93 defines the `github:pr:<N>:body` identity
