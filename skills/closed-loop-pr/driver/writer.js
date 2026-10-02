@@ -32,7 +32,7 @@ function writerTask(s, open, paths, self, runDir) {
     '2. Apply the corrections below, and nothing else. Edit only these paths (you may leave any of them untouched):',
     ...paths.map((p) => `   - ${p}`),
     '   Keep each change minimal. Where a correction asks for a regression test, add it to a test file in the list. Copy any literal a correction pins verbatim.',
-    `3. You may run the validation commands to iterate: ${s.validationCommands.map((c) => c.join(' ')).join('; ')}.`,
+    `3. Do not run the validation commands or the project's tests yourself: an ignored path they change (a cache, a build directory) stops the batch, which runs them itself: ${s.validationCommands.map((c) => c.join(' ')).join('; ')}.`,
     `4. Run: node ${self} batch --run-dir ${runDir}   It validates, stages, commits with the approved message, and pushes. It must print BATCH_OK.`,
     '   Never run git add, git commit, git push, or any other Git write yourself. Never touch the operator checkout.',
     '5. End with one line: BATCH_OK <commit> or FAILED <step>: <reason>.', '',
