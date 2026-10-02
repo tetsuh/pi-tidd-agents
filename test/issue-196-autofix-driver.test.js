@@ -818,6 +818,9 @@ test('Issue #196 writer.js composes the writer task and the commit message from 
   assert.match(task, /1\. Run: node \/pkg\/autofix\.js pre-edit --run-dir \/run/);
   assert.match(task, /\n   - a\.js\n/);
   assert.match(task, /### CONV-7-X1 \(Major, convergence\)/);
+  // The batch refuses ignored-path changes it did not make, so the writer leaves validation to it.
+  assert.match(task, /3\. Do not run the validation commands or the project's tests yourself/);
+  assert.doesNotMatch(task, /You may run the validation commands/);
 });
 
 test('Issue #196 paths.js ends a name only at whitespace or listed punctuation, and retain keeps an earlier action', () => {
