@@ -24,7 +24,10 @@ function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
-    if (a.startsWith('--')) { const value = argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[++i] : true; out[a.slice(2)] = value; } else out._.push(a);
+    // `--key=value` is `--key value`, so an option is never silently dropped under a key no one reads.
+    const eq = a.startsWith('--') ? a.indexOf('=') : -1;
+    if (eq > 2) out[a.slice(2, eq)] = a.slice(eq + 1);
+    else if (a.startsWith('--')) { const value = argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[++i] : true; out[a.slice(2)] = value; } else out._.push(a);
   }
   return out;
 }
@@ -79,7 +82,8 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   try { git(cwd, ['cat-file', '-e', `${baseOid}^{commit}`]); } catch { return { problem: `the base commit ${baseOid} is not available to read .tidd.json from`, source: 'none' }; }
   let present = true; try { git(cwd, ['cat-file', '-e', `${baseOid}:.tidd.json`]); } catch { present = false; }
   if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer'), '.tidd.json at the base commit'), source: 'base .tidd.json' };
-  if (validate !== undefined) return { ...parse(String(validate), '--validate', true), source: '--validate' };
+  // Node decodes argv lossily, so a replacement character means bytes that were not UTF-8 (pre-push sweep).
+  if (validate !== undefined) return String(validate).includes('\uFFFD') ? { problem: '--validate carries a replacement character: its bytes were not UTF-8', source: '--validate' } : { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
   // A file inside the target checkout belongs to the pull request, however it is reached (CONV-211-XDG-IN-REPO): walk up
   // from the file's nearest existing ancestor and refuse on reaching the repository root by identity (device and inode),
@@ -95,7 +99,7 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   // stops (ADV-211-OPERATOR-CONFIG-EACCES, CONV-211-OPERATOR-CONFIG-DANGLING-SYMLINK).
   const refuse = (why) => ({ problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${why}`, source: 'operator configuration' });
   try { fs.lstatSync(file); } catch (error) { return error.code === 'ENOENT' ? { commands: [], source: 'none' } : refuse(error.code); }
-  let text; try { if (!fs.statSync(file).isFile()) return refuse('not a regular file'); text = fs.readFileSync(file); } catch (error) { return refuse(error.code); }
+  let text; try { const st = fs.statSync(file); if (!st.isFile()) return refuse('not a regular file'); if (st.size > 65536) return refuse('larger than 64 KiB'); text = fs.readFileSync(file); } catch (error) { return refuse(error.code); }
   return { ...parse(text, `the operator configuration ${OPERATOR_CONFIG}`), source: 'operator configuration' };
 }
 
