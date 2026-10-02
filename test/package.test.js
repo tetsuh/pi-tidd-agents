@@ -59,7 +59,8 @@ function locateInstalledPiSkillsApi() {
   if (!fs.existsSync(apiPath)) throw new Error(`installed Pi package is missing its skills API: ${apiPath}`);
   const api = require(apiPath);
   if (typeof api.loadSkillsFromDir !== 'function') throw new Error('installed Pi skills API does not export loadSkillsFromDir');
-  if (!/^(?:0\.(?:8[4-9]|9\d)|[1-9]\d*)\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(packageJson.version)) {
+  // A 1.x or later version carries its own minor part (Pi 1.0.0 failed the old pattern, which allowed only major.patch).
+  if (!/^(?:0\.(?:8[4-9]|9\d)|[1-9]\d*\.\d+)\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(packageJson.version)) {
     throw new Error(`installed Pi version is not a supported semantic version: ${packageJson.version}`);
   }
   return { api, version: packageJson.version };
@@ -303,7 +304,7 @@ test('Issue #24 discovery diagnostics validation is fail-closed', () => {
 });
 
 test('Issue #24 installed Pi discovery matches structural discovery when available', { skip: installedPiSkills ? false : 'Pi is not installed in this environment' }, () => {
-  assert.match(installedPiSkills.version, /^(?:0\.(?:8[4-9]|9\d)|[1-9]\d*)\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
+  assert.match(installedPiSkills.version, /^(?:0\.(?:8[4-9]|9\d)|[1-9]\d*\.\d+)\.\d+(?:[-+][0-9A-Za-z.-]+)?$/);
   assert.equal(typeof installedPiSkills.api.loadSkillsFromDir, 'function');
   const discovery = installedPiSkills.api.loadSkillsFromDir({ dir: repoPath('skills'), source: 'Issue #24 package test' });
   validateDiscoveryDiagnostics(discovery);
