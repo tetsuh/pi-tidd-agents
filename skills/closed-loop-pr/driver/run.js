@@ -72,6 +72,10 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`]), '.tidd.json at the base commit'), source: 'base .tidd.json' };
   if (validate !== undefined) return { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
+  // A file inside the target checkout belongs to the pull request, however it is reached (CONV-211-XDG-IN-REPO).
+  const real = (p) => { for (let at = p; ; at = path.dirname(at)) { try { return path.join(fs.realpathSync.native(at), path.relative(at, p)); } catch { if (at === path.dirname(at)) return p; } } };
+  const inside = path.relative(real(cwd), real(file));
+  if (!inside.startsWith('..') && !path.isAbsolute(inside)) return { problem: `the operator configuration ${OPERATOR_CONFIG} resolves inside the target checkout`, source: 'operator configuration' };
   // Only a missing file is absence; any other failure to read it stops (ADV-211-OPERATOR-CONFIG-EACCES).
   let text; try { text = fs.readFileSync(file, 'utf8'); } catch (error) {
     if (error.code === 'ENOENT') return { commands: [], source: 'none' };
