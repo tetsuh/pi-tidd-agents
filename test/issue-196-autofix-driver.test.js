@@ -896,3 +896,18 @@ test('Issue #196 ignored paths validation creates in the batch are adopted, not 
   assert.equal(writerBatch(t, 'module.exports = 3;\n').status, 0);
   assert.notEqual(state(t.runDir).state, 'BLOCKED', state(t.runDir).reason);
 });
+
+test('Issue #209 the autofix driver refuses an operator configuration inside the checkout, even from a subdirectory', () => {
+  // The sweep after CONV-211-XDG-IN-REPO: the check compares with the repository root, not the --checkout given.
+  const t = setup({ config: null, files: { 'sub/keep': 'k\n' } });
+  const cfg = path.join(t.target.checkout, 'cfg');
+  fs.mkdirSync(path.join(cfg, 'tidd', 'o'), { recursive: true });
+  const marker = path.join(temp('i209-marker-'), 'ran');
+  fs.writeFileSync(path.join(cfg, 'tidd', 'o', 'r.json'), JSON.stringify({ validate: [['node', '-e', `require('fs').writeFileSync(${JSON.stringify(marker)}, 'x')`]] }));
+  git(t.target.checkout, ['add', 'cfg']); git(t.target.checkout, ['commit', '-q', '-m', 'config at head']); git(t.target.checkout, ['push', '-q', 'origin', 'feature']);
+  const start = [...t.start]; start[start.indexOf('--checkout') + 1] = path.join(t.target.checkout, 'sub');
+  drive(start, { ...t.env, XDG_CONFIG_HOME: cfg });
+  assert.equal(state(t.runDir).state, 'BLOCKED', state(t.runDir).reason);
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  assert.equal(fs.existsSync(marker), false, "the head file's command never ran");
+});

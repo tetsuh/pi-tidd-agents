@@ -525,6 +525,14 @@ test('Issue #209 validation commands resolve from the base file, then --validate
   assert.equal(state(t.runDir).state, 'BLOCKED');
   assert.match(state(t.runDir).reason, /inside the target checkout/);
   assert.ok(!ran(state(t.runDir), 'in-repo'));
+  // A folder inside the checkout whose name starts with `..` is still inside.
+  t = setup({ config: null });
+  fs.mkdirSync(path.join(t.target.root, '..cfg', 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(t.target.root, '..cfg', 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "in-repo"]]}');
+  git(t.target.root, ['add', '..cfg']); git(t.target.root, ['commit', '-q', '-m', 'dotdot config at head']);
+  { const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f)); }
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(t.target.root, '..cfg') }).status, 0);
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
   t = inRepo();
   const link = path.join(temp('i209-link-'), 'cfg'); fs.symlinkSync(path.join(t.target.root, '.config'), link);
   assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: link }).status, 0);
