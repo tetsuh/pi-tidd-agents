@@ -6,6 +6,7 @@
 
 const fs = require('node:fs');
 const os = require('node:os');
+const { isUtf8 } = require('node:buffer');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
@@ -60,7 +61,15 @@ function operatorConfig(repository, env = process.env) {
   return path.join(base, 'tidd', ...repository.split('/')) + '.json';
 }
 function validationCommands(cwd, baseOid, { validate, repository } = {}) {
-  const parse = (text, where, list) => {
+  // One strict reader for every file source (CONV-211-X1): bytes, bounded, well-formed UTF-8, no BOM, then JSON, so what
+  // runs is exactly what the file says. `--validate` arrives already decoded as an argument and is parsed as given.
+  const parse = (input, where, list) => {
+    let text = input;
+    if (Buffer.isBuffer(input)) {
+      if (input.length > 65536) return { problem: `${where} is larger than 64 KiB` };
+      if (!isUtf8(input) || (input[0] === 0xef && input[1] === 0xbb && input[2] === 0xbf)) return { problem: `${where} is not BOM-free UTF-8` };
+      text = input.toString('utf8');
+    }
     let config;
     try { config = JSON.parse(text); } catch { return { problem: `${where} is not JSON` }; }
     const commands = list ? config : config?.validate;
@@ -69,7 +78,7 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   };
   try { git(cwd, ['cat-file', '-e', `${baseOid}^{commit}`]); } catch { return { problem: `the base commit ${baseOid} is not available to read .tidd.json from`, source: 'none' }; }
   let present = true; try { git(cwd, ['cat-file', '-e', `${baseOid}:.tidd.json`]); } catch { present = false; }
-  if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`]), '.tidd.json at the base commit'), source: 'base .tidd.json' };
+  if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer'), '.tidd.json at the base commit'), source: 'base .tidd.json' };
   if (validate !== undefined) return { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
   // A file inside the target checkout belongs to the pull request, however it is reached (CONV-211-XDG-IN-REPO): walk up
@@ -86,7 +95,7 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   // stops (ADV-211-OPERATOR-CONFIG-EACCES, CONV-211-OPERATOR-CONFIG-DANGLING-SYMLINK).
   const refuse = (why) => ({ problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${why}`, source: 'operator configuration' });
   try { fs.lstatSync(file); } catch (error) { return error.code === 'ENOENT' ? { commands: [], source: 'none' } : refuse(error.code); }
-  let text; try { if (!fs.statSync(file).isFile()) return refuse('not a regular file'); text = fs.readFileSync(file, 'utf8'); } catch (error) { return refuse(error.code); }
+  let text; try { if (!fs.statSync(file).isFile()) return refuse('not a regular file'); text = fs.readFileSync(file); } catch (error) { return refuse(error.code); }
   return { ...parse(text, `the operator configuration ${OPERATOR_CONFIG}`), source: 'operator configuration' };
 }
 

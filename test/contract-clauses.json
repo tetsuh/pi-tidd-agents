@@ -4748,7 +4748,7 @@
       ],
       "requires": [
         "const CLI = path.join(PACKAGE, 'skills', 'closed-loop-pr', 'helpers', 'cli.js');",
-        "git(cwd, ['show', `${baseOid}:.tidd.json`])",
+        "git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer')",
         "function contractInput(files)"
       ]
     },
