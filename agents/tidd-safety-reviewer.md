@@ -2,7 +2,7 @@
 name: tidd-safety-reviewer
 aliases: terra-reviewer
 description: Read-only concurrency, lifetime, ownership, and safety reviewer
-model: gpt-6-sol
+model: gpt-6.1-sol
 thinking: "high"
 systemPromptMode: replace
 inheritProjectContext: true

@@ -19,7 +19,7 @@ Requirements differ between the two ways of using this package:
 | Standalone agents | À la carte. Run whichever agents resolve in your environment; an unavailable model affects only that one agent. |
 | Closed-loop workflow | Composes a fixed set of five agents: four formal roles plus the non-authoritative convergence reviewer. The complete loop needs all five; a single command needs only the agents in its own preflight, and a disabled convergence reviewer skips its stage. |
 
-The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer` (CL-D62). Their shipped defaults are OpenAI GPT-6 Sol (`gpt-6-sol`, the adversarial reviewer and both Terra roles) and GPT-6 Luna (`gpt-6-luna`, the writer and the convergence reviewer) (CL-D87); those defaults are deployment configuration, not role semantics (CL-D59).
+The closed-loop workflow uses five roles: `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and the non-authoritative `tidd-convergence-reviewer` (CL-D62). Their shipped defaults are OpenAI GPT-6.1 Sol (`gpt-6.1-sol`, the adversarial reviewer and both Terra roles) and GPT-6 Luna (`gpt-6-luna`, the writer and the convergence reviewer) (CL-D87, CL-D98); those defaults are deployment configuration, not role semantics (CL-D59).
 
 Per command: `/tidd-issue` preflights `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, and `tidd-convergence-reviewer`; `/tidd-pr` preflights `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-convergence-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode. A disabled `tidd-convergence-reviewer` is not a preflight failure: its stage is skipped and the status block reports `convergence: disabled`.
 
@@ -49,9 +49,9 @@ pi install git:github.com/<owner>/pi-tidd-agents
 
 | Role | Default model | Purpose |
 | --- | --- | --- |
-| `tidd-adversarial-reviewer` | `gpt-6-sol` | Read-only adversarial requirements, contract, scope, and maintainability review |
-| `tidd-drift-reviewer` | `gpt-6-sol` | Read-only decision-drift and contradiction review |
-| `tidd-safety-reviewer` | `gpt-6-sol` | Read-only concurrency, lifetime, ownership, and safety review |
+| `tidd-adversarial-reviewer` | `gpt-6.1-sol` | Read-only adversarial requirements, contract, scope, and maintainability review |
+| `tidd-drift-reviewer` | `gpt-6.1-sol` | Read-only decision-drift and contradiction review |
+| `tidd-safety-reviewer` | `gpt-6.1-sol` | Read-only concurrency, lifetime, ownership, and safety review |
 | `tidd-autofix-worker` | `gpt-6-luna` | Bounded sole-writer implementation and correction work |
 | `tidd-convergence-reviewer` | `gpt-6-luna` | Read-only preliminary convergence review before the formal gates (non-authoritative) |
 

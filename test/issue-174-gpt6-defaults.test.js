@@ -1,6 +1,7 @@
 'use strict';
 
-// Issue #174 (CL-D87) — the package ships gpt-6-sol for the three reviewer roles that were Sol and Terra, and
+// Issue #174 (CL-D87) — the package ships gpt-6-sol (CL-D98 later moved them to gpt-6.1-sol) for the three reviewer
+// roles that were Sol and Terra, and
 // gpt-6-luna for the convergence reviewer and the writer. Thinking stays `high` everywhere. The two Terra roles
 // now run the Sol model, so the formal gates of each root no longer differ by model family; CL-D87 records that
 // as the owner's choice. Records of past runs keep the models those runs used.
