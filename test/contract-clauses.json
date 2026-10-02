@@ -4738,6 +4738,42 @@
       ]
     },
     {
+      "id": "CL-D98-record",
+      "marker": "CL-D98",
+      "title": "CL-D98 records the gpt-6.1-sol defaults",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D98 — The Sol and Terra roles ship gpt-6.1-sol",
+      "requires": [
+        "tetsuh/pi-tidd-agents#212",
+        "`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer` ship `gpt-6.1-sol`"
+      ]
+    },
+    {
+      "id": "CL-D98-forward",
+      "marker": "CL-D98",
+      "title": "CL-D87 names the move",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D87 — The package ships gpt-6-sol and gpt-6-luna",
+      "requires": [
+        "CL-D98 later moved the three gpt-6-sol roles to `gpt-6.1-sol`"
+      ]
+    },
+    {
+      "id": "CL-D98-tests",
+      "marker": "CL-D98",
+      "title": "The CL-D98 defaults are pinned",
+      "files": [
+        "test/issue-174-gpt6-defaults.test.js"
+      ],
+      "requires": [
+        "Issue #212 CL-D98 records the gpt-6.1-sol defaults and leaves CL-D87 as history"
+      ]
+    },
+    {
       "id": "CL-D97-record",
       "marker": "CL-D97",
       "title": "CL-D97 records where validation commands come from and what none means",
