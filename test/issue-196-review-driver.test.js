@@ -138,9 +138,10 @@ test('Issue #196 contractInput is the package authority files, not the target ch
   assert.equal(state(t.runDir).contractInput, expected);
 });
 
-test('Issue #196 a missing .tidd.json at the base, or an issue without acceptance criteria, stops before any gate', () => {
+test('Issue #196 a malformed .tidd.json at the base, or an issue without acceptance criteria, stops before any gate', () => {
   // CONV-199-MALFORMED-VALIDATION-CONFIG-TEST: a malformed file stops the run as surely as a missing one.
-  for (const [options, reason] of [[{ config: null }, /\.tidd\.json/], [{ issueBody: 'Spec without criteria.\n' }, /Acceptance criteria/],
+  // #209: a missing file no longer stops review-only (its own test below); a malformed one still does.
+  for (const [options, reason] of [[{ issueBody: 'Spec without criteria.\n' }, /Acceptance criteria/],
     [{ config: 'not json' }, /not JSON/], [{ config: { validate: [] } }, /nonempty list/], [{ config: { validate: [['node', 1]] } }, /nonempty list/]]) {
     const t = setup(options);
     const r = drive(t.start, t.e);
@@ -432,14 +433,60 @@ test('Issue #196 a pull request body edited between gates stops the next launch'
   assert.match(state(t.runDir).reason, /body changed/);
 });
 
-test('Issue #196 a .tidd.json added only at the head is not read, and the run stops BLOCKED', () => {
+test('Issue #196 a .tidd.json added only at the head is not read', () => {
+  // #209: with no base file and no operator configuration the run proceeds with no validation commands; the head's
+  // file, which the pull request under review controls, is never one of the sources.
   const t = setup({ config: null });
-  fs.writeFileSync(path.join(t.target.root, '.tidd.json'), '{"validate": [["node", "-e", "0"]]}\n');
+  fs.writeFileSync(path.join(t.target.root, '.tidd.json'), '{"validate": [["node", "-e", "process.exit(7)"]]}\n');
   git(t.target.root, ['add', '.tidd.json']); git(t.target.root, ['commit', '-q', '-m', 'add config at head']);
   const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f));
   const r = drive(t.start, t.e);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(state(t.runDir).validationSource, 'none');
+  assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json') && fs.readFileSync(path.join(t.runDir, f), 'utf8').includes('process.exit(7)')), false);
+});
+
+// #209 (owner decision in its body): base .tidd.json, then --validate or the operator configuration, then none.
+test('Issue #209 review-only with no validation commands runs git diff --check only and says so', () => {
+  const t = setup({ config: null });
+  let r = drive(t.start, t.e);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  for (let i = 0; i < 3; i += 1) r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.equal(s.validationSource, 'none');
+  assert.match(s.validation, /^no validation commands configured; git diff --check/);
+  assert.match(s.statusBlock, /operator_actions: .*no validation commands configured/);
+  assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /no validation commands configured/);
+});
+
+test('Issue #209 validation commands resolve from the base file, then --validate or the operator configuration', () => {
+  const config = temp('i209-config-');
+  fs.mkdirSync(path.join(config, 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(config, 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "operator-config"]]}\n');
+  // The commands a run executed, from its own validation_run request records.
+  const ran = (s, marker) => fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json') && fs.readFileSync(path.join(t.runDir, f), 'utf8').includes(marker));
+  // The operator configuration, read from $XDG_CONFIG_HOME/tidd/<owner>/<repo>.json when the base has no file.
+  let t = setup({ config: null });
+  assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
+  assert.equal(state(t.runDir).validationSource, path.join(config, 'tidd', 'o', 'r.json'));
+  assert.ok(ran(state(t.runDir), 'operator-config'));
+  // --validate, a JSON list of argv lists, in place of the operator configuration.
+  t = setup({ config: null });
+  assert.equal(drive([...t.start, '--validate', '[["node", "-e", "process.exit(0)", "flag"]]'], { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
+  assert.equal(state(t.runDir).validationSource, '--validate');
+  assert.ok(ran(state(t.runDir), 'flag'));
+  // The base file wins over both.
+  t = setup({ config: { validate: [['node', '-e', 'process.exit(0)', 'base-file']] } });
+  assert.equal(drive([...t.start, '--validate', '[["node", "-e", "process.exit(0)", "flag"]]'], { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
+  assert.equal(state(t.runDir).validationSource, 'base .tidd.json');
+  assert.ok(ran(state(t.runDir), 'base-file'));
+  assert.ok(!ran(state(t.runDir), 'flag') && !ran(state(t.runDir), 'operator-config'));
+  // A malformed --validate stops before any gate.
+  t = setup({ config: null });
+  const r = drive([...t.start, '--validate', 'not json'], t.e);
   assert.notEqual(r.status, 0);
-  assert.match(state(t.runDir).reason, /base commit carries no \.tidd\.json/);
+  assert.match(state(t.runDir).reason, /--validate/);
 });
 
 // CONV-199-BODY-ID-CLI: the helpers define no body fingerprint, so CL-D93 defines the `github:pr:<N>:body` identity
