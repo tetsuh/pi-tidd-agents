@@ -493,7 +493,7 @@ test('Issue #209 validation commands resolve from the base file, then --validate
   assert.notEqual(r.status, 0);
   assert.match(state(t.runDir).reason, /--validate/);
   // A malformed operator file, or a directory in its place, stops before any gate; a relative XDG_CONFIG_HOME is ignored.
-  for (const [label, write] of [['not JSON', (f) => fs.writeFileSync(f, 'nope')], ['empty list', (f) => fs.writeFileSync(f, '{"validate": []}')], ['a directory', (f) => fs.mkdirSync(f)]]) {
+  for (const [label, write] of [['not JSON', (f) => fs.writeFileSync(f, 'nope')], ['empty list', (f) => fs.writeFileSync(f, '{"validate": []}')], ['a directory', (f) => fs.mkdirSync(f)], ['a dangling link', (f) => fs.symlinkSync(path.join(path.dirname(f), 'gone.json'), f)], ['a FIFO', (f) => execFileSync('mkfifo', [f])]]) {
     const home = temp('i209-bad-'); fs.mkdirSync(path.join(home, 'tidd', 'o'), { recursive: true }); write(path.join(home, 'tidd', 'o', 'r.json'));
     t = setup({ config: null });
     assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: home }).status, 0, label);
