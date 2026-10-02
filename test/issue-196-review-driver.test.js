@@ -544,14 +544,28 @@ test('Issue #209 validation commands resolve from the base file, then --validate
   for (const [label, bytes] of [['an invalid byte', bad], ['a BOM', Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('{"validate": [["node", "-e", "0"]]}')])], ['an oversized file', Buffer.from(`{"validate": [["node", "-e", "0", "${'x'.repeat(70000)}"]]}`)]]) {
     t = setup({ config: bytes });
     assert.notEqual(drive(t.start, t.e).status, 0, `base: ${label}`);
-    assert.match(state(t.runDir).reason, /\.tidd\.json at the base commit/, `base: ${label}`);
+    assert.match(state(t.runDir).reason, label === 'an oversized file' ? /\.tidd\.json at the base commit is larger than 64 KiB/ : /\.tidd\.json at the base commit is not BOM-free UTF-8/, `base: ${label}`);
     assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json')), false, `base: ${label}`);
     const home = temp('i209-bytes-'); fs.mkdirSync(path.join(home, 'tidd', 'o'), { recursive: true }); fs.writeFileSync(path.join(home, 'tidd', 'o', 'r.json'), bytes);
     t = setup({ config: null });
     assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: home }).status, 0, `operator: ${label}`);
-    assert.match(state(t.runDir).reason, /operator configuration/, `operator: ${label}`);
+    assert.match(state(t.runDir).reason, label === 'an oversized file' ? /operator configuration .*larger than 64 KiB/ : /operator configuration .*not BOM-free UTF-8/, `operator: ${label}`);
     assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json')), false, `operator: ${label}`);
   }
+  // The bound is exact: 65536 bytes run, 65537 stop.
+  const sized = (n) => { const head = '{"validate": [["node", "-e", "process.exit(0)", "'; const tail = '"]]}'; return Buffer.from(head + 'x'.repeat(n - head.length - tail.length) + tail); };
+  t = setup({ config: sized(65536) });
+  assert.equal(drive(t.start, t.e).status, 0, 'exactly 64 KiB runs');
+  t = setup({ config: sized(65537) });
+  assert.notEqual(drive(t.start, t.e).status, 0, 'one byte over stops');
+  // --validate: a lossy-decoded argument and the --key=value spelling (pre-push sweep of the strict reader).
+  t = setup({ config: null });
+  assert.notEqual(drive([...t.start, '--validate', '[["node", "-e", "0", "x\uFFFD"]]'], t.e).status, 0);
+  assert.match(state(t.runDir).reason, /--validate .*replacement character/);
+  t = setup({ config: null });
+  assert.equal(drive([...t.start, '--validate=[["node", "-e", "process.exit(0)", "eq-form"]]'], t.e).status, 0);
+  assert.equal(state(t.runDir).validationSource, '--validate');
+  assert.ok(ran(state(t.runDir), 'eq-form'));
   t = setup({ config: null });
   assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: 'relative-config' }).status, 0);
   assert.equal(state(t.runDir).validationSource, 'none', 'a relative XDG_CONFIG_HOME is not a source');
