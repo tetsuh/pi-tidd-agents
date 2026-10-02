@@ -82,11 +82,11 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
     if (st) { const real = fs.realpathSync.native(at); if (real !== at) { at = path.join(real, 'x'); continue; } }
     if (at === path.dirname(at)) break;
   }
-  // Only a missing file is absence; any other failure to read it stops (ADV-211-OPERATOR-CONFIG-EACCES).
-  let text; try { text = fs.readFileSync(file, 'utf8'); } catch (error) {
-    if (error.code === 'ENOENT') return { commands: [], source: 'none' };
-    return { problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${error.code}`, source: 'operator configuration' };
-  }
+  // Only a missing entry is absence; a dangling link, a non-file (a FIFO would block a read), or any failure to read it
+  // stops (ADV-211-OPERATOR-CONFIG-EACCES, CONV-211-OPERATOR-CONFIG-DANGLING-SYMLINK).
+  const refuse = (why) => ({ problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${why}`, source: 'operator configuration' });
+  try { fs.lstatSync(file); } catch (error) { return error.code === 'ENOENT' ? { commands: [], source: 'none' } : refuse(error.code); }
+  let text; try { if (!fs.statSync(file).isFile()) return refuse('not a regular file'); text = fs.readFileSync(file, 'utf8'); } catch (error) { return refuse(error.code); }
   return { ...parse(text, `the operator configuration ${OPERATOR_CONFIG}`), source: 'operator configuration' };
 }
 
