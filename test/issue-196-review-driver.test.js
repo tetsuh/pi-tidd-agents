@@ -446,7 +446,7 @@ test('Issue #196 a .tidd.json added only at the head is not read', () => {
   assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json') && fs.readFileSync(path.join(t.runDir, f), 'utf8').includes('process.exit(7)')), false);
 });
 
-// #209 (owner decision in its body): base .tidd.json, then --validate or the operator configuration, then none.
+// #209 (CL-D97, owner decision in its body): base .tidd.json, then --validate or the operator configuration, then none.
 test('Issue #209 review-only with no validation commands runs git diff --check only and says so', () => {
   const t = setup({ config: null });
   let r = drive(t.start, t.e);

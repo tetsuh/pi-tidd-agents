@@ -51,13 +51,24 @@ function acceptanceCriteria(body) {
   return section.split('\n').filter((line) => /^\s*[-*]\s+/.test(line)).map((line) => line.replace(/^\s*[-*]\s+/, '').trim());
 }
 // Validation commands come from `.tidd.json` at the base commit, so the change under review cannot choose them.
-function validationCommands(cwd, baseOid) {
-  let text;
-  try { text = git(cwd, ['show', `${baseOid}:.tidd.json`]); } catch { return { problem: 'the base commit carries no .tidd.json naming the validation commands' }; }
-  let config;
-  try { config = JSON.parse(text); } catch { return { problem: '.tidd.json at the base commit is not JSON' }; }
-  const ok = config && Array.isArray(config.validate) && config.validate.length > 0 && config.validate.every((c) => Array.isArray(c) && c.length > 0 && c.every((a) => typeof a === 'string' && a.length > 0));
-  return ok ? { commands: config.validate } : { problem: '.tidd.json must carry validate: a nonempty list of nonempty argv lists' };
+// #209: the validation commands come from outside the pull request under review, in this order: `.tidd.json` at the
+// base commit; otherwise `--validate` (a JSON list of argv lists) or the operator's own configuration at
+// $XDG_CONFIG_HOME/tidd/<owner>/<repo>.json; otherwise none. The head is never a source.
+function operatorConfig(repository, env = process.env) { return path.join(env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'tidd', ...repository.split('/')) + '.json'; }
+function validationCommands(cwd, baseOid, { validate, repository } = {}) {
+  const parse = (text, where, list) => {
+    let config;
+    try { config = JSON.parse(text); } catch { return { problem: `${where} is not JSON` }; }
+    const commands = list ? config : config?.validate;
+    const ok = Array.isArray(commands) && commands.length > 0 && commands.every((c) => Array.isArray(c) && c.length > 0 && c.every((a) => typeof a === 'string' && a.length > 0));
+    return ok ? { commands } : { problem: `${where} must carry ${list ? '' : 'validate: '}a nonempty list of nonempty argv lists` };
+  };
+  let text; try { text = git(cwd, ['show', `${baseOid}:.tidd.json`]); } catch { text = null; }
+  if (text !== null) return { ...parse(text, '.tidd.json at the base commit'), source: 'base .tidd.json' };
+  if (validate !== undefined) return { ...parse(String(validate), '--validate', true), source: '--validate' };
+  const file = operatorConfig(repository);
+  if (fs.existsSync(file)) return { ...parse(fs.readFileSync(file, 'utf8'), file), source: file };
+  return { commands: [], source: 'none' };
 }
 
 // The six head fingerprints (CL-D9), each through its packaged operation, so a value and its record are the helper's
@@ -248,7 +259,7 @@ class Run {
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
       'review_misses: none', `pending_decisions: ${quoted((s.pendingDecisions || []).join(', ') || 'none')}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
-      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted(s.operatorActions || 'none')}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
+      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted([s.operatorActions || 'none', ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${operatorConfig(t.repository)}`] : [])].join('; '))}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
     const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${quoted(g.findings)}` : ''}`).join('\n') || '- none';
     const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
       `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
@@ -278,4 +289,4 @@ class Run {
   }
 }
 
-module.exports = { externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { operatorConfig, externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };

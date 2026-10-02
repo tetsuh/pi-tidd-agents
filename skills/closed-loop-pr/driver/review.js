@@ -4,7 +4,7 @@
 // order review-only.md states and leaves the parent one thing per gate: the `subagent` call it prints. Gates judge;
 // the driver never does.
 //
-//   node review.js start  --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--language-profile P] [--convergence disabled]
+//   node review.js start  --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--language-profile P] [--convergence disabled] [--validate JSON]
 //   node review.js result --run-dir DIR --run-id ID
 //   node review.js resume --run-dir DIR
 //   node review.js status --run-dir DIR
@@ -43,14 +43,15 @@ function start(opts) {
   run.file('issue.json', issue); run.file('issue-comments.json', comments);
   s.acceptanceCriteria = acceptanceCriteria(issue.body);
   if (!s.acceptanceCriteria.length) run.stop('BLOCKED', `issue #${s.issueNumber} has no Acceptance criteria section with at least one criterion`);
-  const validation = validationCommands(checkout, target.baseOid);
+  const validation = validationCommands(checkout, target.baseOid, { validate: opts.validate, repository: target.repository });
+  s.validationSource = validation.source;
   if (validation.problem) run.stop('BLOCKED', validation.problem);
   const evidence = headFingerprints(run, { cwd: checkout, baseOid: target.baseOid, headOid: target.headOid, issue, comments });
   run.file('pr.diff', evidence.diff);
   // The gate receives the exact diff, so a diff that is not UTF-8 text stops here rather than reaching it altered.
   if (!isUtf8(Buffer.from(evidence.diff))) run.stop('BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly; review it on the prose path of review-only.md');
   s.fingerprints = evidence.values; s.records = evidence.records;
-  const results = [];
+  const results = validation.source === 'none' ? ['no validation commands configured'] : [];
   for (const command of [...validation.commands, ['git', 'diff', '--check', `${target.baseOid}...${target.headOid}`]]) {
     const v = run.op('validation_run', { cwd: checkout, command, timeoutMs: 1800000 }, { allowFail: true });
     results.push(`${command.join(' ')}: ${v.data?.outcome || v.error?.code}`);
