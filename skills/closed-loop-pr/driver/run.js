@@ -72,8 +72,11 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`]), '.tidd.json at the base commit'), source: 'base .tidd.json' };
   if (validate !== undefined) return { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
-  if (!fs.existsSync(file)) return { commands: [], source: 'none' };
-  let text; try { text = fs.readFileSync(file, 'utf8'); } catch (error) { return { problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${error.code}`, source: 'operator configuration' }; }
+  // Only a missing file is absence; any other failure to read it stops (ADV-211-OPERATOR-CONFIG-EACCES).
+  let text; try { text = fs.readFileSync(file, 'utf8'); } catch (error) {
+    if (error.code === 'ENOENT') return { commands: [], source: 'none' };
+    return { problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${error.code}`, source: 'operator configuration' };
+  }
   return { ...parse(text, `the operator configuration ${OPERATOR_CONFIG}`), source: 'operator configuration' };
 }
 
