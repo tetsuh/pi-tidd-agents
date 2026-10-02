@@ -500,6 +500,16 @@ test('Issue #209 validation commands resolve from the base file, then --validate
     assert.equal(state(t.runDir).state, 'BLOCKED', label);
     assert.match(state(t.runDir).reason, /operator configuration/, label);
   }
+  // ADV-211-OPERATOR-CONFIG-EACCES: only a missing file is absence; a lookup the operator's system refuses stops.
+  const locked = temp('i209-locked-'); fs.mkdirSync(path.join(locked, 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(locked, 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "0"]]}'); fs.chmodSync(path.join(locked, 'tidd', 'o'), 0o000);
+  try {
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: locked }).status, 0);
+    assert.equal(state(t.runDir).state, 'BLOCKED');
+    assert.match(state(t.runDir).reason, /operator configuration .*EACCES/);
+    assert.equal(fs.readdirSync(t.runDir).some((f) => /-(validation_run|build_gate_launch)\.request\.json$/.test(f)), false);
+  } finally { fs.chmodSync(path.join(locked, 'tidd', 'o'), 0o755); }
   t = setup({ config: null });
   assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: 'relative-config' }).status, 0);
   assert.equal(state(t.runDir).validationSource, 'none', 'a relative XDG_CONFIG_HOME is not a source');
