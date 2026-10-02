@@ -72,10 +72,16 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`]), '.tidd.json at the base commit'), source: 'base .tidd.json' };
   if (validate !== undefined) return { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
-  // A file inside the target checkout belongs to the pull request, however it is reached (CONV-211-XDG-IN-REPO).
-  const real = (p) => { for (let at = p; ; at = path.dirname(at)) { try { return path.join(fs.realpathSync.native(at), path.relative(at, p)); } catch { if (at === path.dirname(at)) return p; } } };
-  const inside = path.relative(real(cwd), real(file));
-  if (!inside.startsWith('..') && !path.isAbsolute(inside)) return { problem: `the operator configuration ${OPERATOR_CONFIG} resolves inside the target checkout`, source: 'operator configuration' };
+  // A file inside the target checkout belongs to the pull request, however it is reached (CONV-211-XDG-IN-REPO): walk up
+  // from the file's nearest existing ancestor and refuse on reaching the repository root by identity (device and inode),
+  // so a subdirectory --checkout, a `..`-prefixed name, a link, or a case-insensitive spelling all count as inside.
+  const top = fs.statSync(git(cwd, ['rev-parse', '--show-toplevel']).trim());
+  for (let at = file; ; at = path.dirname(at)) {
+    let st; try { st = fs.statSync(at); } catch { st = null; }
+    if (st && st.dev === top.dev && st.ino === top.ino) return { problem: `the operator configuration ${OPERATOR_CONFIG} resolves inside the target checkout`, source: 'operator configuration' };
+    if (st) { const real = fs.realpathSync.native(at); if (real !== at) { at = path.join(real, 'x'); continue; } }
+    if (at === path.dirname(at)) break;
+  }
   // Only a missing file is absence; any other failure to read it stops (ADV-211-OPERATOR-CONFIG-EACCES).
   let text; try { text = fs.readFileSync(file, 'utf8'); } catch (error) {
     if (error.code === 'ENOENT') return { commands: [], source: 'none' };
