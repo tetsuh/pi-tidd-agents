@@ -30,7 +30,7 @@ function makeTarget({ config = { validate: [['node', '-e', 'process.exit(0)']] }
   const root = temp('i196-target-');
   git(root, ['init', '-q', '-b', 'main']);
   fs.writeFileSync(path.join(root, 'a.js'), 'module.exports = 1;\n');
-  if (config) fs.writeFileSync(path.join(root, '.tidd.json'), typeof config === 'string' ? config : `${JSON.stringify(config)}\n`);
+  if (config) fs.writeFileSync(path.join(root, '.tidd.json'), typeof config === 'string' || Buffer.isBuffer(config) ? config : `${JSON.stringify(config)}\n`);
   git(root, ['add', '.']); git(root, ['commit', '-q', '-m', 'base']);
   const base = git(root, ['rev-parse', 'HEAD']);
   git(root, ['checkout', '-q', '-b', 'feature']);
@@ -538,6 +538,20 @@ test('Issue #209 validation commands resolve from the base file, then --validate
   assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: link }).status, 0);
   assert.match(state(t.runDir).reason, /inside the target checkout/);
   assert.ok(!ran(state(t.runDir), 'in-repo'));
+  // CONV-211-X1: a validation file is read as bytes and must be well-formed UTF-8 with no BOM and a bounded size before
+  // JSON.parse, so an invalid byte inside a JSON string cannot silently become U+FFFD in an executed argv.
+  const bad = Buffer.concat([Buffer.from('{"validate": [["node", "-e", "process.exit(0)", "x'), Buffer.from([0xff]), Buffer.from('"]]}')]);
+  for (const [label, bytes] of [['an invalid byte', bad], ['a BOM', Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('{"validate": [["node", "-e", "0"]]}')])], ['an oversized file', Buffer.from(`{"validate": [["node", "-e", "0", "${'x'.repeat(70000)}"]]}`)]]) {
+    t = setup({ config: bytes });
+    assert.notEqual(drive(t.start, t.e).status, 0, `base: ${label}`);
+    assert.match(state(t.runDir).reason, /\.tidd\.json at the base commit/, `base: ${label}`);
+    assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json')), false, `base: ${label}`);
+    const home = temp('i209-bytes-'); fs.mkdirSync(path.join(home, 'tidd', 'o'), { recursive: true }); fs.writeFileSync(path.join(home, 'tidd', 'o', 'r.json'), bytes);
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: home }).status, 0, `operator: ${label}`);
+    assert.match(state(t.runDir).reason, /operator configuration/, `operator: ${label}`);
+    assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json')), false, `operator: ${label}`);
+  }
   t = setup({ config: null });
   assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: 'relative-config' }).status, 0);
   assert.equal(state(t.runDir).validationSource, 'none', 'a relative XDG_CONFIG_HOME is not a source');
