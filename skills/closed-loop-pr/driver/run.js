@@ -54,18 +54,14 @@ function acceptanceCriteria(body) {
   const section = (String(body || '').replace(/\r\n?/g, '\n').split(/\n##+\s*Acceptance criteria\s*\n/i)[1] || '').split(/\n##+ /)[0];
   return section.split('\n').filter((line) => /^\s*[-*]\s+/.test(line)).map((line) => line.replace(/^\s*[-*]\s+/, '').trim());
 }
-// #209 (CL-D97): the validation commands come from outside the pull request under review, in this order: `.tidd.json`
-// at the base commit; otherwise `--validate` when given (a JSON list of argv lists), else the operator's own
-// configuration at $XDG_CONFIG_HOME/tidd/<owner>/<repo>.json (~/.config when unset or relative); otherwise none.
-// The head is never a source.
+// #209 (CL-D97): validation commands come from outside the pull request, in CL-D97's order; never from the head.
 const OPERATOR_CONFIG = '~/.config/tidd/<owner>/<repo>.json';
 function operatorConfig(repository, env = process.env) {
   const base = env.XDG_CONFIG_HOME && path.isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : path.join(os.homedir(), '.config');
   return path.join(base, 'tidd', ...repository.split('/')) + '.json';
 }
 function validationCommands(cwd, baseOid, { validate, repository } = {}) {
-  // One strict reader for every file source (CONV-211-X1): bytes, bounded, well-formed UTF-8, no BOM, then JSON, so what
-  // runs is exactly what the file says. `--validate` arrives already decoded as an argument and is parsed as given.
+  // One strict reader for every file source (CONV-211-X1): bounded, BOM-free well-formed UTF-8 bytes, then JSON.
   const parse = (input, where, list) => {
     let text = input;
     if (Buffer.isBuffer(input)) {
@@ -85,9 +81,8 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   // Node decodes argv lossily, so a replacement character means bytes that were not UTF-8 (pre-push sweep).
   if (validate !== undefined) return String(validate).includes('\uFFFD') ? { problem: '--validate carries a replacement character: its bytes were not UTF-8', source: '--validate' } : { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
-  // A file inside the target checkout belongs to the pull request, however it is reached (CONV-211-XDG-IN-REPO): walk up
-  // from the file's nearest existing ancestor and refuse on reaching the repository root by identity (device and inode),
-  // so a subdirectory --checkout, a `..`-prefixed name, a link, or a case-insensitive spelling all count as inside.
+  // A file inside the target checkout belongs to the pull request (CONV-211-XDG-IN-REPO): walk up, through links, and
+  // refuse on reaching the repository root by device and inode, however the path spells it.
   const top = fs.statSync(git(cwd, ['rev-parse', '--show-toplevel']).trim());
   for (let at = file; ; at = path.dirname(at)) {
     let st; try { st = fs.statSync(at); } catch { st = null; }
@@ -98,7 +93,14 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   // Only a missing entry is absence; a dangling link, a non-file (a FIFO would block a read), or any failure to read it
   // stops (ADV-211-OPERATOR-CONFIG-EACCES, CONV-211-OPERATOR-CONFIG-DANGLING-SYMLINK).
   const refuse = (why) => ({ problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${why}`, source: 'operator configuration' });
-  try { fs.lstatSync(file); } catch (error) { return error.code === 'ENOENT' ? { commands: [], source: 'none' } : refuse(error.code); }
+  try { fs.lstatSync(file); } catch (error) {
+    if (error.code !== 'ENOENT') return refuse(error.code);
+    // A dangling link above it is ENOENT too, so the nearest ancestor must resolve (CONV-211-DANGLING-PARENT-SYMLINK).
+    for (let at = path.dirname(file); ; at = path.dirname(at)) {
+      try { fs.lstatSync(at); } catch (e) { if (e.code === 'ENOENT') continue; return refuse(e.code); }
+      try { fs.statSync(at); return { commands: [], source: 'none' }; } catch (e) { return refuse(e.code); }
+    }
+  }
   let text; try { const st = fs.statSync(file); if (!st.isFile()) return refuse('not a regular file'); if (st.size > 65536) return refuse('larger than 64 KiB'); text = fs.readFileSync(file); } catch (error) { return refuse(error.code); }
   return { ...parse(text, `the operator configuration ${OPERATOR_CONFIG}`), source: 'operator configuration' };
 }
