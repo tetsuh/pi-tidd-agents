@@ -477,6 +477,8 @@ test('Issue #209 review-only with no validation commands runs git diff --check o
   assert.match(s.statusBlock, /operator_actions: "?no validation commands configured: add \.tidd\.json at the base or ~\/\.config\/tidd\/o\/r\.json/);
   assert.doesNotMatch(fs.readFileSync(s.publication.comment, 'utf8'), new RegExp(os.homedir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'no operator home path is published');
   assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /no validation commands configured/);
+  // The report carries the same line, its source first (#209 AC1 and AC2, pre-push sweep).
+  assert.ok(fs.readFileSync(s.publication.comment, 'utf8').includes(`Validation: ${s.validation}.`), 'the published validation line names its source');
 });
 
 test('Issue #209 validation commands resolve from the base file, then --validate or the operator configuration', () => {
