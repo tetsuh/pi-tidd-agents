@@ -256,6 +256,29 @@ test('Issue #221 a drafted publication names no local path: home, run directory,
   for (const [label, local] of [['run directory', t.runDir], ['run root', path.dirname(t.runDir)], ['home', home], ['package', repoPath('.')]]) assert.equal(body.includes(local), false, `the draft names the ${label}: ${local}`);
 });
 
+test('Issue #221 the redaction rewrites whole local paths only, whatever HOME says, with placeholders that render', () => {
+  // Pre-push sweep: a home of `/r` rewrote the repository `o/r` inside the pull-request URL, because a path matched
+  // with no start boundary; an empty HOME left the account's real home unredacted; and `<tmp>`-style placeholders
+  // vanish on GitHub as unknown HTML tags.
+  let t = setup();
+  setFixture(t, { protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } });
+  let e = { ...t.e, HOME: '/r' };
+  assert.equal(drive(t.start, e).status, 0);
+  for (let i = 0; i < 3; i += 1) drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], e);
+  let body = fs.readFileSync(state(t.runDir).publication.comment, 'utf8');
+  assert.ok(body.includes('Pull request: https://github.com/o/r/pull/7'), 'the URL is untouched');
+  assert.ok(body.includes('target: o/r#7'), 'the target is untouched');
+  // An empty HOME: the account's own home is still a local path.
+  const real = require('node:os').userInfo().homedir;
+  t = setup({ config: null });
+  e = { ...t.e, HOME: '' };
+  drive([...t.start, '--validate', JSON.stringify([[`${real}/no-such-check-221`]])], e);
+  body = fs.readFileSync(state(t.runDir).publication.comment, 'utf8');
+  assert.equal(body.includes(real), false, `the draft names the account's home: ${body}`);
+  assert.ok(body.includes('~/no-such-check-221'), 'the command is still named, from the home placeholder');
+  assert.doesNotMatch(body, /<(?:tmp|run-dir|package)>/, 'no placeholder that GitHub would strip as a tag');
+});
+
 test('Issue #196 new evidence at final readiness reruns convergence instead of declaring MERGE_READY', () => {
   const t = setup();
   assert.equal(drive(t.start, t.e).status, 0);
