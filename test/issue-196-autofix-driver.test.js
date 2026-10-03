@@ -804,7 +804,7 @@ test('Issue #196 a stop reports this run\'s retained workspace roots and their c
   assert.match(s.operatorActions, new RegExp(`retained workspace roots \\(1\\): ${s.created.root.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
   // #221: the drafted comment names it with the temporary root as a placeholder, never the local path itself.
   const comment = fs.readFileSync(s.publication.comment, 'utf8');
-  assert.ok(comment.includes(`<tmp>${s.created.root.slice(require('node:os').tmpdir().length)}`), 'the drafted comment names the root');
+  assert.ok(comment.includes(`{tmp}${s.created.root.slice(require('node:os').tmpdir().length)}`), 'the drafted comment names the root');
   assert.equal(comment.includes(s.created.root), false, 'without its local path');
   // A refused cleanup keeps it too.
   t = setup();
@@ -877,7 +877,7 @@ test('Issue #196 a refused workspace_create reports the root it kept', () => {
     assert.ok(s.operatorActions.includes(`retained workspace roots (1): ${s.retained[0]}`), s.operatorActions);
     // #221: with the temporary root as a placeholder, never the local path itself.
     const comment = fs.readFileSync(s.publication.comment, 'utf8');
-    assert.ok(comment.includes(`<tmp>${s.retained[0].slice(require('node:os').tmpdir().length)}`), 'the drafted comment names it');
+    assert.ok(comment.includes(`{tmp}${s.retained[0].slice(require('node:os').tmpdir().length)}`), 'the drafted comment names it');
     assert.equal(comment.includes(s.retained[0]), false, 'without its local path');
   } finally { fs.chmodSync(worktrees, 0o755); }
 });

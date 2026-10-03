@@ -294,13 +294,18 @@ class Run {
     // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
     const label = { adversarial: 'sol', safety: 'terra' };
     const findings = (s.findings || []).map((f) => `  ${quoted(f.findingId)}: ${quoted(f.disposition)}`);
-    // Nothing bound for publication names a local path (#221): the run directory, the package, the operator's home and
-    // the temporary root, each also as resolved, become placeholders, longest first. The run's state and the operator's
-    // terminal report keep the full paths, which the operator needs to resume or to remove a retained workspace.
-    const locals = [[this.dir, '<run-dir>'], [PACKAGE, '<package>'], [os.homedir(), '~'], [os.tmpdir(), '<tmp>']]
-      .flatMap(([p, name]) => { let real = p; try { real = fs.realpathSync(p); } catch {} return [[p, name], [real, name]]; })
-      .filter(([p]) => p && p.length > 1).sort((a, b) => b[0].length - a[0].length);
-    const local = (text) => locals.reduce((out, [p, name]) => out.replace(new RegExp(`${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-]|\\.\\w)`, 'g'), name), text);
+    // Nothing bound for publication names a local path (#221): the run directory, the package, the home (HOME's and
+    // the account's own) and the temporary root, each also as resolved, become placeholders that render as text. One
+    // pass with a boundary on both sides rewrites whole paths only, never part of a URL, a branch, or its own output.
+    // The run's state and the operator's terminal report keep the full paths, to resume or remove a retained workspace.
+    const locals = new Map(), account = (() => { try { return os.userInfo().homedir; } catch { return ''; } })();
+    for (const [p, name] of [[this.dir, '{run-dir}'], [PACKAGE, '{package}'], [os.homedir(), '~'], [account, '~'], [os.tmpdir(), '{tmp}']]) {
+      let real = p; try { real = fs.realpathSync(p); } catch {}
+      for (const q of [p, real]) if (q && q.length > 1 && !locals.has(q)) locals.set(q, name);
+    }
+    const alts = [...locals.keys()].sort((a, b) => b.length - a.length).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const paths = alts.length ? new RegExp(`(?<![\\w.~}-])(?:${alts.join('|')})(?![\\w-]|\\.\\w)`, 'g') : null;
+    const local = (text) => (paths ? text.replace(paths, (match) => locals.get(match)) : text);
     const block = publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
