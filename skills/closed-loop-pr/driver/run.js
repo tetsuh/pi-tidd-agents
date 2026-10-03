@@ -299,7 +299,7 @@ class Run {
     // pass over the text as the publication folds it rewrites whole paths only. A root is an absolute path without
     // its trailing slashes. It is left where a letter, number, mark, `_` or `-` follows it, or a dot before a letter,
     // number, mark or `_` (a longer name), and where a letter, number, mark, `/`, `.` or `~` stands before it (a longer
-    // path); leading slashes and an attached option (`-I<root>`: hyphens, a letter, then ASCII letters and hyphens)
+    // path); leading slashes and an attached option (`-I<root>`: its hyphens, an ASCII letter, then ASCII letters and hyphens)
     // count as its start. They are matched forward and an option starts only at its first hyphen, so a run is scanned
     // once and the pass is linear. Any other neighbour ends the path, so a doubtful spelling is
     // hidden rather than published (ADV-223-PUBLICATION-REDACTION). A root that is the filesystem root holds every
