@@ -208,6 +208,36 @@ test('Issue #207 push_publish refuses a remote rewound to an ancestor and pushes
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), first, 'nothing was pushed over the rewind');
 });
 
+test('Issue #207 the lease is the captured head: no new commit, or two, pushes nothing', () => {
+  // CONV-218-PUSH-PARENT-001: a HEAD whose sole parent is not the captured head leased that parent instead, so the
+  // captured head itself, pushed with no correction over a remote rewound to its parent, restored the removed head.
+  const env = bareHome(), repo = repository();
+  const first = repo.head;
+  fs.writeFileSync(path.join(repo.root, 'second.txt'), 'second\n');
+  git(repo.root, ['add', 'second.txt']); git(repo.root, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-m', 'test: second']);
+  git(repo.root, ['push', 'origin', 'main']);
+  const head = git(repo.root, ['rev-parse', 'HEAD']);
+  const captured = cli('operator_capture', { cwd: repo.root, identity: { ...repo.identity, publicHead: head } }, env);
+  assert.equal(captured.ok, true, JSON.stringify(captured));
+  const made = cli('workspace_create', { cwd: repo.root, head, tree: git(repo.root, ['rev-parse', 'HEAD^{tree}']) }, env);
+  assert.equal(made.ok, true, JSON.stringify(made));
+  const created = made.data;
+  git(repo.bare, ['update-ref', 'refs/heads/main', first]);
+  const none = cli('push_publish', { created, captured }, env);
+  assert.deepEqual([none.ok, none.error?.code, none.error?.phase], [false, 'guard_failed', 'push_publish'], JSON.stringify(none));
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), first, 'the removed head was not restored');
+  // Two commits on the captured head: the lease would name the first correction, not the head the batch built on.
+  git(repo.bare, ['update-ref', 'refs/heads/main', head]);
+  stageCorrection(created.path);
+  assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+  fs.writeFileSync(path.join(created.path, 'more.txt'), 'more\n');
+  git(created.path, ['add', 'more.txt']);
+  assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
+  const two = cli('push_publish', { created, captured }, env);
+  assert.deepEqual([two.ok, two.error?.code, two.error?.phase], [false, 'guard_failed', 'push_publish'], JSON.stringify(two));
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), head, 'nothing was pushed');
+});
+
 test('Issue #207 the push sends the commit whose parent it leased, even if HEAD moves before the push', { skip: process.platform === 'win32' && 'the race shim is a POSIX shell script' }, () => {
   // Pre-push sweep: the lease and the pushed commit came from two reads of HEAD, so a HEAD moved between them was
   // force-pushed over the leased head. A git shim moves HEAD to an unrelated root commit just before the push.
