@@ -82,24 +82,25 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   if (validate !== undefined) return String(validate).includes('\uFFFD') ? { problem: '--validate carries a replacement character: its bytes were not UTF-8', source: '--validate' } : { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
   const refuse = (why) => ({ problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${why}`, source: 'operator configuration' });
-  // A file inside the target checkout belongs to the pull request (CONV-211-XDG-IN-REPO): walk up, through links, and
-  // refuse on reaching the repository root by device and inode, however the path spells it.
-  const top = fs.statSync(git(cwd, ['rev-parse', '--show-toplevel']).trim());
-  for (let at = file; ; at = path.dirname(at)) {
-    let st; try { st = fs.statSync(at); } catch { st = null; }
-    if (st && st.dev === top.dev && st.ino === top.ino) return { problem: `the operator configuration ${OPERATOR_CONFIG} resolves inside the target checkout`, source: 'operator configuration' };
-    if (st) { let real; try { real = fs.realpathSync.native(at); } catch (e) { return refuse(e.code); } if (real !== at) { at = path.join(real, 'x'); continue; } }
-    if (at === path.dirname(at)) break;
-  }
-  // Only a missing entry is absence; a dangling link, a non-file (a FIFO would block a read), or any failure to read it
-  // stops (ADV-211-OPERATOR-CONFIG-EACCES, CONV-211-OPERATOR-CONFIG-DANGLING-SYMLINK).
-  try { fs.lstatSync(file); } catch (error) {
-    if (error.code !== 'ENOENT') return refuse(error.code);
-    // A dangling link above it is ENOENT too, so the nearest ancestor must resolve (CONV-211-DANGLING-PARENT-SYMLINK).
-    for (let at = path.dirname(file); ; at = path.dirname(at)) {
-      try { fs.lstatSync(at); } catch (e) { if (e.code === 'ENOENT') continue; return refuse(e.code); }
-      try { fs.statSync(at); return { commands: [], source: 'none' }; } catch (e) { return refuse(e.code); }
+  // Resolve the path as the kernel does, splicing in each link's target, so every folder passed is seen: the repository
+  // root among them, by device and inode, means the pull request's own file (CONV-211-XDG-IN-REPO, ADV-211-XDG-LINK-ESCAPE).
+  // Only a missing entry of the path itself is absence; a missing link target, a non-file or any failure to read stops
+  // (CONV-211-DANGLING-PARENT-SYMLINK, ADV-211-OPERATOR-CONFIG-EACCES).
+  const top = fs.statSync(git(cwd, ['rev-parse', '--show-toplevel']).replace(/\n$/, ''));
+  const rest = path.resolve(file).split('/');
+  for (let done = '/', own = rest.length, hops = 0; rest.length;) {
+    const mine = rest.length <= own, name = rest.shift(), at = path.join(done, name);
+    if (mine) own = rest.length;
+    if (!name || name === '.' || name === '..') { if (name === '..') done = path.dirname(done); continue; }
+    let raw; try { raw = fs.readlinkSync(at, 'buffer'); } catch (e) {
+      if (e.code === 'ENOENT') return mine ? { commands: [], source: 'none' } : refuse('a dangling link');
+      if (e.code !== 'EINVAL') return refuse(e.code);
+      let st; try { st = fs.statSync(done = at); } catch (e2) { return refuse(e2.code); }
+      if (st.dev === top.dev && st.ino === top.ino) return { problem: `the operator configuration ${OPERATOR_CONFIG} resolves inside the target checkout`, source: 'operator configuration' };
+      continue;
     }
+    if (!isUtf8(raw) || ++hops > 40) return refuse(hops > 40 ? 'ELOOP' : 'a link target that is not UTF-8');
+    rest.unshift(...raw.toString().split('/')); if (raw[0] === 0x2f) done = '/';
   }
   let text; try { const st = fs.statSync(file); if (!st.isFile()) return refuse('not a regular file'); if (st.size > 65536) return refuse('larger than 64 KiB'); text = fs.readFileSync(file); } catch (error) { return refuse(error.code); }
   return { ...parse(text, `the operator configuration ${OPERATOR_CONFIG}`), source: 'operator configuration' };
