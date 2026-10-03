@@ -15,8 +15,18 @@ const { validationCommands } = require(repoPath('skills/closed-loop-pr/driver/ru
 
 const made = [];
 const temp = (prefix) => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix)); made.push(dir); return dir; };
-// Every fixture is removed after the file, the PATH_MAX tree and mode-000 folders included.
-test.after(() => { for (const dir of made) { try { execFileSync('chmod', ['-R', 'u+rwx', dir], { stdio: 'ignore' }); } catch {} fs.rmSync(dir, { recursive: true, force: true }); } });
+// Every fixture is removed after the file, the PATH_MAX tree and mode-000 folders included. `rm -rf` descends by
+// relative names, so a tree deeper than PATH_MAX is removed where Node 22's fs.rmSync stops with ENAMETOOLONG
+// (ADV-220-NODE22-PATHMAX-CLEANUP); every root is tried, and any failure is reported after all of them.
+test.after(() => {
+  const failed = [];
+  for (const dir of made) {
+    try { execFileSync('chmod', ['-R', 'u+rwx', dir], { stdio: 'ignore' }); } catch {}
+    try { execFileSync('rm', ['-rf', '--', dir], { stdio: 'pipe' }); } catch (error) { failed.push(`${dir}: ${String(error.stderr || error.message).trim()}`); }
+    if (fs.existsSync(dir)) failed.push(`${dir}: still present`);
+  }
+  assert.deepEqual(failed, [], 'every fixture root is removed');
+});
 // A target checkout whose base carries no .tidd.json, so the operator configuration is the source under test.
 const REPO = temp('i216-repo-');
 execFileSync('git', ['-C', REPO, 'init', '-q']);
