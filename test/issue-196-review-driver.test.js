@@ -320,6 +320,12 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
     ['a sibling with a non-ASCII name', `${home}é/file`, `${home}é/file`], ['a dotted sibling with a non-ASCII name', `${home}.é/file`, `${home}.é/file`],
     ['a sibling with a combining mark', `${home}́/file`, `${home}́/file`], ['a root nested after a slash', `/other/${tmp}/file`, `/other/${tmp}/file`],
     ['a root nested in a longer path', `/var${tmp}/x`, `/var${tmp}/x`], ['a relative path', `.${tmp}/x`, `.${tmp}/x`], ['a hyphenated name before the path', `foo-bar${home}/x`, `foo-bar${home}/x`],
+    // Pre-push sweep of that correction. A removed diff line and Markdown emphasis start a path; a home is a root
+    // without its trailing slashes and only when it is absolute; the `$(` the publication spaces out is folded first;
+    // and a home too long for the system to return does not stop the publication.
+    ['a removed diff line', `-${home}/expected +${home}/actual`, '-~/expected +~/actual'], ['Markdown emphasis', `the file _${home}/x_ is missing`, 'the file _~/x_ is missing'],
+    ['a home with a trailing slash', 'see /nohome-221/u/x', 'see ~/x', '/nohome-221/u/'], ['a home that is no absolute path', 'see aa/x', 'see aa/x', 'aa'],
+    ['a home the publication spaces out', 'see /srv/$(y/x', 'see ~/x', '/srv/$ (y'], ['a home too long to read', `see ${home}/x`, 'see ~/x', `/${'a'.repeat(5000)}`],
   ]) {
     const lines = draft(text, env);
     lines.forEach((line, i) => assert.ok(line && line.includes(expected), `${label}, field ${i}: ${JSON.stringify(line)} lacks ${JSON.stringify(expected)}`));
