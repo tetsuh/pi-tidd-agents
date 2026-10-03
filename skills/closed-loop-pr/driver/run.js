@@ -294,15 +294,22 @@ class Run {
     // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
     const label = { adversarial: 'sol', safety: 'terra' };
     const findings = (s.findings || []).map((f) => `  ${quoted(f.findingId)}: ${quoted(f.disposition)}`);
+    // Nothing bound for publication names a local path (#221): the run directory, the package, the operator's home and
+    // the temporary root, each also as resolved, become placeholders, longest first. The run's state and the operator's
+    // terminal report keep the full paths, which the operator needs to resume or to remove a retained workspace.
+    const locals = [[this.dir, '<run-dir>'], [PACKAGE, '<package>'], [os.homedir(), '~'], [os.tmpdir(), '<tmp>']]
+      .flatMap(([p, name]) => { let real = p; try { real = fs.realpathSync(p); } catch {} return [[p, name], [real, name]]; })
+      .filter(([p]) => p && p.length > 1).sort((a, b) => b[0].length - a[0].length);
+    const local = (text) => locals.reduce((out, [p, name]) => out.replace(new RegExp(`${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-]|\\.\\w)`, 'g'), name), text);
     const block = publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
       'review_misses: none', `pending_decisions: ${quoted((s.pendingDecisions || []).join(', ') || 'none')}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
       `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted([...(s.operatorActions && !/^none\b/.test(s.operatorActions) ? [s.operatorActions] : []), ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', t.repository)}`] : [])].join('; ') || s.operatorActions || 'none')}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
     const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${quoted(g.findings)}` : ''}`).join('\n') || '- none';
-    const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
+    const visible = local(publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
       `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
-      `Reason: ${quoted(s.reason || s.state)}.`, '', '## Gates', gates, '', `Validation: ${quoted(s.validation || 'not run')}.`, '', block, ''].join('\n'));
+      `Reason: ${quoted(s.reason || s.state)}.`, '', '## Gates', gates, '', `Validation: ${quoted(s.validation || 'not run')}.`, '', block, ''].join('\n')));
     const marker = `<!-- pi-tidd-agents:review-publication:v1 repo=${t.repository} pr=${t.number} head=${t.headOid} visibleSha256=${sha256(visible)} -->`;
     const body = `${visible}${marker}\n`;
     // Inside the run directory, which was verified outside every work tree before it was created.
@@ -320,7 +327,7 @@ class Run {
     this.save();
     // The CL-D33 report: both paths, the body digest, the one command, and the head binding; the operator runs it.
     process.stdout.write(`FINISHED comment=${s.publication.comment}\nPUBLISH=${s.publication.script}\nbody sha256 ${sha256(body)}\nrepository ${t.repository}, pull request #${t.number}, head ${t.headOid}\n`
-      + `To publish, the operator runs: bash "${s.publication.script}"\nThe comment is bound to that head; a changed head requires fresh review. It is posted under the operator's own GitHub account.\n${block}\n`);
+      + `To publish, the operator runs: bash "${s.publication.script}"\n${s.state === 'WAITING_EXTERNAL_REVIEW' && s.resumeCommand ? `To resume after the wait, the operator runs: ${s.resumeCommand}\n` : ''}The comment is bound to that head; a changed head requires fresh review. It is posted under the operator's own GitHub account.\n${block}\n`);
   }
   // Print the one call the parent makes, and the command that reads its result.
   next(request, command) {
