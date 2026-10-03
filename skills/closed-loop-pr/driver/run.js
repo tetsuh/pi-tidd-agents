@@ -87,7 +87,8 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   // request's own file (CONV-211-XDG-IN-REPO, ADV-211-XDG-LINK-ESCAPE). Only a missing entry of the path itself is
   // absence (CONV-211-DANGLING-PARENT-SYMLINK, ADV-211-OPERATOR-CONFIG-EACCES).
   const top = fs.statSync(git(cwd, ['rev-parse', '--show-toplevel']).replace(/\n$/, ''));
-  const rest = (path.isAbsolute(file) ? file : `${process.cwd()}/${file}`).split('/');
+  let here = ''; if (!path.isAbsolute(file)) try { here = `${process.cwd()}/`; } catch (e) { return refuse(e.code); }
+  const rest = `${here}${file}`.split('/');
   for (let done = '/', own = rest.length, hops = 0; rest.length;) {
     const mine = rest.length <= own, name = rest.shift(), at = path.join(done, name);
     if (mine) own = rest.length;
