@@ -277,6 +277,11 @@ test('Issue #221 the redaction rewrites whole local paths only, whatever HOME sa
   assert.equal(body.includes(real), false, `the draft names the account's home: ${body}`);
   assert.ok(body.includes('~/no-such-check-221'), 'the command is still named, from the home placeholder');
   assert.doesNotMatch(body, /<(?:tmp|run-dir|package)>/, 'no placeholder that GitHub would strip as a tag');
+  // A brace right before a path is not a boundary that protects anything: one pass never rescans its own output.
+  t = setup({ config: null });
+  drive([...t.start, '--validate', JSON.stringify([['sh', '-c', `x={a}${real}/no-such-check-221; exit 1`]])], { ...t.e, HOME: '' });
+  body = fs.readFileSync(state(t.runDir).publication.comment, 'utf8');
+  assert.equal(body.includes(real), false, `a path after a brace is redacted too: ${body}`);
 });
 
 test('Issue #196 new evidence at final readiness reruns convergence instead of declaring MERGE_READY', () => {
