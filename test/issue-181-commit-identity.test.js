@@ -431,7 +431,7 @@ test('Issue #181 the push names exactly one credential helper, gh, and no force'
   // Configuration cannot widen the push beyond the one branch: no tags, no submodules, no signing (CL-D30's one push).
   // CL-D99 (#207): the one lease, on exactly the pushed branch and the head the batch built on, is the only force-named
   // flag; it refuses the push unless the remote is exactly that head, so it never overwrites anything.
-  assert.deepEqual(args.slice(args.indexOf('push')), ['push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/feat/x:${lease}`, 'origin', `${commit}:refs/heads/feat/x`]);
+  assert.deepEqual(args.slice(args.indexOf('push')), ['push', '--porcelain', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/feat/x:${lease}`, 'origin', `${commit}:refs/heads/feat/x`]);
   assert.ok(!args.some((arg) => /^(?:-f|--force(?!-with-lease=refs\/heads\/feat\/x:a{40}$).*|\+.*)$/.test(arg)), 'no force beyond the one lease');
   assert.throws(() => pushArgs('feat/x', commit), /expected head/, 'the push never runs without its lease');
   // Pre-push sweep: the pushed source is the commit whose parent was leased, resolved once, never HEAD read again.

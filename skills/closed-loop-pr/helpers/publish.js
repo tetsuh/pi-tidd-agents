@@ -62,7 +62,7 @@ function pushArgs(branch, source, expected) {
   const oid = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
   if (!oid.test(String(source))) throw Object.assign(new Error('the push needs the resolved commit as its source'), { code: 'invalid_request' });
   if (!oid.test(String(expected))) throw Object.assign(new Error('the push needs the expected head of the branch for its lease'), { code: 'invalid_request' });
-  return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/${branch}:${expected}`, 'origin', `${source}:refs/heads/${branch}`]);
+  return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--porcelain', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/${branch}:${expected}`, 'origin', `${source}:refs/heads/${branch}`]);
 }
 // gh finds its own configuration from the operator's environment, not the isolated one: the isolation sets
 // XDG_CONFIG_HOME on every platform, and gh consults it before its Windows default, so the directory is always named.
@@ -118,7 +118,11 @@ function pushPublish(data) {
     catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'the parent does not descend from the captured public head', phase, { captured: String(captured.data.head), parent: base }); throw error; }
     const parents = git(cwd, ['rev-list', '--parents', '-n', '1', head], phase).trim().split(' ').slice(1);
     if (parents.length !== 1 || parents[0] !== base) fail('guard_failed', 'HEAD is not a single commit on the head the batch built on', phase, { parents, parent: base });
-    runSync('git', pushArgs(branch, head, base), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
+    const out = runSync('git', pushArgs(branch, head, base), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
+    // Git skips the lease for a ref already up to date and still exits 0, so the push's own status decides: exactly one
+    // fast-forward of this commit onto the branch (ADV-218-LEASE-UP-TO-DATE).
+    const status = String(out).split('\n').filter((line) => line.includes(`\t${head}:refs/heads/${branch}\t`));
+    if (status.length !== 1 || status[0][0] !== ' ') fail('guard_failed', 'the push did not fast-forward the branch to the commit', phase, { status });
     return { head, ref: `refs/heads/${branch}` };
   });
 }
