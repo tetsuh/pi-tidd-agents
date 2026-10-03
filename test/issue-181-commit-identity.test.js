@@ -166,7 +166,7 @@ test('Issue #181 push_publish pushes HEAD to the captured PR branch without forc
   stageCorrection(created.path);
   const committed = cli('commit_create', { created, captured, message: MESSAGE }, env);
   assert.equal(committed.ok, true, JSON.stringify(committed));
-  const pushed = cli('push_publish', { created, captured }, env);
+  const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
   assert.equal(pushed.ok, true, JSON.stringify(pushed));
   assert.deepEqual(pushed.data, { head: committed.data.commit, ref: 'refs/heads/main' });
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), committed.data.commit);
@@ -182,7 +182,7 @@ test('Issue #181 push_publish never forces over a remote that moved', () => {
   const remote = git(repo.bare, ['rev-parse', 'refs/heads/main']);
   stageCorrection(created.path);
   assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
-  const pushed = cli('push_publish', { created, captured }, env);
+  const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
   assert.deepEqual([pushed.ok, pushed.error?.phase], [false, 'push_publish'], JSON.stringify(pushed));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), remote, 'the remote branch is unchanged');
 });
@@ -203,7 +203,7 @@ test('Issue #207 push_publish refuses a remote rewound to an ancestor and pushes
   stageCorrection(created.path);
   assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
   git(repo.bare, ['update-ref', 'refs/heads/main', first]);
-  const pushed = cli('push_publish', { created, captured }, env);
+  const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
   assert.deepEqual([pushed.ok, pushed.error?.phase], [false, 'push_publish'], JSON.stringify(pushed));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), first, 'nothing was pushed over the rewind');
 });
@@ -223,7 +223,7 @@ test('Issue #207 the lease is the captured head: no new commit, or two, pushes n
   assert.equal(made.ok, true, JSON.stringify(made));
   const created = made.data;
   git(repo.bare, ['update-ref', 'refs/heads/main', first]);
-  const none = cli('push_publish', { created, captured }, env);
+  const none = cli('push_publish', { created, captured, parent: head }, env);
   assert.deepEqual([none.ok, none.error?.code, none.error?.phase], [false, 'guard_failed', 'push_publish'], JSON.stringify(none));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), first, 'the removed head was not restored');
   // Two commits on the captured head: the lease would name the first correction, not the head the batch built on.
@@ -233,7 +233,7 @@ test('Issue #207 the lease is the captured head: no new commit, or two, pushes n
   fs.writeFileSync(path.join(created.path, 'more.txt'), 'more\n');
   git(created.path, ['add', 'more.txt']);
   assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
-  const two = cli('push_publish', { created, captured }, env);
+  const two = cli('push_publish', { created, captured, parent: captured.data.head }, env);
   assert.deepEqual([two.ok, two.error?.code, two.error?.phase], [false, 'guard_failed', 'push_publish'], JSON.stringify(two));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), head, 'nothing was pushed');
   // A parent older than the captured head is refused however it is named: the captured head's own parent included.
@@ -247,12 +247,13 @@ test('Issue #207 a later batch leases the public head it built on, passed as par
   const { repo, captured, created, env } = run();
   stageCorrection(created.path);
   const one = cli('commit_create', { created, captured, message: MESSAGE }, env);
-  assert.equal(cli('push_publish', { created, captured }, env).ok, true);
+  assert.equal(cli('push_publish', { created, captured, parent: captured.data.head }, env).ok, true);
   fs.writeFileSync(path.join(created.path, 'more.txt'), 'more\n');
   git(created.path, ['add', 'more.txt']);
   const second = cli('commit_create', { created, captured, message: MESSAGE }, env);
   assert.equal(second.ok, true, JSON.stringify(second));
-  assert.equal(cli('push_publish', { created, captured }, env).error?.code, 'guard_failed', 'without parent the captured head is the only base');
+  assert.equal(cli('push_publish', { created, captured }, env).error?.code, 'invalid_request', 'parent is required');
+  assert.equal(cli('push_publish', { created, captured, parent: captured.data.head }, env).error?.code, 'guard_failed', 'the captured head is not the base of a later batch');
   const pushed = cli('push_publish', { created, captured, parent: one.data.commit }, env);
   assert.equal(pushed.ok, true, JSON.stringify(pushed));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), second.data.commit);
@@ -268,7 +269,7 @@ test('Issue #207 the push sends the commit whose parent it leased, even if HEAD 
   const unrelated = git(created.path, ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit-tree', git(created.path, ['rev-parse', 'HEAD^{tree}']), '-m', 'unrelated root']);
   const shim = fs.mkdtempSync(path.join(os.tmpdir(), 'i207-shim-')), real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
   fs.writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do if [ "$a" = push ]; then "${real}" update-ref --no-deref HEAD ${unrelated}; fi; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
-  const pushed = cli('push_publish', { created, captured }, { ...env, PATH: `${shim}${path.delimiter}${env.PATH || process.env.PATH}` });
+  const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, { ...env, PATH: `${shim}${path.delimiter}${env.PATH || process.env.PATH}` });
   assert.equal(pushed.ok, true, JSON.stringify(pushed));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), committed.data.commit, 'the remote holds the correction, not the moved HEAD');
   assert.equal(pushed.data.head, committed.data.commit);
@@ -281,14 +282,14 @@ test('Issue #181 push_publish checks the push URL the workspace would actually u
   assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
   // A linked workspace shares the repository's config, so the operator's origin is the workspace's origin.
   git(repo.root, ['remote', 'set-url', '--push', 'origin', 'git@github.com:owner/repo.git']);
-  const pushed = cli('push_publish', { created, captured }, env);
+  const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
   assert.deepEqual([pushed.ok, pushed.error?.code, pushed.error?.phase], [false, 'invalid_request', 'push_publish'], JSON.stringify(pushed));
   assert.match(pushed.error.message, /push URL/);
   // pushInsteadOf does not apply to an explicit pushurl, so the pushurl goes and the rewrite applies to the url.
   git(repo.root, ['config', '--unset', 'remote.origin.pushurl']);
   // A pushInsteadOf rewrite is what Git would use, so it is what is checked.
   git(repo.root, ['config', `url.git@github.com:owner/.pushInsteadOf`, repo.bare]);
-  const rewritten = cli('push_publish', { created, captured }, env);
+  const rewritten = cli('push_publish', { created, captured, parent: captured.data.head }, env);
   assert.deepEqual([rewritten.ok, rewritten.error?.code], [false, 'invalid_request'], JSON.stringify(rewritten));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, 'nothing was pushed');
 });
@@ -299,7 +300,7 @@ test('Issue #181 push.followTags in the repository cannot publish a tag beside t
   stageCorrection(created.path);
   assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
   git(created.path, ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'tag', '-a', 'v-leak', '-m', 'leak']);
-  const pushed = cli('push_publish', { created, captured }, env);
+  const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
   assert.equal(pushed.ok, true, JSON.stringify(pushed));
   assert.equal(git(repo.bare, ['tag', '--list']), '', 'no tag reached the remote');
 });
@@ -313,7 +314,7 @@ test('Issue #181 repository configuration that would widen or re-authenticate th
     stageCorrection(created.path);
     assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
     git(repo.root, ['config', key, value]);
-    const pushed = cli('push_publish', { created, captured }, env);
+    const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
     assert.deepEqual([pushed.ok, pushed.error?.code, pushed.error?.phase], [false, 'invalid_request', 'push_publish'], `${key}: ${JSON.stringify(pushed)}`);
     assert.match(pushed.error.message, /configuration/, key);
     assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, `${key}: nothing was pushed`);
@@ -332,7 +333,7 @@ test('Issue #181 push_publish refuses a remote that would push to more than one 
     stageCorrection(created.path);
     assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
     configure(repo, second);
-    const pushed = cli('push_publish', { created, captured }, env);
+    const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
     assert.deepEqual([pushed.ok, pushed.error?.code, pushed.error?.phase], [false, 'invalid_request', 'push_publish'], `${label}: ${JSON.stringify(pushed)}`);
     assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, `${label}: the recorded remote received nothing`);
     assert.equal(git(second, ['for-each-ref']), '', `${label}: the second remote received nothing`);
@@ -352,7 +353,7 @@ test('Issue #181 the environment cannot redirect, re-scope, or unverify the push
   stageCorrection(created.path);
   const committed = cli('commit_create', { created, captured, message: MESSAGE }, runEnv);
   assert.equal(committed.ok, true, JSON.stringify(committed));
-  assert.equal(cli('push_publish', { created, captured }, runEnv).ok, true);
+  assert.equal(cli('push_publish', { created, captured, parent: captured.data.head }, runEnv).ok, true);
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), committed.data.commit, 'the branch itself moved');
   assert.equal(git(repo.bare, ['for-each-ref', 'refs/namespaces']), '', 'nothing landed under a namespace');
   // GIT_CONFIG pointing at an empty file must not hide push.pushOption from the check.
@@ -362,7 +363,7 @@ test('Issue #181 the environment cannot redirect, re-scope, or unverify the push
   stageCorrection(created2.path);
   assert.equal(cli('commit_create', { created: created2, captured: captured2, message: MESSAGE }, runEnv).ok, true);
   git(repo2.root, ['config', 'push.pushOption', 'smuggled']);
-  const hidden = cli('push_publish', { created: created2, captured: captured2 }, { ...bareHome(), GIT_CONFIG: empty });
+  const hidden = cli('push_publish', { created: created2, captured: captured2, parent: captured2.data.head }, { ...bareHome(), GIT_CONFIG: empty });
   assert.deepEqual([hidden.ok, hidden.error?.code], [false, 'invalid_request'], JSON.stringify(hidden));
   assert.equal(git(repo2.bare, ['rev-parse', 'refs/heads/main']), repo2.head, 'nothing was pushed');
 });
@@ -374,7 +375,7 @@ test('Issue #181 the push re-checks unsafe and transport configuration set after
     stageCorrection(created.path);
     assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
     git(repo.root, ['config', key, value]);
-    const pushed = cli('push_publish', { created, captured }, env);
+    const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
     assert.deepEqual([pushed.ok, pushed.error?.phase], [false, 'push_publish'], `${key}: ${JSON.stringify(pushed)}`);
     assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), repo.head, `${key}: nothing was pushed`);
   }
@@ -384,7 +385,7 @@ test('Issue #181 the push re-checks unsafe and transport configuration set after
   assert.equal(cli('commit_create', { created, captured, message: MESSAGE }, env).ok, true);
   const marker = path.join(temp('i181-rp-'), 'ran');
   git(repo.root, ['config', 'remote.origin.receivepack', `touch ${marker}; git-receive-pack`]);
-  const pushed = cli('push_publish', { created, captured }, env);
+  const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
   assert.equal(pushed.ok, false, JSON.stringify(pushed));
   assert.equal(fs.existsSync(marker), false, 'the receive-pack program never ran');
 });
@@ -427,14 +428,14 @@ test('Issue #181 the push names exactly one credential helper, gh, and no force'
 test('Issue #181 the map, the addendum, and CL-D89 route the commit and push through the packaged operations', () => {
   const map = readText('skills/closed-loop-pr/references/helper-map.md');
   assert.match(map, /\| The bounded batch's one normal commit \(CL-D89\) \| `commit_create` \| `created` \(data of `workspace_create`\), `captured` \(envelope of `operator_capture`\), `message` \|/);
-  assert.match(map, /\| The bounded batch's one non-force push \(CL-D89\) \| `push_publish` \| `created` \(data of `workspace_create`\), `captured` \(envelope of `operator_capture`\) \|/);
+  assert.match(map, /\| The bounded batch's one non-force push \(CL-D89\) \| `push_publish` \| `created` \(data of `workspace_create`\), `captured` \(envelope of `operator_capture`\), `parent` \(the public head the batch built on/);
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.match(addendum, /packaged `commit_create`/);
   assert.match(addendum, /packaged `push_publish`/);
   assert.doesNotMatch(addendum, /Push exactly once with `git -C <AUTOFIX_WORKSPACE> push/, 'the push is no longer a composed command');
   const cliText = readText('skills/closed-loop-pr/helpers/cli.js');
   assert.match(cliText, /commit_create: \{ required: \['created', 'captured', 'message'\], optional: \[\] \}/);
-  assert.match(cliText, /push_publish: \{ required: \['created', 'captured'\], optional: \['parent'\] \}/);
+  assert.match(cliText, /push_publish: \{ required: \['created', 'captured', 'parent'\], optional: \[\] \}/);
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D89 — The writer commits and pushes through packaged operations with the operator identity');
   assert.ok(record, 'CL-D89 must exist');
   assert.match(record, /issues\/181#issuecomment-5816104411/, 'the record cites the identity decision');

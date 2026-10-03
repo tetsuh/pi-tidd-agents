@@ -108,12 +108,12 @@ function pushPublish(data) {
     // The pushed history is this run's: HEAD descends from the public head the capture verified.
     try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), head], phase); }
     catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'HEAD does not descend from the captured public head', phase, { captured: String(captured.data.head), head }); throw error; }
-    // The lease is the head the batch built on: `parent`, the public head a later batch of the run built on, else the
-    // captured head. It must descend from the captured head and be the sole parent of the commit read above
+    // The lease is `parent`, the public head the batch built on (the captured head for a run's first batch, its last
+    // pushed head after), always named so no default can stand in. It must descend from the captured head and be the sole parent of the commit read above
     // (commit_create made exactly one), so no older commit stands in for it (CONV-218-PUSH-PARENT-001); that same commit
     // is what is pushed, so a HEAD that moves before the push is not what lands.
-    const base = Object.hasOwn(data, 'parent') ? String(data.parent) : String(captured.data.head);
-    if (!/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(base)) fail('invalid_request', 'parent must be an object name', phase);
+    const base = data.parent;
+    if (typeof base !== 'string' || !/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(base)) fail('invalid_request', 'parent must be an object name', phase);
     try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), base], phase); }
     catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'the parent does not descend from the captured public head', phase, { captured: String(captured.data.head), parent: base }); throw error; }
     const parents = git(cwd, ['rev-list', '--parents', '-n', '1', head], phase).trim().split(' ').slice(1);

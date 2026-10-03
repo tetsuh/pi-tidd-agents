@@ -48,7 +48,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Before building the gate expectation, on the assembled required-evidence set (CL-D61) | `required_evidence_check` | `cwd`, `requiredEvidence` |
 | The bounded batch's one normal commit (CL-D89) | `commit_create` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `message` |
 | Immediately after the bounded batch's one commit, before the post-commit guard (CL-D25, CL-D74) | `message_verify` | `cwd`, `expected` |
-| The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`) |
+| The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `parent` (the public head the batch built on: the captured head for the first batch, the run's last pushed head after; CL-D99) |
 | The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |
 | Immediately before Luna's first edit, on the authorized correction set (CL-D57) | `guard_before_edit` | `cwd`, `expected` (data of `workspace_create`), `authorizedPaths`, and after a push the same `transition` `workspace_verify` takes (#185) |
 | Immediately after editing, freezing the authorized overlay (CL-D57) | `overlay_freeze` | `cwd`, `authorizedPaths` |

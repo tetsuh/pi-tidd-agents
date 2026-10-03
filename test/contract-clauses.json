@@ -5009,7 +5009,7 @@
       ],
       "requires": [
         "| The bounded batch's one normal commit (CL-D89) | `commit_create` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `message` |",
-        "| The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`) |"
+        "| The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `parent` (the public head the batch built on: the captured head for the first batch, the run's last pushed head after; CL-D99) |"
       ]
     },
     {
