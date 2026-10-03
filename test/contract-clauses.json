@@ -4645,7 +4645,7 @@
       "requires": [
         "step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths })",
         "step('commit_create', { created: s.created, captured: s.captured, message: b.message })",
-        "run.op('push_publish', { created: s.created, captured: s.captured }, { allowFail: true })",
+        "run.op('push_publish', { created: s.created, captured: s.captured, parent: b.parentHead }, { allowFail: true })",
         "function correctable(x)"
       ]
     },
@@ -4697,6 +4697,44 @@
         "function bindTarget(opts, kind)",
         "function readGate(run, runId, self, { codes = RELAUNCHABLE, may = (p) => !p.relaunched, before = () => {} } = {})",
         "function finalPolicy(run, snapshot, waitAction)"
+      ]
+    },
+    {
+      "id": "CL-D99-record",
+      "marker": "CL-D99",
+      "title": "CL-D99 records the lease and why it is the one force-named flag",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D99 — The correction push carries a lease on the head it was built on",
+      "requires": [
+        "tetsuh/pi-tidd-agents#207",
+        "`--force-with-lease=refs/heads/<branch>:<parent>`",
+        "`--force`, a `+` refspec, and any other force-named flag stay forbidden"
+      ]
+    },
+    {
+      "id": "CL-D99-forward",
+      "marker": "CL-D99",
+      "title": "CL-D89 names the lease",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D89 — The writer commits and pushes through packaged operations with the operator identity",
+      "requires": [
+        "CL-D99 later made the one push carry a lease on the head the batch built on"
+      ]
+    },
+    {
+      "id": "CL-D99-tests",
+      "marker": "CL-D99",
+      "title": "The lease is pinned",
+      "files": [
+        "test/issue-181-commit-identity.test.js"
+      ],
+      "requires": [
+        "Issue #207 push_publish refuses a remote rewound to an ancestor and pushes nothing",
+        "CL-D99 (#207)"
       ]
     },
     {
@@ -4971,7 +5009,7 @@
       ],
       "requires": [
         "| The bounded batch's one normal commit (CL-D89) | `commit_create` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `message` |",
-        "| The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`) |"
+        "| The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `parent` (the public head the batch built on: the captured head for the first batch, the run's last pushed head after; CL-D99) |"
       ]
     },
     {
@@ -4998,7 +5036,7 @@
         "credential.helper=!gh auth git-credential",
         "GIT_AUTHOR_NAME: identity.name",
         "nothing_staged",
-        "`HEAD:refs/heads/${branch}`",
+        "`${source}:refs/heads/${branch}`",
         "HEAD does not descend from the captured public head"
       ]
     },

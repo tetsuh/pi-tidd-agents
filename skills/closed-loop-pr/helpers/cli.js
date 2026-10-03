@@ -46,7 +46,7 @@ const SCHEMAS = Object.freeze({
   message_verify: { required: ['cwd', 'expected'], optional: [] },
   // The workspace is created.path and the identity and branch come from the capture, never supplied (CL-D89).
   commit_create: { required: ['created', 'captured', 'message'], optional: [] },
-  push_publish: { required: ['created', 'captured'], optional: [] },
+  push_publish: { required: ['created', 'captured', 'parent'], optional: [] },
   required_evidence_check: { required: ['cwd', 'requiredEvidence'], optional: [] },
   validation_run: { required: ['cwd', 'command'], optional: ['timeoutMs'] },
   required_evidence_set: { required: ['cwd', 'baseOid', 'headOid', 'identities'], optional: [] },

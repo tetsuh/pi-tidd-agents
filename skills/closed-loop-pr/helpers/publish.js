@@ -54,10 +54,15 @@ function commitCreate(data) {
 
 // Isolation empties `credential.helper` and replaces HOME, so the operator's helper never runs. The push clears the
 // inherited list and names exactly one helper; gh is the authentication the run already uses for snapshots and
-// replies. No force in any form: a remote that moved refuses the push. Configuration cannot widen it either: no tags,
-// no submodules, no signing ride along with the one branch.
-function pushArgs(branch) {
-  return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', 'origin', `HEAD:refs/heads/${branch}`]);
+// replies. No force: the one lease (CL-D99, #207) makes Git refuse the push unless the remote branch is exactly the
+// head the batch built on, so a remote that moved any way, rewound to an ancestor included, refuses it. Configuration
+// cannot widen it either: no tags, no submodules, no signing ride along with the one branch.
+// The source is the resolved commit, never `HEAD` read again, so what is pushed is the commit whose parent was leased.
+function pushArgs(branch, source, expected) {
+  const oid = /^[0-9a-f]{40}(?:[0-9a-f]{24})?$/;
+  if (!oid.test(String(source))) throw Object.assign(new Error('the push needs the resolved commit as its source'), { code: 'invalid_request' });
+  if (!oid.test(String(expected))) throw Object.assign(new Error('the push needs the expected head of the branch for its lease'), { code: 'invalid_request' });
+  return gitArgs(['-c', 'credential.helper=', '-c', 'credential.helper=!gh auth git-credential', 'push', '--porcelain', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/${branch}:${expected}`, 'origin', `${source}:refs/heads/${branch}`]);
 }
 // gh finds its own configuration from the operator's environment, not the isolated one: the isolation sets
 // XDG_CONFIG_HOME on every platform, and gh consults it before its Windows default, so the directory is always named.
@@ -103,7 +108,21 @@ function pushPublish(data) {
     // The pushed history is this run's: HEAD descends from the public head the capture verified.
     try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), head], phase); }
     catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'HEAD does not descend from the captured public head', phase, { captured: String(captured.data.head), head }); throw error; }
-    runSync('git', pushArgs(branch), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
+    // The lease is `parent`, the public head the batch built on (the captured head for a run's first batch, its last
+    // pushed head after), always named so no default can stand in. It must descend from the captured head and be the sole parent of the commit read above
+    // (commit_create made exactly one), so no older commit stands in for it (CONV-218-PUSH-PARENT-001); that same commit
+    // is what is pushed, so a HEAD that moves before the push is not what lands.
+    const base = data.parent;
+    if (typeof base !== 'string' || !/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(base)) fail('invalid_request', 'parent must be an object name', phase);
+    try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), base], phase); }
+    catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'the parent does not descend from the captured public head', phase, { captured: String(captured.data.head), parent: base }); throw error; }
+    const parents = git(cwd, ['rev-list', '--parents', '-n', '1', head], phase).trim().split(' ').slice(1);
+    if (parents.length !== 1 || parents[0] !== base) fail('guard_failed', 'HEAD is not a single commit on the head the batch built on', phase, { parents, parent: base });
+    const out = runSync('git', pushArgs(branch, head, base), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
+    // Git skips the lease for a ref already up to date and still exits 0, so the push's own status decides: exactly one
+    // fast-forward of this commit onto the branch (ADV-218-LEASE-UP-TO-DATE).
+    const status = String(out).split('\n').filter((line) => line.includes(`\t${head}:refs/heads/${branch}\t`));
+    if (status.length !== 1 || status[0][0] !== ' ') fail('guard_failed', 'the push did not fast-forward the branch to the commit', phase, { status });
     return { head, ref: `refs/heads/${branch}` };
   });
 }
