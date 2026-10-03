@@ -5036,7 +5036,7 @@
         "credential.helper=!gh auth git-credential",
         "GIT_AUTHOR_NAME: identity.name",
         "nothing_staged",
-        "`HEAD:refs/heads/${branch}`",
+        "`${source}:refs/heads/${branch}`",
         "HEAD does not descend from the captured public head"
       ]
     },
