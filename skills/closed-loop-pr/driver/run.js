@@ -57,8 +57,9 @@ function acceptanceCriteria(body) {
 // #209 (CL-D97): validation commands come from outside the pull request, in CL-D97's order; never from the head.
 const OPERATOR_CONFIG = '~/.config/tidd/<owner>/<repo>.json';
 function operatorConfig(repository, env = process.env) {
-  const base = env.XDG_CONFIG_HOME && path.isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : path.join(os.homedir(), '.config');
-  return path.join(base, 'tidd', ...repository.split('/')) + '.json';
+  // Joined as text, not normalized: the walk resolves `.` and `..` as the kernel does (ADV-211-XDG-DOTDOT-NORMALIZATION).
+  const base = env.XDG_CONFIG_HOME && path.isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : `${os.homedir() || '.'}/.config`;
+  return `${base}/tidd/${repository}.json`;
 }
 function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   // One strict reader for every file source (CONV-211-X1): bounded, BOM-free well-formed UTF-8 bytes, then JSON.
@@ -86,7 +87,7 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   // request's own file (CONV-211-XDG-IN-REPO, ADV-211-XDG-LINK-ESCAPE). Only a missing entry of the path itself is
   // absence (CONV-211-DANGLING-PARENT-SYMLINK, ADV-211-OPERATOR-CONFIG-EACCES).
   const top = fs.statSync(git(cwd, ['rev-parse', '--show-toplevel']).replace(/\n$/, ''));
-  const rest = path.resolve(file).split('/');
+  const rest = (path.isAbsolute(file) ? file : `${process.cwd()}/${file}`).split('/');
   for (let done = '/', own = rest.length, hops = 0; rest.length;) {
     const mine = rest.length <= own, name = rest.shift(), at = path.join(done, name);
     if (mine) own = rest.length;
@@ -98,6 +99,7 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
       if (e.code !== 'EINVAL') return refuse(e.code);
       let st; try { st = fs.statSync(done = at); } catch (e2) { return refuse(e2.code); }
       if (st.dev === top.dev && st.ino === top.ino) return refuse('resolves inside the target checkout', '');
+      if (!st.isDirectory() && rest.some(Boolean)) return refuse('ENOTDIR');
       continue;
     }
     if (!isUtf8(raw) || ++hops > 40) return refuse(hops > 40 ? 'ELOOP' : 'a link target that is not UTF-8');
