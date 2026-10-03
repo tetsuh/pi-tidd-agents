@@ -510,6 +510,21 @@ test('Issue #209 validation commands resolve from the base file, then --validate
     assert.match(state(t.runDir).reason, /operator configuration .*EACCES/);
     assert.equal(fs.readdirSync(t.runDir).some((f) => /-(validation_run|build_gate_launch)\.request\.json$/.test(f)), false);
   } finally { fs.chmodSync(path.join(locked, 'tidd', 'o'), 0o755); }
+  // CONV-211-DANGLING-PARENT-SYMLINK: a dangling link anywhere on the path, not only at the file, stops; a link that
+  // resolves to a directory without the file is still absence.
+  for (const [label, link] of [['XDG_CONFIG_HOME', (h) => h], ['tidd', (h) => path.join(h, 'tidd')], ['the owner folder', (h) => path.join(h, 'tidd', 'o')]]) {
+    const home = path.join(temp('i211-dangling-'), 'cfg'); fs.mkdirSync(path.dirname(link(home)), { recursive: true });
+    fs.symlinkSync(path.join(path.dirname(link(home)), 'gone'), link(home));
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: home }).status, 0, label);
+    assert.equal(state(t.runDir).state, 'BLOCKED', label);
+    assert.match(state(t.runDir).reason, /operator configuration .*cannot be read/, label);
+    assert.equal(fs.readdirSync(t.runDir).some((f) => /-(validation_run|build_gate_launch)\.request\.json$/.test(f)), false, label);
+  }
+  const linked = temp('i211-linked-'); fs.mkdirSync(path.join(linked, 'real', 'tidd'), { recursive: true }); fs.symlinkSync(path.join(linked, 'real'), path.join(linked, 'cfg'));
+  t = setup({ config: null });
+  assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(linked, 'cfg') }).status, 0);
+  assert.equal(state(t.runDir).validationSource, 'none', 'a link to a folder without the file is absence');
   // CONV-211-XDG-IN-REPO: an operator configuration inside the target checkout is the pull request's own tracked file,
   // not the operator's, whether XDG_CONFIG_HOME points into the checkout directly or through a link from outside.
   const inRepo = () => {
