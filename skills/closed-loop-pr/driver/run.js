@@ -304,7 +304,7 @@ class Run {
       for (const q of [p, real]) if (q && q.length > 1 && !locals.has(q)) locals.set(q, name);
     }
     const alts = [...locals.keys()].sort((a, b) => b.length - a.length).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const paths = alts.length ? new RegExp(`(?<![\\w.~}-])(?:${alts.join('|')})(?![\\w-]|\\.\\w)`, 'g') : null;
+    const paths = alts.length ? new RegExp(`(?<![\\w.~-])(?:${alts.join('|')})(?![\\w-]|\\.\\w)`, 'g') : null;
     const local = (text) => (paths ? text.replace(paths, (match) => locals.get(match)) : text);
     const block = publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
