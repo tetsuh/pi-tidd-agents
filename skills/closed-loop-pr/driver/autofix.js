@@ -290,7 +290,7 @@ function batch(opts) {
   if (moved) batchFail(run, 'remote_head', `target_moved: ${moved}`);
   const operator = revalidate(run, { allowFail: true });
   if (!operator.ok || operator.data?.ok === false) batchFail(run, 'operator_revalidate', operator.error?.code || operator.data?.code);
-  const pushed = run.op('push_publish', { created: s.created, captured: s.captured }, { allowFail: true });
+  const pushed = run.op('push_publish', { created: s.created, captured: s.captured, parent: b.parentHead }, { allowFail: true });
   if (!pushed.ok) batchFail(run, 'push_publish', `${pushed.error?.code} ${pushed.error?.message || ''}`.trim());
   b.done = true; run.save();
   process.stdout.write(`BATCH_OK ${commit}\n`);

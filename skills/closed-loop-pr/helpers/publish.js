@@ -108,11 +108,17 @@ function pushPublish(data) {
     // The pushed history is this run's: HEAD descends from the public head the capture verified.
     try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), head], phase); }
     catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'HEAD does not descend from the captured public head', phase, { captured: String(captured.data.head), head }); throw error; }
-    // The lease is the head the batch built on: the sole parent of the commit read above (commit_create made exactly
-    // one), and that same commit is what is pushed, so a HEAD that moves before the push is not what lands.
+    // The lease is the head the batch built on: `parent`, the public head a later batch of the run built on, else the
+    // captured head. It must descend from the captured head and be the sole parent of the commit read above
+    // (commit_create made exactly one), so no older commit stands in for it (CONV-218-PUSH-PARENT-001); that same commit
+    // is what is pushed, so a HEAD that moves before the push is not what lands.
+    const base = Object.hasOwn(data, 'parent') ? String(data.parent) : String(captured.data.head);
+    if (!/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(base)) fail('invalid_request', 'parent must be an object name', phase);
+    try { git(cwd, ['merge-base', '--is-ancestor', String(captured.data.head), base], phase); }
+    catch (error) { if (error.exitCode === 1 || error.exitCode === 128) fail('guard_failed', 'the parent does not descend from the captured public head', phase, { captured: String(captured.data.head), parent: base }); throw error; }
     const parents = git(cwd, ['rev-list', '--parents', '-n', '1', head], phase).trim().split(' ').slice(1);
-    if (parents.length !== 1) fail('guard_failed', 'HEAD is not a single commit on the head the batch built on', phase, { parents });
-    runSync('git', pushArgs(branch, head, parents[0]), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
+    if (parents.length !== 1 || parents[0] !== base) fail('guard_failed', 'HEAD is not a single commit on the head the batch built on', phase, { parents, parent: base });
+    runSync('git', pushArgs(branch, head, base), { cwd, phase, env: { GH_CONFIG_DIR: ghConfigDir() }, timeout: 120000 });
     return { head, ref: `refs/heads/${branch}` };
   });
 }

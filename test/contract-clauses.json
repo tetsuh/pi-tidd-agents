@@ -4645,7 +4645,7 @@
       "requires": [
         "step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths })",
         "step('commit_create', { created: s.created, captured: s.captured, message: b.message })",
-        "run.op('push_publish', { created: s.created, captured: s.captured }, { allowFail: true })",
+        "run.op('push_publish', { created: s.created, captured: s.captured, parent: b.parentHead }, { allowFail: true })",
         "function correctable(x)"
       ]
     },

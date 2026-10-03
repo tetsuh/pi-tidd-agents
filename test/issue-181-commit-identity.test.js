@@ -236,6 +236,26 @@ test('Issue #207 the lease is the captured head: no new commit, or two, pushes n
   const two = cli('push_publish', { created, captured }, env);
   assert.deepEqual([two.ok, two.error?.code, two.error?.phase], [false, 'guard_failed', 'push_publish'], JSON.stringify(two));
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), head, 'nothing was pushed');
+  // A parent older than the captured head is refused however it is named: the captured head's own parent included.
+  const older = cli('push_publish', { created, captured, parent: first }, env);
+  assert.deepEqual([older.ok, older.error?.code], [false, 'guard_failed'], JSON.stringify(older));
+  assert.equal(cli('push_publish', { created, captured, parent: 'HEAD' }, env).error?.code, 'invalid_request', 'parent is an object name');
+});
+
+test('Issue #207 a later batch leases the public head it built on, passed as parent', () => {
+  // The driver captures once per run, so a second batch builds on its first push, not on the captured head.
+  const { repo, captured, created, env } = run();
+  stageCorrection(created.path);
+  const one = cli('commit_create', { created, captured, message: MESSAGE }, env);
+  assert.equal(cli('push_publish', { created, captured }, env).ok, true);
+  fs.writeFileSync(path.join(created.path, 'more.txt'), 'more\n');
+  git(created.path, ['add', 'more.txt']);
+  const second = cli('commit_create', { created, captured, message: MESSAGE }, env);
+  assert.equal(second.ok, true, JSON.stringify(second));
+  assert.equal(cli('push_publish', { created, captured }, env).error?.code, 'guard_failed', 'without parent the captured head is the only base');
+  const pushed = cli('push_publish', { created, captured, parent: one.data.commit }, env);
+  assert.equal(pushed.ok, true, JSON.stringify(pushed));
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), second.data.commit);
 });
 
 test('Issue #207 the push sends the commit whose parent it leased, even if HEAD moves before the push', { skip: process.platform === 'win32' && 'the race shim is a POSIX shell script' }, () => {
@@ -414,7 +434,7 @@ test('Issue #181 the map, the addendum, and CL-D89 route the commit and push thr
   assert.doesNotMatch(addendum, /Push exactly once with `git -C <AUTOFIX_WORKSPACE> push/, 'the push is no longer a composed command');
   const cliText = readText('skills/closed-loop-pr/helpers/cli.js');
   assert.match(cliText, /commit_create: \{ required: \['created', 'captured', 'message'\], optional: \[\] \}/);
-  assert.match(cliText, /push_publish: \{ required: \['created', 'captured'\], optional: \[\] \}/);
+  assert.match(cliText, /push_publish: \{ required: \['created', 'captured'\], optional: \['parent'\] \}/);
   const record = sectionOf(readText('CONTRACT.md'), '## CL-D89 — The writer commits and pushes through packaged operations with the operator identity');
   assert.ok(record, 'CL-D89 must exist');
   assert.match(record, /issues\/181#issuecomment-5816104411/, 'the record cites the identity decision');
