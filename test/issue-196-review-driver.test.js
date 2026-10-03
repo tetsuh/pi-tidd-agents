@@ -561,6 +561,21 @@ test('Issue #209 validation commands resolve from the base file, then --validate
   assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: link }).status, 0);
   assert.match(state(t.runDir).reason, /inside the target checkout/);
   assert.ok(!ran(state(t.runDir), 'in-repo'));
+  // ADV-211-XDG-LINK-ESCAPE: a tracked link inside the checkout that points outside still leaves the path inside, at
+  // every depth, with a relative target, and when an outside link passes through the checkout and out again.
+  const outside = temp('i211-outside-'); fs.mkdirSync(path.join(outside, 'cfg', 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(outside, 'cfg', 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "escaped"]]}');
+  for (const [label, at, target, xdg] of [['cfg', 'cfg', 'cfg', 'cfg'], ['tidd', 'cfg/tidd', 'cfg/tidd', 'cfg'], ['the owner folder', 'cfg/tidd/o', 'cfg/tidd/o', 'cfg'], ['the file', 'cfg/tidd/o/r.json', 'cfg/tidd/o/r.json', 'cfg'], ['a relative target', 'cfg/tidd', null, 'cfg'], ['a chain out, in and out', 'out', 'cfg', null]]) {
+    t = setup({ config: null });
+    const link = path.join(t.target.root, ...at.split('/')); fs.mkdirSync(path.dirname(link), { recursive: true });
+    fs.symlinkSync(target ? path.join(outside, target) : path.relative(path.dirname(link), path.join(outside, 'cfg', 'tidd')), link);
+    git(t.target.root, ['add', '-A']); git(t.target.root, ['commit', '-q', '-m', 'outward link at head']);
+    { const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f)); }
+    const into = path.join(temp('i211-in-'), 'cfg'); fs.symlinkSync(path.join(t.target.root, 'out'), into);
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: xdg ? path.join(t.target.root, xdg) : into }).status, 0, label);
+    assert.match(state(t.runDir).reason, /inside the target checkout/, label);
+    assert.ok(!ran(state(t.runDir), 'escaped'), label);
+  }
   // CONV-211-X1: a validation file is read as bytes and must be well-formed UTF-8 with no BOM and a bounded size before
   // JSON.parse, so an invalid byte inside a JSON string cannot silently become U+FFFD in an executed argv.
   const bad = Buffer.concat([Buffer.from('{"validate": [["node", "-e", "process.exit(0)", "x'), Buffer.from([0xff]), Buffer.from('"]]}')]);
