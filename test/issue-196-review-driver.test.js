@@ -329,6 +329,7 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
     ['a sibling with a combining mark', `${home}\u0301/file`, WITHHELD], ['a root nested after a slash', `/other/${tmp}/file`, WITHHELD],
     ['a root nested in a longer path', `/var${tmp}/x`, WITHHELD], ['a relative path', `.${tmp}/x`, WITHHELD], ['a hyphenated name before the path', `foo-bar${home}/x`, WITHHELD],
     ['a sibling with a digit', `see ${home}2/x`, WITHHELD], ['a root after a letter', `x${home}/y and ${home}/z`, WITHHELD],
+    ['a path under the home that ends in the temporary root\'s spelling', `see ${home}${tmp}/x`, WITHHELD],
     // Pre-push sweep of that correction. A removed diff line and Markdown emphasis start a path; a home is a root
     // without its trailing slashes and only when it is absolute; the `$(` the publication spaces out is folded first;
     // and a home too long for the system to return does not stop the publication.

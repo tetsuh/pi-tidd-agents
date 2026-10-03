@@ -294,27 +294,24 @@ class Run {
     // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
     const label = { adversarial: 'sol', safety: 'terra' };
     const findings = (s.findings || []).map((f) => `  ${quoted(f.findingId)}: ${quoted(f.disposition)}`);
-    // Nothing bound for publication names a local path (#221): the run directory, the package, the home (HOME's and
-    // the account's own) and the temporary root, each also as resolved, become placeholders that render as text. One
-    // pass over the text as the publication folds it rewrites whole paths only. A root is an absolute path without
-    // its trailing slashes. It is left where a letter, number, mark, `_` or `-` follows it, or a dot before a letter,
-    // number, mark or `_` (a longer name), and where a letter, number, mark, `/`, `.` or `~` stands before it (a longer
-    // path); leading slashes and an attached option (`-I<root>`: its hyphens, an ASCII letter, then ASCII letters and hyphens)
-    // count as its start. They are matched forward and an option starts only at its first hyphen, so a run is scanned
-    // once and the pass is linear. Any other neighbour ends the path, so a doubtful spelling is
-    // hidden rather than published (ADV-223-PUBLICATION-REDACTION). A root that is the filesystem root holds every
-    // absolute path: a slash that starts one, before a letter, number, mark, `_`, `.`, `~` or `-`, becomes `<name>/`,
-    // except the second slash of `://`, which starts a host (CONV-223-AC1-HOME-ROOT-REDACTION).
-    // The run's state and the operator's terminal report keep the full paths, to resume or remove a retained workspace.
-    let top = '';
+    // Nothing bound for publication spells a local root (#221): the run directory, the package, the home (HOME's and
+    // the account's own) and the temporary root, each also as resolved, an absolute path without its trailing slashes;
+    // a home of `/` is no root. One pass over the text as the publication folds it replaces a root spelled as a whole
+    // path by a placeholder that renders as text. A root is left where a letter, number, mark, `_` or `-` follows it,
+    // or a dot before a letter, number, mark or `_` (a longer name), and where a letter, number, mark, `/`, `.` or `~`
+    // stands before it (a longer path); leading slashes and an attached option (`-I<root>`: its hyphens, an ASCII
+    // letter, then ASCII letters and hyphens) count as its start, matched forward from the option's first hyphen, so
+    // a run is scanned once and the pass is linear. A field that still spells a root after the pass is withheld whole,
+    // never rewritten in part (owner decision REDACTION-FAIL-CLOSED on PR #223). The run's state and the operator's
+    // terminal report keep the full text and paths, to resume or remove a retained workspace.
     const locals = new Map(), fold = (text) => publishable(quoted(text)), home = (read) => { try { return read(); } catch { return ''; } };
     for (const [p, name] of [[this.dir, '{run-dir}'], [PACKAGE, '{package}'], [home(() => os.homedir()), '~'], [home(() => os.userInfo().homedir), '~'], [os.tmpdir(), '{tmp}']]) {
       let real = p; try { real = fs.realpathSync(p); } catch {}
-      for (let q of [p, real].map((r) => fold(r))) { if (!q.startsWith('/')) continue; while (q.endsWith('/')) q = q.slice(0, -1); if (!q) top = top || name; else if (!locals.has(q)) locals.set(q, name); }
+      for (let q of [p, real].map((r) => fold(r))) { if (!q.startsWith('/')) continue; while (q.endsWith('/')) q = q.slice(0, -1); if (q && !locals.has(q)) locals.set(q, name); }
     }
-    const alts = [...locals.keys()].sort((a, b) => b.length - a.length).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-    const N = '\\p{L}\\p{N}\\p{M}', paths = alts.length ? new RegExp(`(?<=^|[^${N}/.~])((?:(?<!-)-+[A-Za-z][A-Za-z-]*)?/*?)(?:(${alts.join('|')})(?![${N}_-]|\\.[${N}_])${top && `|(?<!:/)/(?=[${N}_.~-])`})`, 'gu') : null;
-    const local = (text) => (paths ? fold(text).replace(paths, (match, start, root) => start + (root ? locals.get(root) : `${top}/`)) : fold(text));
+    const roots = [...locals.keys()].sort((a, b) => b.length - a.length), alts = roots.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const N = '\\p{L}\\p{N}\\p{M}', paths = new RegExp(`(?<=^|[^${N}/.~])((?:(?<!-)-+[A-Za-z][A-Za-z-]*)?/*?)(${alts.join('|')})(?![${N}_-]|\\.[${N}_])`, 'gu');
+    const local = (text) => { const out = fold(text).replace(paths, (match, start, root) => start + locals.get(root)); return roots.some((root) => out.includes(root)) ? 'withheld: this text spells a local path; the run\'s state keeps it' : out; };
     // Exact fields (the target, the branch, the mode, fingerprints, heads, the observation) are never rewritten; only
     // the free text that can quote a local path is (CONV-223-AC3-BRANCH-PRESERVATION).
     const render = (free) => publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
