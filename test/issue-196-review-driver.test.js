@@ -248,10 +248,15 @@ test('Issue #221 a drafted publication names no local path: home, run directory,
   setFixture(t, { protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } });
   const e = { ...t.e, HOME: home };
   assert.equal(drive(t.start, e).status, 0);
-  for (let i = 0; i < 3; i += 1) drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], e);
+  let last;
+  for (let i = 0; i < 3; i += 1) last = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], e);
   const s = state(t.runDir);
   assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
   assert.match(s.nextAction, /resume/, 'the wait still names how to continue');
+  // AC2 (CONV-223-AC2-RESUME-COMMAND-COVERAGE): the command with its absolute paths stays in the run's state and in
+  // the operator's terminal report.
+  assert.equal(s.resumeCommand, `node ${DRIVER} resume --run-dir ${t.runDir}`);
+  assert.ok(last.stdout.includes(`To resume after the wait, the operator runs: ${s.resumeCommand}\n`), last.stdout);
   const body = fs.readFileSync(s.publication.comment, 'utf8');
   for (const [label, local] of [['run directory', t.runDir], ['run root', path.dirname(t.runDir)], ['home', home], ['package', repoPath('.')]]) assert.equal(body.includes(local), false, `the draft names the ${label}: ${local}`);
 });
@@ -326,6 +331,11 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
     ['a removed diff line', `-${home}/expected +${home}/actual`, '-~/expected +~/actual'], ['Markdown emphasis', `the file _${home}/x_ is missing`, 'the file _~/x_ is missing'],
     ['a home with a trailing slash', 'see /nohome-221/u/x', 'see ~/x', '/nohome-221/u/'], ['a home that is no absolute path', 'see aa/x', 'see aa/x', 'aa'],
     ['a home the publication spaces out', 'see /srv/$(y/x', 'see ~/x', '/srv/$ (y'], ['a home too long to read', `see ${home}/x`, 'see ~/x', `/${'a'.repeat(5000)}`],
+    // Round 4 (CONV-223-AC1-HOME-ROOT-REDACTION): a home that is the filesystem root holds every absolute path, so a
+    // slash that starts one becomes `~/`; another root still wins, and what is no absolute path stays.
+    ['a home that is the filesystem root', 'see /var/private-221/x', 'see ~/var/private-221/x', '/'], ['the same home spelled with two slashes', 'cc -I/var/private-221', 'cc -I~/var/private-221', '//'],
+    ['a file URL under that home', 'file:///var/private-221', 'file://~/var/private-221', '/'], ['another root under that home', `see ${tmp}/x`, 'see {tmp}/x', '/'],
+    ['a web URL under that home', 'see https://example.com/x', 'see https://example.com/x', '/'], ['relative paths under that home', 'see o/r and ./x and a / b', 'see o/r and ./x and a / b', '/'],
   ]) {
     const lines = draft(text, env);
     lines.forEach((line, i) => assert.ok(line && line.includes(expected), `${label}, field ${i}: ${JSON.stringify(line)} lacks ${JSON.stringify(expected)}`));
@@ -334,7 +344,7 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
   // roots a quick check cannot rule out took 54 s for 200 KB.
   const tmpdir = process.env.TMPDIR, started = Date.now();
   process.env.TMPDIR = '/nonexistent-tmp-221';
-  try { draft('/'.repeat(204800), '/-'); } finally { if (tmpdir === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = tmpdir; }
+  try { draft('/'.repeat(204800), '/-'); draft('/'.repeat(204800), '/'); } finally { if (tmpdir === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = tmpdir; }
   assert.ok(Date.now() - started < 5000, `a long run of slashes took ${Date.now() - started} ms`);
 });
 
