@@ -336,6 +336,10 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
     ['a home that is the filesystem root', 'see /var/private-221/x', 'see ~/var/private-221/x', '/'], ['the same home spelled with two slashes', 'cc -I/var/private-221', 'cc -I~/var/private-221', '//'],
     ['a file URL under that home', 'file:///var/private-221', 'file://~/var/private-221', '/'], ['another root under that home', `see ${tmp}/x`, 'see {tmp}/x', '/'],
     ['a web URL under that home', 'see https://example.com/x', 'see https://example.com/x', '/'], ['relative paths under that home', 'see o/r and ./x and a / b', 'see o/r and ./x and a / b', '/'],
+    // Round 5 (CONV-223-LONG-ATTACHED-OPTION-PATH-REDACTION): an attached option has no length limit. It is a run of
+    // ASCII letters and hyphens that starts with its hyphens, so one run is scanned once, whatever its length.
+    ['an attached option longer than 32 characters', `cc --${'x'.repeat(33)}${home}/private`, `cc --${'x'.repeat(33)}~/private`], ['an attached option of 300 characters', `cc -${'long-opt'.repeat(40)}${home}/p`, `cc -${'long-opt'.repeat(40)}~/p`],
+    ['three hyphens before an attached option', `cc ---I${home}/x`, 'cc ---I~/x'], ['hyphens inside a name before the path', `foo--bar${home}/x`, `foo--bar${home}/x`],
   ]) {
     const lines = draft(text, env);
     lines.forEach((line, i) => assert.ok(line && line.includes(expected), `${label}, field ${i}: ${JSON.stringify(line)} lacks ${JSON.stringify(expected)}`));
