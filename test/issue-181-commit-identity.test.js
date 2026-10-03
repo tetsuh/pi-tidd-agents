@@ -242,6 +242,19 @@ test('Issue #207 the lease is the captured head: no new commit, or two, pushes n
   assert.equal(cli('push_publish', { created, captured, parent: 'HEAD' }, env).error?.code, 'invalid_request', 'parent is an object name');
 });
 
+test('Issue #207 a remote that already holds the correction is not a push', () => {
+  // ADV-218-LEASE-UP-TO-DATE: Git reports an up-to-date ref without checking the lease and exits 0, so the remote
+  // moving to the correction itself after the last check read as a successful push.
+  const { repo, captured, created, env } = run();
+  stageCorrection(created.path);
+  const committed = cli('commit_create', { created, captured, message: MESSAGE }, env);
+  assert.equal(committed.ok, true, JSON.stringify(committed));
+  git(created.path, ['push', repo.bare, `${committed.data.commit}:refs/heads/main`]);
+  const pushed = cli('push_publish', { created, captured, parent: captured.data.head }, env);
+  assert.deepEqual([pushed.ok, pushed.error?.code, pushed.error?.phase], [false, 'guard_failed', 'push_publish'], JSON.stringify(pushed));
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), committed.data.commit, 'the remote is left as it was');
+});
+
 test('Issue #207 a later batch leases the public head it built on, passed as parent', () => {
   // The driver captures once per run, so a second batch builds on its first push, not on the captured head.
   const { repo, captured, created, env } = run();
