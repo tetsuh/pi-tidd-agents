@@ -139,7 +139,10 @@ async function dispatch(request) {
     case 'fingerprint_pr_base': return fingerprintResult(operation, 'pr_base', fingerprints.prBaseFingerprint(data.oid));
     case 'fingerprint_pr_tree': return fingerprintResult(operation, 'pr_tree', fingerprints.prTreeFingerprint(data.oid));
     case 'fingerprint_pr_diff': {
-      if (typeof data.base64 !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(data.base64)) invalid('diff must be canonical Base64');
+      // The round trip alone decides canonical Base64: the decoder skips foreign characters and accepts the URL-safe
+      // alphabet, so any other spelling re-encodes differently. A regular expression here overflowed the stack on a
+      // diff of a few MB (#219).
+      if (typeof data.base64 !== 'string') invalid('diff must be canonical Base64');
       const bytes = Buffer.from(data.base64, 'base64');
       if (bytes.toString('base64') !== data.base64) invalid('diff must be canonical Base64');
       return fingerprintResult(operation, 'pr_diff', fingerprints.prDiffFingerprint(bytes));
