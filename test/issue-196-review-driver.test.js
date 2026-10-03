@@ -521,6 +521,14 @@ test('Issue #209 validation commands resolve from the base file, then --validate
     assert.match(state(t.runDir).reason, /operator configuration .*cannot be read/, label);
     assert.equal(fs.readdirSync(t.runDir).some((f) => /-(validation_run|build_gate_launch)\.request\.json$/.test(f)), false, label);
   }
+  // Pre-push sweep: a path that resolves beyond PATH_MAX makes realpath throw; that is a refusal, not a driver failure.
+  const far = temp('i211-far-'), seg = 'd'.repeat(200);
+  execFileSync('bash', ['-c', `cd "$1" && mkdir deep && cd deep && for i in $(seq 25); do mkdir ${seg} && cd ${seg}; done && mkdir -p tidd/o`, '-', far]);
+  fs.symlinkSync(path.join('deep', ...Array(13).fill(seg)), path.join(far, 'hop')); fs.symlinkSync(path.join('hop', ...Array(12).fill(seg)), path.join(far, 'cfg'));
+  t = setup({ config: null });
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(far, 'cfg') }).status, 0);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /operator configuration .*cannot be read: ENAMETOOLONG/);
   const linked = temp('i211-linked-'); fs.mkdirSync(path.join(linked, 'real', 'tidd'), { recursive: true }); fs.symlinkSync(path.join(linked, 'real'), path.join(linked, 'cfg'));
   t = setup({ config: null });
   assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(linked, 'cfg') }).status, 0);
