@@ -81,18 +81,18 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
   // Node decodes argv lossily, so a replacement character means bytes that were not UTF-8 (pre-push sweep).
   if (validate !== undefined) return String(validate).includes('\uFFFD') ? { problem: '--validate carries a replacement character: its bytes were not UTF-8', source: '--validate' } : { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);
+  const refuse = (why) => ({ problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${why}`, source: 'operator configuration' });
   // A file inside the target checkout belongs to the pull request (CONV-211-XDG-IN-REPO): walk up, through links, and
   // refuse on reaching the repository root by device and inode, however the path spells it.
   const top = fs.statSync(git(cwd, ['rev-parse', '--show-toplevel']).trim());
   for (let at = file; ; at = path.dirname(at)) {
     let st; try { st = fs.statSync(at); } catch { st = null; }
     if (st && st.dev === top.dev && st.ino === top.ino) return { problem: `the operator configuration ${OPERATOR_CONFIG} resolves inside the target checkout`, source: 'operator configuration' };
-    if (st) { const real = fs.realpathSync.native(at); if (real !== at) { at = path.join(real, 'x'); continue; } }
+    if (st) { let real; try { real = fs.realpathSync.native(at); } catch (e) { return refuse(e.code); } if (real !== at) { at = path.join(real, 'x'); continue; } }
     if (at === path.dirname(at)) break;
   }
   // Only a missing entry is absence; a dangling link, a non-file (a FIFO would block a read), or any failure to read it
   // stops (ADV-211-OPERATOR-CONFIG-EACCES, CONV-211-OPERATOR-CONFIG-DANGLING-SYMLINK).
-  const refuse = (why) => ({ problem: `the operator configuration ${OPERATOR_CONFIG} cannot be read: ${why}`, source: 'operator configuration' });
   try { fs.lstatSync(file); } catch (error) {
     if (error.code !== 'ENOENT') return refuse(error.code);
     // A dangling link above it is ENOENT too, so the nearest ancestor must resolve (CONV-211-DANGLING-PARENT-SYMLINK).
