@@ -341,11 +341,12 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
     lines.forEach((line, i) => assert.ok(line && line.includes(expected), `${label}, field ${i}: ${JSON.stringify(line)} lacks ${JSON.stringify(expected)}`));
   }
   // The start of a path is matched forward, never scanned backward from every position: a long run of slashes with
-  // roots a quick check cannot rule out took 54 s for 200 KB.
+  // roots a quick check cannot rule out took 54 s for 200 KB. An attached option has a bounded length: a long run of
+  // letters and hyphens, where every `--` starts an option, took 128 s.
   const tmpdir = process.env.TMPDIR, started = Date.now();
   process.env.TMPDIR = '/nonexistent-tmp-221';
-  try { draft('/'.repeat(204800), '/-'); draft('/'.repeat(204800), '/'); } finally { if (tmpdir === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = tmpdir; }
-  assert.ok(Date.now() - started < 5000, `a long run of slashes took ${Date.now() - started} ms`);
+  try { draft('/'.repeat(204800), '/-'); draft('/'.repeat(204800), '/'); draft('--a-'.repeat(51200)); } finally { if (tmpdir === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = tmpdir; }
+  assert.ok(Date.now() - started < 5000, `the long runs took ${Date.now() - started} ms`);
 });
 
 test('Issue #196 new evidence at final readiness reruns convergence instead of declaring MERGE_READY', () => {
