@@ -296,7 +296,7 @@ class Run {
     const findings = (s.findings || []).map((f) => `  ${quoted(f.findingId)}: ${quoted(f.disposition)}`);
     // Nothing bound for publication names a local path (#221): the run directory, the package, the home (HOME's and
     // the account's own) and the temporary root, each also as resolved, become placeholders that render as text. One
-    // pass with a boundary on both sides rewrites whole paths only, never part of a URL, a branch, or its own output.
+    // pass with a boundary on both sides rewrites whole paths only, never part of a word or its own output.
     // The run's state and the operator's terminal report keep the full paths, to resume or remove a retained workspace.
     const locals = new Map(), account = (() => { try { return os.userInfo().homedir; } catch { return ''; } })();
     for (const [p, name] of [[this.dir, '{run-dir}'], [PACKAGE, '{package}'], [os.homedir(), '~'], [account, '~'], [os.tmpdir(), '{tmp}']]) {
@@ -306,15 +306,18 @@ class Run {
     const alts = [...locals.keys()].sort((a, b) => b.length - a.length).map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const paths = alts.length ? new RegExp(`(?<![\\w.~-])(?:${alts.join('|')})(?![\\w-]|\\.\\w)`, 'g') : null;
     const local = (text) => (paths ? text.replace(paths, (match) => locals.get(match)) : text);
-    const block = publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
+    // Exact fields (the target, the branch, the mode, fingerprints, heads, the observation) are never rewritten; only
+    // the free text that can quote a local path is (CONV-223-AC3-BRANCH-PRESERVATION).
+    const render = (free) => publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
-      'review_misses: none', `pending_decisions: ${quoted((s.pendingDecisions || []).join(', ') || 'none')}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
-      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted([...(s.operatorActions && !/^none\b/.test(s.operatorActions) ? [s.operatorActions] : []), ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', t.repository)}`] : [])].join('; ') || s.operatorActions || 'none')}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
-    const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${quoted(g.findings)}` : ''}`).join('\n') || '- none';
-    const visible = local(publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
+      'review_misses: none', `pending_decisions: ${quoted(free((s.pendingDecisions || []).join(', ') || 'none'))}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
+      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted(free([...(s.operatorActions && !/^none\b/.test(s.operatorActions) ? [s.operatorActions] : []), ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', t.repository)}`] : [])].join('; ') || s.operatorActions || 'none'))}`, `invalidated_evidence: ${quoted(free(s.invalidated || 'none'))}`, `next_action: ${quoted(free(s.nextAction || NEXT_ACTION[s.state] || 'owner decision'))}`, '```'].join('\n'));
+    const block = render((text) => text);
+    const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${quoted(local(g.findings))}` : ''}`).join('\n') || '- none';
+    const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
       `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
-      `Reason: ${quoted(s.reason || s.state)}.`, '', '## Gates', gates, '', `Validation: ${quoted(s.validation || 'not run')}.`, '', block, ''].join('\n')));
+      `Reason: ${quoted(local(s.reason || s.state))}.`, '', '## Gates', gates, '', `Validation: ${quoted(local(s.validation || 'not run'))}.`, '', render(local), ''].join('\n'));
     const marker = `<!-- pi-tidd-agents:review-publication:v1 repo=${t.repository} pr=${t.number} head=${t.headOid} visibleSha256=${sha256(visible)} -->`;
     const body = `${visible}${marker}\n`;
     // Inside the run directory, which was verified outside every work tree before it was created.
