@@ -928,7 +928,7 @@ test('Issue #209 the autofix driver takes --validate or the operator configurati
     const s = state(t.runDir);
     assert.equal(s.validationSource, source, label);
     const marker = label === '--validate' ? 'flag' : 'operator-config';
-    assert.match(s.validation, new RegExp(`^source: ${source.replace(/[.-]/g, '\\$&')}; node -e process\\.exit\\(0\\) ${marker}: passed; `), label);
+    assert.ok(s.validation.startsWith(`source: ${source}; node -e process.exit(0) ${marker}: passed; `), `${label}: ${s.validation}`);
   }
 });
 
