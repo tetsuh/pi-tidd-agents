@@ -241,6 +241,21 @@ test('Issue #196 a missing required approval keeps final readiness waiting', () 
   assert.match(s.reason, /required_pull_request_reviews; a human confirms/);
 });
 
+test('Issue #221 a drafted publication names no local path: home, run directory, or package', () => {
+  // The wait action named `node <package>/…/review.js resume --run-dir <run dir>`, and the publication script binds
+  // the body's digest, so the owner could only publish the operator's local paths or nothing.
+  const t = setup(), home = temp('i221-home-');
+  setFixture(t, { protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } });
+  const e = { ...t.e, HOME: home };
+  assert.equal(drive(t.start, e).status, 0);
+  for (let i = 0; i < 3; i += 1) drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], e);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
+  assert.match(s.nextAction, /resume/, 'the wait still names how to continue');
+  const body = fs.readFileSync(s.publication.comment, 'utf8');
+  for (const [label, local] of [['run directory', t.runDir], ['run root', path.dirname(t.runDir)], ['home', home], ['package', repoPath('.')]]) assert.equal(body.includes(local), false, `the draft names the ${label}: ${local}`);
+});
+
 test('Issue #196 new evidence at final readiness reruns convergence instead of declaring MERGE_READY', () => {
   const t = setup();
   assert.equal(drive(t.start, t.e).status, 0);
