@@ -4700,6 +4700,46 @@
       ]
     },
     {
+      "id": "CL-D97-record",
+      "marker": "CL-D97",
+      "title": "CL-D97 records where validation commands come from and what none means",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D97 — Validation commands without a committed .tidd.json",
+      "requires": [
+        "tetsuh/pi-tidd-agents#209",
+        "The head is never a source, and the run records the source it used and names it first in the validation line",
+        "Exact autofix with none stops `BLOCKED` before the operator capture, naming both places",
+        "Reading commands from the head, guessing them, or letting exact autofix run without them requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D97-forward",
+      "marker": "CL-D97",
+      "title": "CL-D93 names the fallback",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
+      "requires": [
+        "CL-D97 later let a missing base file fall back to `--validate` or the operator's own configuration, and review-only proceed with none."
+      ]
+    },
+    {
+      "id": "CL-D97-tests",
+      "marker": "CL-D97",
+      "title": "The CL-D97 fixtures drive each source",
+      "files": [
+        "test/issue-196-review-driver.test.js"
+      ],
+      "requires": [
+        "Issue #209 review-only with no validation commands runs git diff --check only and says so",
+        "Issue #209 validation commands resolve from the base file, then --validate or the operator configuration",
+        "Issue #196 a .tidd.json added only at the head is not read"
+      ]
+    },
+    {
       "id": "CL-D93-driver",
       "marker": "CL-D93",
       "title": "The review-only driver sequences helpers through the packaged CLI",
@@ -4708,7 +4748,7 @@
       ],
       "requires": [
         "const CLI = path.join(PACKAGE, 'skills', 'closed-loop-pr', 'helpers', 'cli.js');",
-        "git(cwd, ['show', `${baseOid}:.tidd.json`])",
+        "git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer')",
         "function contractInput(files)"
       ]
     },
@@ -4746,7 +4786,7 @@
       ],
       "requires": [
         "Issue #196 the packaged review-only driver runs a PR round to MERGE_READY; the parent only makes printed calls",
-        "Issue #196 a missing .tidd.json at the base, or an issue without acceptance criteria, stops before any gate"
+        "Issue #196 a malformed .tidd.json at the base, or an issue without acceptance criteria, stops before any gate"
       ]
     },
     {

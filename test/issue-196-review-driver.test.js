@@ -30,7 +30,7 @@ function makeTarget({ config = { validate: [['node', '-e', 'process.exit(0)']] }
   const root = temp('i196-target-');
   git(root, ['init', '-q', '-b', 'main']);
   fs.writeFileSync(path.join(root, 'a.js'), 'module.exports = 1;\n');
-  if (config) fs.writeFileSync(path.join(root, '.tidd.json'), typeof config === 'string' ? config : `${JSON.stringify(config)}\n`);
+  if (config) fs.writeFileSync(path.join(root, '.tidd.json'), typeof config === 'string' || Buffer.isBuffer(config) ? config : `${JSON.stringify(config)}\n`);
   git(root, ['add', '.']); git(root, ['commit', '-q', '-m', 'base']);
   const base = git(root, ['rev-parse', 'HEAD']);
   git(root, ['checkout', '-q', '-b', 'feature']);
@@ -73,7 +73,8 @@ out([]);
   return bin;
 }
 
-function env(bin, runs) { return { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, PI_SUBAGENTS_TEMP_ROOT: runs }; }
+// The operator's configuration directory is the test's own, never the machine's (#209).
+function env(bin, runs) { return { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, PI_SUBAGENTS_TEMP_ROOT: runs, XDG_CONFIG_HOME: temp('i196-xdg-') }; }
 function drive(args, e) { return spawnSync(process.execPath, [DRIVER, ...args], { encoding: 'utf8', env: e, timeout: 120000 }); }
 function nextRequest(stdout) { const lines = stdout.split('\n'); const i = lines.findIndex((l) => l.startsWith('NEXT:')); return i < 0 ? null : JSON.parse(lines[i + 1]); }
 
@@ -138,9 +139,10 @@ test('Issue #196 contractInput is the package authority files, not the target ch
   assert.equal(state(t.runDir).contractInput, expected);
 });
 
-test('Issue #196 a missing .tidd.json at the base, or an issue without acceptance criteria, stops before any gate', () => {
+test('Issue #196 a malformed .tidd.json at the base, or an issue without acceptance criteria, stops before any gate', () => {
   // CONV-199-MALFORMED-VALIDATION-CONFIG-TEST: a malformed file stops the run as surely as a missing one.
-  for (const [options, reason] of [[{ config: null }, /\.tidd\.json/], [{ issueBody: 'Spec without criteria.\n' }, /Acceptance criteria/],
+  // #209: a missing file no longer stops review-only (its own test below); a malformed one still does.
+  for (const [options, reason] of [[{ issueBody: 'Spec without criteria.\n' }, /Acceptance criteria/],
     [{ config: 'not json' }, /not JSON/], [{ config: { validate: [] } }, /nonempty list/], [{ config: { validate: [['node', 1]] } }, /nonempty list/]]) {
     const t = setup(options);
     const r = drive(t.start, t.e);
@@ -168,11 +170,11 @@ test('Issue #196 the driver is packaged under its own alarms and names no writin
   const files = fs.readdirSync(repoPath(DRIVER_DIR)).filter((f) => f.endsWith('.js')).map((f) => `${DRIVER_DIR}/${f}`);
   // phases.js holds the phases of a review-only round that autofix.js shares with review.js; CL-D96 adds autofix.js,
   // the one driver file that names the writer operations (test/issue-196-autofix-driver.test.js), and reset the
-  // aggregate alarm from 60,000 to 100,000.
+  // aggregate alarm from 60,000 to 100,000; CL-D97 resets it to 105,000 for the kernel-like path walk.
   assert.deepEqual(files.sort(), [`${DRIVER_DIR}/autofix.js`, `${DRIVER_DIR}/paths.js`, `${DRIVER_DIR}/phases.js`, `${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`, `${DRIVER_DIR}/writer.js`]);
   const sizes = files.map((f) => fs.statSync(repoPath(f)).size);
   for (const [i, size] of sizes.entries()) assert.ok(size < 30000, `${files[i]} is ${size} bytes`);
-  assert.ok(sizes.reduce((a, b) => a + b, 0) < 100000, 'driver aggregate alarm');
+  assert.ok(sizes.reduce((a, b) => a + b, 0) < 105000, 'driver aggregate alarm');
   for (const f of files.filter((f) => !f.endsWith('/autofix.js'))) assert.doesNotMatch(readText(f), /commit_create|push_publish|marker_create|\/merge\b|'merge'|--approve|'APPROVE'/, `${f} names a writing operation`);
   for (const f of files) assert.doesNotMatch(readText(f), /require\('\.\.\/helpers\/(?:fingerprints|evidence)'\)/, `${f} computes evidence outside the packaged operations`);
   assert.ok(/^## CL-D93 — /m.test(readText('CONTRACT.md')), 'CL-D93 records the driver boundary');
@@ -432,14 +434,217 @@ test('Issue #196 a pull request body edited between gates stops the next launch'
   assert.match(state(t.runDir).reason, /body changed/);
 });
 
-test('Issue #196 a .tidd.json added only at the head is not read, and the run stops BLOCKED', () => {
+test('Issue #196 a .tidd.json added only at the head is not read', () => {
+  // #209: with no base file and no operator configuration the run proceeds with no validation commands; the head's
+  // file, which the pull request under review controls, is never one of the sources.
   const t = setup({ config: null });
-  fs.writeFileSync(path.join(t.target.root, '.tidd.json'), '{"validate": [["node", "-e", "0"]]}\n');
+  fs.writeFileSync(path.join(t.target.root, '.tidd.json'), '{"validate": [["node", "-e", "process.exit(7)"]]}\n');
   git(t.target.root, ['add', '.tidd.json']); git(t.target.root, ['commit', '-q', '-m', 'add config at head']);
   const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f));
   const r = drive(t.start, t.e);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.equal(state(t.runDir).validationSource, 'none');
+  assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json') && fs.readFileSync(path.join(t.runDir, f), 'utf8').includes('process.exit(7)')), false);
+});
+
+// Pre-push sweep: with an empty HOME the path is relative to the working directory, and a removed one is a refusal.
+test('Issue #209 an operator configuration relative to a removed working directory is refused, not thrown', () => {
+  const { validationCommands } = require('../skills/closed-loop-pr/driver/run');
+  const t = setup({ config: null }), gone = temp('i211-cwd-'), saved = { cwd: process.cwd(), home: process.env.HOME, xdg: process.env.XDG_CONFIG_HOME };
+  process.env.HOME = ''; delete process.env.XDG_CONFIG_HOME; process.chdir(gone); fs.rmdirSync(gone);
+  let result;
+  try { result = validationCommands(t.target.root, git(t.target.root, ['rev-parse', 'HEAD']).trim(), { repository: 'o/r' }); } finally {
+    process.chdir(saved.cwd); process.env.HOME = saved.home;
+    if (saved.xdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = saved.xdg;
+  }
+  assert.match(result.problem, /operator configuration .*cannot be read: ENOENT/);
+});
+
+// #209 (CL-D97, owner decision in its body): base .tidd.json, then --validate or the operator configuration, then none.
+test('Issue #209 review-only with no validation commands runs git diff --check only and says so', () => {
+  const t = setup({ config: null });
+  let r = drive(t.start, t.e);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  for (let i = 0; i < 3; i += 1) r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.equal(s.validationSource, 'none');
+  // CONV-211-AC2-ONLY-CHECK-UNASSERTED: the whitespace check is the only command run, and the summary says exactly that.
+  const range = `${s.target.baseOid}...${s.target.headOid}`;
+  const commands = fs.readdirSync(t.runDir).filter((f) => f.endsWith('-validation_run.request.json')).sort().map((f) => JSON.parse(fs.readFileSync(path.join(t.runDir, f), 'utf8')).data.command);
+  assert.deepEqual(commands, [['git', 'diff', '--check', range]]);
+  assert.equal(s.validation, `source: none; no validation commands configured; git diff --check ${range}: passed`);
+  assert.match(s.statusBlock, /operator_actions: "?no validation commands configured: add \.tidd\.json at the base or ~\/\.config\/tidd\/o\/r\.json/);
+  assert.doesNotMatch(fs.readFileSync(s.publication.comment, 'utf8'), new RegExp(os.homedir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'no operator home path is published');
+  assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /no validation commands configured/);
+  // The report carries the same line, its source first (#209 AC1 and AC2, pre-push sweep).
+  assert.ok(fs.readFileSync(s.publication.comment, 'utf8').includes(`Validation: ${s.validation}.`), 'the published validation line names its source');
+});
+
+test('Issue #209 validation commands resolve from the base file, then --validate or the operator configuration', () => {
+  const config = temp('i209-config-');
+  fs.mkdirSync(path.join(config, 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(config, 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "operator-config"]]}\n');
+  // The commands a run executed, from its own validation_run request records.
+  const ran = (s, marker) => fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json') && fs.readFileSync(path.join(t.runDir, f), 'utf8').includes(marker));
+  // The operator configuration, read from $XDG_CONFIG_HOME/tidd/<owner>/<repo>.json when the base has no file.
+  let t = setup({ config: null });
+  assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
+  assert.equal(state(t.runDir).validationSource, 'operator configuration');
+  assert.match(state(t.runDir).validation, /^source: operator configuration; /);
+  assert.ok(ran(state(t.runDir), 'operator-config'));
+  // --validate, a JSON list of argv lists, in place of the operator configuration.
+  t = setup({ config: null });
+  assert.equal(drive([...t.start, '--validate', '[["node", "-e", "process.exit(0)", "flag"]]'], { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
+  assert.equal(state(t.runDir).validationSource, '--validate');
+  assert.match(state(t.runDir).validation, /^source: --validate; /);
+  assert.ok(ran(state(t.runDir), 'flag'));
+  // The base file wins over both.
+  t = setup({ config: { validate: [['node', '-e', 'process.exit(0)', 'base-file']] } });
+  assert.equal(drive([...t.start, '--validate', '[["node", "-e", "process.exit(0)", "flag"]]'], { ...t.e, XDG_CONFIG_HOME: config }).status, 0);
+  assert.equal(state(t.runDir).validationSource, 'base .tidd.json');
+  assert.match(state(t.runDir).validation, /^source: base \.tidd\.json; /);
+  assert.ok(ran(state(t.runDir), 'base-file'));
+  assert.ok(!ran(state(t.runDir), 'flag') && !ran(state(t.runDir), 'operator-config'));
+  // A malformed --validate stops before any gate.
+  t = setup({ config: null });
+  const r = drive([...t.start, '--validate', 'not json'], t.e);
   assert.notEqual(r.status, 0);
-  assert.match(state(t.runDir).reason, /base commit carries no \.tidd\.json/);
+  assert.match(state(t.runDir).reason, /--validate/);
+  // A malformed operator file, or a directory in its place, stops before any gate; a relative XDG_CONFIG_HOME is ignored.
+  for (const [label, write] of [['not JSON', (f) => fs.writeFileSync(f, 'nope')], ['empty list', (f) => fs.writeFileSync(f, '{"validate": []}')], ['a directory', (f) => fs.mkdirSync(f)], ['a dangling link', (f) => fs.symlinkSync(path.join(path.dirname(f), 'gone.json'), f)], ['a FIFO', (f) => execFileSync('mkfifo', [f])]]) {
+    const home = temp('i209-bad-'); fs.mkdirSync(path.join(home, 'tidd', 'o'), { recursive: true }); write(path.join(home, 'tidd', 'o', 'r.json'));
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: home }).status, 0, label);
+    assert.equal(state(t.runDir).state, 'BLOCKED', label);
+    assert.match(state(t.runDir).reason, /operator configuration/, label);
+  }
+  // ADV-211-OPERATOR-CONFIG-EACCES: only a missing file is absence; a lookup the operator's system refuses stops.
+  const locked = temp('i209-locked-'); fs.mkdirSync(path.join(locked, 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(locked, 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "0"]]}'); fs.chmodSync(path.join(locked, 'tidd', 'o'), 0o000);
+  try {
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: locked }).status, 0);
+    assert.equal(state(t.runDir).state, 'BLOCKED');
+    assert.match(state(t.runDir).reason, /operator configuration .*EACCES/);
+    assert.equal(fs.readdirSync(t.runDir).some((f) => /-(validation_run|build_gate_launch)\.request\.json$/.test(f)), false);
+  } finally { fs.chmodSync(path.join(locked, 'tidd', 'o'), 0o755); }
+  // CONV-211-DANGLING-PARENT-SYMLINK: a dangling link anywhere on the path, not only at the file, stops; a link that
+  // resolves to a directory without the file is still absence.
+  for (const [label, link] of [['XDG_CONFIG_HOME', (h) => h], ['tidd', (h) => path.join(h, 'tidd')], ['the owner folder', (h) => path.join(h, 'tidd', 'o')]]) {
+    const home = path.join(temp('i211-dangling-'), 'cfg'); fs.mkdirSync(path.dirname(link(home)), { recursive: true });
+    fs.symlinkSync(path.join(path.dirname(link(home)), 'gone'), link(home));
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: home }).status, 0, label);
+    assert.equal(state(t.runDir).state, 'BLOCKED', label);
+    assert.match(state(t.runDir).reason, /operator configuration .*cannot be read/, label);
+    assert.equal(fs.readdirSync(t.runDir).some((f) => /-(validation_run|build_gate_launch)\.request\.json$/.test(f)), false, label);
+  }
+  // Pre-push sweep: a path that resolves beyond PATH_MAX makes realpath throw; that is a refusal, not a driver failure.
+  const far = temp('i211-far-'), seg = 'd'.repeat(200);
+  execFileSync('bash', ['-c', `cd "$1" && mkdir deep && cd deep && for i in $(seq 25); do mkdir ${seg} && cd ${seg}; done && mkdir -p tidd/o`, '-', far]);
+  fs.symlinkSync(path.join('deep', ...Array(13).fill(seg)), path.join(far, 'hop')); fs.symlinkSync(path.join('hop', ...Array(12).fill(seg)), path.join(far, 'cfg'));
+  t = setup({ config: null });
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(far, 'cfg') }).status, 0);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /operator configuration .*cannot be read: ENAMETOOLONG/);
+  // A path past the length limit whose first missing entry is its own is not an absence the kernel would report.
+  t = setup({ config: null });
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(far, ...Array(25).fill('e'.repeat(200))) }).status, 0);
+  assert.match(state(t.runDir).reason, /operator configuration .*cannot be read: ENAMETOOLONG/);
+  const linked = temp('i211-linked-'); fs.mkdirSync(path.join(linked, 'real', 'tidd'), { recursive: true }); fs.symlinkSync(path.join(linked, 'real'), path.join(linked, 'cfg'));
+  t = setup({ config: null });
+  assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(linked, 'cfg') }).status, 0);
+  assert.equal(state(t.runDir).validationSource, 'none', 'a link to a folder without the file is absence');
+  // CONV-211-XDG-IN-REPO: an operator configuration inside the target checkout is the pull request's own tracked file,
+  // not the operator's, whether XDG_CONFIG_HOME points into the checkout directly or through a link from outside.
+  const inRepo = () => {
+    const u = setup({ config: null });
+    fs.mkdirSync(path.join(u.target.root, '.config', 'tidd', 'o'), { recursive: true });
+    fs.writeFileSync(path.join(u.target.root, '.config', 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "in-repo"]]}');
+    git(u.target.root, ['add', '.config']); git(u.target.root, ['commit', '-q', '-m', 'config at head']);
+    const f = JSON.parse(fs.readFileSync(u.fixture, 'utf8')); f.pull.head.sha = git(u.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(u.fixture, JSON.stringify(f));
+    return u;
+  };
+  t = inRepo();
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(t.target.root, '.config') }).status, 0);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  assert.ok(!ran(state(t.runDir), 'in-repo'));
+  // A folder inside the checkout whose name starts with `..` is still inside.
+  t = setup({ config: null });
+  fs.mkdirSync(path.join(t.target.root, '..cfg', 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(t.target.root, '..cfg', 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "in-repo"]]}');
+  git(t.target.root, ['add', '..cfg']); git(t.target.root, ['commit', '-q', '-m', 'dotdot config at head']);
+  { const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f)); }
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: path.join(t.target.root, '..cfg') }).status, 0);
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  t = inRepo();
+  const link = path.join(temp('i209-link-'), 'cfg'); fs.symlinkSync(path.join(t.target.root, '.config'), link);
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: link }).status, 0);
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  assert.ok(!ran(state(t.runDir), 'in-repo'));
+  // ADV-211-XDG-LINK-ESCAPE: a tracked link inside the checkout that points outside still leaves the path inside, at
+  // every depth, with a relative target, and when an outside link passes through the checkout and out again.
+  const outside = temp('i211-outside-'); fs.mkdirSync(path.join(outside, 'cfg', 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(outside, 'cfg', 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "escaped"]]}');
+  for (const [label, at, target, xdg] of [['cfg', 'cfg', 'cfg', 'cfg'], ['tidd', 'cfg/tidd', 'cfg/tidd', 'cfg'], ['the owner folder', 'cfg/tidd/o', 'cfg/tidd/o', 'cfg'], ['the file', 'cfg/tidd/o/r.json', 'cfg/tidd/o/r.json', 'cfg'], ['a relative target', 'cfg/tidd', null, 'cfg'], ['a chain out, in and out', 'out', 'cfg', null]]) {
+    t = setup({ config: null });
+    const link = path.join(t.target.root, ...at.split('/')); fs.mkdirSync(path.dirname(link), { recursive: true });
+    fs.symlinkSync(target ? path.join(outside, target) : path.relative(path.dirname(link), path.join(outside, 'cfg', 'tidd')), link);
+    git(t.target.root, ['add', '-A']); git(t.target.root, ['commit', '-q', '-m', 'outward link at head']);
+    { const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = git(t.target.root, ['rev-parse', 'HEAD']); fs.writeFileSync(t.fixture, JSON.stringify(f)); }
+    const into = path.join(temp('i211-in-'), 'cfg'); fs.symlinkSync(path.join(t.target.root, 'out'), into);
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: xdg ? path.join(t.target.root, xdg) : into }).status, 0, label);
+    assert.match(state(t.runDir).reason, /inside the target checkout/, label);
+    assert.ok(!ran(state(t.runDir), 'escaped'), label);
+  }
+  // ADV-211-XDG-DOTDOT-NORMALIZATION: `.` and `..` in XDG_CONFIG_HOME are the kernel's, not erased as text first. The
+  // XDG values are written as strings on purpose: path.join would normalize them.
+  const dots = temp('i211-dots-'); fs.writeFileSync(path.join(dots, 'plain'), 'x'); fs.symlinkSync(path.join(dots, 'gone'), path.join(dots, 'dangling'));
+  for (const [xdg, reason] of [[`${dots}/plain/..`, /cannot be read: ENOTDIR/], [`${dots}/./plain/./..`, /cannot be read: ENOTDIR/], [`${dots}/${'x'.repeat(256)}/..`, /cannot be read: ENAMETOOLONG/], [`${dots}/dangling/..`, /cannot be read: a dangling link/], [`${dots}/dangling/../`, /cannot be read: a dangling link/]]) {
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: xdg }).status, 0, xdg);
+    assert.equal(state(t.runDir).state, 'BLOCKED', xdg);
+    assert.match(state(t.runDir).reason, reason, xdg);
+  }
+  // An outside link into a checkout folder, then `..`, lands on the checkout root as the kernel resolves it.
+  t = inRepo(); fs.mkdirSync(path.join(t.target.root, 'sub'));
+  fs.symlinkSync(path.join(t.target.root, 'sub'), path.join(dots, 'into'));
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: `${dots}/into/../.config` }).status, 0);
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  assert.ok(!ran(state(t.runDir), 'in-repo'));
+  // CONV-211-X1: a validation file is read as bytes and must be well-formed UTF-8 with no BOM and a bounded size before
+  // JSON.parse, so an invalid byte inside a JSON string cannot silently become U+FFFD in an executed argv.
+  const bad = Buffer.concat([Buffer.from('{"validate": [["node", "-e", "process.exit(0)", "x'), Buffer.from([0xff]), Buffer.from('"]]}')]);
+  for (const [label, bytes] of [['an invalid byte', bad], ['a BOM', Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('{"validate": [["node", "-e", "0"]]}')])], ['an oversized file', Buffer.from(`{"validate": [["node", "-e", "0", "${'x'.repeat(70000)}"]]}`)]]) {
+    t = setup({ config: bytes });
+    assert.notEqual(drive(t.start, t.e).status, 0, `base: ${label}`);
+    assert.match(state(t.runDir).reason, label === 'an oversized file' ? /\.tidd\.json at the base commit is larger than 64 KiB/ : /\.tidd\.json at the base commit is not BOM-free UTF-8/, `base: ${label}`);
+    assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json')), false, `base: ${label}`);
+    const home = temp('i209-bytes-'); fs.mkdirSync(path.join(home, 'tidd', 'o'), { recursive: true }); fs.writeFileSync(path.join(home, 'tidd', 'o', 'r.json'), bytes);
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: home }).status, 0, `operator: ${label}`);
+    assert.match(state(t.runDir).reason, label === 'an oversized file' ? /operator configuration .*larger than 64 KiB/ : /operator configuration .*not BOM-free UTF-8/, `operator: ${label}`);
+    assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json')), false, `operator: ${label}`);
+  }
+  // The bound is exact: 65536 bytes run, 65537 stop.
+  const sized = (n) => { const head = '{"validate": [["node", "-e", "process.exit(0)", "'; const tail = '"]]}'; return Buffer.from(head + 'x'.repeat(n - head.length - tail.length) + tail); };
+  t = setup({ config: sized(65536) });
+  assert.equal(drive(t.start, t.e).status, 0, 'exactly 64 KiB runs');
+  t = setup({ config: sized(65537) });
+  assert.notEqual(drive(t.start, t.e).status, 0, 'one byte over stops');
+  // --validate: a lossy-decoded argument and the --key=value spelling (pre-push sweep of the strict reader).
+  t = setup({ config: null });
+  assert.notEqual(drive([...t.start, '--validate', '[["node", "-e", "0", "x\uFFFD"]]'], t.e).status, 0);
+  assert.match(state(t.runDir).reason, /--validate .*replacement character/);
+  t = setup({ config: null });
+  assert.equal(drive([...t.start, '--validate=[["node", "-e", "process.exit(0)", "eq-form"]]'], t.e).status, 0);
+  assert.equal(state(t.runDir).validationSource, '--validate');
+  assert.ok(ran(state(t.runDir), 'eq-form'));
+  t = setup({ config: null });
+  assert.equal(drive(t.start, { ...t.e, XDG_CONFIG_HOME: 'relative-config' }).status, 0);
+  assert.equal(state(t.runDir).validationSource, 'none', 'a relative XDG_CONFIG_HOME is not a source');
 });
 
 // CONV-199-BODY-ID-CLI: the helpers define no body fingerprint, so CL-D93 defines the `github:pr:<N>:body` identity

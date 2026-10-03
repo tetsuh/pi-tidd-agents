@@ -96,7 +96,8 @@ function fakeGate(runDir, runs, { fresh = false, path: findingPath = 'a.js', unc
   return runId;
 }
 
-function driverEnv(bin, runs) { return { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, PI_SUBAGENTS_TEMP_ROOT: runs }; }
+// The operator's configuration directory is the test's own, never the machine's (#209).
+function driverEnv(bin, runs) { return { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`, PI_SUBAGENTS_TEMP_ROOT: runs, XDG_CONFIG_HOME: temp('i196-xdg-') }; }
 function nextRequest(stdout) { const lines = stdout.split('\n'); const i = lines.findIndex((l) => l.startsWith('NEXT:')); return i < 0 ? null : JSON.parse(lines[i + 1]); }
 
 module.exports = { temp, git, makeTarget, fakeGh, setFixture, readFixture, fakeGate, driverEnv, nextRequest };

@@ -54,6 +54,9 @@ test('Issue #196 the packaged autofix driver corrects a finding through the writ
   const s = state(t.runDir);
   assert.equal(s.state, 'MERGE_READY', s.reason);
   assert.equal(s.target.headOid, pushed);
+  // #209 AC1: the source is recorded in the state and named first in the validation line.
+  assert.equal(s.validationSource, 'base .tidd.json');
+  assert.match(s.validation, /^source: base \.tidd\.json; /);
   assert.deepEqual(s.counters, { gates: 2, conv: 2, pushes: 1 });
   // Convergence confirms the fix; only Sol, finding no counterexample, settles it (CONV-208-SETTLE-ONLY-AFTER-SOL).
   assert.deepEqual(s.ledger.map((e) => [e.findingId, e.status, e.confirmedBy]), [['CONV-7-X1', 'settled', 'adversarial']]);
@@ -432,12 +435,15 @@ test('Issue #196 a criterion-anchored Minor, fixed or deferred, is in the correc
 });
 
 test('Issue #196 the autofix driver stops before any gate without .tidd.json or acceptance criteria', () => {
-  for (const [label, options, pattern] of [['no .tidd.json', { config: null }, /tidd\.json/], ['no acceptance criteria', { issueBody: 'Spec only.\n' }, /[Aa]cceptance/]]) {
+  // #209: exact autofix with no validation commands stops, naming both places they can come from.
+  for (const [label, options, pattern] of [['no .tidd.json', { config: null }, /\.tidd\.json at the base or ~\/\.config\/tidd\/o\/r\.json/], ['no acceptance criteria', { issueBody: 'Spec only.\n' }, /[Aa]cceptance/]]) {
     const t = setup(options);
     const r = drive(t.start, t.env);
     assert.equal(nextRequest(r.stdout), null, `${label}: no gate launch`);
     assert.equal(state(t.runDir).state, 'BLOCKED', label);
     assert.match(state(t.runDir).reason, pattern, label);
+    // Before the operator capture and any workspace (#209 AC3).
+    assert.equal(fs.readdirSync(t.runDir).some((f) => /-(operator_capture|workspace_create)\.request\.json$/.test(f)), false, label);
   }
 });
 
@@ -892,4 +898,49 @@ test('Issue #196 ignored paths validation creates in the batch are adopted, not 
   result(t, { fresh: true });
   assert.equal(writerBatch(t, 'module.exports = 3;\n').status, 0);
   assert.notEqual(state(t.runDir).state, 'BLOCKED', state(t.runDir).reason);
+});
+
+test('Issue #209 the autofix driver refuses an operator configuration inside the checkout, even from a subdirectory', () => {
+  // The sweep after CONV-211-XDG-IN-REPO: the check compares with the repository root, not the --checkout given.
+  const t = setup({ config: null, files: { 'sub/keep': 'k\n' } });
+  const cfg = path.join(t.target.checkout, 'cfg');
+  fs.mkdirSync(path.join(cfg, 'tidd', 'o'), { recursive: true });
+  const marker = path.join(temp('i209-marker-'), 'ran');
+  fs.writeFileSync(path.join(cfg, 'tidd', 'o', 'r.json'), JSON.stringify({ validate: [['node', '-e', `require('fs').writeFileSync(${JSON.stringify(marker)}, 'x')`]] }));
+  git(t.target.checkout, ['add', 'cfg']); git(t.target.checkout, ['commit', '-q', '-m', 'config at head']); git(t.target.checkout, ['push', '-q', 'origin', 'feature']);
+  const start = [...t.start]; start[start.indexOf('--checkout') + 1] = path.join(t.target.checkout, 'sub');
+  drive(start, { ...t.env, XDG_CONFIG_HOME: cfg });
+  assert.equal(state(t.runDir).state, 'BLOCKED', state(t.runDir).reason);
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  assert.equal(fs.existsSync(marker), false, "the head file's command never ran");
+});
+
+// #209 AC1 and AC4 in autofix (pre-push sweep): --validate and the operator configuration are sources when the base has
+// no file, each recorded; a .tidd.json added only at the head is never one.
+test('Issue #209 the autofix driver takes --validate or the operator configuration, and records which', () => {
+  const config = temp('i209-autofix-config-');
+  fs.mkdirSync(path.join(config, 'tidd', 'o'), { recursive: true });
+  fs.writeFileSync(path.join(config, 'tidd', 'o', 'r.json'), '{"validate": [["node", "-e", "process.exit(0)", "operator-config"]]}\n');
+  for (const [label, args, env, source] of [['--validate', ['--validate', '[["node", "-e", "process.exit(0)", "flag"]]'], {}, '--validate'], ['operator configuration', [], { XDG_CONFIG_HOME: config }, 'operator configuration']]) {
+    const t = setup({ config: null });
+    const r = drive([...t.start, ...args], { ...t.env, ...env });
+    assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `${label}: ${r.stdout}${r.stderr}`);
+    const s = state(t.runDir);
+    assert.equal(s.validationSource, source, label);
+    const marker = label === '--validate' ? 'flag' : 'operator-config';
+    assert.ok(s.validation.startsWith(`source: ${source}; node -e process.exit(0) ${marker}: passed; `), `${label}: ${s.validation}`);
+  }
+});
+
+test('Issue #209 the autofix driver ignores a .tidd.json added only at the head', () => {
+  const t = setup({ config: null });
+  const marker = path.join(temp('i209-head-marker-'), 'ran');
+  fs.writeFileSync(path.join(t.target.checkout, '.tidd.json'), `${JSON.stringify({ validate: [['node', '-e', `require('fs').writeFileSync(${JSON.stringify(marker)}, 'x')`]] })}\n`);
+  git(t.target.checkout, ['add', '.tidd.json']); git(t.target.checkout, ['commit', '-q', '-m', 'config at head']); git(t.target.checkout, ['push', '-q', 'origin', 'feature']);
+  const r = drive(t.start, t.env);
+  assert.equal(nextRequest(r.stdout), null, r.stdout);
+  assert.equal(state(t.runDir).state, 'BLOCKED');
+  assert.match(state(t.runDir).reason, /\.tidd\.json at the base or ~\/\.config\/tidd\/o\/r\.json/);
+  assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json')), false);
+  assert.equal(fs.existsSync(marker), false, "the head file's command never ran");
 });

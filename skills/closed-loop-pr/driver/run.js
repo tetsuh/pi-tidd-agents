@@ -6,6 +6,7 @@
 
 const fs = require('node:fs');
 const os = require('node:os');
+const { isUtf8 } = require('node:buffer');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
@@ -23,7 +24,10 @@ function parseArgs(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
-    if (a.startsWith('--')) { const value = argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[++i] : true; out[a.slice(2)] = value; } else out._.push(a);
+    // `--key=value` is `--key value`, so an option is never silently dropped under a key no one reads.
+    const eq = a.startsWith('--') ? a.indexOf('=') : -1;
+    if (eq > 2) out[a.slice(2, eq)] = a.slice(eq + 1);
+    else if (a.startsWith('--')) { const value = argv[i + 1] !== undefined && !argv[i + 1].startsWith('--') ? argv[++i] : true; out[a.slice(2)] = value; } else out._.push(a);
   }
   return out;
 }
@@ -50,14 +54,60 @@ function acceptanceCriteria(body) {
   const section = (String(body || '').replace(/\r\n?/g, '\n').split(/\n##+\s*Acceptance criteria\s*\n/i)[1] || '').split(/\n##+ /)[0];
   return section.split('\n').filter((line) => /^\s*[-*]\s+/.test(line)).map((line) => line.replace(/^\s*[-*]\s+/, '').trim());
 }
-// Validation commands come from `.tidd.json` at the base commit, so the change under review cannot choose them.
-function validationCommands(cwd, baseOid) {
-  let text;
-  try { text = git(cwd, ['show', `${baseOid}:.tidd.json`]); } catch { return { problem: 'the base commit carries no .tidd.json naming the validation commands' }; }
-  let config;
-  try { config = JSON.parse(text); } catch { return { problem: '.tidd.json at the base commit is not JSON' }; }
-  const ok = config && Array.isArray(config.validate) && config.validate.length > 0 && config.validate.every((c) => Array.isArray(c) && c.length > 0 && c.every((a) => typeof a === 'string' && a.length > 0));
-  return ok ? { commands: config.validate } : { problem: '.tidd.json must carry validate: a nonempty list of nonempty argv lists' };
+// #209 (CL-D97): validation commands come from outside the pull request, in CL-D97's order; never from the head.
+const OPERATOR_CONFIG = '~/.config/tidd/<owner>/<repo>.json';
+function operatorConfig(repository, env = process.env) {
+  // Joined as text, not normalized: the walk resolves `.` and `..` as the kernel does (ADV-211-XDG-DOTDOT-NORMALIZATION).
+  const base = env.XDG_CONFIG_HOME && path.isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : `${os.homedir() || '.'}/.config`;
+  return `${base}/tidd/${repository}.json`;
+}
+function validationCommands(cwd, baseOid, { validate, repository } = {}) {
+  // One strict reader for every file source (CONV-211-X1): bounded, BOM-free well-formed UTF-8 bytes, then JSON.
+  const parse = (input, where, list) => {
+    let text = input;
+    if (Buffer.isBuffer(input)) {
+      if (input.length > 65536) return { problem: `${where} is larger than 64 KiB` };
+      if (!isUtf8(input) || (input[0] === 0xef && input[1] === 0xbb && input[2] === 0xbf)) return { problem: `${where} is not BOM-free UTF-8` };
+      text = input.toString('utf8');
+    }
+    let config;
+    try { config = JSON.parse(text); } catch { return { problem: `${where} is not JSON` }; }
+    const commands = list ? config : config?.validate;
+    const ok = Array.isArray(commands) && commands.length > 0 && commands.every((c) => Array.isArray(c) && c.length > 0 && c.every((a) => typeof a === 'string' && a.length > 0));
+    return ok ? { commands } : { problem: `${where} must carry ${list ? '' : 'validate: '}a nonempty list of nonempty argv lists` };
+  };
+  try { git(cwd, ['cat-file', '-e', `${baseOid}^{commit}`]); } catch { return { problem: `the base commit ${baseOid} is not available to read .tidd.json from`, source: 'none' }; }
+  let present = true; try { git(cwd, ['cat-file', '-e', `${baseOid}:.tidd.json`]); } catch { present = false; }
+  if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer'), '.tidd.json at the base commit'), source: 'base .tidd.json' };
+  // Node decodes argv lossily, so a replacement character means bytes that were not UTF-8 (pre-push sweep).
+  if (validate !== undefined) return String(validate).includes('\uFFFD') ? { problem: '--validate carries a replacement character: its bytes were not UTF-8', source: '--validate' } : { ...parse(String(validate), '--validate', true), source: '--validate' };
+  const file = operatorConfig(repository);
+  const refuse = (why, how = 'cannot be read: ') => ({ problem: `the operator configuration ${OPERATOR_CONFIG} ${how}${why}`, source: 'operator configuration' });
+  // Resolve the path as the kernel does, link by link; a folder passed that is the repository root means the pull
+  // request's own file (CONV-211-XDG-IN-REPO, ADV-211-XDG-LINK-ESCAPE). Only a missing entry of the path itself is
+  // absence (CONV-211-DANGLING-PARENT-SYMLINK, ADV-211-OPERATOR-CONFIG-EACCES).
+  const top = fs.statSync(git(cwd, ['rev-parse', '--show-toplevel']).replace(/\n$/, ''));
+  let here = ''; if (!path.isAbsolute(file)) try { here = `${process.cwd()}/`; } catch (e) { return refuse(e.code); }
+  const rest = `${here}${file}`.split('/');
+  for (let done = '/', own = rest.length, hops = 0; rest.length;) {
+    const mine = rest.length <= own, name = rest.shift(), at = path.join(done, name);
+    if (mine) own = rest.length;
+    if (!name || name === '.' || name === '..') { if (name === '..') done = path.dirname(done); continue; }
+    let raw; try { raw = fs.readlinkSync(at, 'buffer'); } catch (e) {
+      if (e.code === 'ENOENT' && !mine) return refuse('a dangling link');
+      // Only an absence the kernel confirms; a path past its length limit is not one (pre-push sweep).
+      if (e.code === 'ENOENT') try { fs.lstatSync(file); } catch (e3) { return e3.code === 'ENOENT' ? { commands: [], source: 'none' } : refuse(e3.code); }
+      if (e.code !== 'EINVAL') return refuse(e.code);
+      let st; try { st = fs.statSync(done = at); } catch (e2) { return refuse(e2.code); }
+      if (st.dev === top.dev && st.ino === top.ino) return refuse('resolves inside the target checkout', '');
+      if (!st.isDirectory() && rest.some(Boolean)) return refuse('ENOTDIR');
+      continue;
+    }
+    if (!isUtf8(raw) || ++hops > 40) return refuse(hops > 40 ? 'ELOOP' : 'a link target that is not UTF-8');
+    rest.unshift(...raw.toString().split('/')); if (raw[0] === 0x2f) done = '/';
+  }
+  let text; try { const st = fs.statSync(file); if (!st.isFile()) return refuse('not a regular file'); if (st.size > 65536) return refuse('larger than 64 KiB'); text = fs.readFileSync(file); } catch (error) { return refuse(error.code); }
+  return { ...parse(text, `the operator configuration ${OPERATOR_CONFIG}`), source: 'operator configuration' };
 }
 
 // The six head fingerprints (CL-D9), each through its packaged operation, so a value and its record are the helper's
@@ -248,7 +298,7 @@ class Run {
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
       'review_misses: none', `pending_decisions: ${quoted((s.pendingDecisions || []).join(', ') || 'none')}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
-      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted(s.operatorActions || 'none')}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
+      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted([...(s.operatorActions && !/^none\b/.test(s.operatorActions) ? [s.operatorActions] : []), ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', t.repository)}`] : [])].join('; ') || s.operatorActions || 'none')}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
     const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${quoted(g.findings)}` : ''}`).join('\n') || '- none';
     const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
       `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
@@ -278,4 +328,4 @@ class Run {
   }
 }
 
-module.exports = { externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };
+module.exports = { OPERATOR_CONFIG, operatorConfig, externalTiming, Run, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, roleLabel, readiness, dirtyCheckout, checkoutProblem, ignoredInventory, PACKAGE, ROLE, LANGUAGE_PROFILE, sha256, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands };

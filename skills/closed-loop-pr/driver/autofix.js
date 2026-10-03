@@ -6,7 +6,7 @@
 // (https://github.com/tetsuh/pi-tidd-agents/issues/191#issuecomment-5857263114): authorizedPaths, the commit message,
 // and the correctable class.
 //
-//   node autofix.js start       --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--convergence disabled] [--language-profile P]
+//   node autofix.js start       --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--convergence disabled] [--language-profile P] [--validate JSON]
 //   node autofix.js result      --run-dir DIR --run-id ID     (after a gate run completes)
 //   node autofix.js pre-edit    --run-dir DIR                 (the writer, before editing)
 //   node autofix.js batch       --run-dir DIR                 (the writer, after editing)
@@ -16,7 +16,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { isUtf8 } = require('node:buffer');
-const { Run, headFingerprints, targetMoved, roleLabel, ignoredInventory, ROLE, LANGUAGE_PROFILE, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
+const { OPERATOR_CONFIG, Run, headFingerprints, targetMoved, roleLabel, ignoredInventory, ROLE, LANGUAGE_PROFILE, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
 const { gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
@@ -97,8 +97,11 @@ function start(opts) {
   s.issueBody = issue.body || '';
   s.acceptanceCriteria = acceptanceCriteria(issue.body);
   if (!s.acceptanceCriteria.length) end(run, 'BLOCKED', `issue #${s.issueNumber} has no Acceptance criteria section with at least one criterion`);
-  const validation = validationCommands(checkout, target.baseOid);
+  const validation = validationCommands(checkout, target.baseOid, { validate: opts.validate, repository });
+  s.validationSource = validation.source;
   if (validation.problem) end(run, 'BLOCKED', validation.problem);
+  // #209: the writer commits and pushes, so exact autofix never runs without validation commands.
+  if (!validation.commands.length) end(run, 'BLOCKED', `no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', repository)}, or pass --validate`);
   s.validationCommands = validation.commands;
   // Preflight: the operator capture (identity and commit identity), writability, and the run-owned workspace.
   const identity = { repository, prNumber: number, lifecycle: 'open', baseOid: target.baseOid, publicHead: target.headOid, headRepository: target.headRepository, headBranch: target.headBranch,
@@ -111,7 +114,7 @@ function start(opts) {
   s.created = made.data;
   s.workspace = s.created.path;
   run.save();
-  const results = [];
+  const results = [`source: ${s.validationSource}`];
   for (const command of [...s.validationCommands, ['git', 'diff', '--check', `${target.baseOid}...${target.headOid}`]]) {
     const v = run.op('validation_run', { cwd: s.workspace, command, timeoutMs: 1800000 }, { allowFail: true });
     results.push(`${command.join(' ')}: ${v.data?.outcome || v.error?.code}`);
