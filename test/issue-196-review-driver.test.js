@@ -580,6 +580,21 @@ test('Issue #209 validation commands resolve from the base file, then --validate
     assert.match(state(t.runDir).reason, /inside the target checkout/, label);
     assert.ok(!ran(state(t.runDir), 'escaped'), label);
   }
+  // ADV-211-XDG-DOTDOT-NORMALIZATION: `.` and `..` in XDG_CONFIG_HOME are the kernel's, not erased as text first. The
+  // XDG values are written as strings on purpose: path.join would normalize them.
+  const dots = temp('i211-dots-'); fs.writeFileSync(path.join(dots, 'plain'), 'x'); fs.symlinkSync(path.join(dots, 'gone'), path.join(dots, 'dangling'));
+  for (const [xdg, reason] of [[`${dots}/plain/..`, /cannot be read: ENOTDIR/], [`${dots}/./plain/./..`, /cannot be read: ENOTDIR/], [`${dots}/${'x'.repeat(256)}/..`, /cannot be read: ENAMETOOLONG/], [`${dots}/dangling/..`, /cannot be read: a dangling link/], [`${dots}/dangling/../`, /cannot be read: a dangling link/]]) {
+    t = setup({ config: null });
+    assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: xdg }).status, 0, xdg);
+    assert.equal(state(t.runDir).state, 'BLOCKED', xdg);
+    assert.match(state(t.runDir).reason, reason, xdg);
+  }
+  // An outside link into a checkout folder, then `..`, lands on the checkout root as the kernel resolves it.
+  t = inRepo(); fs.mkdirSync(path.join(t.target.root, 'sub'));
+  fs.symlinkSync(path.join(t.target.root, 'sub'), path.join(dots, 'into'));
+  assert.notEqual(drive(t.start, { ...t.e, XDG_CONFIG_HOME: `${dots}/into/../.config` }).status, 0);
+  assert.match(state(t.runDir).reason, /inside the target checkout/);
+  assert.ok(!ran(state(t.runDir), 'in-repo'));
   // CONV-211-X1: a validation file is read as bytes and must be well-formed UTF-8 with no BOM and a bounded size before
   // JSON.parse, so an invalid byte inside a JSON string cannot silently become U+FFFD in an executed argv.
   const bad = Buffer.concat([Buffer.from('{"validate": [["node", "-e", "process.exit(0)", "x'), Buffer.from([0xff]), Buffer.from('"]]}')]);
