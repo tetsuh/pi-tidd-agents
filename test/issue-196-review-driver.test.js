@@ -303,7 +303,8 @@ test('Issue #221 the redaction rewrites whole local paths only, whatever HOME sa
 // longer path (`/other/<tmp>`) was rewritten in part.
 test('Issue #221 every quoted free-text field is redacted as folded, by whole path, with an attached option as a boundary', () => {
   const { Run } = require('../skills/closed-loop-pr/driver/run');
-  const home = os.userInfo().homedir, tmp = os.tmpdir(), odd = '/sent inel​/home';
+  const home = os.userInfo().homedir, tmp = os.tmpdir(), odd = '/sent\u00a0inel\u200b/home';
+  const WITHHELD = 'withheld: this text spells a local path; the run\'s state keeps it';
   const run = new Run(temp('i221-matrix-'));
   const draft = (text, env) => {
     const s = run.state, write = process.stdout.write, before = process.env.HOME;
@@ -314,35 +315,42 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
     const lines = fs.readFileSync(s.publication.comment, 'utf8').split('\n');
     return ['Reason: ', '- convergence 1 ', 'Validation: ', 'pending_decisions: ', 'operator_actions: ', 'invalidated_evidence: ', 'next_action: '].map((field) => lines.find((line) => line.startsWith(field)));
   };
-  const zeroWidth = ['​', '‌', '‍', '⁠', '﻿'].map((c) => [`a zero-width U+${c.codePointAt(0).toString(16)} inside the home`, `see ${home.slice(0, 3)}${c}${home.slice(3)}/x`, 'see ~/x']);
+  const zeroWidth = ['\u200b', '\u200c', '\u200d', '\u2060', '\ufeff'].map((c) => [`a zero-width U+${c.codePointAt(0).toString(16)} inside the home`, `see ${home.slice(0, 3)}${c}${home.slice(3)}/x`, 'see ~/x']);
   for (const [label, text, expected, env] of [
     ['-I attached', `cc -I${home}/include`, 'cc -I~/include'], ['-L attached', `cc -L${home}/lib`, 'cc -L~/lib'], ['-isystem attached', `cc -isystem${home}/include`, 'cc -isystem~/include'],
     ['a quoted attached option', `cc "-I${home}/inc"`, 'cc "-I~/inc"'], ['a comma-joined linker option', `cc -Wl,-rpath,${home}/lib`, 'cc -Wl,-rpath,~/lib'],
     ...zeroWidth,
     ['a home the folding changes', `run ${odd}/x`, 'run ~/x', odd],
     ['a list of paths', `PATH=${home}/bin:${tmp}`, 'PATH=~/bin:{tmp}'], ['a file URL', `file://${home}/x`, 'file://~/x'], ['a path in brackets', `(${home})`, '(~)'],
-    // Left as they are: none of these is the home or the temporary root.
-    ['a sibling with a non-ASCII name', `${home}é/file`, `${home}é/file`], ['a dotted sibling with a non-ASCII name', `${home}.é/file`, `${home}.é/file`],
-    ['a sibling with a combining mark', `${home}́/file`, `${home}́/file`], ['a root nested after a slash', `/other/${tmp}/file`, `/other/${tmp}/file`],
-    ['a root nested in a longer path', `/var${tmp}/x`, `/var${tmp}/x`], ['a relative path', `.${tmp}/x`, `.${tmp}/x`], ['a hyphenated name before the path', `foo-bar${home}/x`, `foo-bar${home}/x`],
+    // Owner decision REDACTION-FAIL-CLOSED on PR #223: none of these is the home or the temporary root as a whole path,
+    // so nothing is rewritten in part; a root's spelling is still in the text, so the field is withheld whole. That
+    // includes ordinary text around a generic root such as `./tmp/x`, the accepted cost.
+    ['a sibling with a non-ASCII name', `${home}é/file`, WITHHELD], ['a dotted sibling with a non-ASCII name', `${home}.é/file`, WITHHELD],
+    ['a sibling with a combining mark', `${home}\u0301/file`, WITHHELD], ['a root nested after a slash', `/other/${tmp}/file`, WITHHELD],
+    ['a root nested in a longer path', `/var${tmp}/x`, WITHHELD], ['a relative path', `.${tmp}/x`, WITHHELD], ['a hyphenated name before the path', `foo-bar${home}/x`, WITHHELD],
+    ['a sibling with a digit', `see ${home}2/x`, WITHHELD], ['a root after a letter', `x${home}/y and ${home}/z`, WITHHELD],
     // Pre-push sweep of that correction. A removed diff line and Markdown emphasis start a path; a home is a root
     // without its trailing slashes and only when it is absolute; the `$(` the publication spaces out is folded first;
     // and a home too long for the system to return does not stop the publication.
     ['a removed diff line', `-${home}/expected +${home}/actual`, '-~/expected +~/actual'], ['Markdown emphasis', `the file _${home}/x_ is missing`, 'the file _~/x_ is missing'],
     ['a home with a trailing slash', 'see /nohome-221/u/x', 'see ~/x', '/nohome-221/u/'], ['a home that is no absolute path', 'see aa/x', 'see aa/x', 'aa'],
     ['a home the publication spaces out', 'see /srv/$(y/x', 'see ~/x', '/srv/$ (y'], ['a home too long to read', `see ${home}/x`, 'see ~/x', `/${'a'.repeat(5000)}`],
-    // Round 4 (CONV-223-AC1-HOME-ROOT-REDACTION): a home that is the filesystem root holds every absolute path, so a
-    // slash that starts one becomes `~/`; another root still wins, and what is no absolute path stays.
-    ['a home that is the filesystem root', 'see /var/private-221/x', 'see ~/var/private-221/x', '/'], ['the same home spelled with two slashes', 'cc -I/var/private-221', 'cc -I~/var/private-221', '//'],
-    ['a file URL under that home', 'file:///var/private-221', 'file://~/var/private-221', '/'], ['another root under that home', `see ${tmp}/x`, 'see {tmp}/x', '/'],
+    // Round 4 (CONV-223-AC1-HOME-ROOT-REDACTION), then the same owner decision: a home that is the filesystem root is
+    // no root, since `/` names nothing of the operator's; the other roots are redacted as ever.
+    ['a home that is the filesystem root', 'see /var/private-221/x', 'see /var/private-221/x', '/'], ['the same home spelled with two slashes', 'cc -I/var/private-221', 'cc -I/var/private-221', '//'],
+    ['a file URL under that home', 'file:///var/private-221', 'file:///var/private-221', '/'], ['another root under that home', `see ${tmp}/x`, 'see {tmp}/x', '/'],
     ['a web URL under that home', 'see https://example.com/x', 'see https://example.com/x', '/'], ['relative paths under that home', 'see o/r and ./x and a / b', 'see o/r and ./x and a / b', '/'],
     // Round 5 (CONV-223-LONG-ATTACHED-OPTION-PATH-REDACTION): an attached option has no length limit. It is a run of
     // ASCII letters and hyphens that starts with its hyphens, so one run is scanned once, whatever its length.
     ['an attached option longer than 32 characters', `cc --${'x'.repeat(33)}${home}/private`, `cc --${'x'.repeat(33)}~/private`], ['an attached option of 300 characters', `cc -${'long-opt'.repeat(40)}${home}/p`, `cc -${'long-opt'.repeat(40)}~/p`],
-    ['three hyphens before an attached option', `cc ---I${home}/x`, 'cc ---I~/x'], ['hyphens inside a name before the path', `foo--bar${home}/x`, `foo--bar${home}/x`],
+    ['three hyphens before an attached option', `cc ---I${home}/x`, 'cc ---I~/x'], ['hyphens inside a name before the path', `foo--bar${home}/x`, WITHHELD],
   ]) {
     const lines = draft(text, env);
     lines.forEach((line, i) => assert.ok(line && line.includes(expected), `${label}, field ${i}: ${JSON.stringify(line)} lacks ${JSON.stringify(expected)}`));
+    // Whatever the spelling, no field of the draft holds the home or the temporary root.
+    if (!env) lines.forEach((line, i) => assert.equal(line.includes(home) || line.includes(tmp), false, `${label}, field ${i} spells a root: ${JSON.stringify(line)}`));
+    // A withheld field keeps its text in the run's local state and in the local status block.
+    if (expected === WITHHELD) { assert.equal(run.state.reason, text, label); assert.ok(run.state.statusBlock.includes(text), `${label}: the local block keeps the text`); }
   }
   // The start of a path is matched forward, never scanned backward from every position: a long run of slashes with
   // roots a quick check cannot rule out took 54 s for 200 KB. An attached option has a bounded length: a long run of
