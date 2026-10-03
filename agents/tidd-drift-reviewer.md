@@ -3,7 +3,7 @@ name: tidd-drift-reviewer
 aliases: terra-oracle
 description: Read-only decision-drift and contradiction reviewer
 tools: read, grep, find, ls, bash
-model: gpt-6-sol
+model: gpt-6.1-sol
 thinking: high
 systemPromptMode: replace
 inheritProjectContext: true

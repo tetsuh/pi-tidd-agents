@@ -13,11 +13,11 @@ const manifest = readJson('package.json');
 const contractManifest = readJson('test/contract-clauses.json');
 
 const EXPECTED_AGENTS = {
-  'tidd-adversarial-reviewer': 'gpt-6-sol',
+  'tidd-adversarial-reviewer': 'gpt-6.1-sol',
   'tidd-autofix-worker': 'gpt-6-luna',
   'tidd-convergence-reviewer': 'gpt-6-luna',
-  'tidd-drift-reviewer': 'gpt-6-sol',
-  'tidd-safety-reviewer': 'gpt-6-sol',
+  'tidd-drift-reviewer': 'gpt-6.1-sol',
+  'tidd-safety-reviewer': 'gpt-6.1-sol',
 };
 
 const SKILLS = {
@@ -709,7 +709,7 @@ test('the README documents the closed-loop workflow and its requirements', () =>
     'tidd-drift-reviewer',
     'tidd-safety-reviewer',
     'tidd-autofix-worker',
-    'gpt-6-sol',
+    'gpt-6.1-sol',
     'Roles and deployment (CL-D59)',
     'run-scoped',
     'no workflow is forced by default',
