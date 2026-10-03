@@ -469,7 +469,11 @@ test('Issue #209 review-only with no validation commands runs git diff --check o
   const s = state(t.runDir);
   assert.equal(s.state, 'MERGE_READY', s.reason);
   assert.equal(s.validationSource, 'none');
-  assert.match(s.validation, /^source: none; no validation commands configured; git diff --check/);
+  // CONV-211-AC2-ONLY-CHECK-UNASSERTED: the whitespace check is the only command run, and the summary says exactly that.
+  const range = `${s.target.baseOid}...${s.target.headOid}`;
+  const commands = fs.readdirSync(t.runDir).filter((f) => f.endsWith('-validation_run.request.json')).sort().map((f) => JSON.parse(fs.readFileSync(path.join(t.runDir, f), 'utf8')).data.command);
+  assert.deepEqual(commands, [['git', 'diff', '--check', range]]);
+  assert.equal(s.validation, `source: none; no validation commands configured; git diff --check ${range}: passed`);
   assert.match(s.statusBlock, /operator_actions: "?no validation commands configured: add \.tidd\.json at the base or ~\/\.config\/tidd\/o\/r\.json/);
   assert.doesNotMatch(fs.readFileSync(s.publication.comment, 'utf8'), new RegExp(os.homedir().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), 'no operator home path is published');
   assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /no validation commands configured/);
