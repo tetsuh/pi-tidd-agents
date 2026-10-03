@@ -330,6 +330,10 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
     ['a root nested in a longer path', `/var${tmp}/x`, WITHHELD], ['a relative path', `.${tmp}/x`, WITHHELD], ['a hyphenated name before the path', `foo-bar${home}/x`, WITHHELD],
     ['a sibling with a digit', `see ${home}2/x`, WITHHELD], ['a root after a letter', `x${home}/y and ${home}/z`, WITHHELD],
     ['a path under the home that ends in the temporary root\'s spelling', `see ${home}${tmp}/x`, WITHHELD],
+    // Pre-push sweep of the net: nothing applied after it spells a root again. The publication's `$ {` spacing and the
+    // full stop its template adds are part of what the net reads; a home too long for the system is read from HOME.
+    ['a root the publication\'s spacing completes', `see /a$${tmp} now`, WITHHELD, '/a${tmp}'], ['a root the template\'s full stop completes', 'see /x-221', WITHHELD, '/x-221.'],
+    ['a home too long for the system, spelled in the text', `x /${'h'.repeat(4100)} y`, 'x ~ y', `/${'h'.repeat(4100)}`],
     // Pre-push sweep of that correction. A removed diff line and Markdown emphasis start a path; a home is a root
     // without its trailing slashes and only when it is absolute; the `$(` the publication spaces out is folded first;
     // and a home too long for the system to return does not stop the publication.
@@ -353,6 +357,10 @@ test('Issue #221 every quoted free-text field is redacted as folded, by whole pa
     // A withheld field keeps its text in the run's local state and in the local status block.
     if (expected === WITHHELD) { assert.equal(run.state.reason, text, label); assert.ok(run.state.statusBlock.includes(text), `${label}: the local block keeps the text`); }
   }
+  // A failed home lookup adds no root: an empty path resolves to the current directory, which is no home.
+  const cwd = process.cwd(), elsewhere = fs.realpathSync(temp('i221-cwd-'));
+  process.chdir(elsewhere);
+  try { for (const line of draft(`see ${elsewhere}/notes.txt`, `/${'h'.repeat(4100)}`)) assert.equal(line.includes('~/notes.txt'), false, `the current directory is published as the home: ${line}`); } finally { process.chdir(cwd); }
   // The start of a path is matched forward, never scanned backward from every position: a long run of slashes with
   // roots a quick check cannot rule out took 54 s for 200 KB. An attached option has a bounded length: a long run of
   // letters and hyphens, where every `--` starts an option, took 128 s.
