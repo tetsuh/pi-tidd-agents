@@ -447,6 +447,19 @@ test('Issue #196 a .tidd.json added only at the head is not read', () => {
   assert.equal(fs.readdirSync(t.runDir).some((f) => f.endsWith('-validation_run.request.json') && fs.readFileSync(path.join(t.runDir, f), 'utf8').includes('process.exit(7)')), false);
 });
 
+// Pre-push sweep: with an empty HOME the path is relative to the working directory, and a removed one is a refusal.
+test('Issue #209 an operator configuration relative to a removed working directory is refused, not thrown', () => {
+  const { validationCommands } = require('../skills/closed-loop-pr/driver/run');
+  const t = setup({ config: null }), gone = temp('i211-cwd-'), saved = { cwd: process.cwd(), home: process.env.HOME, xdg: process.env.XDG_CONFIG_HOME };
+  process.env.HOME = ''; delete process.env.XDG_CONFIG_HOME; process.chdir(gone); fs.rmdirSync(gone);
+  let result;
+  try { result = validationCommands(t.target.root, git(t.target.root, ['rev-parse', 'HEAD']).trim(), { repository: 'o/r' }); } finally {
+    process.chdir(saved.cwd); process.env.HOME = saved.home;
+    if (saved.xdg === undefined) delete process.env.XDG_CONFIG_HOME; else process.env.XDG_CONFIG_HOME = saved.xdg;
+  }
+  assert.match(result.problem, /operator configuration .*cannot be read: ENOENT/);
+});
+
 // #209 (CL-D97, owner decision in its body): base .tidd.json, then --validate or the operator configuration, then none.
 test('Issue #209 review-only with no validation commands runs git diff --check only and says so', () => {
   const t = setup({ config: null });
