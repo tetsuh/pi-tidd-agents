@@ -302,16 +302,18 @@ class Run {
     // stands before it (a longer path); leading slashes and an attached option (`-I<root>`: its hyphens, an ASCII
     // letter, then ASCII letters and hyphens) count as its start, matched forward from the option's first hyphen, so
     // a run is scanned once and the pass is linear. A field that still spells a root after the pass is withheld whole,
-    // never rewritten in part (owner decision REDACTION-FAIL-CLOSED on PR #223). The run's state and the operator's
+    // never rewritten in part (owner decision REDACTION-FAIL-CLOSED on PR #223); the net reads the field as it is
+    // published, its `$ {` spacing and the full stop the template may add included. The run's state and the operator's
     // terminal report keep the full text and paths, to resume or remove a retained workspace.
-    const locals = new Map(), fold = (text) => publishable(quoted(text)), home = (read) => { try { return read(); } catch { return ''; } };
-    for (const [p, name] of [[this.dir, '{run-dir}'], [PACKAGE, '{package}'], [home(() => os.homedir()), '~'], [home(() => os.userInfo().homedir), '~'], [os.tmpdir(), '{tmp}']]) {
+    const locals = new Map(), fold = (text) => publishable(quoted(text)), account = (() => { try { return os.userInfo().homedir; } catch { return ''; } })();
+    for (const [p, name] of [[this.dir, '{run-dir}'], [PACKAGE, '{package}'], [process.env.HOME, '~'], [account, '~'], [os.tmpdir(), '{tmp}']]) {
+      if (!p) continue; // an empty path would resolve to the current directory
       let real = p; try { real = fs.realpathSync(p); } catch {}
       for (let q of [p, real].map((r) => fold(r))) { if (!q.startsWith('/')) continue; while (q.endsWith('/')) q = q.slice(0, -1); if (q && !locals.has(q)) locals.set(q, name); }
     }
     const roots = [...locals.keys()].sort((a, b) => b.length - a.length), alts = roots.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const N = '\\p{L}\\p{N}\\p{M}', paths = new RegExp(`(?<=^|[^${N}/.~])((?:(?<!-)-+[A-Za-z][A-Za-z-]*)?/*?)(${alts.join('|')})(?![${N}_-]|\\.[${N}_])`, 'gu');
-    const local = (text) => { const out = fold(text).replace(paths, (match, start, root) => start + locals.get(root)); return roots.some((root) => out.includes(root)) ? 'withheld: this text spells a local path; the run\'s state keeps it' : out; };
+    const local = (text) => { const out = publishable(fold(text).replace(paths, (match, start, root) => start + locals.get(root))); return roots.some((root) => `${out}.`.includes(root)) ? 'withheld: this text spells a local path; the run\'s state keeps it' : out; };
     // Exact fields (the target, the branch, the mode, fingerprints, heads, the observation) are never rewritten; only
     // the free text that can quote a local path is (CONV-223-AC3-BRANCH-PRESERVATION).
     const render = (free) => publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
