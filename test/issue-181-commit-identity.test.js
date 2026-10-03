@@ -208,6 +208,22 @@ test('Issue #207 push_publish refuses a remote rewound to an ancestor and pushes
   assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), first, 'nothing was pushed over the rewind');
 });
 
+test('Issue #207 the push sends the commit whose parent it leased, even if HEAD moves before the push', { skip: process.platform === 'win32' && 'the race shim is a POSIX shell script' }, () => {
+  // Pre-push sweep: the lease and the pushed commit came from two reads of HEAD, so a HEAD moved between them was
+  // force-pushed over the leased head. A git shim moves HEAD to an unrelated root commit just before the push.
+  const { repo, captured, created, env } = run();
+  stageCorrection(created.path);
+  const committed = cli('commit_create', { created, captured, message: MESSAGE }, env);
+  assert.equal(committed.ok, true, JSON.stringify(committed));
+  const unrelated = git(created.path, ['-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit-tree', git(created.path, ['rev-parse', 'HEAD^{tree}']), '-m', 'unrelated root']);
+  const shim = fs.mkdtempSync(path.join(os.tmpdir(), 'i207-shim-')), real = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+  fs.writeFileSync(path.join(shim, 'git'), `#!/bin/sh\nfor a in "$@"; do if [ "$a" = push ]; then "${real}" update-ref --no-deref HEAD ${unrelated}; fi; done\nexec "${real}" "$@"\n`, { mode: 0o755 });
+  const pushed = cli('push_publish', { created, captured }, { ...env, PATH: `${shim}${path.delimiter}${env.PATH || process.env.PATH}` });
+  assert.equal(pushed.ok, true, JSON.stringify(pushed));
+  assert.equal(git(repo.bare, ['rev-parse', 'refs/heads/main']), committed.data.commit, 'the remote holds the correction, not the moved HEAD');
+  assert.equal(pushed.data.head, committed.data.commit);
+});
+
 test('Issue #181 push_publish checks the push URL the workspace would actually use', () => {
   // CONV-182-PUSH-URL-ACTUAL-001: the capture's URL is only a record; Git pushes through the workspace's origin.
   const { repo, captured, created, env } = run();
@@ -342,8 +358,8 @@ test('Issue #181 gh reads the operator configuration directory on every platform
 
 test('Issue #181 the push names exactly one credential helper, gh, and no force', () => {
   const { pushArgs } = require('../skills/closed-loop-pr/helpers/publish');
-  const lease = 'a'.repeat(40);
-  const args = pushArgs('feat/x', lease);
+  const lease = 'a'.repeat(40), commit = 'b'.repeat(40);
+  const args = pushArgs('feat/x', commit, lease);
   const helpers = args.flatMap((arg, index) => (args[index - 1] === '-c' && arg.startsWith('credential.helper=') ? [arg] : []));
   assert.equal(helpers.at(-1), 'credential.helper=!gh auth git-credential', 'the named helper is the last one configured');
   assert.equal(helpers.filter((entry) => entry !== 'credential.helper=').length, 1, 'no other helper is configured');
@@ -351,9 +367,11 @@ test('Issue #181 the push names exactly one credential helper, gh, and no force'
   // Configuration cannot widen the push beyond the one branch: no tags, no submodules, no signing (CL-D30's one push).
   // CL-D99 (#207): the one lease, on exactly the pushed branch and the head the batch built on, is the only force-named
   // flag; it refuses the push unless the remote is exactly that head, so it never overwrites anything.
-  assert.deepEqual(args.slice(args.indexOf('push')), ['push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/feat/x:${lease}`, 'origin', 'HEAD:refs/heads/feat/x']);
+  assert.deepEqual(args.slice(args.indexOf('push')), ['push', '--no-follow-tags', '--recurse-submodules=no', '--no-signed', `--force-with-lease=refs/heads/feat/x:${lease}`, 'origin', `${commit}:refs/heads/feat/x`]);
   assert.ok(!args.some((arg) => /^(?:-f|--force(?!-with-lease=refs\/heads\/feat\/x:a{40}$).*|\+.*)$/.test(arg)), 'no force beyond the one lease');
-  assert.throws(() => pushArgs('feat/x'), /expected head/, 'the push never runs without its lease');
+  assert.throws(() => pushArgs('feat/x', commit), /expected head/, 'the push never runs without its lease');
+  // Pre-push sweep: the pushed source is the commit whose parent was leased, resolved once, never HEAD read again.
+  assert.throws(() => pushArgs('feat/x', 'HEAD', lease), /resolved commit/, 'the push never names HEAD as its source');
 });
 
 test('Issue #181 the map, the addendum, and CL-D89 route the commit and push through the packaged operations', () => {
