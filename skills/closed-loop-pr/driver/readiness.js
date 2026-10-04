@@ -49,10 +49,12 @@ function readiness(snapshot, headOid) {
   // of the same name, since each requirement is met on its own (ADV-199-LEGACY-CONTEXT-OMITTED).
   const requiredChecks = [...(rsc.contexts || []).map((context) => ({ context })), ...(Array.isArray(rsc.checks) ? rsc.checks.map((c) => ({ context: c.context, app: c.app_id })) : [])];
   // A check run or commit status an external review provider posts, which no protection requires, is part of that
-  // review: observed. One that protection requires keeps the rule of every required check.
-  const observed = (pol.externalReview || []).map((r) => `${r.provider} ${r.state}`), required = new Set(requiredChecks.map((r) => r.context));
+  // review: observed. One that protection requires keeps the rule of every required check; a requirement pinned to
+  // an app is that app's check run only, never another app's and never a status (CONV-227-PINNED-REVIEW-CHECK-001).
+  const pin = (r) => typeof r.app === 'number' && r.app !== -1, required = (name, app) => requiredChecks.some((r) => r.context === name && (!pin(r) || r.app === app));
+  const observed = (pol.externalReview || []).map((r) => `${r.provider} ${r.state}`);
   for (const c of snapshot.checks || []) {
-    if (c.app?.slug === REVIEW_APP && !required.has(c.name)) { observed.push(`check ${c.name} ${c.status === 'completed' ? c.conclusion : c.status}`); continue; }
+    if (c.app?.slug === REVIEW_APP && !required(c.name, c.app.id)) { observed.push(`check ${c.name} ${c.status === 'completed' ? c.conclusion : c.status}`); continue; }
     if (c.status !== 'completed' || c.conclusion === null) pending.push(`check ${c.name}`);
     else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);
     else if (!PASSED_CONCLUSIONS.has(c.conclusion)) pending.push(`check ${c.name} unknown conclusion ${c.conclusion}`);
@@ -60,7 +62,7 @@ function readiness(snapshot, headOid) {
   const contexts = new Map();
   for (const st of [...(snapshot.statuses || [])].sort((x, y) => Date.parse(x.created_at) - Date.parse(y.created_at) || x.id - y.id)) contexts.set(st.context, st);
   for (const [context, st] of contexts) {
-    if (/^coderabbit$/i.test(context) && !required.has(context)) continue;
+    if (/^coderabbit$/i.test(context) && !required(context)) continue;
     if (st.state === 'pending') pending.push(`status ${context}`);
     else if (st.state === 'failure' || st.state === 'error') failed.push(`status ${context} ${st.state}`);
     else if (st.state !== 'success') pending.push(`status ${context} unknown state ${st.state}`);
@@ -71,7 +73,7 @@ function readiness(snapshot, headOid) {
   const reported = new Set([...(snapshot.checks || []).map((c) => c.name), ...(snapshot.statuses || []).map((st) => st.context)]);
   const seen = new Set();
   for (const { context, app } of requiredChecks.filter((r) => r.context)) {
-    const pinned = typeof app === 'number' && app !== -1, key = `${context}\0${pinned ? app : ''}`;
+    const pinned = pin({ app }), key = `${context}\0${pinned ? app : ''}`;
     if (seen.has(key)) continue; seen.add(key);
     const met = pinned ? (snapshot.checks || []).some((c) => c.name === context && c.app?.id === app) : reported.has(context);
     if (!met) pending.push(`required check ${context}${pinned ? ` from app ${app}` : ''} has not reported`);
