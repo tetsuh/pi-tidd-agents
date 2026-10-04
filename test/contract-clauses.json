@@ -5468,7 +5468,7 @@
       "requires": [
         "function readContract()",
         "function contractFiles()",
-        "indexOf('\\n## Record index\\n')"
+        "index.indexOf(`${eol}## Record index${eol}`)"
       ]
     },
     {
