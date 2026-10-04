@@ -121,6 +121,8 @@ test('Issue #224 a send-back carries no git warning either', () => {
   fs.writeFileSync(path.join(t.target.root, 'bin.txt'), Buffer.from([0x61, 0xff, 0xfe, 0x0a]));
   git(t.target.root, ['add', '.']); git(t.target.root, ['commit', '-q', '-m', 'many']);
   setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: git(t.target.root, ['rev-parse', 'HEAD']) } } });
+  // The control: this Git does warn on that diff, so the assertion below is about the driver.
+  assert.match(spawnSync('git', ['diff', `${t.target.base}...HEAD`], { cwd: t.target.root, encoding: 'utf8' }).stderr, /^warning:/m);
   const r = drive(t.start, t.e);
   assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: the diff is not valid UTF-8/, r.stderr + r.stdout);
   assert.equal(r.stderr, '');

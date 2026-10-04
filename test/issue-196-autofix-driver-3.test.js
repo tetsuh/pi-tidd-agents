@@ -119,3 +119,16 @@ test('Issue #196 a confirmed fix that a later gate reports unresolved goes back 
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-autofix-worker', `the regressed fix returns to the writer: ${r.stdout}${r.stderr}`);
   assert.equal(state(t.runDir).ledger.find((e) => e.findingId === 'CONV-7-X1').status, 'open');
 });
+
+// Issue #224: the driver's Git reads capture Git's error output, so a failure keeps Git's own reason in the stop rather
+// than echoing it to a terminal the operator may never see.
+test('Issue #224 a Git failure after the run directory exists keeps Git\'s reason in the stop', () => {
+  const t = setup();
+  git(t.target.checkout, ['remote', 'remove', 'origin']);
+  const r = drive(t.start, t.env);
+  assert.notEqual(r.status, 0);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'BLOCKED');
+  assert.match(s.reason, /^the driver failed: Command failed: git .*remote get-url origin \(error: No such remote 'origin'\)$/);
+  assert.equal(r.stderr, '');
+});
