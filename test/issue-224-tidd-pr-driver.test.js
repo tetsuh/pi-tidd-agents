@@ -3,7 +3,7 @@
 // Issue #224 (CL-D104): `/tidd-pr` loaded the Skill and the parent followed its prose step by step, hand-composing the
 // requests the packaged drivers already build. The Skill's dispatch section now sends a pull request the driver accepts
 // to the driver: the parent makes exactly the printed `subagent` call and runs the command the driver names next.
-const { test, assert, fs, path, spawnSync, repoPath, readText, git, setup, setFixture, drive, fakeGate, publishable } = require('./issue-196-review-driver.fixtures.js');
+const { test, assert, fs, path, spawnSync, repoPath, readText, git, setup, setFixture, drive, fakeGate, publishable, state } = require('./issue-196-review-driver.fixtures.js');
 const { sectionOf, readContract } = require('./helpers');
 
 const SKILL = 'skills/closed-loop-pr/SKILL.md';
@@ -106,6 +106,22 @@ test('Issue #224 a send-back without a base .tidd.json carries no git error outp
   git(t.target.root, ['add', 'bin.txt']); git(t.target.root, ['commit', '-q', '-m', 'bytes']);
   setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: git(t.target.root, ['rev-parse', 'HEAD']) } } });
   const r = drive([...t.start, '--validate', '[["node","-e","0"]]'], t.e);
+  assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: the diff is not valid UTF-8/, r.stderr + r.stdout);
+  assert.equal(r.stderr, '');
+  assert.equal(state(t.runDir).validationSource, '--validate', 'the run took the route without a base file');
+});
+
+// Every Git read of the driver keeps its child's error output off the driver's own, warnings included: a rename search
+// the repository's limit cuts short prints two warnings and still exits 0.
+test('Issue #224 a send-back carries no git warning either', () => {
+  const t = setup();
+  git(t.target.root, ['config', 'diff.renameLimit', '1']);
+  git(t.target.root, ['rm', '-q', 'a.js']);
+  for (const name of ['x.js', 'y.js', 'z.js']) fs.writeFileSync(path.join(t.target.root, name), `module.exports = '${name}';\n`);
+  fs.writeFileSync(path.join(t.target.root, 'bin.txt'), Buffer.from([0x61, 0xff, 0xfe, 0x0a]));
+  git(t.target.root, ['add', '.']); git(t.target.root, ['commit', '-q', '-m', 'many']);
+  setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: git(t.target.root, ['rev-parse', 'HEAD']) } } });
+  const r = drive(t.start, t.e);
   assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: the diff is not valid UTF-8/, r.stderr + r.stdout);
   assert.equal(r.stderr, '');
 });
