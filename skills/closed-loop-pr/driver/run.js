@@ -315,7 +315,8 @@ class Run {
     const N = '\\p{L}\\p{N}\\p{M}', paths = new RegExp(`(?<=^|[^${N}/.~])((?:(?<!-)-+[A-Za-z][A-Za-z-]*)?/*?)(${alts.join('|')})(?![${N}_-]|\\.[${N}_])`, 'gu');
     const local = (text) => { const out = publishable(fold(text).replace(paths, (match, start, root) => start + locals.get(root))); return roots.some((root) => `${out}.`.includes(root)) ? 'withheld: this text spells a local path; the run\'s state keeps it' : out; };
     // Exact fields (the target, the branch, the mode, fingerprints, heads, the observation) are never rewritten; only
-    // the free text that can quote a local path is (CONV-223-AC3-BRANCH-PRESERVATION).
+    // the free text that can quote a local path is (CONV-223-AC3-BRANCH-PRESERVATION). What the run observed of external
+    // review names a provider's check runs, which is GitHub text, so it is free text too (ADV-227-EXTERNAL-OBSERVATION-SANITIZATION-001).
     const render = (free) => publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
@@ -324,7 +325,7 @@ class Run {
     const block = render(quoted);
     const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${local(g.findings)}` : ''}`).join('\n') || '- none';
     const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
-      `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
+      `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${local(s.external || 'no snapshot was taken')}.`, '',
       `Reason: ${local(s.reason || s.state)}.`, '', '## Gates', gates, '', `Validation: ${local(s.validation || 'not run')}.`, '', render(local), ''].join('\n'));
     const marker = `<!-- pi-tidd-agents:review-publication:v1 repo=${t.repository} pr=${t.number} head=${t.headOid} visibleSha256=${sha256(visible)} -->`;
     const body = `${visible}${marker}\n`;
