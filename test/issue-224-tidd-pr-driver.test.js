@@ -31,12 +31,13 @@ test('Issue #224 the Skill sends the round to the packaged driver before any mod
   assert.equal(once(s, 'When a line begins `WAIT:`, the run has not completed: wait for its completion, then run the command that line names with the same run id. This is not a retry.'), 1);
   // The prose path is read first, so a stop that drafts artifacts and sends the pull request back (a review-only diff that
   // is not UTF-8) still reaches it; it is the driver's own last line, which no quoted text can print.
-  const prose = s.indexOf('4. When the last line the driver prints begins `PROSE_PATH:`, continue with Mode dispatch below in the parsed mode, whatever reference that line names.');
+  const prose = s.indexOf("4. When the last line the driver prints begins `PROSE_PATH:` (a note your shell tool adds after it, such as the exit code, is not the driver's), continue with Mode dispatch below in the parsed mode, whatever reference that line names.");
   const finished = s.indexOf('5. Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop.');
   assert.ok(prose > 0 && finished > prose, 'the prose-path step comes before the FINISHED step');
   assert.equal(once(s, 'Never run the publication script.'), 1);
   assert.equal(once(s, '6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.'), 1);
-  assert.equal(once(s, 'with the profile CL-D16 resolved for this run'), 1);
+  assert.equal(once(s, 'with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none)'), 1);
+  assert.equal(once(s, "(a note your shell tool adds after it, such as the exit code, is not the driver's)"), 1);
   // Each send-back site prints the token, and no other text in the driver says to review on the prose path.
   const driver = (file) => readText(`skills/closed-loop-pr/driver/${file}`);
   assert.equal(once(driver('phases.js'), 'function sendBack(message) { process.stdout.write(`PROSE_PATH: ${message}\\n`); process.exit(2); }'), 1);
@@ -59,6 +60,9 @@ test('Issue #224 the dispatch section\'s command sequence runs one review-only r
   const argv = START.exec(section())[1].replace('<skill-dir>', repoPath('skills/closed-loop-pr')).replace('<driver>', 'review')
     .replace('<number>', '7').replace('<owner/name>', 'o/r').split(' ');
   assert.equal(argv.shift(), 'node');
+  // The profile the section composes reaches the run, so the gates never receive the driver's default.
+  const [, flag, value] = /Add `(--language-profile) "([^"]+)"`/.exec(section());
+  argv.push(flag, value.replaceAll('<language>', 'English').replace('<sites>', '{}'));
   let r = spawnSync(process.execPath, argv, { cwd: t.target.root, encoding: 'utf8', env: t.e, timeout: 120000 });
   const calls = [];
   for (let i = 0; i < 6 && !/^FINISHED comment=/m.test(r.stdout); i += 1) {
@@ -75,6 +79,7 @@ test('Issue #224 the dispatch section\'s command sequence runs one review-only r
   assert.match(r.stdout, /^FINISHED comment=/m);
   const last = JSON.parse(r.stdout.trim().split('\n').pop());
   assert.equal(last.state, 'MERGE_READY', last.reason);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(last.runDir, 'state.json'), 'utf8')).languageProfile, 'conversation=English; github.issue=English; github.pull_request=English; external_sites={}');
   const { s, body } = publishable(last.runDir);
   assert.ok(fs.existsSync(s.publication.script), 'the publication script is drafted');
   assert.match(body, /^# Review state: MERGE_READY\n/);
@@ -99,6 +104,8 @@ test('Issue #224 a head that is not local is sent back on a PROSE_PATH line', ()
   setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: 'd'.repeat(40) } } });
   const r = drive(t.start, t.e);
   assert.equal(r.stdout, `PROSE_PATH: the checkout ${t.target.root} does not hold ${'d'.repeat(40)}; the driver needs the head and base locally, so review it on the prose path of review-only.md\n`);
+  // Git's own refusal stays off the output, so nothing can follow the PROSE_PATH line.
+  assert.equal(r.stderr, '');
   assert.equal(fs.existsSync(t.runDir), false);
 });
 
@@ -120,8 +127,8 @@ test('Issue #224 the contract records the dispatch and README names the one way 
 // The raise, with its property asserted at the raise (CL-D43, CL-D48): the section took the eight authority files past
 // 156,000, and the ceiling rises once, to 162,000, against the measurement on this change.
 test('Issue #224 CL-D104 raises the authority ceiling once, with the headroom asserted at the raise', () => {
-  const CL_D104_BASELINE_BYTES = 156345;
-  assert.match(readContract(), /they measured 156,345 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms/);
+  const CL_D104_BASELINE_BYTES = 156472;
+  assert.match(readContract(), /they measured 156,472 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms, leaving 5,528 bytes/);
   assert.ok(CL_D104_BASELINE_BYTES > 156000 && 162000 - CL_D104_BASELINE_BYTES > 5000, `the raise left ${162000 - CL_D104_BASELINE_BYTES} bytes`);
   for (const file of ['test/package.test.js', 'test/issue-73-authority-budget.test.js', 'test/issue-87-authority-floor.test.js', 'test/issue-87-addendum-split.test.js', 'test/issue-100-gate-ids-v2.test.js', 'test/issue-126-sol-component-sweep.test.js', 'test/issue-153-wording-only-minors.test.js']) {
     const text = readText(file);
