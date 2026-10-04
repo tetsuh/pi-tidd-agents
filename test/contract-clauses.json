@@ -5217,7 +5217,8 @@
         "tetsuh/pi-tidd-agents#226",
         "is reported as observed and is never waited for and never a failure",
         "A requirement only a human or GitHub settles never holds `MERGE_READY` back and is named in `operator_actions`",
-        "Waiting for a provider again, treating a provider's state as a failure, or holding `MERGE_READY` back for a requirement named above requires a new owner decision."
+        "Waiting for a provider again, treating a provider's state as a failure, or holding `MERGE_READY` back for a requirement named above requires a new owner decision.",
+        "A branch protection the workflow cannot read is settled by GitHub's own `mergeable_state`"
       ]
     },
     {
@@ -5307,7 +5308,8 @@
       "requires": [
         "Issue #196 a missing required approval does not hold MERGE_READY back, and the operator\\'s actions name it",
         "Issue #196 a recent external event does not hold MERGE_READY back, and the publication reports it as observed",
-        "Issue #196 an external review provider\\'s state and its own check run are observed, never waited for"
+        "Issue #196 an external review provider\\'s state and its own check run are observed, never waited for",
+        "Issue #196 a protection the driver cannot read is settled by mergeability: clean names nothing, blocked is named"
       ]
     }
   ]

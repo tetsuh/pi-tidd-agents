@@ -232,6 +232,22 @@ function setFixture(t, patch) { const f = JSON.parse(fs.readFileSync(t.fixture, 
 function throughGates(t, n = 3) { let r; for (let i = 0; i < n; i += 1) r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e); return r; }
 
 // CL-D100 (#226): what only a human or GitHub settles never holds readiness back; the operator's actions name it.
+test('Issue #196 a protection the driver cannot read is settled by mergeability: clean names nothing, blocked is named', () => {
+  let t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  let s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.equal(s.operatorActions, 'none; a human may merge');
+  t = setup();
+  { const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.mergeable_state = 'blocked'; fs.writeFileSync(t.fixture, JSON.stringify(f)); }
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.equal(s.operatorActions, 'before merging, a human confirms: GitHub reports the pull request mergeable_state blocked');
+});
+
 test('Issue #196 a missing required approval does not hold MERGE_READY back, and the operator\'s actions name it', () => {
   const t = setup();
   setFixture(t, { protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } });
@@ -1486,6 +1502,10 @@ test('Issue #196 readiness waits unless GitHub reports the pull request mergeabl
   // `blocked` is a requirement only a human or GitHub settles: named for a human, never waited for (CL-D100).
   const blocked = run({ mergeable: null, mergeable_state: 'blocked' });
   assert.deepEqual([blocked.pending, blocked.confirm], [[], ['GitHub reports the pull request mergeable_state blocked']]);
+  // Owner decision UNREADABLE-PROTECTION-BY-MERGEABILITY on PR #227: a protection read that answers 404 arrives as
+  // `false`, for no protection and for a token that may not read it alike. GitHub's mergeability settles it: `blocked`
+  // is named above, and a mergeable state leaves nothing to name.
+  for (const state of ['clean', 'unstable', 'has_hooks']) { const r = run({ mergeable: true, mergeable_state: state }); assert.deepEqual([r.pending, r.failed, r.confirm], [[], [], []], `unreadable protection, ${state}`); }
   const bot = [{ id: 1, user: { login: 'coderabbitai[bot]', type: 'Bot' }, state: 'CHANGES_REQUESTED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }];
   assert.match(run({ mergeable: true, mergeable_state: 'clean' }, bot).failed.join(';'), /changes requested by coderabbitai\[bot\]/);
 });
