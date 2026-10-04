@@ -7,8 +7,13 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const crypto = require('node:crypto');
+const { execFileSync } = require('node:child_process');
 
 const { readText, readJson, repoPath, readContract } = require('./helpers');
+const helpers = require('../skills/closed-loop-pr/helpers');
 
 const INDEX_HEADING = '## Record index';
 const ENTRY = /^- \[(contract\/([A-Za-z0-9._-]+)\.md)\]\(\1\) — (.+)$/;
@@ -55,4 +60,43 @@ test('Issue #215 CONTRACT.md is the preamble and the index, and the assembly is 
 test('Issue #215 the record files are development records, outside the package payload', () => {
   const pkg = readJson('package.json');
   assert.equal(pkg.files.some((entry) => entry === 'contract' || entry.startsWith('contract/')), false);
+});
+
+// AC5 of #215 (CONV-233-AC5-SIZE-HISTORY): a record states a principle, and the fix history of a change stays in its
+// pull request's timeline and commits. A record is at most RECORD_LIMIT bytes. The four records over it at the split
+// may grow by EXEMPT_ROOM and no further, so the next forward note to one of them does not force a trim.
+const RECORD_LIMIT = 8000, EXEMPT_ROOM = 1024;
+const EXEMPT = { 'contract/CL-D93.md': 14396, 'contract/CL-D72.md': 10417, 'contract/CL-D36.md': 8149, 'contract/CL-D96.md': 8086 };
+
+test('Issue #215 every record is at most 8,000 bytes, and the four larger at the split stay within their ceiling', () => {
+  const files = fs.readdirSync(repoPath('contract')).filter((f) => f.endsWith('.md')).map((f) => `contract/${f}`);
+  assert.ok(files.length > 100, 'the records are there to measure');
+  for (const file of files) {
+    const size = fs.statSync(repoPath(file)).size, ceiling = file in EXEMPT ? EXEMPT[file] + EXEMPT_ROOM : RECORD_LIMIT;
+    assert.ok(size <= ceiling, `${file} is ${size} bytes, over its ceiling of ${ceiling}; keep fix history in the pull request (CL-D103)`);
+  }
+  for (const [file, size] of Object.entries(EXEMPT)) assert.ok(size > RECORD_LIMIT && files.includes(file), `${file} is an exemption only while it exists and was over the limit`);
+});
+
+// AC3 and AC4 of #215: a pull request that changes one record carries that record's file and no other; the set follows
+// from the diff, so nothing the writer or the parent supplies narrows it.
+test('Issue #215 a change to one record puts that record, CONTRACT.md and README.md in the required evidence, and no other record', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-215-evidence-'));
+  try {
+    const git = (args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+    const write = (file, text) => { fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true }); fs.writeFileSync(path.join(root, file), text); };
+    git(['init', '-q', '-b', 'main']); git(['config', 'user.name', 'Issue 215 Test']); git(['config', 'user.email', 'issue215@example.invalid']);
+    write('CONTRACT.md', '# Contract\n\n## Record index\n\n- [contract/CL-D1.md](contract/CL-D1.md) — one\n- [contract/CL-D2.md](contract/CL-D2.md) — two\n');
+    write('README.md', 'readme\n'); write('contract/CL-D1.md', '## CL-D1 — one\n'); write('contract/CL-D2.md', '## CL-D2 — two\n');
+    git(['add', '.']); git(['commit', '-q', '-m', 'base']);
+    const base = git(['rev-parse', 'HEAD']);
+    write('contract/CL-D2.md', '## CL-D2 — two\n\nChanged.\n');
+    git(['add', '-A']); git(['commit', '-q', '-m', 'head']);
+    const head = git(['rev-parse', 'HEAD']);
+    const set = helpers.requiredEvidenceSet({ cwd: root, baseOid: base, headOid: head, identities: [] });
+    assert.equal(set.ok, true, JSON.stringify(set.error));
+    const blob = (file) => crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex');
+    assert.deepEqual(set.data.requiredEvidence, ['CONTRACT.md', 'README.md', 'contract/CL-D2.md'].map((source) => ({ source, kind: 'file', identity: blob(source) })));
+    assert.deepEqual(set.data.authority, { included: ['CONTRACT.md', 'README.md'], absent: [], excluded: [] });
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });

@@ -5443,6 +5443,8 @@
         "tetsuh/pi-tidd-agents#215",
         "The contract is the preamble followed by every listed file in index order, one blank line apart",
         "`required_evidence_set` is unchanged",
+        "A record is at most 8,000 bytes",
+        "the fix history of a change stays in its pull request's timeline and commits",
         "Putting records back into one file, listing a record anywhere but the index, or giving the index a column the tests do not read requires a new owner decision."
       ]
     },
@@ -5481,7 +5483,9 @@
       "requires": [
         "Issue #215 every record is one file under contract/, listed once in the index, in assembly order",
         "Issue #215 CONTRACT.md is the preamble and the index, and the assembly is the contract",
-        "Issue #215 the record files are development records, outside the package payload"
+        "Issue #215 the record files are development records, outside the package payload",
+        "Issue #215 every record is at most 8,000 bytes, and the four larger at the split stay within their ceiling",
+        "Issue #215 a change to one record puts that record, CONTRACT.md and README.md in the required evidence, and no other record"
       ]
     },
     {
