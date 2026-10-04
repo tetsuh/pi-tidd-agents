@@ -16,7 +16,7 @@ const { createResult, createError } = require('./protocol');
 const { SCHEMA, ROOT_GATES, expectedState, validateGateResult } = require('./gate-result');
 const { inputShapeProblem } = require('./composition');
 const { VOLATILE_FIELDS, volatileRequired, volatileEmptiness, nestedProblem, citedRecords } = require('./envelope');
-// CL-D91: the gate payload file the launch points to, and the child's verification of it.
+// CL-D91, CL-D101: the gate payload file, the verification request the launch names, and the child's verification.
 const { writePayload, payloadPointer } = require('./payload');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
@@ -278,7 +278,7 @@ function buildGateLaunch(data) {
     if (!autofix && Object.hasOwn(data, 'created')) fail('invalid_request', 'a review-only gate reviews the operator checkout; it takes no workspace');
     if (Object.hasOwn(data, 'created')) request.cwd = gateWorkspaceCwd(data.created);
     // #188, CL-D91: the parent re-typed the 14 KB task and corrupted it, so the task is written here, once, and the
-    // request carries only a pointer the child verifies before reading.
+    // request carries only a pointer: the verification request the child runs before reading (CL-D101).
     const { payloadPath, payloadSha256, verifyPath } = writePayload(data.expectationPath, expected.correlation, payload);
     request.task = payloadPointer(verifyPath);
     return createResult(operation, { request, payloadPath, payloadSha256, verifyPath, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });

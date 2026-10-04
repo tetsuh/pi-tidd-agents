@@ -41,7 +41,7 @@ Obtain every check below from the packaged CLI, `node <package>/skills/closed-lo
 | Construct the gate expectation; the result schema is the gate roles' agent definition (CL-D36, CL-D56, CL-D90) | `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |
 | Construct the assigned-finding tuples from the validated result and the ledger (CL-D73) | `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |
 | Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |
-| The gate child's first step, on the payload its launch points to (CL-D91) | `gate_payload_verify` | `path`, `sha256` |
+| The gate child's first step: it runs the request its launch names, which verifies the payload (CL-D91, CL-D101) | `gate_payload_verify` | `path`, `sha256` |
 | Construct the `AFTER_STAGING` capture request from the frozen overlay (CL-D61) | `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |
 | Construct the `BEFORE_COMMIT` compare request from the capture it compares against (CL-D61) | `build_manifest_compare` | `captured` (data of `manifest_compare`), `cwd` |
 | Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |

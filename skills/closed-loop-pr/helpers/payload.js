@@ -85,7 +85,8 @@ function payloadPointer(verifyPath) {
     '',
   ].join('\n');
 }
-// Operation gate_payload_verify: the child's first step, on the file its launch points to (CL-D91).
+// Operation gate_payload_verify: the child's first step. The child runs the request its launch names (CL-D101), and
+// this verifies the payload that request names (CL-D91).
 function verifyGatePayload(data) {
   const operation = 'gate_payload_verify';
   try {
