@@ -22,14 +22,14 @@ function humanConfirms(snapshot) {
   for (const r of [...(p.rulesets || []), ...(p.organizationRulesets || [])]) {
     if (r?.enforcement === 'disabled') continue;
     const gating = Array.isArray(r?.rules) ? [...new Set(r.rules.map((x) => x?.type ?? 'an unreadable rule').filter((t) => !NON_GATING_RULES.has(t)))] : ['unreadable rules'];
-    if (gating.length) out.push(`ruleset ${r?.name || r?.id} can gate the merge (${gating.join(', ')}); a human confirms it`);
+    if (gating.length) out.push(`ruleset ${r?.name || r?.id} can gate the merge (${gating.join(', ')})`);
   }
   const bp = p.branchProtection;
   const unsettled = bp && typeof bp === 'object' ? Object.entries(bp).filter(([k, v]) => !PROTECTION_SETTLED.has(k) && v !== null && v !== false && v?.enabled !== false).map(([k]) => k) : [];
   // A strict required-checks setting asks that the head be up to date with the base, which the driver does not settle
   // (CONV-199-STRICT-REQUIRED-CHECKS).
   if (bp && typeof bp === 'object' && bp.required_status_checks?.strict === true) unsettled.push('required_status_checks.strict (the head up to date with the base)');
-  if (unsettled.length) out.push(`branch protection requires ${unsettled.join(', ')}; a human confirms it`);
+  if (unsettled.length) out.push(`branch protection requires ${unsettled.join(', ')}`);
   return out;
 }
 // Only success, skipped, and neutral pass; the named failures fail; anything else is unknown, which is not complete.
@@ -42,16 +42,17 @@ const MERGEABLE_STATES = new Set(['clean', 'unstable', 'has_hooks']);
 function readiness(snapshot, headOid) {
   const failed = [], pending = [], confirm = humanConfirms(snapshot);
   const state = snapshot.pull?.mergeable_state ?? null;
-  if (state === 'blocked') confirm.push('GitHub reports the pull request mergeable_state blocked; a human confirms what blocks it');
+  if (state === 'blocked') confirm.push('GitHub reports the pull request mergeable_state blocked');
   else if (!MERGEABLE_STATES.has(state)) pending.push(`GitHub reports the pull request mergeable_state ${state}${state === 'dirty' ? ' (a merge conflict)' : ''}; it must be clean, unstable, or has_hooks`);
   const pol = snapshot.policies || {}, rsc = pol.branchProtection?.required_status_checks || {};
   // Protection's legacy contexts and its checks both count; a pinned check stays pinned beside an unpinned context
   // of the same name, since each requirement is met on its own (ADV-199-LEGACY-CONTEXT-OMITTED).
   const requiredChecks = [...(rsc.contexts || []).map((context) => ({ context })), ...(Array.isArray(rsc.checks) ? rsc.checks.map((c) => ({ context: c.context, app: c.app_id })) : [])];
-  // A check run an external review provider posts, which no protection requires, is part of that review: observed.
+  // A check run or commit status an external review provider posts, which no protection requires, is part of that
+  // review: observed. One that protection requires keeps the rule of every required check.
   const observed = (pol.externalReview || []).map((r) => `${r.provider} ${r.state}`), required = new Set(requiredChecks.map((r) => r.context));
   for (const c of snapshot.checks || []) {
-    if (c.app?.slug === REVIEW_APP && !required.has(c.name)) { if (c.status !== 'completed' || !PASSED_CONCLUSIONS.has(c.conclusion)) observed.push(`check ${c.name} ${c.status === 'completed' ? c.conclusion : c.status}`); continue; }
+    if (c.app?.slug === REVIEW_APP && !required.has(c.name)) { observed.push(`check ${c.name} ${c.status === 'completed' ? c.conclusion : c.status}`); continue; }
     if (c.status !== 'completed' || c.conclusion === null) pending.push(`check ${c.name}`);
     else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);
     else if (!PASSED_CONCLUSIONS.has(c.conclusion)) pending.push(`check ${c.name} unknown conclusion ${c.conclusion}`);
@@ -59,7 +60,7 @@ function readiness(snapshot, headOid) {
   const contexts = new Map();
   for (const st of [...(snapshot.statuses || [])].sort((x, y) => Date.parse(x.created_at) - Date.parse(y.created_at) || x.id - y.id)) contexts.set(st.context, st);
   for (const [context, st] of contexts) {
-    if (/^coderabbit$/i.test(context)) continue;
+    if (/^coderabbit$/i.test(context) && !required.has(context)) continue;
     if (st.state === 'pending') pending.push(`status ${context}`);
     else if (st.state === 'failure' || st.state === 'error') failed.push(`status ${context} ${st.state}`);
     else if (st.state !== 'success') pending.push(`status ${context} unknown state ${st.state}`);

@@ -5255,6 +5255,7 @@
         "return { failed, pending, unresolved, confirm, observed };",
         "if (state === 'blocked') confirm.push(",
         "c.app?.slug === REVIEW_APP && !required.has(c.name)",
+        "/^coderabbit$/i.test(context) && !required.has(context)",
         "external review is not waited for"
       ]
     },

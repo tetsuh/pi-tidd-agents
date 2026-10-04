@@ -134,7 +134,7 @@ review_misses: <counterexample class: the gate and invocation that did not raise
 pending_decisions: <decision ids or none>
 publication_grant: review-only not-applicable
 external_observation: head <sha> observed_from <timestamp>, this run only
-operator_actions: <what the operator must do to publish, or none>
+operator_actions: <what the operator must do, or none>
 invalidated_evidence: <what must be redone>
 next_action: <the single next permitted action>
 ```

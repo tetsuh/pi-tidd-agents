@@ -334,7 +334,7 @@ function finish(run) {
   const { snapshot, fresh } = collectSnapshotEvidence(run, s.workspace);
   s.activeGate = 'external';
   if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }
-  finalPolicy(run, snapshot, 'wait for checks and external review on this head, then a fresh run');
+  finalPolicy(run, snapshot, 'wait for the checks on this head, then a fresh run');
   s.invalidated = null;
   end(run, 'MERGE_READY', `${readyGates(s.gateLog, s.target.headOid)} returned MERGE on ${s.target.headOid.slice(0, 12)} after ${s.counters.pushes} correction push(es)${s.convergenceDisabled ? ' (convergence disabled)' : ''}; the final policy passes`);
 }
