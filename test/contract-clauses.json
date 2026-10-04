@@ -5229,7 +5229,7 @@
       ],
       "requires": [
         "External review is best effort (CL-D100): answer each external finding present; never wait for one still to come.",
-        "A provider's state, and its app's check run that no protection requires, is only reported.",
+        "CodeRabbit's state, and its own check run or status that no protection requires, is only reported.",
         "never holds `MERGE_READY` back; name it in `operator_actions`"
       ]
     },
@@ -5241,8 +5241,10 @@
         "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
-        "A policy read but not evaluated (ruleset, protection setting, approval, `blocked` state) is not ambiguous: it is named in `operator_actions`",
-        "a provider's state, even `unknown`, is reported; neither waits or fails (CL-D100)"
+        "failed checks or `CHANGES_REQUESTED` is `BLOCKED`.",
+        "A policy the workflow does not evaluate (ruleset, protection setting, approval, `blocked` state) is named in `operator_actions`",
+        "a provider's state or own unrequired check, even `unknown`, is reported; neither waits or fails (CL-D100)",
+        "final policy failed is `BLOCKED`"
       ]
     },
     {
