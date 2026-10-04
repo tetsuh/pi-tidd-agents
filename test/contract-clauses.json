@@ -5391,6 +5391,45 @@
         "no hash or hash prefix for the child to copy",
         "the command carries no digest (CL-D101)"
       ]
+    },
+    {
+      "id": "CL-D102-record",
+      "marker": "CL-D102",
+      "title": "CL-D102 records that a gate reports every finding it can establish",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D102 — A gate reports every finding it can establish in one invocation",
+      "requires": [
+        "tetsuh/pi-tidd-agents#228",
+        "The rule changes no verdict rule, no schema field, and no cap",
+        "Telling a gate to stop at its first finding, or removing the rule from the shared block or a gate role, requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D102-block",
+      "marker": "CL-D102",
+      "title": "The Every-gate block carries the rule",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Every-gate invariant payload block (CL-D2)",
+      "requires": [
+        "The child reports every finding it can establish in the invocation, not only the first, and after a finding checks the rest of the target for the same class (CL-D102)."
+      ]
+    },
+    {
+      "id": "CL-D102-tests",
+      "marker": "CL-D102",
+      "title": "The rule is pinned in the block, the roles and the payload",
+      "files": [
+        "test/issue-228-report-every-finding.test.js"
+      ],
+      "requires": [
+        "Issue #228 the shared Every-gate block tells every gate to report all it can establish",
+        "Issue #228 each PR gate role\\'s definition carries the rule among its working rules",
+        "Issue #228 the payload the launch builder writes carries the rule, for every gate of both roots"
+      ]
     }
   ]
 }
