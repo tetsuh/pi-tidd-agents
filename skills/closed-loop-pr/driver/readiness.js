@@ -62,7 +62,8 @@ function readiness(snapshot, headOid) {
   const contexts = new Map();
   for (const st of [...(snapshot.statuses || [])].sort((x, y) => Date.parse(x.created_at) - Date.parse(y.created_at) || x.id - y.id)) contexts.set(st.context, st);
   for (const [context, st] of contexts) {
-    if (/^coderabbit$/i.test(context) && !required(context)) continue;
+    // Exempt only as the provider's own: the creator CL-D92's classification requires (SAFETY-227-STATUS-SOURCE-001).
+    if (/^coderabbit$/i.test(context) && st.creator?.login === 'coderabbitai[bot]' && !required(context)) continue;
     if (st.state === 'pending') pending.push(`status ${context}`);
     else if (st.state === 'failure' || st.state === 'error') failed.push(`status ${context} ${st.state}`);
     else if (st.state !== 'success') pending.push(`status ${context} unknown state ${st.state}`);
