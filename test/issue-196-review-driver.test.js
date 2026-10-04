@@ -1474,8 +1474,8 @@ test('Issue #196 required linear history is for a human to confirm, and only non
 test('Issue #196 an external review provider\'s state and its own check run are observed, never waited for', () => {
   const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
   const ci = { id: 1, name: 'ci', status: 'completed', conclusion: 'success', app: { slug: 'github-actions' } };
-  const run = ({ externalReview = [], checks = [ci], contexts = [], statuses = [] }) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses, threads: [], reviews: [],
-    policies: { branchProtection: contexts.length ? { required_status_checks: { strict: false, contexts, checks: [] } } : false, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview } }, 'h'.repeat(40));
+  const run = ({ externalReview = [], checks = [ci], contexts = [], pins = [], statuses = [] }) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses, threads: [], reviews: [],
+    policies: { branchProtection: contexts.length || pins.length ? { required_status_checks: { strict: false, contexts, checks: pins } } : false, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview } }, 'h'.repeat(40));
   for (const state of ['queued', 'in_progress', 'pending', 'unknown', 'failed', 'completed']) {
     const r = run({ externalReview: [{ provider: 'coderabbit', source: 'status', state }] });
     assert.deepEqual([r.pending, r.failed, r.confirm, r.observed], [[], [], [], [`coderabbit ${state}`]], state);
@@ -1496,6 +1496,18 @@ test('Issue #196 an external review provider\'s state and its own check run are 
   assert.deepEqual(run({ statuses: status('failure'), contexts: ['CodeRabbit'] }).failed, ['status CodeRabbit failure']);
   assert.deepEqual(run({ statuses: status('error'), contexts: ['CodeRabbit'] }).failed, ['status CodeRabbit error']);
   const met = run({ statuses: status('success'), contexts: ['CodeRabbit'] }); assert.deepEqual([met.pending, met.failed], [[], []], 'a required status that passed');
+  // Round 1 of PR #227 (CONV-227-PINNED-REVIEW-CHECK-001): a requirement pinned to another app is not the provider's
+  // check or status. The provider's is observed; the pinned requirement is still missing, and that is what waits.
+  const missing = ['required check CodeRabbit from app 7 has not reported'], other = [{ context: 'CodeRabbit', app_id: 7 }], from = (check, id) => ({ ...check, app: { slug: 'coderabbitai', id } });
+  for (const [check, text] of [[theirs('in_progress'), 'check CodeRabbit in_progress'], [theirs('completed', 'failure'), 'check CodeRabbit failure']]) {
+    const r = run({ checks: [ci, from(check, 42)], pins: other });
+    assert.deepEqual([r.pending, r.failed, r.observed], [missing, [], [text]], `${text} beside a pin on another app`);
+  }
+  for (const state of ['pending', 'failure']) { const r = run({ statuses: status(state), pins: other }); assert.deepEqual([r.pending, r.failed], [missing, []], `a status ${state} beside a pin`); }
+  // The requirement pinned to the provider's own app, or accepting any source, is the provider's check.
+  assert.deepEqual(run({ checks: [ci, from(theirs('completed', 'failure'), 42)], pins: [{ context: 'CodeRabbit', app_id: 42 }] }).failed, ['check CodeRabbit failure']);
+  assert.deepEqual(run({ checks: [ci, from(theirs('in_progress'), 42)], pins: [{ context: 'CodeRabbit', app_id: -1 }] }).pending, ['check CodeRabbit']);
+  assert.deepEqual(run({ statuses: status('failure'), pins: [{ context: 'CodeRabbit', app_id: -1 }] }).failed, ['status CodeRabbit failure']);
   // Another app's check with the provider's name is no provider check, and a pending CI check still waits.
   assert.deepEqual(run({ checks: [ci, { ...theirs('in_progress'), app: { slug: 'github-actions' } }] }).pending, ['check CodeRabbit']);
   assert.deepEqual(run({ checks: [{ ...ci, status: 'in_progress', conclusion: null }] }).pending, ['check ci']);
