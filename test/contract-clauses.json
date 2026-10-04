@@ -4678,7 +4678,7 @@
       "marker": "CL-D96",
       "title": "The CL-D96 fixtures drive a correction cycle to MERGE_READY",
       "files": [
-        "test/issue-196-autofix-driver.test.js"
+        "test/issue-196-autofix-driver-1.test.js"
       ],
       "requires": [
         "Issue #196 the packaged autofix driver corrects a finding through the writer batch and reaches MERGE_READY",
@@ -4804,7 +4804,7 @@
       "marker": "CL-D97",
       "title": "The CL-D97 fixtures drive each source",
       "files": [
-        "test/issue-196-review-driver.test.js"
+        "test/issue-196-review-driver-3.test.js"
       ],
       "requires": [
         "Issue #209 review-only with no validation commands runs git diff --check only and says so",
@@ -4855,7 +4855,7 @@
       "marker": "CL-D93",
       "title": "The CL-D93 fixtures drive a review round",
       "files": [
-        "test/issue-196-review-driver.test.js"
+        "test/issue-196-review-driver-1.test.js"
       ],
       "requires": [
         "Issue #196 the packaged review-only driver runs a PR round to MERGE_READY; the parent only makes printed calls",
@@ -5306,7 +5306,7 @@
       "marker": "CL-D100",
       "title": "The best-effort outcomes are pinned",
       "files": [
-        "test/issue-196-review-driver.test.js"
+        "test/issue-196-review-driver-6.test.js"
       ],
       "requires": [
         "Issue #196 a missing required approval does not hold MERGE_READY back, and the operator\\'s actions name it",

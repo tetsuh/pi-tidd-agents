@@ -231,7 +231,7 @@ function validateBoundary(model) {
   for (const [file, size] of Object.entries(model.fileSizes)) if (size >= PER_FILE_SMOKE_ALARM) errors.push(`per-file helper smoke alarm exceeded: ${file}:${size}`);
 
   const packedCode = model.packedEntries.map((entry) => entry.path).filter((file) => /\.(?:js|mjs|cjs|ts)$/.test(file)).sort();
-  // CL-D93: the driver ships beside the helpers under its own alarms (test/issue-196-review-driver.test.js).
+  // CL-D93: the driver ships beside the helpers under its own alarms (test/issue-196-review-driver-*.test.js).
   if (JSON.stringify(packedCode) !== JSON.stringify([...HELPER_FILES, ...DRIVER_FILES].sort())) errors.push('packed JavaScript differs from the helper allowlist');
   if (model.packedEntries.some((entry) => entry.path.startsWith('test/') || /(?:controller|extension)/i.test(entry.path))) errors.push('test/controller/extension is packaged');
   if (model.packedEntries.some((entry) => Number(entry.mode) & 0o111)) errors.push('executable-mode package entry is forbidden');
