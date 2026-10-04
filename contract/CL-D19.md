@@ -5,4 +5,6 @@ Prompt templates contain only frontmatter, complete raw argument capture, the lo
 
 Authority graph: `prompt -> workflow SKILL.md -> both shared references -> exactly one PR mode reference when applicable`.
 
+CL-D104 later narrowed the PR mode continuation to the prose path: a pull request the packaged driver accepts runs through the Skill's driver dispatch, and the parent reads no mode reference.
+
 Enforced by `test/package.test.js`, which asserts each prompt names its Skill, passes raw `$@` exactly once, declares the Skill authoritative, contains no workflow restatement, and shares no normalized 60+ character sentence with its root Skill; both workflow roots name each shared reference exactly once, no shared `SKILL.md` creates a third Skill, and the PR Skill dispatches to exactly one packaged mode reference.

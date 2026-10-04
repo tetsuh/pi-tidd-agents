@@ -2460,7 +2460,7 @@
         "test/package.test.js"
       ],
       "requires": [
-        "assert.ok(total < 156000,",
+        "assert.ok(total < 162000,",
         "const PR_SKILL_PRE_SPLIT_BYTES = 57160;",
         "not a budget",
         "revision-qualified"
@@ -5511,9 +5511,12 @@
       "section": "## CL-D104 — /tidd-pr runs through the packaged driver",
       "requires": [
         "tetsuh/pi-tidd-agents#224",
-        "The parent judges an outcome by what the driver prints, never by its exit status",
-        "The Skill's other sections and the mode references stay as they are, as the specification the driver and the gates implement (D2)",
-        "Letting the parent compose a request the driver builds, judge an outcome by exit status, or interrupt a running gate, or removing the dispatch section, requires a new owner decision."
+        "The parent judges an outcome by the lines the driver prints, never by its exit status",
+        "running its command again after completion is not a retry",
+        "This narrows CL-D19 and Mode dispatch, which read exactly one mode reference after mode parsing, to the prose path.",
+        "The Skill's other sections, the shared references and the mode references stay as they are, as the specification the driver and the gates implement (D2)",
+        "they measured 156,176 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms",
+        "Letting the parent compose or change a request the driver builds, judge an outcome by exit status, or interrupt a running gate, or removing the dispatch section, requires a new owner decision."
       ]
     },
     {
@@ -5525,10 +5528,13 @@
       ],
       "section": "## Driver dispatch (CL-D104)",
       "requires": [
-        "the packaged driver sequences the round, not you",
+        "a pull request of the repository of the current checkout runs through the packaged driver, which sequences the round, not you",
         "run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`",
-        "call `subagent` with exactly that object and note the run id. Never interrupt, pause, steer, or cancel the run; only its own completion ends the wait.",
-        "When the driver ends without `FINISHED`, report its last 30 lines and stop; never retry or continue by hand."
+        "If the call is refused or returns no run id, report it and stop; never change the object.",
+        "Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it.",
+        "When a line begins `WAIT:`, the run has not completed",
+        "continue with Mode dispatch below in the parsed mode, whatever reference the message names.",
+        "When the driver ends without such a line, report the last 30 lines of its combined output and stop; never retry or continue by hand."
       ]
     },
     {
@@ -5541,20 +5547,46 @@
       "section": "### How a round runs (CL-D104)",
       "requires": [
         "`/tidd-pr <pr-ref> [autofix]` is the one way to run a round.",
-        "The driver runs the validation commands from the first source that exists (CL-D97)"
+        "The driver runs the validation commands from the first source that exists (CL-D97)",
+        "only when you start the driver directly (`/tidd-pr` never passes it)"
+      ]
+    },
+    {
+      "id": "CL-D104-forward-d19",
+      "marker": "CL-D104",
+      "title": "CL-D19 names the narrowing",
+      "files": [
+        "contract/CL-D19.md"
+      ],
+      "section": "## CL-D19 — Division of responsibility between prompts, Skills, and mode references",
+      "requires": [
+        "CL-D104 later narrowed the PR mode continuation to the prose path"
+      ]
+    },
+    {
+      "id": "CL-D104-forward-ceiling",
+      "marker": "CL-D104",
+      "title": "CL-D43 and CL-D85 name the raised ceiling",
+      "files": [
+        "contract/CL-D43.md",
+        "contract/CL-D85.md"
+      ],
+      "requires": [
+        "CL-D104 later raised the authority ceiling to 162,000 bytes on the same terms."
       ]
     },
     {
       "id": "CL-D104-tests",
       "marker": "CL-D104",
-      "title": "The section, its command sequence and the record are pinned",
+      "title": "The section, its command sequence, the record and the raise are pinned",
       "files": [
         "test/issue-224-tidd-pr-driver.test.js"
       ],
       "requires": [
         "Issue #224 the Skill sends the round to the packaged driver before any mode reference is read",
         "Issue #224 the dispatch section\\'s command sequence runs one review-only round to a terminal outcome",
-        "Issue #224 the contract records the dispatch and README names the one way to run a round"
+        "Issue #224 the contract records the dispatch and README names the one way to run a round",
+        "Issue #224 CL-D104 raises the authority ceiling once, with the headroom asserted at the raise"
       ]
     }
   ]
