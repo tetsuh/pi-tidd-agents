@@ -417,11 +417,15 @@ test('shipped skills omit repository-specific test-suite commentary', () => {
   }
 });
 
+// CONTRACT.md and, since CL-D103, its record files under contract/ are development records outside the package.
+const DEVELOPMENT_RECORD = /CONTRACT\.md|contract\/[A-Z][A-Za-z0-9-]*\.md/;
 test('falsification guidance does not require a package-specific development record', () => {
+  assert.match('see contract/CL-D30.md', DEVELOPMENT_RECORD, 'a record file is a development record');
+  assert.doesNotMatch('a contract/scope/API change', DEVELOPMENT_RECORD, 'prose naming a contract is not');
   for (const file of FALSIFICATION_ARTIFACTS) {
     assert.doesNotMatch(
       readText(file),
-      /CONTRACT\.md/,
+      DEVELOPMENT_RECORD,
       `${file} names an unpackaged repository-specific record as falsification evidence`,
     );
   }
@@ -602,7 +606,7 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);
       assert.doesNotMatch(
         readPacked(file),
-        /CONTRACT\.md/,
+        DEVELOPMENT_RECORD,
         `packed ${file} names an unpackaged repository-specific record as falsification evidence`,
       );
     }

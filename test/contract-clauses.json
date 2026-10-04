@@ -5483,6 +5483,18 @@
         "Issue #215 CONTRACT.md is the preamble and the index, and the assembly is the contract",
         "Issue #215 the record files are development records, outside the package payload"
       ]
+    },
+    {
+      "id": "CL-D103-forward-d26",
+      "marker": "CL-D103",
+      "title": "CL-D26 names the layout",
+      "files": [
+        "contract/CL-D26.md"
+      ],
+      "section": "## CL-D26 — The authoritative contract record lives in this file",
+      "requires": [
+        "CL-D103 later split it: the record is CONTRACT.md's preamble and index followed by the record files under `contract/`, all kept out of `files`."
+      ]
     }
   ]
 }
