@@ -5500,6 +5500,62 @@
       "requires": [
         "CL-D103 later split it: the record is CONTRACT.md's preamble and index followed by the record files under `contract/`, all kept out of `files`."
       ]
+    },
+    {
+      "id": "CL-D104-record",
+      "marker": "CL-D104",
+      "title": "CL-D104 records that /tidd-pr runs through the packaged driver",
+      "files": [
+        "contract/CL-D104.md"
+      ],
+      "section": "## CL-D104 — /tidd-pr runs through the packaged driver",
+      "requires": [
+        "tetsuh/pi-tidd-agents#224",
+        "The parent judges an outcome by what the driver prints, never by its exit status",
+        "The Skill's other sections and the mode references stay as they are, as the specification the driver and the gates implement (D2)",
+        "Letting the parent compose a request the driver builds, judge an outcome by exit status, or interrupt a running gate, or removing the dispatch section, requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D104-skill",
+      "marker": "CL-D104",
+      "title": "The Skill's dispatch section",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "section": "## Driver dispatch (CL-D104)",
+      "requires": [
+        "the packaged driver sequences the round, not you",
+        "run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`",
+        "call `subagent` with exactly that object and note the run id. Never interrupt, pause, steer, or cancel the run; only its own completion ends the wait.",
+        "When the driver ends without `FINISHED`, report its last 30 lines and stop; never retry or continue by hand."
+      ]
+    },
+    {
+      "id": "CL-D104-readme",
+      "marker": "CL-D104",
+      "title": "README names the one way to run a round",
+      "files": [
+        "README.md"
+      ],
+      "section": "### How a round runs (CL-D104)",
+      "requires": [
+        "`/tidd-pr <pr-ref> [autofix]` is the one way to run a round.",
+        "The driver runs the validation commands from the first source that exists (CL-D97)"
+      ]
+    },
+    {
+      "id": "CL-D104-tests",
+      "marker": "CL-D104",
+      "title": "The section, its command sequence and the record are pinned",
+      "files": [
+        "test/issue-224-tidd-pr-driver.test.js"
+      ],
+      "requires": [
+        "Issue #224 the Skill sends the round to the packaged driver before any mode reference is read",
+        "Issue #224 the dispatch section\\'s command sequence runs one review-only round to a terminal outcome",
+        "Issue #224 the contract records the dispatch and README names the one way to run a round"
+      ]
     }
   ]
 }

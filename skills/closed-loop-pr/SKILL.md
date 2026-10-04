@@ -52,6 +52,15 @@ The shared grammar consumes the target reference first. CL-D6 then consumes only
 
 A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. The same GitHub API evidence path is available to a same-repository review-only target when local Git objects are absent; this requires no fetch, checkout, or git-state mutation. Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 
+## Driver dispatch (CL-D104)
+
+After the checks above, the packaged driver sequences the round, not you. The other sections of this Skill and the mode references are the specification the driver and the gates implement; on this path you read no mode reference, compose no helper request, and judge no finding.
+
+1. From the checkout, run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`, where `<skill-dir>` is this Skill's directory, `<driver>` is `review` in review-only mode and `autofix` in autofix mode, and `<owner/name>` is the target's repository. Add `--convergence disabled` only when preflight found that role disabled. Give every driver command a timeout of at least 1800 seconds.
+2. When the driver prints `NEXT:` and one JSON line, call `subagent` with exactly that object and note the run id. Never interrupt, pause, steer, or cancel the run; only its own completion ends the wait. Then run the command the driver names, with that run id, and do the same for every command it names after.
+3. When the driver prints `FINISHED`, report the two paths it names and its last line, and stop. Never run the publication script.
+4. When the driver ends without `FINISHED`, report its last 30 lines and stop; never retry or continue by hand. Only when it says the pull request stays on the prose path, continue with Mode dispatch below.
+
 ## Evidence fingerprints (CL-D9)
 
 Track identity per kind of evidence, so a change invalidates only what it actually affects:
