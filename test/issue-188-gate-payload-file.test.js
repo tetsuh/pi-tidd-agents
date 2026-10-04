@@ -208,6 +208,17 @@ test('Issue #225 the verification request is private, replaced whole, and never 
   } finally { fs.rmSync(path.dirname(victim), { recursive: true, force: true }); }
   // Something that cannot be replaced by a rename fails the build closed and leaves no staged file.
   assert.deepEqual(rebuilt((first) => { fs.rmSync(first.verifyPath); fs.mkdirSync(first.verifyPath); fs.writeFileSync(path.join(first.verifyPath, 'x'), ''); }), [false, 'payload_write_failed', null, []], 'a directory at the name');
+  // An entry already at the staged name is not this build's: the build fails and leaves it alone.
+  const random = crypto.randomBytes, held = fs.mkdtempSync(path.join(os.tmpdir(), 'i225-'));
+  try {
+    crypto.randomBytes = () => Buffer.alloc(8);
+    const planted = path.join(held, `gate-verify-convergence-1.json.${'0'.repeat(16)}.tmp`);
+    fs.symlinkSync(path.join(held, 'nowhere'), planted);
+    const blocked = helpers.buildGateLaunch(inputs(held));
+    assert.deepEqual([blocked.ok, blocked.error?.code], [false, 'payload_write_failed']);
+    assert.equal(fs.lstatSync(planted).isSymbolicLink(), true, 'the entry that was there is not removed');
+    assert.equal(fs.existsSync(path.join(held, 'nowhere')), false, 'and nothing was written through it');
+  } finally { crypto.randomBytes = random; fs.rmSync(held, { recursive: true, force: true }); }
   // Two payloads of one gate and invocation: the request names the newer one.
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i225-'));
   try {
