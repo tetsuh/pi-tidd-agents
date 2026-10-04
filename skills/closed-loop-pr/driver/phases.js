@@ -49,7 +49,13 @@ function bindTarget(opts, kind) {
   return { checkout, runDir, pull, target };
 }
 // Once a run directory exists, a failure anywhere still ends the run with an outcome token and a status block.
-function guard(run) { process.on('uncaughtException', (error) => run.stop('BLOCKED', `the driver failed: ${String(error.message).split('\n')[0]}`)); }
+// A captured Git error keeps its own last line in the reason (CL-D104).
+function guard(run) {
+  process.on('uncaughtException', (error) => {
+    const why = String(error.stderr || '').trim().split('\n').pop().slice(0, 300);
+    run.stop('BLOCKED', `the driver failed: ${String(error.message).split('\n')[0]}${why ? ` (${why})` : ''}`);
+  });
+}
 function readIssue(run) {
   const s = run.state, t = s.target;
   const issue = gh(['api', `repos/${t.repository}/issues/${s.issueNumber}`], s.checkout);
