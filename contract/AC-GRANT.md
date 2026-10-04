@@ -1,0 +1,4 @@
+## AC-GRANT — Run-scoped bounded publication grant
+**Clauses:** AC-GRANT, SOL-PR14-CONTRACT-001-grant
+
+Historical rationale: this grant was originally documented for a later publication stage rather than exercised by the review-only MVP. Current rule: the exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30's bounded one-normal-commit/non-force-push correction batch per reviewed public head and `REPLY_EXCEPTION`. Separately, CL-D31 supplies a same-session Issue grant only for its exact preview, optional body PATCH, and one ledger POST. Neither grant authorizes merge, force-push, amend, rebase, history rewrite, ADR acceptance, failed-gate bypass, or provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST; neither authorizes aggregate-summary posting or a different target; each expires at its scoped terminal boundary.

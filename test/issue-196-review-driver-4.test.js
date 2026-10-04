@@ -16,7 +16,7 @@ test('Issue #196 the driver is packaged under its own alarms and names no writin
   assert.ok(sizes.reduce((a, b) => a + b, 0) < 105000, 'driver aggregate alarm');
   for (const f of files.filter((f) => !f.endsWith('/autofix.js'))) assert.doesNotMatch(readText(f), /commit_create|push_publish|marker_create|\/merge\b|'merge'|--approve|'APPROVE'/, `${f} names a writing operation`);
   for (const f of files) assert.doesNotMatch(readText(f), /require\('\.\.\/helpers\/(?:fingerprints|evidence)'\)/, `${f} computes evidence outside the packaged operations`);
-  assert.ok(/^## CL-D93 — /m.test(readText('CONTRACT.md')), 'CL-D93 records the driver boundary');
+  assert.ok(/^## CL-D93 — /m.test(require('./helpers').readContract()), 'CL-D93 records the driver boundary');
   assert.deepEqual(JSON.parse(readText('.tidd.json')), { validate: [['node', '--test']] });
 });
 

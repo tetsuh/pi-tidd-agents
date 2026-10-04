@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, repoPath, sectionOf } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf } = require('./helpers');
 
 test('Issue #115 the writer iterates on focused validation before the guard and receives pinned literals verbatim', () => {
   const writer = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### The writer (CL-D3)');
@@ -29,7 +29,7 @@ test('Issue #115 the writer iterates on focused validation before the guard and 
 });
 
 test('Issue #115 CL-D64 records the writer duty without relaxing the terminal rule', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const record = sectionOf(contract, '## CL-D64 — The writer iterates on focused validation before the guard');
   assert.ok(record, 'CL-D64 must exist');
   for (const field of ['*Decision ID:* CL-D64', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D64 must carry ${field}`);

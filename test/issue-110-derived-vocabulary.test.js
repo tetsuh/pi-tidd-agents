@@ -37,7 +37,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, readJson, repoPath, parseFrontmatter, sectionOf } = require('./helpers');
+const { readText, contractFiles, readContract, readJson, repoPath, parseFrontmatter, sectionOf } = require('./helpers');
 
 const VOCAB = readJson('test/records/workflow-vocabulary.json');
 const ROLES = VOCAB.roles;
@@ -55,7 +55,7 @@ const PREFLIGHT = (root) => [...byRoot(root, ['reviewer']), ...byRoot(root, ['wr
 const STATUS_LINES = (root) => [VOCAB.statusLines.activeGate[root], VOCAB.statusLines.rounds, VOCAB.statusLines.resolved];
 
 function proseFiles() {
-  const out = ['README.md', 'CONTRACT.md'];
+  const out = ['README.md', ...contractFiles()];
   for (const dir of ['agents', 'prompts']) for (const f of fs.readdirSync(repoPath(dir))) if (f.endsWith('.md')) out.push(`${dir}/${f}`);
   const walk = (dir) => { for (const entry of fs.readdirSync(repoPath(dir), { withFileTypes: true })) { const p = `${dir}/${entry.name}`; if (entry.isDirectory()) walk(p); else if (entry.name.endsWith('.md')) out.push(p); } };
   walk('skills');
@@ -425,7 +425,7 @@ test('Issue #110 the Sol-only payload block pre-checks derived surfaces and CL-D
   assert.ok(block);
   assert.match(block, /When the target repository pins surfaces by derived-vocabulary and retired-phrase tests, those surfaces are pre-checked deterministically: do not re-raise a surface-agreement gap they cover as a finding/);
   assert.match(block, /when a surface-agreement gap is found on a surface they do not cover, enumerate every instance across the target in one result rather than one per round \(CL-D63\)/);
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const record = sectionOf(contract, '## CL-D63 — Deterministic agreement checks are the first review layer');
   assert.ok(record, 'CL-D63 must exist');
   assertNoGaps(['*Decision ID:* CL-D63', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*'].filter((field) => !record.includes(field)), 'CL-D63 lacks record fields');

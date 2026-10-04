@@ -20,7 +20,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const AUTOFIX = readAutofixProcedure();
@@ -224,7 +224,7 @@ test('Issue #105 required_evidence_check makes a nonexistent required file an as
 });
 
 test('Issue #105 CL-D61 records the builders, the check, and the CL-D56 widening', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const record = sectionOf(contract, '## CL-D61 — The manifest requests are built and the required-evidence set is checked before any gate');
   assert.ok(record, 'CL-D61 must exist');
   for (const field of ['*Decision ID:* CL-D61', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D61 must carry ${field}`);

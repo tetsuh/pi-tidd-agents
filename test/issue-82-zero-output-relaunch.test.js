@@ -14,7 +14,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const BASE = readText('skills/closed-loop-pr/references/autofix.md');
 const ADDENDUM = readText('skills/closed-loop-pr/references/autofix-addendum.md');
@@ -47,7 +47,7 @@ test('Issue #82 the stop rule names both exceptions', () => {
 });
 
 test('Issue #82 CL-D51 records the widening under CL-D39\'s own conditions', () => {
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D51 — A zero-output gate transport failure may relaunch once');
+  const decision = sectionOf(readContract(), '## CL-D51 — A zero-output gate transport failure may relaunch once');
   assert.ok(decision, 'CONTRACT.md must record CL-D51');
   for (const field of ['*Decision ID:* CL-D51', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D51 must carry ${field}`);

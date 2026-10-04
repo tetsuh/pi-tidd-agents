@@ -1,0 +1,10 @@
+## CL-D28 — Mode-scoped publication boundary (historical no-publication rule)
+**Clauses:** CL-D28
+
+Before CL-D31, Issue workflow and PR review-only were no-publication modes, and exact PR `autofix` was the sole scoped exception. Current rule: PR review-only still never commits, pushes, posts, replies, or changes external state; exact PR `autofix` retains only CL-D30's bounded correction and `REPLY_EXCEPTION`. Issue workflow remains no-publication before candidate construction and outside the CL-D31 candidate-publication phase. During CL-D31 only, exact same-session approval authorizes at most one optional current-repository Issue body PATCH followed by one exact ledger POST. All other publication, merge, force-push, history rewrite, provider mutation, approval, thread-resolution, authoritative Issue change, aggregate-summary action, Git mutation, and repository-file mutation remain prohibited.
+
+Three consecutive reviews each returned four valid findings of one shape: a comparison or digest specified without a byte-exact serialisation, whose fix introduced the next one. Closing the class meant writing Git's tree-hashing algorithm and a canonical serialisation of GitHub's event streams in Markdown, for a model to execute at runtime. The decisive objection is not the size of that work but that the clause suite can only verify that prose is present, never that a model executes it — so a more elaborate specification buys review approval without buying correctness.
+
+Historical rationale: the original review-only MVP capability was removed rather than the specification refined. The byte-exact machinery was expected to belong to #4 and #5, where code could enforce it. CL-D30 later reopened only exact PR `autofix`; CL-D31 later and separately adopted the owner-approved legacy Issue Skill/prompt exception while explicitly retaining the limitation that prose and fixtures cannot prove orchestration behavior.
+
+The current mode-scoped boundary is enforced by `AC-GRANT`, CL-D30, CL-D31, and the scoped/negative contract assertions in `test/closed-loop-regressions.test.js`.

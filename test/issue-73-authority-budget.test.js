@@ -14,9 +14,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { AUTHORITY_FILES, readText, repoPath, sectionOf } = require('./helpers');
+const { AUTHORITY_FILES, readText, readContract, repoPath, sectionOf } = require('./helpers');
 
-const CONTRACT = readText('CONTRACT.md');
+const CONTRACT = readContract();
 const PACKAGE_TEST = readText('test/package.test.js');
 const CLEANLINESS_TEST = readText('test/pr-operational-cleanliness.test.js');
 

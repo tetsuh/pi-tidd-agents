@@ -21,7 +21,7 @@ const crypto = require('node:crypto');
 const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, repoPath, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, cliSchemas } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40);
@@ -231,7 +231,7 @@ test('Issue #125 workspace_cleanup removes the workspace from its own path, with
 });
 
 test('Issue #125 CL-D73 records the three compositions and the reviewed alarm reset', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D73 — The gate step composes no request by hand');
+  const record = sectionOf(readContract(), '## CL-D73 — The gate step composes no request by hand');
   assert.ok(record, 'CL-D73 must exist');
   for (const field of ['*Decision ID:* CL-D73', '*Kind:* contract', '*Options and trade-offs:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(record.includes(field), `CL-D73 must carry ${field}`);
@@ -243,7 +243,7 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
   assert.match(record, /the parent keeps every judgment it has today and loses only the transcription/);
 
   // CL-D37 carries the fifth reset beside the four before it.
-  const boundary = sectionOf(readText('CONTRACT.md'), '## CL-D37 — Bounded helper surface is structural');
+  const boundary = sectionOf(readContract(), '## CL-D37 — Bounded helper surface is structural');
   assert.match(boundary, /CL-D73 reset it a fifth time to 260,000 bytes for the packaged gate-step compositions, on the same terms\./);
 
   // Every guard that carries the alarm literal carries the new one.

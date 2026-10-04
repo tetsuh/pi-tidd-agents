@@ -11,7 +11,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const PRECEDENCE = 'Where the target repository has a pull-request template of its own — a template file GitHub applies, such as `.github/pull_request_template.md`, or a template its `CONTRIBUTING.md` or `AGENTS.md` requires — that template governs the body\'s sections instead of the three parts above; the rules below still apply wherever the template leaves the wording to the author, and a body\'s section layout alone is never a finding (CL-D95).';
 const GATE = 'A pull-request body\'s section layout alone is never a finding; its claims are judged for accuracy against the head (CL-D95).';
@@ -34,13 +34,13 @@ test('Issue #201 every gate reads that a body\'s layout alone is never a finding
 });
 
 test('Issue #201 CL-D95 records the precedence and what it leaves unchanged', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D95 — A repository\'s own pull-request template governs the body\'s sections');
+  const record = sectionOf(readContract(), '## CL-D95 — A repository\'s own pull-request template governs the body\'s sections');
   assert.ok(record, 'CL-D95 must exist');
   for (const field of ['*Decision ID:* CL-D95', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D95 must carry ${field}`);
   assert.ok(record.includes('issues/201#issuecomment-5900278630'), 'the owner choice is cited');
   assert.ok(record.includes('Recording per repository which body contract applies is deferred'), 'proposal 3 is recorded as deferred');
   // The records CL-D95 narrows say so where a reader of either finds the three parts.
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   assert.ok(sectionOf(contract, '## CL-D67 — Pull-request bodies carry no per-head facts').includes('CL-D95 later let a repository\'s own pull-request template govern the sections'));
   assert.ok(sectionOf(contract, '## CL-D85 — Wording-only Minors do not stop a run').includes('CL-D95 later let a repository\'s own pull-request template govern the body\'s sections'));
 });

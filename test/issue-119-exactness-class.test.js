@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, repoPath, sectionOf } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf } = require('./helpers');
 
 test('Issue #119 the adversarial gate names every same-class rigor gap in one result and the writer writes exact checks', () => {
   const sol = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)');
@@ -31,7 +31,7 @@ test('Issue #119 the adversarial gate names every same-class rigor gap in one re
 });
 
 test('Issue #119 CL-D66 records the placement, the declined alternatives, and the boundary', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D66 — Same-class rigor gaps are named once and written exactly the first time');
+  const record = sectionOf(readContract(), '## CL-D66 — Same-class rigor gaps are named once and written exactly the first time');
   assert.ok(record, 'CL-D66 must exist');
   for (const field of ['*Decision ID:* CL-D66', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D66 must carry ${field}`);
   assert.match(record, /issues\/119#issuecomment-5600016151/);

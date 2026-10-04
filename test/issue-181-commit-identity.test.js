@@ -17,7 +17,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const NAME = 'Issue 181 Test';
@@ -449,7 +449,7 @@ test('Issue #181 the map, the addendum, and CL-D89 route the commit and push thr
   const cliText = readText('skills/closed-loop-pr/helpers/cli.js');
   assert.match(cliText, /commit_create: \{ required: \['created', 'captured', 'message'\], optional: \[\] \}/);
   assert.match(cliText, /push_publish: \{ required: \['created', 'captured', 'parent'\], optional: \[\] \}/);
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D89 — The writer commits and pushes through packaged operations with the operator identity');
+  const record = sectionOf(readContract(), '## CL-D89 — The writer commits and pushes through packaged operations with the operator identity');
   assert.ok(record, 'CL-D89 must exist');
   assert.match(record, /issues\/181#issuecomment-5816104411/, 'the record cites the identity decision');
   assert.match(record, /issues\/181#issuecomment-5822980178/, 'the record cites the push decision');
@@ -468,7 +468,7 @@ test('Issue #181 the helper alarm reset is the one every suite asserts, with roo
   const bytes = fs.readdirSync(dir).filter((f) => f.endsWith('.js')).reduce((sum, f) => sum + fs.statSync(path.join(dir, f)).size, 0);
   assert.ok(bytes < 310000, `packaged helpers total ${bytes}`);
   assert.ok(290000 - 280749 > 9000, 'the raise left room, asserted against the measurement it was taken on');
-  const boundary = sectionOf(readText('CONTRACT.md'), '## CL-D37 — Bounded helper surface is structural');
+  const boundary = sectionOf(readContract(), '## CL-D37 — Bounded helper surface is structural');
   assert.match(boundary, /CL-D89 reset it an eighth time to 290,000 bytes after the review corrections of its own change put the helpers at 280,749, on the same terms\./);
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D89 — The writer commits and pushes through packaged operations with the operator identity'), /issues\/181#issuecomment-5834493756/);
+  assert.match(sectionOf(readContract(), '## CL-D89 — The writer commits and pushes through packaged operations with the operator identity'), /issues\/181#issuecomment-5834493756/);
 });

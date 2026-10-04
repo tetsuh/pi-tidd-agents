@@ -19,7 +19,7 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, repoPath } = require('./helpers');
+const { readText, readContract, repoPath } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64);
@@ -278,7 +278,7 @@ test('Issue #188 the alarm reset left room, asserted against the measurement it 
   const bytes = fs.readdirSync(dir).filter((f) => f.endsWith('.js')).reduce((sum, f) => sum + fs.statSync(path.join(dir, f)).size, 0);
   assert.ok(bytes < 310000, `packaged helpers total ${bytes}`);
   assert.ok(300000 - 292160 > 7000, 'CL-D91 measured 292,160 bytes at the raise');
-  assert.match(readText('CONTRACT.md'), /the payload file and its verification put the helpers at 292,160 bytes/);
+  assert.match(readContract(), /the payload file and its verification put the helpers at 292,160 bytes/);
 });
 
 test('Issue #188 the pointer names the path once, and the child reads the path the verifier authenticated', () => {

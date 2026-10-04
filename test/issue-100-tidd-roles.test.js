@@ -17,7 +17,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, readJson, repoPath, parseFrontmatter, sectionOf } = require('./helpers');
+const { readText, readContract, readJson, repoPath, parseFrontmatter, sectionOf } = require('./helpers');
 
 const ROLES = {
   'tidd-adversarial-reviewer': { alias: 'sol-reviewer', model: 'gpt-6.1-sol', writer: false, context: 'fresh' },
@@ -93,7 +93,7 @@ test('Issue #100 the README documents the roles, the alias transition, and overr
 });
 
 test('Issue #100 CL-D59 records the role split, the agents/ widening, and the removals', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const record = sectionOf(contract, '## CL-D59 — Agent identities name workflow roles; models are deployment configuration');
   assert.ok(record, 'CL-D59 must exist');
   assert.match(record, /\*Owner choice:\* Option A\./);

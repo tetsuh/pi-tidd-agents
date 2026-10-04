@@ -14,7 +14,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 
@@ -29,7 +29,7 @@ test('Issue #96 every batch-sequence guard failure names its violated condition'
 });
 
 test('Issue #96 CL-D55 records the naming duty and what it deliberately does not change', () => {
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D55 — A guard failure must name its failed subcheck');
+  const decision = sectionOf(readContract(), '## CL-D55 — A guard failure must name its failed subcheck');
   assert.ok(decision, 'CONTRACT.md must record CL-D55');
   for (const field of ['*Decision ID:* CL-D55', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D55 must carry ${field}`);

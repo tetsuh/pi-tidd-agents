@@ -11,7 +11,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, sectionOf, parseFrontmatter } = require('./helpers');
+const { readText, readContract, readJson, sectionOf, parseFrontmatter } = require('./helpers');
 
 const SHIPPED = {
   'tidd-adversarial-reviewer': 'gpt-6.1-sol',
@@ -40,7 +40,7 @@ test('Issue #174 every live surface names the shipped defaults', () => {
   assert.match(readme, /ships with the `gpt-6-luna` default/);
   const roles = readJson('test/records/workflow-vocabulary.json').roles;
   for (const role of roles) assert.equal(role.model, SHIPPED[role.name], `workflow vocabulary declares ${role.name}`);
-  const cl22 = sectionOf(readText('CONTRACT.md'), '## CL-D22 — Closed-loop model requirements and preflight');
+  const cl22 = sectionOf(readContract(), '## CL-D22 — Closed-loop model requirements and preflight');
   assert.match(cl22, /`tidd-adversarial-reviewer` \(default `gpt-6\.1-sol`\), `tidd-drift-reviewer` \(default `gpt-6\.1-sol`\), `tidd-safety-reviewer` \(default `gpt-6\.1-sol`\), and conditional `tidd-autofix-worker` \(default `gpt-6-luna`\)/);
   assert.equal(/gpt-5\.6-/.test(cl22), false, 'CL-D22 states current defaults only, the convergence role included');
   for (const file of ['README.md', 'test/records/workflow-vocabulary.json']) {
@@ -55,7 +55,7 @@ test('Issue #174 records of past runs keep the models those runs used', () => {
 });
 
 test('Issue #174 CL-D87 records the choice and what it changes about model families', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D87 — The package ships gpt-6-sol and gpt-6-luna');
+  const record = sectionOf(readContract(), '## CL-D87 — The package ships gpt-6-sol and gpt-6-luna');
   assert.ok(record, 'CL-D87 must exist');
   for (const field of ['*Decision ID:* CL-D87', '*Kind:* contract', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(record.includes(field), `CL-D87 must carry ${field}`);
@@ -68,19 +68,19 @@ test('Issue #174 CL-D87 records the choice and what it changes about model famil
   assert.doesNotMatch(record, /independent in the sense the addendum states — fresh context/);
   // ADV-178-CONVERGENCE-WRITER-MODEL: convergence runs the writer's model, so the claim is about the formal gates only.
   assert.match(record, /The writer stays on a model no formal gate runs, so CL-D3's self-grading exclusion still holds; the non-authoritative convergence stage does run it, the model-level self-review #102 tracks\./);
-  for (const [name, text] of [['README.md', readText('README.md')], ['CONTRACT.md', readText('CONTRACT.md')]]) {
+  for (const [name, text] of [['README.md', readText('README.md')], ['CONTRACT.md', readContract()]]) {
     assert.doesNotMatch(text, /no gate runs on the writer's model|a model no gate runs/, `${name} states the writer-model claim for formal gates only`);
   }
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D3 — Writer selection'), /CL-D87 later moved the Terra roles to `gpt-6-sol` and the writer to `gpt-6-luna`; no formal gate runs on the writer's model, so the self-grading exclusion still holds\. The non-authoritative convergence stage does run it, the model-level self-review #102 tracks\./);
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D29 — Sol attempts adversarial falsification of absolute claims'), /CL-D87 later placed the Sol and Terra roles on one model/);
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D62 — A non-authoritative convergence stage runs before the adversarial gate') || readText('CONTRACT.md'), /CL-D87 later moved the shipped convergence default to `gpt-6-luna`/);
+  assert.match(sectionOf(readContract(), '## CL-D3 — Writer selection'), /CL-D87 later moved the Terra roles to `gpt-6-sol` and the writer to `gpt-6-luna`; no formal gate runs on the writer's model, so the self-grading exclusion still holds\. The non-authoritative convergence stage does run it, the model-level self-review #102 tracks\./);
+  assert.match(sectionOf(readContract(), '## CL-D29 — Sol attempts adversarial falsification of absolute claims'), /CL-D87 later placed the Sol and Terra roles on one model/);
+  assert.match(sectionOf(readContract(), '## CL-D62 — A non-authoritative convergence stage runs before the adversarial gate') || readContract(), /CL-D87 later moved the shipped convergence default to `gpt-6-luna`/);
 });
 
 // Issue #212 (CL-D98): the Sol and Terra roles ship gpt-6.1-sol; CL-D87 stays as history with a forward note.
 test('Issue #212 CL-D98 records the gpt-6.1-sol defaults and leaves CL-D87 as history', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D98 — The Sol and Terra roles ship gpt-6.1-sol');
+  const record = sectionOf(readContract(), '## CL-D98 — The Sol and Terra roles ship gpt-6.1-sol');
   assert.ok(record, 'CL-D98 must exist');
   assert.ok(record.includes('tetsuh/pi-tidd-agents#212'), 'the owner decision is cited');
-  const cl87 = sectionOf(readText('CONTRACT.md'), '## CL-D87 — The package ships gpt-6-sol and gpt-6-luna');
+  const cl87 = sectionOf(readContract(), '## CL-D87 — The package ships gpt-6-sol and gpt-6-luna');
   assert.ok(cl87.includes('CL-D98 later moved the three gpt-6-sol roles to `gpt-6.1-sol`'), 'CL-D87 names the move');
 });

@@ -20,7 +20,7 @@ const { execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const { assertSafeRepositoryConfig } = require('../skills/closed-loop-pr/helpers/process');
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 function git(cwd, args) {
   return execFileSync('git', args, {
@@ -159,7 +159,7 @@ test('Issue #91 detached HEAD ignores every branch section', () => {
 });
 
 test('Issue #91 CL-D52 records what the digest ignores and why that is safe here', () => {
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D52 — The stability digest ignores foreign-branch configuration');
+  const decision = sectionOf(readContract(), '## CL-D52 — The stability digest ignores foreign-branch configuration');
   assert.ok(decision, 'CONTRACT.md must record CL-D52');
   for (const field of ['*Decision ID:* CL-D52', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D52 must carry ${field}`);

@@ -13,7 +13,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, repoPath, sectionOf, AUTHORITY_FILES } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf, AUTHORITY_FILES } = require('./helpers');
 
 const ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 
@@ -49,7 +49,7 @@ test('Issue #153 rule 3: a repeat of a settled class is recorded as the earlier 
 });
 
 test('Issue #153 CL-D85 records the three rules and the addendum guard reset', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D85 — Wording-only Minors do not stop a run');
+  const record = sectionOf(readContract(), '## CL-D85 — Wording-only Minors do not stop a run');
   assert.ok(record, 'CL-D85 must exist');
   for (const field of ['*Decision ID:* CL-D85', '*Kind:* contract', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(record.includes(field), `CL-D85 must carry ${field}`);
@@ -59,8 +59,8 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
   assert.match(record, /The addendum's recorded guard resets from 29,000 to 32,000 bytes and the authority ceiling from 150,000 to 156,000 bytes for the three rules recorded here/);
   assert.match(record, /the headroom is asserted at the raise against the measurement taken when it was chosen — 29,776 and 149,602 bytes at `f71077f`, leaving 2,224 and 6,398/);
   // The records CL-D85 amends say so themselves.
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model') || '', /CL-D85/);
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D67 — Pull-request bodies carry no per-head facts') || '', /CL-D85/);
+  assert.match(sectionOf(readContract(), '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model') || '', /CL-D85/);
+  assert.match(sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts') || '', /CL-D85/);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D85').map((clause) => clause.id).sort(),
     ['CL-D85-classes', 'CL-D85-gates', 'CL-D85-misses', 'CL-D85-order', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-routing', 'CL-D85-status', 'CL-D85-tests']);
@@ -119,8 +119,8 @@ test('Issue #153 rule 3 is stated where the artifact that carries it exists', ()
 });
 
 test('Issue #153 the superseded guard figure and phrases leave the repository', () => {
-  assert.equal(readText('CONTRACT.md').includes('may not reach 29,000 bytes'), false, 'no record may state the superseded guard in the present tense');
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D43 — Authority byte guards are set once, with headroom') || '', /CL-D85 later reset it to 32,000 bytes and the authority ceiling to 156,000 bytes on the same terms\./);
+  assert.equal(readContract().includes('may not reach 29,000 bytes'), false, 'no record may state the superseded guard in the present tense');
+  assert.match(sectionOf(readContract(), '## CL-D43 — Authority byte guards are set once, with headroom') || '', /CL-D85 later reset it to 32,000 bytes and the authority ceiling to 156,000 bytes on the same terms\./);
   assert.match(readText('test/issue-87-authority-floor.test.js'), /32,000 bytes since CL-D85 reset it/, 'the floor suite names the live figure in prose, and asserts none');
   assert.equal(readText('test/issue-87-authority-floor.test.js').includes('29,000 bytes'), false);
   // CL-D48: the headroom belongs to the moment of the raise, asserted against the figures the record names.
@@ -140,9 +140,9 @@ test('Issue #153 the new pins survive a mutation of what they pin', () => {
     assert.ok(clause.section, `${clause.id} anchors its pin to a section, so a sentence moved out of it fails`);
   }
   // The amendment sentences are the only link between the superseded records and CL-D85; pin them by text.
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model'),
+  assert.match(sectionOf(readContract(), '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model'),
     /CL-D85 later narrowed what a finding under these classes stops: a Minor whose correction changes no file of the head is recorded with its anchoring class and its disposition and does not stop the run, which leaves the classes themselves unchanged\./);
-  assert.match(sectionOf(readText('CONTRACT.md'), '## CL-D67 — Pull-request bodies carry no per-head facts'),
+  assert.match(sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts'),
     /CL-D85 later moved the fourth part, the round chronology, out of the body to the target's timeline, so the body carries three parts and a review round edits none of them; the grant is unchanged by that move, and existing bodies are not rewritten\./);
   // A carrier is a file that asserts the live figure, not one that merely contains it.
   for (const file of ['test/issue-73-authority-budget.test.js', 'test/issue-87-addendum-split.test.js', 'test/issue-115-writer-pre-guard.test.js', 'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js', 'test/issue-126-sol-component-sweep.test.js', 'test/pr-operational-cleanliness.test.js']) {
@@ -166,7 +166,7 @@ test('Issue #153 a qualifying gate result advances at every transition, in both 
 });
 
 test('Issue #153 the CL-D85 record says what its carriers say', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D85 — Wording-only Minors do not stop a run');
+  const record = sectionOf(readContract(), '## CL-D85 — Wording-only Minors do not stop a run');
   assert.ok(record.includes('a Minor whose correction changes no file of the head, or changes only wording that alters no obligation — no sentence the clause manifest pins and no behaviour a test asserts — is recorded'),
     'the record states the two disjuncts the carriers state');
   assert.equal(record.includes('— a target-body edit, or a wording change that alters no obligation —'), false,
@@ -183,7 +183,7 @@ test('Issue #153 the CL-D85 record says what its carriers say', () => {
 // ADV-171-CLD85-ROUTING-AND-RECORD-CONTRADICTIONS, reopened: the mode references carried the exception while the
 // authority they both answer to, AC-GATES, still required a literal Sol `MERGE`.
 test('Issue #153 AC-GATES carries the CL-D85 counting rule', () => {
-  const gates = sectionOf(readText('CONTRACT.md'), '## AC-GATES — Sequential Sol then Terra');
+  const gates = sectionOf(readContract(), '## AC-GATES — Sequential Sol then Terra');
   assert.ok(gates, 'AC-GATES must exist');
   assert.match(gates, /The Terra gate never starts before the Sol gate returns `MERGE`\. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite \(CL-D85\)\./);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
@@ -201,14 +201,14 @@ test('Issue #153 the ceiling diagnostic names the ceiling it enforces', () => {
 // and deletion of each of the two bars CL-D85 sets. Positive substring pins cannot see either, so AC-GATES is
 // pinned whole and the bars are pinned by text.
 test('Issue #153 AC-GATES carries those two sentences and nothing else', () => {
-  const gates = sectionOf(readText('CONTRACT.md'), '## AC-GATES — Sequential Sol then Terra');
+  const gates = sectionOf(readContract(), '## AC-GATES — Sequential Sol then Terra');
   const body = gates.split('\n').slice(1).join('\n').trim();
   assert.equal(body, '**Clauses:** AC-GATES\n\nThe Terra gate never starts before the Sol gate returns `MERGE`. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite (CL-D85).',
     'a sentence added here can cancel the counting rule while every positive pin still passes');
 });
 
 test('Issue #153 the bars CL-D85 sets are pinned, not only its permissions', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D85 — Wording-only Minors do not stop a run');
+  const record = sectionOf(readContract(), '## CL-D85 — Wording-only Minors do not stop a run');
   assert.match(record, /Treating a `Blocker` or `Major` as wording only, reporting readiness with an undispositioned finding, or returning the chronology to the body requires a new owner decision\./);
   assert.match(record, /A finding that corrects a false safety claim changes what the contract promises, so it is not wording only and keeps its severity\./);
   // What the packaged validator can represent today, and where the rest is being decided.

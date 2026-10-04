@@ -9,7 +9,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readJson, repoPath, sectionOf } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, readJson, repoPath, sectionOf } = require('./helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
@@ -509,7 +509,7 @@ test('Issue #37 the shared gate contract requires the structured transport for b
 });
 
 test('Issue #37 CONTRACT.md records CL-D36 and the raised authority baseline', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const section = sectionOf(contract, '## CL-D36 — Formal gate results travel as a strict structured envelope');
   assert.ok(section, 'CL-D36 decision is missing');
   assert.match(section, /^\*\*Clauses:\*\* CL-D36-transport, CL-D36-validator, CL-D36-baseline$/m);

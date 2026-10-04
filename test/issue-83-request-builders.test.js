@@ -18,7 +18,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
 const AUTOFIX = readAutofixProcedure();
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
@@ -241,7 +241,7 @@ test('Issue #83 builders reject with the boundary vocabulary, not new codes', ()
 });
 
 test('Issue #83 CL-D56 records the builder family and its correctness mechanism', () => {
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D56 — Package-owned builders construct the documents the boundary checks');
+  const decision = sectionOf(readContract(), '## CL-D56 — Package-owned builders construct the documents the boundary checks');
   assert.ok(decision, 'CONTRACT.md must record CL-D56');
   for (const field of ['*Decision ID:* CL-D56', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D56 must carry ${field}`);

@@ -16,7 +16,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { readText } = require('./helpers');
+const { readText, contractFiles, readContract } = require('./helpers');
 
 const SINGLE_TOKEN_REF = /^(?:https?:\/\/github\.com\/[^/]+\/[^/]+\/(?:issues|pull)\/\d+|#?\d+|PR\d+)$/;
 
@@ -179,13 +179,13 @@ const SUPERSEDED = [
   { files: [
       'skills/closed-loop-issue/SKILL.md',
       ...PR_ARTIFACTS,
-      'CONTRACT.md',
+      ...contractFiles(),
     ], pattern: /produce (?:a )?counterexample from ground-truth files for each/i,
     reason: 'CL-D29 requires falsification attempts and actual cited counterexamples, not one invented counterexample per claim' },
   { files: [
       'skills/closed-loop-issue/SKILL.md',
       ...PR_ARTIFACTS,
-      'CONTRACT.md',
+      ...contractFiles(),
     ], pattern: /survives (?:the check )?as (?:a )?finding/i,
     reason: 'CL-D29 makes no counterexample neither a finding nor proof' },
   { files: [
@@ -193,7 +193,7 @@ const SUPERSEDED = [
       ...PR_ARTIFACTS,
       'skills/closed-loop-shared/references/gate-contract.md',
       'skills/closed-loop-shared/references/records.md',
-      'CONTRACT.md',
+      ...contractFiles(),
     ], pattern: /traces to no acceptance criterion/i,
     reason: 'CL-D34 anchors findings to an acceptance criterion, contract clause, or fail-stop invariant, not to a criterion alone' },
 ];
@@ -236,7 +236,7 @@ test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   assert.doesNotMatch(skill, /This MVP never posts|This MVP does not commit|Draft it; never post it/);
   assert.doesNotMatch(skill, /any drafted operator action is still outstanding.*MERGE_READY/s);
   assert.doesNotMatch(skill, /autofix.*does not by itself authorize/s);
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   assert.match(contract, /## CL-D28 — Mode-scoped publication boundary/);
   assert.match(contract, /exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30/);
   assert.match(contract, /## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions/);
@@ -279,7 +279,7 @@ test('fixture: PR mode references own downstream obligations exclusively', () =>
 });
 
 test('contract scopes the exact provider-mutation exceptions', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const autofix = artifactSection(contract, '## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions');
   const grant = artifactSection(contract, '## AC-GRANT — Run-scoped bounded publication grant');
   const exceptions = 'provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST';
@@ -340,7 +340,7 @@ test('exact-autofix Luna ownership is protected within its authored sections', (
   const writer = artifactSection(skill, '### The writer (CL-D3)');
   const addendum = artifactSection(skill, '## Exact PR `autofix` addendum (CL-D30)');
   const exactOwner = artifactSection(skill, '### Exact owner and safety boundary (CL-D30)');
-  const contract = artifactSection(readText('CONTRACT.md'), '## CL-D3 — Writer selection');
+  const contract = artifactSection(readContract(), '## CL-D3 — Writer selection');
   const readmeAutofix = artifactSection(readText('README.md'), '### Autofix');
   for (const [name, section] of [['Skill writer', writer], ['Skill addendum', addendum], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
     assert.ok(section, `${name} section must exist for scoped protection`);
@@ -594,7 +594,7 @@ test('shared baseline disposition and decision records remain protected in both 
 
 test('Issue #23 contains self-contained invariant blocks and compacts only history projection', () => {
   const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const issue = readText('skills/closed-loop-issue/SKILL.md');
   const pr = readText(PR_SKILL);
   const review = readText(PR_REVIEW_ONLY);
@@ -762,7 +762,7 @@ test('Issue #24 workflow-specific ownership remains outside shared records', () 
 });
 
 test('Issue #24 pins shared target grammar and PR-specific parsing ownership', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
   assert.match(contract, /The shared `gate-contract\.md` owns common target-reference grammar\./);
   assert.match(contract, /The PR `SKILL\.md` owns CL-D6 mode parsing, target-kind resolution\/handling, evidence identity, shared dispatch, and mode selection\./);
@@ -780,7 +780,7 @@ test('Issue 13 negative guards reject stale unqualified publication/resume prose
   const readme = readText('README.md');
   assert.doesNotMatch(readme, /Issue behavior remains unchanged\.?$/m);
   assert.match(readme, /CL-D31 exception/);
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const cld28 = artifactSection(contract, '## CL-D28 — Mode-scoped publication boundary (historical no-publication rule)');
   const cld16 = artifactSection(contract, '## CL-D16 — Language Profile package defaults');
   const entrypointDecision = artifactSection(contract, '## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints');

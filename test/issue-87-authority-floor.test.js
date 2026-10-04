@@ -21,7 +21,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { AUTHORITY_FILES, readText, repoPath, sectionOf } = require('./helpers');
+const { AUTHORITY_FILES, readText, readContract, repoPath, sectionOf } = require('./helpers');
 
 const BUDGET_TEST = readText('test/issue-73-authority-budget.test.js');
 
@@ -48,7 +48,7 @@ test('Issue #87 the headroom property is asserted at the raise, not against live
 });
 
 test('Issue #87 CL-D48 records why the constant form failed', () => {
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D48 — The authority headroom property is asserted at the raise');
+  const decision = sectionOf(readContract(), '## CL-D48 — The authority headroom property is asserted at the raise');
   assert.ok(decision, 'CONTRACT.md must record CL-D48');
   for (const field of ['*Decision ID:* CL-D48', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D48 must carry ${field}`);

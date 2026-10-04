@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readJson, readText, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts } = require('./helpers');
+const { repoRoot, repoPath, readJson, readText, readContract, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts } = require('./helpers');
 const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace');
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
@@ -259,7 +259,7 @@ function git(cwd, args, env = {}) {
 }
 
 test('Issue #59 defines the structural helper boundary and smoke alarms', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const section = contract.match(/## CL-D37 — Bounded helper surface is structural[\s\S]*?(?=\n## |$)/)?.[0] || '';
   for (const required of [
     '*Owner choice:* Option B',

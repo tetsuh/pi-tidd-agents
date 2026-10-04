@@ -11,7 +11,7 @@ test('Issue #196 only the autofix driver names the writer operations, and CL-D96
   assert.match(autofix, /'commit_create'/);
   assert.match(autofix, /'push_publish'/);
   assert.doesNotMatch(autofix, /\/merge\b|'merge'|--approve|marker_create|--force/);
-  assert.ok(/^## CL-D96 — /m.test(readText('CONTRACT.md')), 'CL-D96 records the autofix driver');
+  assert.ok(/^## CL-D96 — /m.test(require('./helpers').readContract()), 'CL-D96 records the autofix driver');
 });
 
 test('Issue #196 the autofix driver advances a validated MERGE that carries a deferred follow-up', () => {

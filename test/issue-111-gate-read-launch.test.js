@@ -25,7 +25,7 @@ const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readAutofixProcedure, readText, readJson, repoPath, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, readJson, repoPath, sectionOf, cliSchemas } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64), RUN = '7305b50a-2708-4e55-8364-d72f11197fbe';
@@ -364,7 +364,7 @@ test('Issue #111 the invocation map, the transport section, and the README name 
 });
 
 test('Issue #111 CL-D68 records the widening and the manifest pins it', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D68 — The gate launch request and the designated-output read are packaged');
+  const record = sectionOf(readContract(), '## CL-D68 — The gate launch request and the designated-output read are packaged');
   assert.ok(record, 'CL-D68 must exist');
   for (const field of ['*Decision ID:* CL-D68', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D68 must carry ${field}`);
   assert.match(record, /issues\/111#issuecomment-5617260994/);
@@ -425,7 +425,7 @@ test('Issue #111 the evidence attestation names source, kind, and readCompletely
   const transport = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '### Structured gate result transport (CL-D36)');
   assert.ok(transport.includes('An attestation entry names `source`, `kind`, and `readCompletely`; the identity of each required entry lives in the parent\'s expectation, which the child never copies (CL-D69)'), 'the transport section states the attestation shape');
   assert.ok(block(EVERY_GATE).includes('`evidenceRead` carries the supplied evidence records, each with `readCompletely` set true after reading and no identity (CL-D69)'), 'the Every-gate block tells the child');
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D69 — The evidence attestation carries no identity');
+  const record = sectionOf(readContract(), '## CL-D69 — The evidence attestation carries no identity');
   for (const phrase of ['https://github.com/tetsuh/pi-tidd-agents/issues/111#issuecomment-5641950141', 'https://github.com/tetsuh/pi-tidd-agents/issues/111#issuecomment-5641956699', 'Option A', 'the identity of each required entry lives in the parent\'s expectation', 'both schema versions', 'Reintroducing an identity in the attestation, or matching it by anything but `source` and `kind`, requires a new owner decision']) assert.ok(record.includes(phrase), `CL-D69 record: ${phrase}`);
   const manifest = JSON.parse(readText('test/contract-clauses.json'));
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D69').map((clause) => clause.id), ['CL-D69-transport', 'CL-D69-payload', 'CL-D69-record', 'CL-D69-tests']);

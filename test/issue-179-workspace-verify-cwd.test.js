@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 const { buildWorkspaceVerify } = require('../skills/closed-loop-pr/helpers/builders');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
@@ -58,7 +58,7 @@ test('Issue #179 the map, the CLI table, and CL-D88 state the input set', () => 
   assert.match(map, /\| Construct the verify request from the workspace it verifies \(CL-D56\) \| `build_workspace_verify` \| `created` \(data of `workspace_create`\) and optionally `transition`; the request runs in `created\.path`, and a `cwd` beside it is refused \(CL-D88\) \|/);
   assert.match(map, /`build_workspace_verify` takes `created` and optionally `transition`, and composes the request to run in `created\.path`; it takes no `cwd` \(CL-D88\)\./);
   assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /build_workspace_verify: \{ required: \['created'\], optional: \['transition'\] \}/);
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D88 — The workspace verification runs in the workspace the run created');
+  const record = sectionOf(readContract(), '## CL-D88 — The workspace verification runs in the workspace the run created');
   assert.ok(record, 'CL-D88 must exist');
   assert.match(record, /issues\/179#issuecomment-5795735529/);
 });

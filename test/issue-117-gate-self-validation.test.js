@@ -15,7 +15,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const REVIEWERS = ['tidd-adversarial-reviewer', 'tidd-drift-reviewer', 'tidd-safety-reviewer', 'tidd-convergence-reviewer'];
 // The three envelope duties, stated once here and required verbatim in both the payload block and the record,
@@ -40,7 +40,7 @@ test('Issue #117 every reviewer body carries the self-validation sentence and th
 });
 
 test('Issue #117 CL-D65 records the duty and widens CL-D1 once more', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const record = sectionOf(contract, '## CL-D65 — Gate children carry the envelope duties and validate their own envelope');
   assert.ok(record, 'CL-D65 must exist');
   for (const field of ['*Decision ID:* CL-D65', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D65 must carry ${field}`);

@@ -1,0 +1,12 @@
+## CL-D40 — Missing worktree paths require exact registration evidence
+**Clauses:** CL-D40-contract, CL-D40-autofix, CL-D40-readme, CL-D40-tests
+
+*Decision ID:* CL-D40
+*Kind:* fail-closed workspace diagnosis and operator-recovery boundary
+*Target and revision:* `tetsuh/pi-tidd-agents#69` at its initial body and the owner's live instruction `進めて`
+*Question:* How should exact autofix report a missing linked-worktree path without recommending repository-wide cleanup or mistaking an unrelated stale registration for the failed workspace?
+*Options and trade-offs:* Broad `git worktree prune` is simple but can remove unrelated registrations; automatic targeted cleanup needs authority and a trusted receipt that failed creation may not have; read-only exact evidence plus a separate owner action preserves the existing boundary.
+*Recommendation:* Ignore unrelated missing registrations, classify exact collisions and partial creation with structured evidence, and permit only a drafted exact-path non-force removal after complete identity proof.
+*Owner choice:* Implement Issue #69 without automatic recovery: a missing path does not prove a stale worktree registration; the workflow must never recommend `git worktree prune`; only repository/common-Git-dir/path/expected-HEAD/detached/no-follow/prunable/locked/registration evidence may support a drafted non-force `git worktree remove <exact-path>` as a new owner action outside the failed run, while unverifiable identity yields no mutation command.
+*Rationale:* The reported failure came from an already absent temporary path, while the packaged lookup canonicalized every registered worktree and could raise `ENOENT` on an unrelated missing entry before reaching the new workspace. Repository-wide prune is neither identity-bounded nor necessary: Git can remove one verified missing registration by exact path without force. Generated roots are already collision-resistant and explicit collisions need a precise error rather than path reuse or stale-state inference.
+*Validity and invalidation conditions:* Applies only to exact-autofix workspace creation/reporting and owner guidance. The failed run still stops and performs no retry, cleanup, prune, force, recursive deletion, direct Git-administration deletion, or operator mutation. The exact external removal is never executed by the workflow, needs separate owner authority plus pre/post checks, and is unavailable when identity is incomplete. Any automatic repair or broader cleanup authority requires a new decision.

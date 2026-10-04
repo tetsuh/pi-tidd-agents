@@ -14,7 +14,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readJson, sectionOf, cliSchemas, repoPath } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, readJson, sectionOf, cliSchemas, repoPath } = require('./helpers');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
@@ -23,7 +23,6 @@ const RECORDS = 'skills/closed-loop-shared/references/records.md';
 const REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
 const CLI = 'skills/closed-loop-pr/helpers/cli.js';
-const CONTRACT = 'CONTRACT.md';
 const RECOVERY_HEADING = '### Bounded pre-writer recovery (CL-D39)';
 
 
@@ -37,7 +36,7 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
   assert.match(section, /namely `workspace_create`'s external run root, linked-worktree registration or clone, and receipt/);
   assert.match(section, /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`/);
   // The record carries the same enumeration, so neither side can drift alone (pre-push review of 77c8362).
-  assert.match(readText('CONTRACT.md'), /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`/);
+  assert.match(readContract(), /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`/);
   assert.match(section, /no correction, publication, provider, target, or operator mutation exists/);
   assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved/);
   // CLEAN@H was retired by Issue #42 and is not a live invariant; it must not return.
@@ -163,7 +162,7 @@ test('Issue #34 writes outside the temp parent are the CL-D37 boundary\'s job, a
   const cl37 = readText('test/issue-59-helper-surface.test.js');
   assert.match(cl37, /APPROVED_FS_SITES/, 'the CL-D37 callsite allowlist must exist');
   assert.match(cl37, /filesystem access callsites/, 'the CL-D37 guard must reject unapproved filesystem callsites');
-  assert.match(readText('CONTRACT.md'), /^## CL-D37 — /m, 'CL-D37 must be a recorded decision');
+  assert.match(readContract(), /^## CL-D37 — /m, 'CL-D37 must be a recorded decision');
 });
 
 test('Issue #34 the stop rule keeps its wording and names its exceptions', () => {
@@ -199,7 +198,7 @@ test('Issue #34 no shared prose forks and no shared sentence gains a mode except
 });
 
 test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
-  const section = sectionOf(readText(CONTRACT), '## CL-D39 — Exact autofix gains one bounded pre-writer recovery');
+  const section = sectionOf(readContract(), '## CL-D39 — Exact autofix gains one bounded pre-writer recovery');
   assert.ok(section, 'CL-D39 decision is missing');
   assert.match(section, /^\*\*Clauses:\*\* CL-D39-stop, CL-D39-recovery, CL-D39-baseline$/m);
   assert.match(section, /^\*Decision ID:\* CL-D39$/m);
@@ -234,7 +233,7 @@ test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
 
 test('Issue #34 user-facing and CL-D30 summaries acknowledge the bounded exception', () => {
   assert.match(readText('README.md'), /apart from the one bounded pre-writer recovery CL-D39 defines, it has no retry, resume/);
-  assert.match(sectionOf(readText(CONTRACT), '## CL-D30 — Exact PR autofix publishes one bounded correction per public head'), /CL-D39 later adds one bounded pre-writer recovery and nothing else/);
+  assert.match(sectionOf(readContract(), '## CL-D30 — Exact PR autofix publishes one bounded correction per public head'), /CL-D39 later adds one bounded pre-writer recovery and nothing else/);
 });
 
 test('Issue #34 the partial-narrowing evidence in the record still matches the code', () => {

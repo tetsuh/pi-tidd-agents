@@ -21,7 +21,7 @@ const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { AUTHORITY_FILES, readText, repoPath, sectionOf } = require('./helpers');
+const { AUTHORITY_FILES, readText, readContract, repoPath, sectionOf } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -175,7 +175,7 @@ test('Issue #100 the shared contract, the addendum, the README, and CL-D60 recor
   const readme = readText('README.md');
   assert.match(readme, /structured envelope \(schema version 2\) are `adversarial`, `decision-drift`, and `safety`/);
   assert.match(readme, /Sol and Terra remain the gate nicknames in prose/);
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const record = sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2');
   assert.ok(record, 'CL-D60 must exist');
   for (const field of ['*Decision ID:* CL-D60', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D60 must carry ${field}`);

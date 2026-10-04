@@ -9,13 +9,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, sectionOf } = require('./helpers');
+const { readText, readContract, readJson, sectionOf } = require('./helpers');
 
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
-const CONTRACT = 'CONTRACT.md';
 
 
 test('Issue #61 the PR root defines the validation sandbox delta once for both modes', () => {
@@ -68,7 +67,7 @@ test('Issue #61 exact autofix keeps its phase usage and stops redefining the del
 });
 
 test('Issue #61 CONTRACT.md records CL-D38 with clause ownership', () => {
-  const section = sectionOf(readText(CONTRACT), '## CL-D38 — Review-only tolerates the validation sandbox delta it created');
+  const section = sectionOf(readContract(), '## CL-D38 — Review-only tolerates the validation sandbox delta it created');
   assert.ok(section, 'CL-D38 decision is missing');
   assert.match(section, /^\*\*Clauses:\*\* CL-D38-definition, CL-D38-review-only$/m);
   assert.match(section, /^\*Decision ID:\* CL-D38$/m);

@@ -16,7 +16,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, repoPath, sectionOf, receiverTypebox } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, receiverTypebox } = require('./helpers');
 
 const CREATED = Object.freeze({
   kind: 'linked',
@@ -188,7 +188,7 @@ test('Issue #152 the version comparison is SemVer precedence, and fail-closed', 
 
 test('Issue #152 the contracted minimum is the one the package documents', () => {
   // One minimum, stated in three places: the record, the README, and the regression that drives the receiver.
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
+  const record = sectionOf(readContract(), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
   assert.ok(record, 'CL-D25 must exist');
   // Compared as text, not as a pattern built from it: a version is a literal here, and a regex assembled from data is
   // the incomplete-sanitization shape CodeQL refuses (js/incomplete-sanitization, PR #158).
@@ -364,7 +364,7 @@ test('Issue #152 the packaged CLI takes the two inputs and no others', () => {
 // M2 of the second adversarial pass: CL-D81 states the emitted fields, and nothing compared that statement with the
 // builder. Rewriting every value in the record left the suite green. The record is now read and compared.
 test('Issue #152 the record states the fields the builder emits', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D81 — The exact-autofix writer launch is composed by a packaged builder');
+  const record = sectionOf(readContract(), '## CL-D81 — The exact-autofix writer launch is composed by a packaged builder');
   assert.ok(record, 'CL-D81 must exist');
   const choice = record.split(String.fromCharCode(10)).find((line) => line.startsWith('*Owner choice:*'));
   // A pair the pattern misses is not read as agreement: the key drops out, and the completeness assertion below

@@ -1,0 +1,6 @@
+## CL-D22 — Closed-loop model requirements and preflight
+**Clauses:** CL-D22-issue, CL-D22-pr, CL-D22-issue-agents, CL-D22-pr-agents
+
+The closed loop composes this exact role set: `tidd-adversarial-reviewer` (default `gpt-6.1-sol`), `tidd-drift-reviewer` (default `gpt-6.1-sol`), `tidd-safety-reviewer` (default `gpt-6.1-sol`), and conditional `tidd-autofix-worker` (default `gpt-6-luna`), defaults CL-D87 and CL-D98 set. The defaults are deployment configuration, overridable per role through `agentOverrides` (CL-D59); the original `sol-reviewer`, `terra-oracle`, `terra-reviewer`, and `luna-worker` names resolve as transitional aliases, and `glm-worker` and `terra-worker` were removed with CL-D59. Skills use runtime names, never model IDs, and preflight only the agents required by their command. CL-D62 later added the non-authoritative `tidd-convergence-reviewer` (default `gpt-6-luna` since CL-D87), run when it resolves and skipped when disabled.
+
+The closed loop composes a fixed agent set, unlike à la carte standalone use. Skills name agents by runtime name and never by model ID, so an operator without those models can supply their own definitions under the same names. Each skill preflights the agents its own command needs, and a missing agent stops the run rather than failing mid-gate.

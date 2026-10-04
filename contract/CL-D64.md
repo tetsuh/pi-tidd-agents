@@ -1,0 +1,12 @@
+## CL-D64 — The writer iterates on focused validation before the guard
+**Clauses:** CL-D64-writer, CL-D64-tests
+
+*Decision ID:* CL-D64
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#115` at its body, https://github.com/tetsuh/pi-tidd-agents/issues/115, and the owner's instruction to proceed (working session, 2026-09-06)
+*Question:* Three exact-autofix runs on PR #113 ended `BLOCKED` because the writer's new assertion first executed at the guarded focused validation, which is terminal after the writer by CL-D39. Where should the writer's iteration happen?
+*Options and trade-offs:* Option A has the writer run the focused validation commands itself during the edit step and enter `BEFORE_VALIDATION` only when they pass, and has the parent carry a pinned literal verbatim in the correction instruction; prose only, no guard or budget changes. Option B raises the writer's thinking level, which is cheap but leaves the one-shot structure in place. Option C permits a retry after the guarded validation fails, which weakens CL-D39's post-writer terminal rule and is declined.
+*Recommendation:* Option A.
+*Owner choice:* Option A. The edit step is where the writer iterates; the guarded focused validation stays the single terminal check; pre-guard runs use commands that leave no untracked artifact behind so `BEFORE_VALIDATION` and the frozen overlay are unaffected. A correction that targets a literal a fixture or the clause manifest pins receives that literal verbatim from its source (CL-D47's copy-never-re-author rule applied to correction instructions).
+*Rationale:* The writer's agent definition already permits `bash` for inspection, validation, and relevant tests, and a writer run costs about a tenth of a dollar, so iterating before the guard costs almost nothing and was simply never asked for; the three lost runs each cost a convergence and a writer invocation plus a fresh-run restart. Declining a retry after the guarded validation fails keeps the post-writer boundary exactly where CL-D39 put it.
+*Validity and invalidation conditions:* Applies to the exact-autofix writer prose and the parent's correction instruction. CL-D39's post-writer terminal rule is unchanged, as are every guard, the sandbox-delta rules, and the 15/5/3 budgets; the pre-guard runs are inspection, never the guarded validation. Permitting a retry after the guarded validation, or letting the writer skip the guard because its own runs passed, requires a new owner decision.

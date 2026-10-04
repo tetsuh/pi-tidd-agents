@@ -19,7 +19,7 @@ const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readAutofixProcedure, readText, sectionOf, parseFrontmatter, exists } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, parseFrontmatter, exists } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -245,7 +245,7 @@ test('Issue #101 the README documents the role, its default, the self-review cav
 });
 
 test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const record = sectionOf(contract, '## CL-D62 — A non-authoritative convergence stage runs before the adversarial gate');
   assert.ok(record, 'CL-D62 must exist');
   for (const field of ['*Decision ID:* CL-D62', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D62 must carry ${field}`);

@@ -18,9 +18,9 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
-const { readAutofixProcedure, readText, readJson } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, readJson } = require('./helpers');
 
-const CONTRACT = readText('CONTRACT.md');
+const CONTRACT = readContract();
 const PR_SKILL = readText('skills/closed-loop-pr/SKILL.md');
 const PR_AUTOFIX = readAutofixProcedure();
 const PR_ADDENDUM = readText('skills/closed-loop-pr/references/autofix-addendum.md');
