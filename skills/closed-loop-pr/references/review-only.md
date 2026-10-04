@@ -88,17 +88,17 @@ Observation, reported only:
 
 This narrows `DEC-EXT-SNAPSHOT-001`: **provider-native finding identity** for reviews, inline review comments, issue comments, check runs and commit statuses, with edit timestamps/head association, belongs to external-review integration, not this prose; CL-D28 draws the same publication boundary.
 
-When an external state cannot be determined — a provider that exposes no usable identity, a missing timestamp, a record with no head association — report it as **unknown, not complete**. An undetermined provider is never a passing one.
+When an external state cannot be determined — a provider that exposes no usable identity, a missing timestamp, a record with no head association — report it as **unknown, not complete**. It is reported, never as passing.
 
 Workflow findings carry across resumptions with assigned identities and status dispositions. The initial snapshot is not polling. Review-only has no timers and **must not busy-poll**; a pending check or an unreported required check reports `WAITING_EXTERNAL_REVIEW` with a status block for resume.
 
-Read CodeRabbit's state from the snapshot's `policies.externalReview`, never from raw suites: an empty check suite (zero check runs) is no external-review record, and the newest `CodeRabbit` commit status on the head decides; `unknown` is not complete (CL-D92). A provider's state, and its app's check run that no protection requires, is only reported. An unresolved review thread stops `WAITING_FOR_OWNER`; `Changes requested` stops the run. What only a human or GitHub settles (an approval, an unevaluated ruleset or protection setting, a `blocked` mergeable state) never holds `MERGE_READY` back; name it in `operator_actions`.
+Read CodeRabbit's state from the snapshot's `policies.externalReview`, never from raw suites: an empty check suite (zero check runs) is no external-review record, and the newest `CodeRabbit` commit status on the head decides; `unknown` is not complete (CL-D92). CodeRabbit's state, and its own check run or status that no protection requires, is only reported. An unresolved review thread stops `WAITING_FOR_OWNER`; `Changes requested` stops the run. What only a human or GitHub settles (an approval, an unevaluated ruleset or protection setting, a `blocked` mergeable state) never holds `MERGE_READY` back; name it in `operator_actions`.
 
 ### SonarCloud (CL-D17)
 
 PR review-only has no SonarCloud credentials or API integration, so it **cannot perform provider-side status transitions**. It dispositions each Sonar finding and drafts the Accepted rationale in the configured SonarCloud language, plus a summary in the pull-request language, for the operator.
 
-PR review-only `MERGE_READY` **must not be declared on the basis of a transition that was never performed**. Report remaining owner actions in review-only.
+PR review-only `MERGE_READY` **must not be declared on the basis of a transition that was never performed**. Name remaining owner actions in `operator_actions`.
 
 ## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)
 
@@ -115,7 +115,7 @@ ABORTED
 
 In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**; this means a readiness-relevant correction candidate and stops at `WAITING_FOR_OWNER`. Once published, a fresh run revalidates the target and external evidence, then reruns Sol, Terra, external state, and exact-head checks.
 
-Before declaring `MERGE_READY`, refresh external findings, required human-review state, and required checks against the current `pr_head`. A new finding other than a Minor recorded under CL-D85, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself. A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` (CL-D85). When a gate raises a finding of the same counterexample class as one this run's ledger already carries for an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it (CL-D85).
+Before declaring `MERGE_READY`, refresh external findings, review states, and checks against the current `pr_head`. A new finding other than a Minor recorded under CL-D85, a failed check, `Changes requested`, or a new head revokes readiness. `MERGE_READY` means the pull request is ready for a human to merge; never merge it yourself. A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` (CL-D85). When a gate raises a finding of the same counterexample class as one this run's ledger already carries for an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it (CL-D85).
 
 Whenever a PR review-only run stops, emit the resumable block below:
 
