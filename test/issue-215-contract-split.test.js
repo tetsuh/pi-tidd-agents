@@ -12,7 +12,13 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
 
-const { readText, readJson, repoPath, readContract } = require('./helpers');
+const helpersModule = require('./helpers');
+const { readJson, repoPath } = helpersModule;
+// Round 3 of PR #233 (ADV-233-SPLIT-CRLF): a Windows checkout carries CRLF line ends. The structural checks read every
+// text with LF line ends, so they hold on either checkout; `readContract()` itself keeps the line end it found.
+const lf = (text) => text.replace(/\r\n/g, '\n');
+const readText = (file) => lf(helpersModule.readText(file));
+const readContract = () => lf(helpersModule.readContract());
 const helpers = require('../skills/closed-loop-pr/helpers');
 
 const INDEX_HEADING = '## Record index';
