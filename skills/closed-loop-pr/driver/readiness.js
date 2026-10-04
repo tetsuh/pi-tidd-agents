@@ -59,8 +59,8 @@ function readiness(snapshot, headOid) {
     else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);
     else if (!PASSED_CONCLUSIONS.has(c.conclusion)) pending.push(`check ${c.name} unknown conclusion ${c.conclusion}`);
   }
-  // The newest dated status of a context decides. A status without a valid time cannot be placed, so it neither
-  // outranks a dated one nor is passed over: it is judged as well.
+  // The newest dated status of a context decides. A status whose `created_at` does not read as a date cannot be
+  // placed, so it neither outranks a dated one nor is passed over: it is judged as well.
   const contexts = new Map(), at = (st) => Date.parse(st.created_at), dated = (st) => Number.isFinite(at(st));
   for (const st of (snapshot.statuses || []).filter(dated).sort((x, y) => at(x) - at(y) || x.id - y.id)) contexts.set(st.context, st);
   for (const st of [...contexts.values(), ...(snapshot.statuses || []).filter((x) => !dated(x))]) {
