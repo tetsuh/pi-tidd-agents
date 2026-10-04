@@ -72,6 +72,8 @@ test('Issue #196 a diff that is not valid UTF-8 never reaches a gate', () => {
   assert.equal(nextRequest(r.stdout), null, r.stdout);
   assert.equal(state(t.runDir).state, 'BLOCKED');
   assert.match(state(t.runDir).reason, /UTF-8/);
+  // The autofix driver sends no pull request back here; it stops (CL-D104).
+  assert.doesNotMatch(r.stdout, /^PROSE_PATH:/m);
 });
 
 test('Issue #196 a refused workspace cleanup never ends MERGE_READY', () => {
