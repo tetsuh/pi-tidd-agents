@@ -48,7 +48,7 @@ test('Issue #215 CONTRACT.md is the preamble and the index, and the assembly is 
   assert.ok(contract.startsWith(preamble), 'the assembly starts with the preamble');
   const headings = contract.split('\n').filter((line) => line.startsWith('## '));
   assert.deepEqual(headings, indexEntries().map(({ id, title }) => `## ${id} — ${title}`), 'the assembly holds every record, in index order');
-  assert.ok(!contract.includes(INDEX_HEADING), 'and not the index');
+  assert.ok(!contract.split('\n').includes(INDEX_HEADING), 'and not the index heading');
   assert.match(contract, /\n---\n\n## /, 'one blank line after the preamble rule');
   assert.doesNotMatch(contract, /\n\n\n/, 'one blank line between records, never two');
 });

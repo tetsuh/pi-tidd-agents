@@ -78,6 +78,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D78.md](contract/CL-D78.md) — A run reports the run roots it retained
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
+- [contract/CL-D103.md](contract/CL-D103.md) — Every contract record is its own file; CONTRACT.md is the preamble and the record index
 - [contract/CL-D102.md](contract/CL-D102.md) — A gate reports every finding it can establish in one invocation
 - [contract/CL-D101.md](contract/CL-D101.md) — The gate launch names a verification request; the child copies no digest
 - [contract/CL-D100.md](contract/CL-D100.md) — External review is best effort

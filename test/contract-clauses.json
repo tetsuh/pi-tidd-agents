@@ -5430,6 +5430,59 @@
         "Issue #228 each PR gate role\\'s definition carries the rule among its working rules",
         "Issue #228 the payload the launch builder writes carries the rule, for every gate of both roots"
       ]
+    },
+    {
+      "id": "CL-D103-record",
+      "marker": "CL-D103",
+      "title": "CL-D103 records the one-file-per-record layout",
+      "files": [
+        "contract/CL-D103.md"
+      ],
+      "section": "## CL-D103 — Every contract record is its own file; CONTRACT.md is the preamble and the record index",
+      "requires": [
+        "tetsuh/pi-tidd-agents#215",
+        "The contract is the preamble followed by every listed file in index order, one blank line apart",
+        "`required_evidence_set` is unchanged",
+        "Putting records back into one file, listing a record anywhere but the index, or giving the index a column the tests do not read requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D103-forward-d72",
+      "marker": "CL-D103",
+      "title": "CL-D72 names the layout",
+      "files": [
+        "contract/CL-D72.md"
+      ],
+      "section": "## CL-D72 — The focused validation is packaged and the alarm is reset for it",
+      "requires": [
+        "CL-D103 later made `CONTRACT.md` the preamble and the record index"
+      ]
+    },
+    {
+      "id": "CL-D103-helpers",
+      "marker": "CL-D103",
+      "title": "The tests assemble the contract from the index",
+      "files": [
+        "test/helpers.js"
+      ],
+      "requires": [
+        "function readContract()",
+        "function contractFiles()",
+        "indexOf('\\n## Record index\\n')"
+      ]
+    },
+    {
+      "id": "CL-D103-tests",
+      "marker": "CL-D103",
+      "title": "The layout is pinned",
+      "files": [
+        "test/issue-215-contract-split.test.js"
+      ],
+      "requires": [
+        "Issue #215 every record is one file under contract/, listed once in the index, in assembly order",
+        "Issue #215 CONTRACT.md is the preamble and the index, and the assembly is the contract",
+        "Issue #215 the record files are development records, outside the package payload"
+      ]
     }
   ]
 }
