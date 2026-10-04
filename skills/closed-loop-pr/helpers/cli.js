@@ -23,7 +23,7 @@ const SCHEMAS = Object.freeze({
   workspace_cleanup_created: { required: ['created'], optional: [] },
   gate_result_validate: { required: ['result', 'expected'], optional: [] },
   gate_result_read: { required: ['runId'], optional: ['expectationPath'] },
-  // The gate child's first step, on the payload its launch points to (CL-D91).
+  // The gate child's first step: it runs the request its launch names, which verifies the payload (CL-D91, CL-D101).
   gate_payload_verify: { required: ['path', 'sha256'], optional: [] },
   evidence_verify: { required: ['envelope', 'expected'], optional: [] },
   // After a push the workspace is ahead of created.head; the guard takes the transition workspace_verify takes (#185).

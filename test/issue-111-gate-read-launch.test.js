@@ -173,7 +173,7 @@ function roleLine(workflow, nickname) {
   assert.ok(line, `${workflow} ${nickname} role block line`);
   return line;
 }
-// CL-D91: the composed task lives in the payload file the launch points to.
+// CL-D91: the composed task lives in the payload file; the launch names the request that verifies it (CL-D101).
 function payloadOf(built) { return fs.readFileSync(built.data.payloadPath, 'utf8'); }
 function composed(workflow, gate, volatile, expectationPath, expected) {
   const parts = [block(EVERY_GATE)];
