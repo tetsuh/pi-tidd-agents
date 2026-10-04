@@ -5415,7 +5415,7 @@
       ],
       "section": "#### Every-gate invariant payload block (CL-D2)",
       "requires": [
-        "The child reports every finding it can establish in the invocation, not only the first, and after a finding checks the rest of the change for the same class (CL-D102)."
+        "The child reports every finding it can establish in the invocation, not only the first, and after a finding checks the rest of the target for the same class (CL-D102)."
       ]
     },
     {
