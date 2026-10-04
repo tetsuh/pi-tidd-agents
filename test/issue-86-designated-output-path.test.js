@@ -15,10 +15,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const GATE_CONTRACT = readText('skills/closed-loop-shared/references/gate-contract.md');
-const RECORD = readText('CONTRACT.md');
+const RECORD = readContract();
 const PR_REVIEW_ONLY = readText('skills/closed-loop-pr/references/review-only.md');
 const ISSUE_WORKFLOW = readText('skills/closed-loop-issue/SKILL.md');
 const PR_AUTOFIX = readText('skills/closed-loop-pr/references/autofix-addendum.md');

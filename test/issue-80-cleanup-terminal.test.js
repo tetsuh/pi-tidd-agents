@@ -13,7 +13,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const AUTOFIX = readText('skills/closed-loop-pr/references/autofix.md');
 
@@ -27,7 +27,7 @@ test('Issue #80 the cleanup result is named terminal and post-removal workspace 
   // repeating it: a post-removal verification failure is the caller's error, not the target's.
   assert.match(invariants, /a post-removal verification failure is a caller error, never evidence about the target/);
 
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D49 — A successful cleanup result is the terminal workspace evidence');
+  const decision = sectionOf(readContract(), '## CL-D49 — A successful cleanup result is the terminal workspace evidence');
   assert.ok(decision, 'CONTRACT.md must record CL-D49');
   for (const field of ['*Decision ID:* CL-D49', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D49 must carry ${field}`);

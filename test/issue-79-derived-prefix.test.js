@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { validateGateResult } = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const OID = 'a'.repeat(40);
 const SHA = '1'.repeat(64);
@@ -81,7 +81,7 @@ test('Issue #79 the shared contract says derived, not supplied', () => {
   const contract = readText('skills/closed-loop-shared/references/gate-contract.md');
   assert.doesNotMatch(contract, /fresh finding namespace whose nonempty suffix matches/);
   assert.match(contract, /the fresh finding namespace is derived, never supplied/);
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D47 — The fresh-finding namespace is derived, never supplied');
+  const decision = sectionOf(readContract(), '## CL-D47 — The fresh-finding namespace is derived, never supplied');
   assert.ok(decision, 'CONTRACT.md must record CL-D47');
   for (const field of ['*Decision ID:* CL-D47', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D47 must carry ${field}`);

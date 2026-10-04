@@ -18,7 +18,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
 const AUTOFIX = readAutofixProcedure();
 const ADDENDUM = readText('skills/closed-loop-pr/references/autofix-addendum.md');
@@ -591,7 +591,7 @@ test('Issue #96 the aggregate alarm reset is the one the suites assert', () => {
 });
 
 test('Issue #96 CL-D57 records the guard family and the reviewed alarm reset', () => {
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D57 — The batch-sequence guards are packaged and the alarm is reset for them');
+  const decision = sectionOf(readContract(), '## CL-D57 — The batch-sequence guards are packaged and the alarm is reset for them');
   assert.ok(decision, 'CONTRACT.md must record CL-D57');
   for (const field of ['*Decision ID:* CL-D57', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D57 must carry ${field}`);

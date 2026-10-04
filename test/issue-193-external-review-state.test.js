@@ -13,7 +13,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const snapshot = require('../skills/closed-loop-pr/helpers/snapshot');
-const { readText } = require('./helpers');
+const { readText, readContract } = require('./helpers');
 
 const oid = (c) => c.repeat(40);
 function transportWith({ suites = [], statuses = [] }) {
@@ -112,7 +112,7 @@ test('Issue #193 both roots read the classification instead of raw suites', () =
     assert.match(text, /empty check suite/i, file);
     assert.match(text, /`unknown` is not complete/, file);
   }
-  assert.match(readText('CONTRACT.md'), /^## CL-D92 — /m);
+  assert.match(readContract(), /^## CL-D92 — /m);
 });
 
 // Owner decision https://github.com/tetsuh/pi-tidd-agents/issues/193#issuecomment-5869141430: the writer's correction
@@ -120,6 +120,6 @@ test('Issue #193 both roots read the classification instead of raw suites', () =
 test('Issue #193 CL-D92 resets the aggregate helper alarm to 310,000, with headroom asserted at the raise', () => {
   assert.match(readText('test/issue-59-helper-surface.test.js'), /const AGGREGATE_SMOKE_ALARM = 310000; \/\/ CL-D92 reviewed reset from 300,000 \(CL-D91\)/);
   assert.match(readText('test/package.test.js'), /helperBytes < 310000/);
-  assert.match(readText('CONTRACT.md'), /CL-D92 reset it a tenth time to 310,000 bytes/);
+  assert.match(readContract(), /CL-D92 reset it a tenth time to 310,000 bytes/);
   assert.ok(310000 - 300068 > 9000, 'CL-D92 measured 300,068 bytes at the raise');
 });

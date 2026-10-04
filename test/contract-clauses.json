@@ -315,7 +315,7 @@
       "marker": "CL-D25",
       "title": "CL-D25 records the raised minimum and the release that forced it",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D25.md"
       ],
       "section": "## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is",
       "requires": [
@@ -606,7 +606,7 @@
       "marker": "AC-AUTOFIX",
       "title": "Provider-mutation exceptions remain exact in the AC-AUTOFIX contract section",
       "files": [
-        "CONTRACT.md"
+        "contract/AC-AUTOFIX.md"
       ],
       "requires": [
         "provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST"
@@ -618,7 +618,7 @@
       "marker": "AC-GRANT",
       "title": "Provider-mutation exceptions remain exact in the AC-GRANT contract section",
       "files": [
-        "CONTRACT.md"
+        "contract/AC-GRANT.md"
       ],
       "requires": [
         "provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST"
@@ -1308,7 +1308,7 @@
       "marker": "CL-D31",
       "title": "Issue 13 remains prose orchestration",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D31.md"
       ],
       "requires": [
         "legacy Skill/prompt package",
@@ -1334,7 +1334,7 @@
       "marker": "CL-D31",
       "title": "Equivalent Issue entrypoints and bounded authority",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D31.md"
       ],
       "requires": [
         "/tidd-issue <ref>",
@@ -1546,7 +1546,7 @@
       "marker": "CL-D32",
       "title": "Issue #15 remains prose orchestration",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D32.md"
       ],
       "requires": [
         "later CL-D32 extension to CL-D31",
@@ -1559,7 +1559,7 @@
       "marker": "CL-D32",
       "title": "The exact response binds one frozen candidate",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D32.md"
       ],
       "requires": [
         "complete byte-identical candidate",
@@ -1573,7 +1573,7 @@
       "marker": "CL-D32",
       "title": "Combined eligibility is narrow and foreign-safe",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D32.md"
       ],
       "requires": [
         "independent current-repository Issue, checkout, and resolver antecedent",
@@ -1587,7 +1587,7 @@
       "marker": "CL-D32",
       "title": "Dormant Sol review authority is bounded",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D32.md"
       ],
       "requires": [
         "dormant at-most-one counted Sol round",
@@ -1600,7 +1600,7 @@
       "marker": "CL-D32",
       "title": "Conditional decision bytes are canonical",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D32.md"
       ],
       "requires": [
         "complete nine-field target-specific readiness-blocking scope-freeze AC-DECISION record",
@@ -1615,7 +1615,7 @@
       "marker": "CL-D32",
       "title": "Mandatory gates and publication proof remain",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D32.md"
       ],
       "requires": [
         "unchanged Sol and Terra `MERGE`",
@@ -1694,7 +1694,7 @@
       "marker": "DEC-I15-ROUND-BUDGET-001",
       "title": "Canonical Issue #15 round-budget decision",
       "files": [
-        "CONTRACT.md"
+        "contract/DEC-I15-ROUND-BUDGET-001.md"
       ],
       "requires": [
         "*Decision ID:* DEC-I15-ROUND-BUDGET-001",
@@ -1707,7 +1707,7 @@
       "marker": "DEC-I13-ENTRYPOINT-029",
       "title": "Durable owner decision identity",
       "files": [
-        "CONTRACT.md"
+        "contract/DEC-I13-ENTRYPOINT-029.md"
       ],
       "requires": [
         "*Decision ID:* DEC-I13-ENTRYPOINT-029"
@@ -1719,7 +1719,7 @@
       "marker": "DEC-I13-ENTRYPOINT-029",
       "title": "Durable owner decision fields",
       "files": [
-        "CONTRACT.md"
+        "contract/DEC-I13-ENTRYPOINT-029.md"
       ],
       "requires": [
         "*Owner choice:* Equivalent entrypoints"
@@ -1731,7 +1731,7 @@
       "marker": "DEC-I13-ENTRYPOINT-029",
       "title": "Durable owner decision scope",
       "files": [
-        "CONTRACT.md"
+        "contract/DEC-I13-ENTRYPOINT-029.md"
       ],
       "requires": [
         "two named Issue entrypoints",
@@ -1745,7 +1745,7 @@
       "marker": "CL-D10",
       "title": "Repository-root Pi runtime exclusion is narrow and fail-closed",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D10.md"
       ],
       "requires": [
         "`OPERATOR_CHECKOUT@H`",
@@ -1760,7 +1760,7 @@
       "marker": "CL-D30",
       "title": "CL-D30 records the Issue #17 operational-cleanliness amendment",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D30.md"
       ],
       "requires": [
         "Issue #17 operational-cleanliness amendment, Issue #20 named-invariant refactor, and Issue #42 isolation",
@@ -2124,7 +2124,7 @@
       "marker": "CL-D34",
       "title": "The six-file authority baseline is raised by owner decision",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D34.md"
       ],
       "section": "## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model",
       "requires": [
@@ -2206,7 +2206,7 @@
       "marker": "CL-D36",
       "title": "The authority baseline is raised by owner decision",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D36.md"
       ],
       "section": "## CL-D36 — Formal gate results travel as a strict structured envelope",
       "requires": [
@@ -2219,7 +2219,7 @@
       "marker": "CL-D37",
       "title": "The packaged helper boundary is structural with byte smoke alarms",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D37.md"
       ],
       "section": "## CL-D37 — Bounded helper surface is structural",
       "requires": [
@@ -2298,7 +2298,7 @@
       "marker": "CL-D39",
       "title": "The authority baseline is raised for the closed mapping",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D39.md"
       ],
       "section": "## CL-D39 — Exact autofix gains one bounded pre-writer recovery",
       "requires": [
@@ -2311,7 +2311,7 @@
       "marker": "CL-D40",
       "title": "Missing worktree paths require exact registration evidence",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D40.md"
       ],
       "section": "## CL-D40 — Missing worktree paths require exact registration evidence",
       "requires": [
@@ -3196,7 +3196,7 @@
       "marker": "CL-D65",
       "title": "The CL-D65 record states the duties, the declined alternatives, and the no-substitution boundary",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D65.md"
       ],
       "section": "## CL-D65 — Gate children carry the envelope duties and validate their own envelope",
       "requires": [
@@ -3240,7 +3240,7 @@
       "marker": "CL-D63",
       "title": "The CL-D63 record bounds the fence grammar of the derived-vocabulary checks",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D63.md"
       ],
       "section": "## CL-D63 — Deterministic agreement checks are the first review layer",
       "requires": [
@@ -3323,7 +3323,7 @@
       "marker": "CL-D66",
       "title": "The CL-D66 record states the placement, the declined alternatives, and the boundary",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D66.md"
       ],
       "section": "## CL-D66 — Same-class rigor gaps are named once and written exactly the first time",
       "requires": [
@@ -3390,7 +3390,7 @@
       "marker": "CL-D67",
       "title": "The CL-D67 record states the choice, the declined bounded body edit, and the boundary",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D67.md"
       ],
       "section": "## CL-D67 — Pull-request bodies carry no per-head facts",
       "requires": [
@@ -3446,7 +3446,7 @@
       "marker": "CL-D68",
       "title": "The CL-D68 record states the widening, the read path, and the deferral",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D68.md"
       ],
       "section": "## CL-D68 — The gate launch request and the designated-output read are packaged",
       "requires": [
@@ -3505,7 +3505,7 @@
       "marker": "CL-D69",
       "title": "The CL-D69 record states the shape, the unchanged assurance, and the boundary",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D69.md"
       ],
       "section": "## CL-D69 — The evidence attestation carries no identity",
       "requires": [
@@ -3542,7 +3542,7 @@
       "marker": "CL-D70",
       "title": "The CL-D70 record states the acceptance, the key set, and the boundary",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D70.md"
       ],
       "section": "## CL-D70 — The declared envelope field accepts the producer payload",
       "requires": [
@@ -3568,7 +3568,7 @@
       "marker": "CL-D71",
       "title": "The CL-D71 record states the reset, the measurement, and the anti-pattern",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D71.md"
       ],
       "section": "## CL-D71 — The aggregate helper smoke alarm is reset a third time",
       "requires": [
@@ -3617,7 +3617,7 @@
       "marker": "CL-D72",
       "title": "The CL-D72 record states the three choices, the spawn-site rule, and the reset",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D72.md"
       ],
       "section": "## CL-D72 — The focused validation is packaged and the alarm is reset for it",
       "requires": [
@@ -3713,7 +3713,7 @@
       "marker": "CL-D73",
       "title": "CL-D73 records the three compositions, the alarm reset, and the boundary",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D73.md"
       ],
       "section": "## CL-D73 — The gate step composes no request by hand",
       "requires": [
@@ -3792,7 +3792,7 @@
       "marker": "CL-D74",
       "title": "CL-D74 records the packaged check and the boundary it reviews",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D74.md"
       ],
       "section": "## CL-D74 — The post-commit message check is packaged",
       "requires": [
@@ -3817,7 +3817,7 @@
       "marker": "CL-D75",
       "title": "CL-D75 records what a cleanup returns when the root it emptied stands",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D75.md"
       ],
       "section": "## CL-D75 — A cleanup that cannot remove the root it emptied names it and still succeeds",
       "requires": [
@@ -3846,7 +3846,7 @@
       "marker": "CL-D76",
       "title": "CL-D76 records that the cleanup builder takes its cwd from the receipt",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D76.md"
       ],
       "section": "## CL-D76 — The cleanup builder takes its cwd from the receipt",
       "requires": [
@@ -3902,7 +3902,7 @@
       "marker": "CL-D77",
       "title": "CL-D77 records that autofix drafts the owner publication artifacts at every terminal outcome",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D77.md"
       ],
       "section": "## CL-D77 — Every exact-autofix run ends with the owner publication artifacts",
       "requires": [
@@ -3954,7 +3954,7 @@
       "marker": "CL-D77",
       "title": "CL-D33 states what CL-D77 changed in it",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D33.md"
       ],
       "section": "## CL-D33 — Review-only drafts guarded owner-executed PR publication artifacts",
       "requires": [
@@ -3980,7 +3980,7 @@
       "marker": "CL-D78",
       "title": "CL-D78 records report-only handling of retained run roots",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D78.md"
       ],
       "section": "## CL-D78 — A run reports the run roots it retained",
       "requires": [
@@ -4011,7 +4011,7 @@
       "title": "The post-push state is defined for every push, not only the first",
       "files": [
         "skills/closed-loop-pr/references/autofix.md",
-        "CONTRACT.md"
+        "contract/CL-D30.md"
       ],
       "requires": [
         "`WORKSPACE_POST_PUSH(C, O)` := public/workspace `C`, the no-replace sole child of the public head `P` it was pushed onto (`O` for the run's first push), with clean state; linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads `build_operator_revalidate` derives from the run's own post-push snapshots (CL-D79, CL-D86), clone operator stays `O`."
@@ -4033,7 +4033,7 @@
       "marker": "CL-D79",
       "title": "The post-push invariant admits a sole-child chain of pushes",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D30.md"
       ],
       "requires": [
         "After an earlier push in the same run, linked also passes `priorPushHeads`, the heads it pushed before `C`, oldest first; the chain from `O` to `C` must run through only those heads, each the sole child of the one before, at most five in all (CL-D79)."
@@ -4066,7 +4066,7 @@
       "marker": "CL-D79",
       "title": "CL-D79 records the chain the post-push guard accepts",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D79.md"
       ],
       "section": "## CL-D79 — The post-push guard accepts a sole-child chain of pushes",
       "requires": [
@@ -4103,7 +4103,7 @@
       "marker": "CL-D80",
       "title": "CL-D80 records the writer launch's acceptance setting",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D80.md"
       ],
       "section": "## CL-D80 — The exact-autofix writer launch carries no pi-subagents acceptance gate",
       "requires": [
@@ -4141,7 +4141,7 @@
       "marker": "CL-D82",
       "title": "CL-D82 records the gate launch's workspace and what it does not change",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D82.md"
       ],
       "section": "## CL-D82 — The gate launch names the workspace its child runs in",
       "requires": [
@@ -4211,7 +4211,7 @@
       "marker": "CL-D81",
       "title": "CL-D81 records the packaged writer launch and its receiver-side check",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D81.md"
       ],
       "section": "## CL-D81 — The exact-autofix writer launch is composed by a packaged builder",
       "requires": [
@@ -4271,7 +4271,7 @@
       "marker": "CL-D83",
       "title": "CL-D83 records the split and its limits",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D83.md"
       ],
       "section": "## CL-D83 — The packaged helper invocation map is its own reference",
       "requires": [
@@ -4311,7 +4311,7 @@
       "marker": "CL-D84",
       "title": "CL-D84 records the packaged terminal cleanup and its limits",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D84.md"
       ],
       "section": "## CL-D84 — The terminal cleanup is one packaged operation",
       "requires": [
@@ -4394,7 +4394,7 @@
       "marker": "CL-D85",
       "title": "CL-D85 records the three rules and the addendum guard reset",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D85.md"
       ],
       "section": "## CL-D85 — Wording-only Minors do not stop a run",
       "requires": [
@@ -4453,7 +4453,7 @@
       "marker": "CL-D85",
       "title": "AC-GATES counts a qualifying Sol result as MERGE",
       "files": [
-        "CONTRACT.md"
+        "contract/AC-GATES.md"
       ],
       "section": "## AC-GATES — Sequential Sol then Terra",
       "requires": [
@@ -4494,7 +4494,7 @@
       "marker": "CL-D86",
       "title": "CL-D86 records both choices and the alarm reset",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D86.md"
       ],
       "section": "## CL-D86 — The post-push revalidation is composed from the run's own snapshots",
       "requires": [
@@ -4560,7 +4560,7 @@
       "marker": "CL-D91",
       "title": "CL-D91 records the pointer rule and the alarm reset",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D91.md"
       ],
       "section": "## CL-D91 — The gate launch carries a pointer to a verified payload file",
       "requires": [
@@ -4614,7 +4614,7 @@
       "marker": "CL-D92",
       "title": "CL-D92 records the classification rule",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D92.md"
       ],
       "section": "## CL-D92 — The snapshot classifies CodeRabbit's review state",
       "requires": [
@@ -4653,7 +4653,7 @@
       "marker": "CL-D96",
       "title": "CL-D96 records the autofix driver and its mechanised judgments",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D96.md"
       ],
       "section": "## CL-D96 \u2014 The packaged autofix driver runs correction cycles; the writer's process commits and pushes",
       "requires": [
@@ -4666,7 +4666,7 @@
       "marker": "CL-D96",
       "title": "CL-D96 counts the files the aggregate driver alarm covers",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D96.md"
       ],
       "section": "## CL-D96 — The packaged autofix driver runs correction cycles; the writer's process commits and pushes",
       "requires": [
@@ -4703,7 +4703,7 @@
       "marker": "CL-D99",
       "title": "CL-D99 records the lease and why it is the one force-named flag",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D99.md"
       ],
       "section": "## CL-D99 — The correction push carries a lease on the head it was built on",
       "requires": [
@@ -4717,7 +4717,7 @@
       "marker": "CL-D99",
       "title": "CL-D89 names the lease",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D89.md"
       ],
       "section": "## CL-D89 — The writer commits and pushes through packaged operations with the operator identity",
       "requires": [
@@ -4741,7 +4741,7 @@
       "marker": "CL-D98",
       "title": "CL-D98 records the gpt-6.1-sol defaults",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D98.md"
       ],
       "section": "## CL-D98 — The Sol and Terra roles ship gpt-6.1-sol",
       "requires": [
@@ -4754,7 +4754,7 @@
       "marker": "CL-D98",
       "title": "CL-D87 names the move",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D87.md"
       ],
       "section": "## CL-D87 — The package ships gpt-6-sol and gpt-6-luna",
       "requires": [
@@ -4777,7 +4777,7 @@
       "marker": "CL-D97",
       "title": "CL-D97 records where validation commands come from and what none means",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D97.md"
       ],
       "section": "## CL-D97 — Validation commands without a committed .tidd.json",
       "requires": [
@@ -4792,7 +4792,7 @@
       "marker": "CL-D97",
       "title": "CL-D93 names the fallback",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D93.md"
       ],
       "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
       "requires": [
@@ -4830,7 +4830,7 @@
       "marker": "CL-D93",
       "title": "CL-D93 records the driver boundary",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D93.md"
       ],
       "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
       "requires": [
@@ -4843,7 +4843,7 @@
       "marker": "CL-D93",
       "title": "CL-D93 states what readiness reads and what the owner reads",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D93.md"
       ],
       "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
       "requires": [
@@ -4867,7 +4867,7 @@
       "marker": "CL-D94",
       "title": "CL-D94 records the gate launch's bound and what it does not change",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D94.md"
       ],
       "section": "## CL-D94 — Every gate launch carries a 60-minute bound",
       "requires": [
@@ -4882,7 +4882,7 @@
       "marker": "CL-D94",
       "title": "The writer's launch record names the gate bound beside its own",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D81.md"
       ],
       "section": "## CL-D81 — The exact-autofix writer launch is composed by a packaged builder",
       "requires": [
@@ -4930,7 +4930,7 @@
       "marker": "CL-D95",
       "title": "CL-D95 records the precedence and what it leaves unchanged",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D95.md"
       ],
       "section": "## CL-D95 — A repository's own pull-request template governs the body's sections",
       "requires": [
@@ -4969,7 +4969,7 @@
       "marker": "CL-D95",
       "title": "CL-D85 names the narrowing",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D85.md"
       ],
       "section": "## CL-D85 — Wording-only Minors do not stop a run",
       "requires": [
@@ -4981,7 +4981,7 @@
       "marker": "CL-D95",
       "title": "CL-D67 names the narrowing",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D67.md"
       ],
       "section": "## CL-D67 — Pull-request bodies carry no per-head facts",
       "requires": [
@@ -5015,7 +5015,7 @@
       "marker": "CL-D90",
       "title": "CL-D90 records where the schema lives",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D90.md"
       ],
       "section": "## CL-D90 — The gate schema lives in the gate roles' agent definitions",
       "requires": [
@@ -5080,7 +5080,7 @@
       "marker": "CL-D89",
       "title": "CL-D89 records the identity, the helper, and the superseded CL-D37 clause",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D89.md"
       ],
       "section": "## CL-D89 — The writer commits and pushes through packaged operations with the operator identity",
       "requires": [
@@ -5146,7 +5146,7 @@
       "marker": "CL-D88",
       "title": "CL-D88 records the derivation",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D88.md"
       ],
       "section": "## CL-D88 — The workspace verification runs in the workspace the run created",
       "requires": [
@@ -5172,7 +5172,7 @@
       "marker": "CL-D87",
       "title": "CL-D87 records the shipped defaults and the model-family consequence",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D87.md"
       ],
       "section": "## CL-D87 — The package ships gpt-6-sol and gpt-6-luna",
       "requires": [
@@ -5210,7 +5210,7 @@
       "marker": "CL-D100",
       "title": "CL-D100 records that external review is best effort",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D100.md"
       ],
       "section": "## CL-D100 — External review is best effort",
       "requires": [
@@ -5282,7 +5282,7 @@
       "marker": "CL-D100",
       "title": "CL-D18 names the later rule",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D18.md"
       ],
       "section": "## CL-D18 — External observation is reported, not enforced",
       "requires": [
@@ -5294,7 +5294,7 @@
       "marker": "CL-D100",
       "title": "CL-D93 names the later rule",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D93.md"
       ],
       "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
       "requires": [
@@ -5320,7 +5320,7 @@
       "marker": "CL-D101",
       "title": "CL-D101 records that the launch names a verification request",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D101.md"
       ],
       "section": "## CL-D101 — The gate launch names a verification request; the child copies no digest",
       "requires": [
@@ -5360,7 +5360,7 @@
       "marker": "CL-D101",
       "title": "CL-D91 names the later rule",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D91.md"
       ],
       "section": "## CL-D91 — The gate launch carries a pointer to a verified payload file",
       "requires": [
@@ -5372,7 +5372,7 @@
       "marker": "CL-D101",
       "title": "CL-D68 names the second write",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D68.md"
       ],
       "section": "## CL-D68 — The gate launch request and the designated-output read are packaged",
       "requires": [
@@ -5397,7 +5397,7 @@
       "marker": "CL-D102",
       "title": "CL-D102 records that a gate reports every finding it can establish",
       "files": [
-        "CONTRACT.md"
+        "contract/CL-D102.md"
       ],
       "section": "## CL-D102 — A gate reports every finding it can establish in one invocation",
       "requires": [

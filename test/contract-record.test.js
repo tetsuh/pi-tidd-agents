@@ -11,7 +11,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, exists } = require('./helpers');
+const { readText, readContract, readJson, exists } = require('./helpers');
 
 const RECORD = 'CONTRACT.md';
 const STRUCTURAL_VALUE = 'none — structural';
@@ -878,7 +878,8 @@ function removeSection(text, id) {
   return text.replace(`${section}\n`, '');
 }
 
-const recordText = () => normalizeLf(readText(RECORD));
+// CL-D103 (#215): the record is CONTRACT.md's preamble followed by the record files its index lists.
+const recordText = () => normalizeLf(readContract());
 
 test('the authoritative contract record exists and validates bidirectionally', () => {
   assert.ok(exists(RECORD), `${RECORD} is missing; CL-D26 makes it the authoritative record`);
@@ -1701,6 +1702,7 @@ test('malformed and duplicate ownership metadata fails', () => {
 test('the record is not shipped in the package', () => {
   const pkg = readJson('package.json');
   assert.ok(!pkg.files.includes(RECORD), `${RECORD} is a development record, not package payload; CL-D26 keeps it out of files`);
+  assert.ok(!pkg.files.some((entry) => entry === 'contract' || entry.startsWith('contract/')), 'nor are its record files (CL-D103)');
 });
 
 module.exports = { decisionOf, manifestClauseIds, parseRecord, validateRecord };

@@ -15,7 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readText, readJson, repoPath, AUTHORITY_FILES, copyTrackedCheckout } = require('./helpers');
+const { readText, readContract, readJson, repoPath, AUTHORITY_FILES, copyTrackedCheckout } = require('./helpers');
 
 const MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
@@ -105,6 +105,6 @@ test('Issue #164 the moved file is measured where the moved bytes were measured'
 });
 
 test('Issue #164 CL-D83 records the split and what it did not change', () => {
-  const record = readText('CONTRACT.md');
+  const record = readContract();
   assert.ok(record.includes('## CL-D83 — The packaged helper invocation map is its own reference'), 'CL-D83 must exist');
 });

@@ -17,7 +17,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, repoPath, cliSchemas, receiverTypebox } = require('./helpers');
+const { readText, readContract, repoPath, cliSchemas, receiverTypebox } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64);
@@ -289,6 +289,6 @@ test('Issue #159 the procedure states where each mode runs its gates', () => {
   assert.ok(map.includes('| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |'), 'the map declares the new input');
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.ok(addendum.includes('uses exact workspace cwd/identity, gate children via `created` (CL-D82)'), 'the addendum names how a gate child reaches the workspace');
-  const record = readText('CONTRACT.md');
+  const record = readContract();
   assert.ok(record.includes('## CL-D82 — The gate launch names the workspace its child runs in'), 'CL-D82 must exist');
 });

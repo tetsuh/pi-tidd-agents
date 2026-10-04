@@ -11,7 +11,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { readText, readJson } = require('./helpers');
+const { readText, readContract, readJson } = require('./helpers');
 
 const REQUIRED_COVERAGE = new Set([
   'delimiter', 'crlf', 'unicode', 'scalar-grammar', 'body-comment-boundary', 'legacy-issue-spec-collision', 'schema-version', 'alternate-diff',
@@ -39,7 +39,7 @@ function sectionOf(text, heading) {
 }
 
 test('Issue #13 contract decision follows CL-D30', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const cl30 = contract.indexOf('## CL-D30 —');
   const cl31 = contract.indexOf('## CL-D31 — Owner-gated Issue candidate publication');
   assert.ok(cl30 !== -1, 'CL-D30 must remain present');

@@ -7,7 +7,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, sectionOf } = require('./helpers');
+const { readText, readContract, readJson, sectionOf } = require('./helpers');
 
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
@@ -189,7 +189,7 @@ test('Issue #51 anchoring fixtures cover every documented class and only blockin
 });
 
 test('Issue #51 CONTRACT.md records CL-D34 with its clauses, the raised authority baseline, and CL-D29 cross-reference', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const section = sectionOf(contract, '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model');
   assert.ok(section, 'CL-D34 decision is missing');
   assert.match(section, /^\*\*Clauses:\*\* CL-D34-anchor, CL-D34-payload, CL-D34-classes, CL-D34-threat-model, CL-D34-normalization, CL-D34-readme, CL-D34-baseline$/m);

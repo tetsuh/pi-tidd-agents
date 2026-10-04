@@ -13,7 +13,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf } = require('./helpers');
 
 const REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
@@ -49,7 +49,7 @@ test('Issue #93 both mode references and the helpers agree on the root set', () 
 });
 
 test('Issue #93 CL-D54 records the carve-out and what it amends', () => {
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D54 — Review-only tolerates the runtime roots the harness itself writes');
+  const decision = sectionOf(readContract(), '## CL-D54 — Review-only tolerates the runtime roots the harness itself writes');
   assert.ok(decision, 'CONTRACT.md must record CL-D54');
   for (const field of ['*Decision ID:* CL-D54', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D54 must carry ${field}`);

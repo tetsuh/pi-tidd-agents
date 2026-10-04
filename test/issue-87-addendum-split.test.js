@@ -14,7 +14,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { AUTHORITY_FILES, readText, repoPath, sectionOf } = require('./helpers');
+const { AUTHORITY_FILES, readText, readContract, repoPath, sectionOf } = require('./helpers');
 
 const BASE = 'skills/closed-loop-pr/references/autofix.md';
 const ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
@@ -59,7 +59,7 @@ test('Issue #87 the disclosure stages are bounded per stage', () => {
 });
 
 test('Issue #87 CL-D50 records the third disclosure stage', () => {
-  const decision = sectionOf(readText('CONTRACT.md'), '## CL-D50 — The CL-D30 addendum is a third disclosure stage');
+  const decision = sectionOf(readContract(), '## CL-D50 — The CL-D30 addendum is a third disclosure stage');
   assert.ok(decision, 'CONTRACT.md must record CL-D50');
   for (const field of ['*Decision ID:* CL-D50', '*Kind:*', '*Target and revision:*', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(decision.includes(field), `CL-D50 must carry ${field}`);

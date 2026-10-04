@@ -12,7 +12,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { readText } = require('./helpers');
+const { readText, readContract } = require('./helpers');
 
 function sectionOf(text, heading) {
   const lines = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n').split('\n');
@@ -41,7 +41,7 @@ const TARGET_ISSUE = 56;
 
 // Artifact assertions are section-scoped compile/contract checks, not behavior proof.
 test('Issue #15 contract owns the combined scope-freeze transaction', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const section = sectionOf(contract, '## CL-D32 — Scope-freeze approval stays inside the candidate transaction');
   assert.ok(section, 'CONTRACT.md has no CL-D32 Issue #15 decision');
   for (const required of [

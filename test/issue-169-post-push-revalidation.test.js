@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, sectionOf } = require('./helpers');
+const { readAutofixProcedure, readText, contractFiles, readContract, sectionOf } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const { buildOperatorRevalidate } = require(path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'builders.js'));
@@ -88,7 +88,7 @@ test('Issue #169 the addendum states where the transition comes from and what a 
 });
 
 test('Issue #169 CL-D86 records both choices and the helper alarm reset', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots');
+  const record = sectionOf(readContract(), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots');
   assert.ok(record, 'CL-D86 must exist');
   for (const field of ['*Decision ID:* CL-D86', '*Kind:* contract', '*Question:*', '*Options and trade-offs:*', '*Recommendation:*', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) {
     assert.ok(record.includes(field), `CL-D86 must carry ${field}`);
@@ -144,15 +144,15 @@ test('Issue #169 the retry is stated where the no-retry rule is stated', () => {
 test('Issue #169 nothing still says the parent supplies the heads', () => {
   // CONV-173-DOC-001: naming the derivation is not enough while the sentence still opens with the parent doing
   // it. Every live statement says the builder derives the heads; only a clause marked as history may say more.
-  for (const file of ['CONTRACT.md', 'README.md', 'skills/closed-loop-pr/references/helper-map.md']) {
+  for (const file of [...contractFiles(), 'README.md', 'skills/closed-loop-pr/references/helper-map.md']) {
     const text = readText(file);
     assert.equal(text.includes('an obligation no check enforces'), false, `${file} still calls the transition an unchecked obligation`);
     assert.equal(text.includes("taken from the parent's own record"), false, `${file} still takes the heads from the parent's record`);
     assert.equal(text.includes('The parent supplies `priorPushHeads`'), false, `${file} still has the parent supplying the list`);
   }
-  assert.match(readText('CONTRACT.md'), /`build_operator_revalidate` derives `priorPushHeads` from the run's own post-push snapshots, oldest first \(CL-D86\); when CL-D79 was taken the parent supplied them from its own record, which no check enforced\./);
+  assert.match(readContract(), /`build_operator_revalidate` derives `priorPushHeads` from the run's own post-push snapshots, oldest first \(CL-D86\); when CL-D79 was taken the parent supplied them from its own record, which no check enforced\./);
   assert.match(readText('README.md'), /`priorPushHeads` naming every head the run pushed before `C`, oldest first, derived by `build_operator_revalidate` from the run's own post-push snapshots \(CL-D79, CL-D86\)\./);
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D79 — The post-push guard accepts a sole-child chain of pushes');
+  const record = sectionOf(readContract(), '## CL-D79 — The post-push guard accepts a sole-child chain of pushes');
   assert.ok(record, 'CL-D79 must exist');
   assert.match(record, /CL-D86 later took that decision: the heads are derived by `build_operator_revalidate` from the run's own post-push snapshots, so the parent supplies none by hand\./);
 });
@@ -162,7 +162,7 @@ test('Issue #169 nothing still says the parent supplies the heads', () => {
 test('Issue #169 the post-push invariant names the derivation, wherever it is stated', () => {
   const DERIVED = 'through the heads `build_operator_revalidate` derives from the run\'s own post-push snapshots (CL-D79, CL-D86)';
   for (const file of ['skills/closed-loop-pr/references/autofix.md', 'CONTRACT.md']) {
-    const text = readText(file);
+    const text = file === 'CONTRACT.md' ? readContract() : readText(file);
     assert.ok(text.includes(DERIVED), `${file} states the derived chain`);
     assert.equal(text.includes('through the heads the parent names as its own pushes'), false, `${file} keeps no superseded statement of it`);
   }
@@ -233,7 +233,7 @@ test('Issue #169 a revalidation composed without the push is refused, on both su
 });
 
 test('Issue #169 the record names the source the retry recomposes from', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots');
+  const record = sectionOf(readContract(), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots');
   assert.match(record, /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter\./);
   assert.equal(record.includes('recomposed once from those snapshots'), false, 'the record may not name a source the operational rule does not');
   const manifest = JSON.parse(readText('test/contract-clauses.json'));

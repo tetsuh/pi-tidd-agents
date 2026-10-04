@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, repoPath, sectionOf } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf } = require('./helpers');
 
 test('Issue #120 the PR Skill states the body template and keeps per-head facts out of the body', () => {
   const template = sectionOf(readText('skills/closed-loop-pr/SKILL.md'), '### PR body template (CL-D67)');
@@ -30,7 +30,7 @@ test('Issue #120 the PR Skill states the body template and keeps per-head facts 
 });
 
 test('Issue #120 CL-D67 records the choice, the declined bounded body edit, and the boundary', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D67 — Pull-request bodies carry no per-head facts');
+  const record = sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts');
   assert.ok(record, 'CL-D67 must exist');
   for (const field of ['*Decision ID:* CL-D67', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), `CL-D67 must carry ${field}`);
   // CONV-122-CONTRACT-CITATION-002: both cited comments are pinned by id; the design comment was once miscited.

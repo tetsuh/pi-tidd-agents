@@ -8,7 +8,7 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText } = require('./helpers');
+const { readText, readContract } = require('./helpers');
 
 function temp(prefix) { return fs.mkdtempSync(path.join(os.tmpdir(), prefix)); }
 function git(cwd, args) {
@@ -74,7 +74,7 @@ function makeStale(repo, workspace, args = ['--detach']) {
 }
 
 const AUTOFIX = (readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
-const CONTRACT = readText('CONTRACT.md');
+const CONTRACT = readContract();
 const README = readText('README.md');
 
 // TDD provenance: before implementation, the focused command below produced 1 pass/4 failures.

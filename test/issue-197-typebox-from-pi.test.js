@@ -37,7 +37,7 @@ test('Issue #197 with no pi package the loader names the state instead of guessi
 });
 
 test('Issue #197 CL-D25 names where typebox comes from on 0.72 and later', () => {
-  const record = helpers.sectionOf(helpers.readText('CONTRACT.md'), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
+  const record = helpers.sectionOf(helpers.readContract(), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
   assert.match(record, /From `0\.72\.0` pi-subagents takes `typebox` from pi rather than bundling it/);
 });
 
@@ -181,7 +181,7 @@ test('Issue #197 the resolver caches per options, names a missing receiver, and 
   const missing = helpers.receiverTypebox(path.join(root, 'absent'), { pathEnv: '', prefixes: [prefix] });
   assert.equal(missing.from, null);
   assert.match(missing.problem, /receiver is not readable/);
-  const record = helpers.sectionOf(helpers.readText('CONTRACT.md'), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
+  const record = helpers.sectionOf(helpers.readContract(), '## CL-D25 — Validated `pi-subagents` minimum, and what a normal commit is');
   assert.match(record, /records which source it used/);
   assert.match(record, /ES module imports/);
 });

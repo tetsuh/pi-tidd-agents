@@ -20,10 +20,10 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
 const AUTOFIX = (readAutofixProcedure() + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
-const CONTRACT = readText('CONTRACT.md');
+const CONTRACT = readContract();
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
 const OID = 'a'.repeat(40);

@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, repoPath, sectionOf, AUTHORITY_FILES } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf, AUTHORITY_FILES } = require('./helpers');
 
 const SENTENCE = 'When a finding exhibits a counterexample against a component, attempt every other counterexample class against that same component — its other inputs, encodings, syntax forms, and boundaries — and report all that succeed in that one result, so the component is corrected once.';
 
@@ -39,7 +39,7 @@ test('Issue #126 the adversarial gate exhausts a broken component before it retu
   // The extension is owned by CL-D66, as Issue #126 placed it: no separate record, and the sentence is the issue's own.
   // Pinned by ownership rather than by the next free decision id: an id is free only until the next decision takes it,
   // and what Issue #126 placed is that one record owns the extension. CL-D73 later took that id for another decision.
-  const owners = readText('CONTRACT.md').split(/^## /m).slice(1)
+  const owners = readContract().split(/^## /m).slice(1)
     .filter((record) => record.includes('issues/126#issuecomment-5671862619'))
     .map((record) => record.split(' ')[0]);
   assert.deepEqual(owners, ['CL-D66'], 'the extension belongs to CL-D66, not to a record of its own');
@@ -51,7 +51,7 @@ test('Issue #126 the adversarial gate exhausts a broken component before it retu
 });
 
 test('Issue #126 CL-D66 records the component sweep, its declined alternatives, and its boundary', () => {
-  const record = sectionOf(readText('CONTRACT.md'), '## CL-D66 — Same-class rigor gaps are named once and written exactly the first time');
+  const record = sectionOf(readContract(), '## CL-D66 — Same-class rigor gaps are named once and written exactly the first time');
   assert.ok(record, 'CL-D66 must exist');
   for (const field of ['*Decision ID:* CL-D66', '*Kind:* contract', '*Options and trade-offs:*', '*Owner choice:*', '*Validity and invalidation conditions:*']) {
     assert.ok(record.includes(field), `CL-D66 must carry ${field}`);

@@ -3,7 +3,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, exists, sectionOf } = require('./helpers');
+const { readText, readContract, readJson, exists, sectionOf } = require('./helpers');
 
 const manifest = readJson('test/contract-clauses.json');
 
@@ -39,7 +39,9 @@ for (const clause of manifest.clauses) {
   for (const file of clause.files) {
     test(`${clause.id} — ${clause.title} — ${file}`, () => {
       assert.ok(exists(file), `contract file is missing: ${file}`);
-      const text = readText(file);
+      // CL-D103 (#215): a clause that names CONTRACT.md is checked against the whole contract, the preamble followed by
+      // every record file; a clause pinned to one record names that record's file.
+      const text = file === 'CONTRACT.md' ? readContract() : readText(file);
 
       if (marker !== null) {
         assert.ok(

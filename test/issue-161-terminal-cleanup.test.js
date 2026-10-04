@@ -14,7 +14,7 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, repoPath, cliSchemas } = require('./helpers');
+const { readText, readContract, repoPath, cliSchemas } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const temp = (prefix) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
@@ -146,6 +146,6 @@ test('Issue #161 a workspace it must not remove is refused, with the boundary it
 test('Issue #161 the map and the record name the packaged terminal cleanup', () => {
   const map = readText('skills/closed-loop-pr/references/helper-map.md');
   assert.ok(map.includes('| Terminal cleanup of the run-owned linked workspace (CL-D84) | `workspace_cleanup_created` | `created` (data of `workspace_create`); the request is composed inside the package |'), 'the map declares the operation');
-  const record = readText('CONTRACT.md');
+  const record = readContract();
   assert.ok(record.includes('## CL-D84 — The terminal cleanup is one packaged operation'), 'CL-D84 must exist');
 });

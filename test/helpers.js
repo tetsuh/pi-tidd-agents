@@ -13,6 +13,21 @@ function readText(relativePath) {
   return fs.readFileSync(repoPath(relativePath), 'utf8');
 }
 
+// CL-D103 (#215): every contract record is its own file under `contract/`, and CONTRACT.md is the preamble followed by
+// the record index. The contract is the preamble followed by every listed record file in index order, one blank line
+// apart: the text CONTRACT.md held before the move.
+function contractIndex() {
+  const index = readText('CONTRACT.md'), at = index.indexOf('\n## Record index\n');
+  if (at === -1) throw new Error('CONTRACT.md carries no record index');
+  return { preamble: index.slice(0, at), files: [...index.slice(at).matchAll(/^- \[(contract\/[A-Za-z0-9._-]+\.md)\]\(\1\) — /gm)].map((m) => m[1]) };
+}
+function readContract() {
+  const { preamble, files } = contractIndex();
+  return `${preamble}\n${files.map((file) => readText(file)).join('\n')}`;
+}
+// Every file that carries the contract, for a check that reads files one by one: CONTRACT.md, then each record file.
+function contractFiles() { return ['CONTRACT.md', ...contractIndex().files]; }
+
 function exists(relativePath) {
   return fs.existsSync(repoPath(relativePath));
 }
@@ -355,4 +370,4 @@ function receiverTypebox(receiver, options = {}) {
 }
 
 module.exports = {
-  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };
+  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractFiles, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };

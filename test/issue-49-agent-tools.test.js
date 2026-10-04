@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readJson, parseFrontmatter, sectionOf } = require('./helpers');
+const { readText, readContract, readJson, parseFrontmatter, sectionOf } = require('./helpers');
 
 const REVIEWERS = ['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'];
 const WORKERS = ['tidd-autofix-worker'];
@@ -58,7 +58,7 @@ test('Issue #49 every agent keeps its native supervisor coordination guidance', 
 });
 
 test('Issue #49 CL-D35 narrows the agents/** freeze without reopening it', () => {
-  const contract = readText('CONTRACT.md');
+  const contract = readContract();
   const section = sectionOf(contract, '## CL-D35 — One-time removal of the unloaded intercom tool from the six agent allowlists');
   assert.ok(section, 'CL-D35 decision is missing');
   assert.match(section, /^\*\*Clauses:\*\* CL-D35-freeze, CL-D35-readme$/m);
