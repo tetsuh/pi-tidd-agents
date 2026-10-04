@@ -317,9 +317,8 @@ function writerDone(opts) {
   s.pushes.push(snap); s.counters.pushes += 1;
   s.pushHistory.push({ commit: b.commit, findings: b.findings });
   s.prevHead = s.target.headOid; s.target.headOid = b.commit;
-  // A new head starts a new observation origin and resets the quiet period (review-only.md), so its first snapshot is
-  // not a change of the old head's.
-  s.origin = null; s.changedAt = null; s.fingerprints.snapshot = null;
+  // A new head's first snapshot is not a change of the old head's.
+  s.fingerprints.snapshot = null;
   s.invalidated = `every gate verdict before ${b.commit.slice(0, 12)}`;
   s.ignoredDelta = b.ignored; s.batch = null; s.pending = null; run.save();
   verifyWorkspace(run);
@@ -335,7 +334,7 @@ function finish(run) {
   const { snapshot, fresh } = collectSnapshotEvidence(run, s.workspace);
   s.activeGate = 'external';
   if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }
-  finalPolicy(run, snapshot, 'wait for checks and external review on this head, then a fresh run');
+  finalPolicy(run, snapshot, 'wait for the checks on this head, then a fresh run');
   s.invalidated = null;
   end(run, 'MERGE_READY', `${readyGates(s.gateLog, s.target.headOid)} returned MERGE on ${s.target.headOid.slice(0, 12)} after ${s.counters.pushes} correction push(es)${s.convergenceDisabled ? ' (convergence disabled)' : ''}; the final policy passes`);
 }

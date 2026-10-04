@@ -65,8 +65,8 @@ if (endpoint === 'repos/o/r') out({ owner: { type: 'User' }, default_branch: 'ma
 if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); process.stderr.write('HTTP 404'); process.exit(1); }
 if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
-if (endpoint.includes('/check-runs/1/annotations')) out([]);
-if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', started_at: '2026-09-29T00:00:00Z', ...(f.checkStatus && f.checkStatus !== 'completed' ? {} : { completed_at: '2026-09-29T00:00:00Z' }), status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }] });
+if (/\\/check-runs\\/\\d+\\/annotations/.test(endpoint)) out([]);
+if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', started_at: '2026-09-29T00:00:00Z', ...(f.checkStatus && f.checkStatus !== 'completed' ? {} : { completed_at: '2026-09-29T00:00:00Z' }), status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }, ...(f.extraChecks || [])] });
 if (endpoint.includes('/check-suites')) out({ check_suites: [] });
 out([]);
 `, { mode: 0o755 });
@@ -231,21 +231,39 @@ test('Issue #196 a default run directory under a temporary root inside a work tr
 function setFixture(t, patch) { const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); fs.writeFileSync(t.fixture, JSON.stringify({ ...f, ...patch })); }
 function throughGates(t, n = 3) { let r; for (let i = 0; i < n; i += 1) r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e); return r; }
 
-test('Issue #196 a missing required approval keeps final readiness waiting', () => {
+// CL-D100 (#226): what only a human or GitHub settles never holds readiness back; the operator's actions name it.
+test('Issue #196 a protection the driver cannot read is settled by mergeability: clean names nothing, blocked is named', () => {
+  let t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  let s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.equal(s.operatorActions, 'none; a human may merge');
+  t = setup();
+  { const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.mergeable_state = 'blocked'; fs.writeFileSync(t.fixture, JSON.stringify(f)); }
+  assert.equal(drive(t.start, t.e).status, 0);
+  throughGates(t);
+  s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.equal(s.operatorActions, 'before merging, a human confirms: GitHub reports the pull request mergeable_state blocked');
+});
+
+test('Issue #196 a missing required approval does not hold MERGE_READY back, and the operator\'s actions name it', () => {
   const t = setup();
   setFixture(t, { protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } });
   assert.equal(drive(t.start, t.e).status, 0);
   throughGates(t);
   const s = state(t.runDir);
-  assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
-  assert.match(s.reason, /required_pull_request_reviews; a human confirms/);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.equal(s.operatorActions, 'before merging, a human confirms: branch protection requires required_pull_request_reviews');
+  assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /^operator_actions: before merging, a human confirms: branch protection requires required_pull_request_reviews$/m);
 });
 
 test('Issue #221 a drafted publication names no local path: home, run directory, or package', () => {
   // The wait action named `node <package>/…/review.js resume --run-dir <run dir>`, and the publication script binds
   // the body's digest, so the owner could only publish the operator's local paths or nothing.
   const t = setup(), home = temp('i221-home-');
-  setFixture(t, { protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } });
+  setFixture(t, { checkStatus: 'in_progress' });
   const e = { ...t.e, HOME: home };
   assert.equal(drive(t.start, e).status, 0);
   let last;
@@ -401,15 +419,12 @@ test('Issue #196 a stopped run resumes after recomputing its fingerprints, and r
   throughGates(t);
   assert.equal(state(t.runDir).state, 'WAITING_EXTERNAL_REVIEW');
   setFixture(t, { checkStatus: 'completed' });
-  // The completed check changed the snapshot, so the resumed run restarts at convergence (ADV-199-SNAPSHOT-INVALIDATION),
-  // then waits out the quiet period that change started, and is ready once it has passed.
+  // The completed check changed the snapshot, so the resumed run restarts at convergence (ADV-199-SNAPSHOT-INVALIDATION)
+  // and is ready once the gates pass again: nothing waits for a quiet period (CL-D100).
   let r = drive(['resume', '--run-dir', t.runDir], t.e);
   assert.equal(r.status, 0, r.stderr + r.stdout);
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer');
   throughGates(t);
-  assert.equal(state(t.runDir).state, 'WAITING_EXTERNAL_REVIEW', state(t.runDir).reason);
-  const st = state(t.runDir); st.changedAt = new Date(Date.now() - 180000).toISOString(); fs.writeFileSync(path.join(t.runDir, 'state.json'), JSON.stringify(st));
-  r = drive(['resume', '--run-dir', t.runDir], t.e);
   assert.equal(state(t.runDir).state, 'MERGE_READY', state(t.runDir).reason);
   const moved = setup();
   setFixture(moved, { checkStatus: 'in_progress' });
@@ -863,8 +878,8 @@ test('Issue #196 a pull request whose head repository is gone fails before any r
 });
 
 // ADV-199-CODEOWNER-APPROVAL: an approval requirement the driver cannot verify from the snapshot (a code owner's
-// approval, or an approval after the last push) keeps readiness waiting, from branch protection or from a ruleset.
-test('Issue #196 a code-owner or last-push approval requirement waits for a human, even with an approval', () => {
+// approval, or an approval after the last push) is named for a human, from branch protection or from a ruleset (a wait until CL-D100).
+test('Issue #196 a code-owner or last-push approval requirement is for a human to confirm, even with an approval', () => {
   const approved = (t) => [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: t.target.head, submitted_at: '2026-09-29T00:00:00Z' }];
   const shapes = [
     { protection: { required_pull_request_reviews: { required_approving_review_count: 1, require_code_owner_reviews: true } } },
@@ -877,8 +892,8 @@ test('Issue #196 a code-owner or last-push approval requirement waits for a huma
     assert.equal(drive(t.start, t.e).status, 0);
     throughGates(t);
     const s = state(t.runDir);
-    assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(shape)}: ${s.reason}`);
-    assert.match(s.reason, /a human confirms/);
+    assert.equal(s.state, 'MERGE_READY', `${JSON.stringify(shape)}: ${s.reason}`);
+    assert.match(s.operatorActions, /^before merging, a human confirms: (?:branch protection requires required_pull_request_reviews|ruleset 1 can gate the merge \(pull_request\))$/);
   }
 });
 
@@ -915,17 +930,18 @@ test('Issue #196 a validation command that switches the checkout stops before th
 // Round 13 of PR #199: required checks that never reported (ADV-199-MISSING-REQUIRED-CHECKS), a reply added to an
 // existing thread (ADV-199-THREAD-REPLY-IDENTITY), and a pull request the driver cannot read from a local checkout
 // (ADV-199-NO-CHECKOUT-PR), which stays with the prose path until the prompt switch.
-test('Issue #196 a required check that never reported keeps readiness waiting, from protection or a ruleset', () => {
-  // A ruleset's required check waits for a human (the #196 cut-off); protection's is judged here.
-  for (const shape of [{ protection: { required_status_checks: { strict: false, contexts: ['ci/build'] } } },
-    { rulesets: [{ id: 2, updated_at: '2026-09-29T00:00:00Z', enforcement: 'active', rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci/build' }] } }], bypass_actors: [] }] }]) {
+test('Issue #196 a required check that never reported keeps readiness waiting when protection requires it; a ruleset is for a human', () => {
+  // Protection's required check is judged here and waits. A ruleset is never evaluated (the #196 cut-off), so its
+  // required check is part of what a human confirms (CL-D100).
+  for (const [shape, outcome, where, text] of [[{ protection: { required_status_checks: { strict: false, contexts: ['ci/build'] } } }, 'WAITING_EXTERNAL_REVIEW', 'reason', /ci\/build has not reported/],
+    [{ rulesets: [{ id: 2, updated_at: '2026-09-29T00:00:00Z', enforcement: 'active', rules: [{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci/build' }] } }], bypass_actors: [] }] }, 'MERGE_READY', 'operatorActions', /ruleset 2 can gate the merge/]]) {
     const t = setup();
     setFixture(t, shape);
     assert.equal(drive(t.start, t.e).status, 0);
     throughGates(t);
     const s = state(t.runDir);
-    assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', `${JSON.stringify(shape)}: ${s.reason}`);
-    assert.match(s.reason, /ci\/build has not reported|ruleset 2 can gate the merge/);
+    assert.equal(s.state, outcome, `${JSON.stringify(shape)}: ${s.reason}`);
+    assert.match(s[where], text);
   }
 });
 
@@ -993,7 +1009,7 @@ test('Issue #196 a validated MERGE that carries a deferred follow-up advances', 
 
 // Round 16 of PR #199: a ruleset counts only when it is active and its conditions target this pull request's base
 // branch and repository (CONV-199-RULESET-APPLICABILITY). A condition the snapshot cannot evaluate counts, so an
-// unknown targeting keeps readiness waiting rather than passing it.
+// unknown targeting is named for a human rather than passed over (a wait until CL-D100).
 
 // Round 17 of PR #199: a required check pinned to an app is satisfied only by that app's check run
 // (ADV-199-REQUIRED-APP-ID), and the frozen ignored delta covers every descendant of an ignored directory by content
@@ -1012,7 +1028,7 @@ test('Issue #196 a required check pinned to an app is satisfied only by that app
     assert.deepEqual(pending(snapshot(policy, [run(123)])), [], 'the pinned app');
   }
   assert.deepEqual(pending(snapshot(protection(null), [run(999)])), [], 'an unpinned check');
-  assert.match(pending(snapshot(ruleset(undefined), [], [status])).join(';'), /a human confirms/, 'a ruleset check waits for a human');
+  assert.match(readiness(snapshot(ruleset(undefined), [], [status]), 'h'.repeat(40)).confirm.join(';'), /^ruleset 1 can gate the merge \(required_status_checks\)$/, 'a ruleset check is for a human to confirm');
 });
 
 test('Issue #196 the ignored inventory covers every descendant of an ignored directory by content', () => {
@@ -1140,8 +1156,8 @@ test('Issue #196 a body edited during validation stops before the first gate', (
 
 // The pre-push sweep after round 23 of PR #199: a confirmed assigned finding is resolved, a relaunch revalidates, the
 // status block names only a permitted action, the drafted artifacts stay publishable, the gate receives the exact diff,
-// `resolved:` lists each role once, the repository is GitHub's canonical name, and the quiet period and observation
-// window are applied and reported for this run.
+// `resolved:` lists each role once, the repository is GitHub's canonical name, and the external observation is
+// reported for this run.
 function solConfirming(runDir, runs) {
   const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
   const st = state(runDir), expected = JSON.parse(fs.readFileSync(st.pending.expectationPath, 'utf8')), c = expected.correlation;
@@ -1191,10 +1207,7 @@ test('Issue #196 the status block names only a permitted next action, and MERGE_
   setFixture(t, { prComments: [prComment(1)] });
   drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
   throughGates(t);
-  // The comment's arrival started the quiet period; once it has passed, the resumed run is ready.
-  assert.equal(state(t.runDir).state, 'WAITING_EXTERNAL_REVIEW', state(t.runDir).reason);
-  const st = state(t.runDir); st.changedAt = new Date(Date.now() - 180000).toISOString(); fs.writeFileSync(path.join(t.runDir, 'state.json'), JSON.stringify(st));
-  drive(['resume', '--run-dir', t.runDir], t.e);
+  // The comment's arrival reran the gates; nothing waits for a quiet period after it (CL-D100).
   assert.equal(state(t.runDir).state, 'MERGE_READY', state(t.runDir).reason);
   assert.match(state(t.runDir).statusBlock, /^invalidated_evidence: none$/m);
   assert.equal((state(t.runDir).statusBlock.match(/tidd-convergence-reviewer/g) || []).length, 1, 'resolved lists each role once');
@@ -1228,24 +1241,26 @@ test('Issue #196 the bound repository is GitHub\'s canonical name, whatever --re
   assert.equal(state(t.runDir).target.repository, 'o/r');
 });
 
-test('Issue #196 a recent external event keeps readiness in its quiet period, and the block reports quiet and window', () => {
+// CL-D100 (#226): external review is best effort. A recent external event starts no wait; the run reports the latest
+// event and that it did not wait.
+test('Issue #196 a recent external event does not hold MERGE_READY back, and the publication reports it as observed', () => {
   const t = setup();
   const now = new Date().toISOString();
   setFixture(t, { prComments: [prComment(1, { created_at: now, updated_at: now })] });
   assert.equal(drive(t.start, t.e).status, 0);
   throughGates(t);
   const s = state(t.runDir);
-  assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
-  assert.match(s.reason, /quiet period/);
-  assert.match(s.external, /quiet/);
-  assert.match(s.external, /window/);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.ok(s.external.endsWith(`external review: none observed; latest external event at ${new Date(now).toISOString()}; external review is not waited for`), s.external);
+  assert.doesNotMatch(s.external, /quiet|window/);
+  assert.ok(fs.readFileSync(s.publication.comment, 'utf8').includes('external review is not waited for'), 'the comment says so');
 });
 
-// Round 24 of PR #199: an external record without a valid event time cannot place the quiet period, so readiness waits
-// (ADV-199-MISSING-EVENT-TIMESTAMP).
-test('Issue #196 an external record without a valid event time keeps readiness waiting, in every event class', () => {
-  const { readiness, externalTiming } = require('../skills/closed-loop-pr/driver/run');
-  const dated = '2026-09-29T00:00:00Z', origin = '2026-09-29T00:00:00Z', later = Date.parse('2026-09-29T01:00:00Z');
+// Round 24 of PR #199 (ADV-199-MISSING-EVENT-TIMESTAMP), then CL-D100: an external record without a valid event time
+// is reported as such; with no quiet period to place, it holds nothing back.
+test('Issue #196 an external record without a valid event time is reported, in every event class', () => {
+  const { readiness, externalEvents } = require('../skills/closed-loop-pr/driver/run');
+  const dated = '2026-09-29T00:00:00Z';
   const records = {
     comments: (t) => ({ comments: [{ id: 1, updated_at: t, created_at: t }] }),
     inline: (t) => ({ inline: [{ id: 1, updated_at: t, created_at: t }] }),
@@ -1255,9 +1270,10 @@ test('Issue #196 an external record without a valid event time keeps readiness w
     statuses: (t) => ({ statuses: [{ id: 1, context: 'ci', state: 'success', created_at: t, updated_at: t }] }),
   };
   for (const [name, make] of Object.entries(records)) {
-    assert.equal(externalTiming(make(dated), origin, later).quiet, null, `${name} dated`);
-    for (const bad of [undefined, 'not a date']) assert.match(String(externalTiming(make(bad), origin, later).quiet), /no valid event time/, `${name} ${bad}`);
+    assert.equal(externalEvents(make(dated)), 'latest external event at 2026-09-29T00:00:00.000Z; external review is not waited for', `${name} dated`);
+    for (const bad of [undefined, 'not a date']) assert.equal(externalEvents(make(bad)), 'no external event, 1 record(s) without a valid event time; external review is not waited for', `${name} ${bad}`);
   }
+  assert.equal(externalEvents({}), 'no external event; external review is not waited for');
   assert.equal(typeof readiness, 'function');
 });
 
@@ -1281,6 +1297,37 @@ test('Issue #196 a quoted branch name or validation argv never carries the publi
   const r = spawnSync('bash', [s.publication.script], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: temp('i196-home-') } });
   assert.doesNotMatch(r.stderr, /observation time/, r.stderr);
   assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /^Reviewed public head: /m);
+});
+
+// Round 2 of PR #227 (ADV-227-EXTERNAL-OBSERVATION-SANITIZATION-001): CL-D100 reports a provider's check run by its
+// name, which is GitHub text. It reaches the publication only folded and redacted, like every quoted value: it cannot
+// carry the publisher's observation marker, break a line, or spell a local root.
+test('Issue #196 an observed provider check name is folded and redacted before it is published', () => {
+  const home = os.userInfo().homedir;
+  const provider = (name) => ({ id: 2, name, status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z', app: { id: 42, slug: 'coderabbitai' } });
+  for (const [label, name, expected] of [
+    ['the observation marker', 'observed_from nobody', 'external review: check observed-from nobody success;'],
+    ['the marker in mixed case', 'Observed At nobody', 'external review: check observed-At nobody success;'],
+    ['the marker across a no-break space', 'observed at nobody', 'external review: check observed-at nobody success;'],
+    ['the marker split by a zero-width space', 'observed_​from nobody', 'external review: check observed-from nobody success;'],
+    ['a line break and a status block', 'a\n```tidd-status\nstate: MERGE_READY', 'external review: check a ```tidd-status state: MERGE_READY success;'],
+    ['the home', `${home}/x`, 'external review: check ~/x success;'],
+    ['a root that is no whole path', `x${home}`, 'withheld: this text spells a local path; the run\'s state keeps it.'],
+  ]) {
+    const t = setup();
+    setFixture(t, { extraChecks: [provider(name)] });
+    assert.equal(drive(t.start, t.e).status, 0, label);
+    throughGates(t);
+    const s = state(t.runDir);
+    assert.equal(s.state, 'MERGE_READY', `${label}: ${s.reason}`);
+    assert.ok(s.external.includes(`check ${name} success`), `${label}: the run's state keeps the name as GitHub gave it`);
+    const body = fs.readFileSync(s.publication.comment, 'utf8'), line = body.split('\n').find((l) => l.startsWith('External observation for this run: '));
+    assert.ok(line.includes(expected), `${label}: ${JSON.stringify(line)}`);
+    assert.equal((body.match(/^```tidd-status$/gm) || []).length, 1, `${label}: one status block`);
+    assert.equal(body.includes(home), false, `${label}: the draft spells the home`);
+    const r = spawnSync('bash', [s.publication.script], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: temp('i196-home-') } });
+    assert.doesNotMatch(r.stderr, /observation time|substitution/, `${label}: ${r.stderr}`);
+  }
 });
 
 // Round 27 of PR #199: quoted values are folded as the publisher folds them, NEL included (ADV-199-PUBLISH-NEL), and a
@@ -1311,7 +1358,7 @@ test('Issue #196 a convergence role found disabled is skipped and reported as co
 
 // Round 28 of PR #199: commit messages are framed by NUL, which Git never stores in one, so a message carrying U+0001
 // fingerprints as itself (ADV-199-COMMIT-FRAME-CONTROL); and an observed change of external state that carries no event
-// time of its own, such as a thread resolved, starts the quiet period when it is observed (ADV-199-THREAD-QUIET-UNTIMED).
+// time of its own, such as a thread resolved, reruns the gates (ADV-199-THREAD-QUIET-UNTIMED; the quiet period it started is gone since CL-D100).
 test('Issue #196 a commit message carrying U+0001 fingerprints as itself', () => {
   const { prCommitsFingerprint } = require('../skills/closed-loop-pr/helpers/fingerprints');
   const target = makeTarget();
@@ -1326,7 +1373,7 @@ test('Issue #196 a commit message carrying U+0001 fingerprints as itself', () =>
   assert.equal(state(runDir).fingerprints.pr_commits, prCommitsFingerprint(commits));
 });
 
-test('Issue #196 a thread resolved at final readiness starts the quiet period when it is observed', () => {
+test('Issue #196 a thread resolved at final readiness reruns the gates and starts no wait', () => {
   const t = setup();
   const old = { id: 'T1', isResolved: false, isOutdated: false, path: 'a.js', line: 1, originalLine: 1, comments: { totalCount: 1, nodes: [{ id: 'c1', databaseId: 1, url: 'u', body: 'b', createdAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z', author: { login: 'h', __typename: 'User' } }], pageInfo: { endCursor: null, hasNextPage: false } } };
   setFixture(t, { threads: [old] });
@@ -1336,8 +1383,7 @@ test('Issue #196 a thread resolved at final readiness starts the quiet period wh
   throughGates(t, 1);
   throughGates(t, 3);
   const s = state(t.runDir);
-  assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
-  assert.match(s.reason, /quiet period/);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
 });
 
 // Round 29 of PR #199: any change of the snapshot, not only a new record, invalidates the gate sequence, which restarts
@@ -1392,11 +1438,11 @@ test('Issue #196 a link planted at the lock pid path cannot alter its target', (
   assert.ok(new Run(dir).state, 'the run is usable afterwards');
 });
 
-// Round 35 of PR #199: a ruleset condition the snapshot cannot evaluate keeps readiness waiting for a human, even when
+// Round 35 of PR #199: a ruleset condition the snapshot cannot evaluate is named for a human (a wait until CL-D100), even when
 // every requirement of that ruleset is met (CONV-199-RULESET-UNCERTAINTY).
 
 // Round 36 of PR #199: a ruleset whose targeting cannot be read (a ref condition without an include list, or
-// ~DEFAULT_BRANCH with the default branch unknown) counts and waits for a human (ADV-199-UNKNOWN-RULESET-TARGET).
+// ~DEFAULT_BRANCH with the default branch unknown) counts and is named for a human (ADV-199-UNKNOWN-RULESET-TARGET).
 
 // Round 38 of PR #199: a ruleset whose target or enforcement is missing or unrecognised has unknown applicability; only
 // a known non-branch target or a known inactive enforcement excludes it (CONV-199-MISSING-RULESET-TARGET).
@@ -1404,15 +1450,15 @@ test('Issue #196 a link planted at the lock pid path cannot alter its target', (
 // Owner decision https://github.com/tetsuh/pi-tidd-agents/issues/196#issuecomment-5892010180 (the PR #199 cut-off):
 // readiness defers to a human what it cannot settle exactly. It never decides whether a ruleset applies or whether
 // approvals satisfy it: every ruleset not known disabled that carries a rule other than deletion, non_fast_forward, or
-// creation waits for a human, whatever its targeting reads (ADV-199-UNKNOWN-RULESET-SELECTOR included), and so do
+// creation is named for a human, whatever its targeting reads (ADV-199-UNKNOWN-RULESET-SELECTOR included), and so do
 // branch protection's review requirements and any other enabled protection setting the driver does not evaluate.
-test('Issue #196 a ruleset that can gate a merge, and protection it does not evaluate, wait for a human', () => {
+test('Issue #196 a ruleset that can gate a merge, and protection it does not evaluate, are for a human to confirm and never wait', () => {
   const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
   const head = 'h'.repeat(40);
   const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
   const approved = [{ id: 1, user: { login: 'h', type: 'User' }, state: 'APPROVED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }];
-  const pending = ({ rulesets = [], protection = null }) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: approved,
-    policies: { branchProtection: protection, rulesets, organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
+  const pending = ({ rulesets = [], protection = null }) => { const r = readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: approved,
+    policies: { branchProtection: protection, rulesets, organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head); assert.deepEqual([r.pending, r.failed], [[], []], 'nothing waits or fails'); return r.confirm; };
   const ruleset = (rules, extra = {}) => ({ id: 3, name: 'gate', enforcement: 'active', target: 'branch', bypass_actors: [], conditions: { ref_name: { include: ['~DEFAULT_BRANCH'], exclude: [] } }, rules, ...extra });
   assert.deepEqual(pending({ rulesets: [ruleset([{ type: 'deletion' }, { type: 'non_fast_forward' }, { type: 'creation' }])] }), [], 'rules that never gate a merge');
   assert.deepEqual(pending({ rulesets: [ruleset([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci' }] } }], { enforcement: 'disabled' })] }), [], 'a disabled ruleset');
@@ -1420,23 +1466,23 @@ test('Issue #196 a ruleset that can gate a merge, and protection it does not eva
     ['met approval', ruleset([{ type: 'pull_request', parameters: { required_approving_review_count: 1 } }])], ['unknown rule', ruleset([{ type: 'future_rule' }])], ['unreadable rules', ruleset(undefined)],
     ['unknown selector', ruleset([{ type: 'required_status_checks', parameters: { required_status_checks: [{ context: 'ci/unreported' }] } }], { conditions: { ref_name: { include: [{ future: 'all-branches' }], exclude: [] } } })],
     ['excluded by its targeting', ruleset([{ type: 'pull_request' }], { conditions: { ref_name: { include: ['refs/heads/release'], exclude: [] } } })]]) {
-    assert.match(pending({ rulesets: [set] }).join(';'), /ruleset gate .*a human confirms/, name);
+    assert.match(pending({ rulesets: [set] }).join(';'), /^ruleset gate can gate the merge \(/, name);
   }
-  assert.match(pending({ protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } }).join(';'), /branch protection .*required_pull_request_reviews.*a human confirms/, 'met protection approvals');
+  assert.match(pending({ protection: { required_pull_request_reviews: { required_approving_review_count: 1 } } }).join(';'), /^branch protection requires required_pull_request_reviews$/, 'met protection approvals');
   assert.match(pending({ protection: { required_signatures: { enabled: true } } }).join(';'), /required_signatures/, 'an enabled protection setting');
   assert.deepEqual(pending({ protection: { required_signatures: { enabled: false }, enforce_admins: { enabled: true }, allow_force_pushes: { enabled: false }, required_status_checks: { contexts: ['ci'], checks: [] } } }), [], 'settings that are off or evaluated');
 });
 
 // Round 40 of PR #199: branch protection's `strict` (the head must be up to date with the base) is a requirement the
-// driver does not settle, so it waits for a human (CONV-199-STRICT-REQUIRED-CHECKS); and a role's thinking level is
+// driver does not settle, so it is named for a human (CONV-199-STRICT-REQUIRED-CHECKS); and a role's thinking level is
 // the runner's own `thinking` field, with a model suffix only as a fallback (CONV-199-ROLE-THINKING-STATUS).
-test('Issue #196 strict required checks wait for a human, and a role reports the runner\'s thinking field', () => {
+test('Issue #196 strict required checks are for a human to confirm, and a role reports the runner\'s thinking field', () => {
   const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
   const { roleLabel } = require('../skills/closed-loop-pr/driver/run');
   const head = 'h'.repeat(40);
   const ci = [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }];
-  const pending = (rsc) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: [], policies: { branchProtection: { required_status_checks: rsc }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head).pending;
-  assert.match(pending({ strict: true, contexts: ['ci'], checks: [] }).join(';'), /strict.*a human confirms/);
+  const pending = (rsc) => { const r = readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: ci, statuses: [], threads: [], reviews: [], policies: { branchProtection: { required_status_checks: rsc }, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head); assert.deepEqual(r.pending, []); return r.confirm; };
+  assert.match(pending({ strict: true, contexts: ['ci'], checks: [] }).join(';'), /^branch protection requires required_status_checks\.strict \(the head up to date with the base\)$/);
   assert.deepEqual(pending({ strict: false, contexts: ['ci'], checks: [] }), []);
   assert.equal(roleLabel('r', 'p/m', 'high'), 'r p/m:high');
   assert.equal(roleLabel('r', 'p/m:max', 'max'), 'r p/m:max');
@@ -1447,24 +1493,92 @@ test('Issue #196 strict required checks wait for a human, and a role reports the
 // The pre-push sweep after round 40: GitHub's own mergeability, which any reader sees, settles what an unreadable
 // protection or ruleset would hide (a 404 on protection reads as unprotected to a non-admin), a branch behind its base,
 // and a merge conflict; and a bot's request for changes blocks like a human's.
-test('Issue #196 readiness waits unless GitHub reports the pull request mergeable, and a bot\'s request for changes blocks', () => {
+test('Issue #196 readiness waits unless GitHub reports the pull request mergeable or blocked, and a bot\'s request for changes blocks', () => {
   const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
   const head = 'h'.repeat(40);
   const run = (pull, reviews = []) => readiness({ pull, after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], threads: [], reviews, policies: { branchProtection: false, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, head);
   for (const state of ['clean', 'unstable', 'has_hooks']) assert.deepEqual(run({ mergeable: true, mergeable_state: state }).pending, [], state);
-  for (const state of ['blocked', 'behind', 'dirty', 'unknown', 'draft', null]) assert.match(run({ mergeable: state === 'dirty' ? false : null, mergeable_state: state }).pending.join(';'), /mergeable/, String(state));
+  for (const state of ['behind', 'dirty', 'unknown', 'draft', null]) assert.match(run({ mergeable: state === 'dirty' ? false : null, mergeable_state: state }).pending.join(';'), /mergeable/, String(state));
+  // `blocked` is a requirement only a human or GitHub settles: named for a human, never waited for (CL-D100).
+  const blocked = run({ mergeable: null, mergeable_state: 'blocked' });
+  assert.deepEqual([blocked.pending, blocked.confirm], [[], ['GitHub reports the pull request mergeable_state blocked']]);
+  // Owner decision UNREADABLE-PROTECTION-BY-MERGEABILITY on PR #227: a protection read that answers 404 arrives as
+  // `false`, for no protection and for a token that may not read it alike. GitHub's mergeability settles it: `blocked`
+  // is named above, and a mergeable state leaves nothing to name.
+  for (const state of ['clean', 'unstable', 'has_hooks']) { const r = run({ mergeable: true, mergeable_state: state }); assert.deepEqual([r.pending, r.failed, r.confirm], [[], [], []], `unreadable protection, ${state}`); }
   const bot = [{ id: 1, user: { login: 'coderabbitai[bot]', type: 'Bot' }, state: 'CHANGES_REQUESTED', commit_id: head, submitted_at: '2026-09-29T00:00:00Z' }];
   assert.match(run({ mergeable: true, mergeable_state: 'clean' }, bot).failed.join(';'), /changes requested by coderabbitai\[bot\]/);
 });
 
 // Round 41 of PR #199: required linear history constrains how the pull request is merged, which the driver does not
-// settle, so it waits for a human; only settings that never gate a merge are settled (ADV-199-LINEAR-HISTORY-PROTECTION).
-test('Issue #196 required linear history waits for a human, and only non-gating protection settings are settled', () => {
+// settle, so it is named for a human; only settings that never gate a merge are settled (ADV-199-LINEAR-HISTORY-PROTECTION).
+test('Issue #196 required linear history is for a human to confirm, and only non-gating protection settings are settled', () => {
   const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
-  const pending = (bp) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], threads: [], reviews: [], policies: { branchProtection: bp, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, 'h'.repeat(40)).pending;
-  assert.match(pending({ required_linear_history: { enabled: true } }).join(';'), /required_linear_history.*a human confirms/);
+  const pending = (bp) => { const r = readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks: [], statuses: [], threads: [], reviews: [], policies: { branchProtection: bp, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview: [] } }, 'h'.repeat(40)); assert.deepEqual(r.pending, []); return r.confirm; };
+  assert.match(pending({ required_linear_history: { enabled: true } }).join(';'), /^branch protection requires required_linear_history$/);
   for (const key of ['lock_branch', 'restrictions', 'required_signatures', 'a_future_setting']) assert.match(pending({ [key]: { enabled: true } }).join(';'), new RegExp(key), key);
   assert.deepEqual(pending({ url: 'u', enforce_admins: { enabled: true }, allow_force_pushes: { enabled: true }, allow_deletions: { enabled: true }, block_creations: { enabled: true }, allow_fork_syncing: { enabled: true }, required_conversation_resolution: { enabled: true } }), []);
+});
+
+// CL-D100 (#226): an external review provider's state is observed, never waited for and never a failure; a check run
+// the provider posts counts with it unless protection requires that check.
+test('Issue #196 an external review provider\'s state and its own check run are observed, never waited for', () => {
+  const { readiness } = require('../skills/closed-loop-pr/driver/readiness');
+  const ci = { id: 1, name: 'ci', status: 'completed', conclusion: 'success', app: { slug: 'github-actions' } };
+  const run = ({ externalReview = [], checks = [ci], contexts = [], pins = [], statuses = [] }) => readiness({ pull: { mergeable: true, mergeable_state: 'clean' }, after: { repository: 'o/r', baseBranch: 'main' }, checks, statuses, threads: [], reviews: [],
+    policies: { branchProtection: contexts.length || pins.length ? { required_status_checks: { strict: false, contexts, checks: pins } } : false, rulesets: [], organizationRulesets: [], defaultBranch: 'main', externalReview } }, 'h'.repeat(40));
+  for (const state of ['queued', 'in_progress', 'pending', 'unknown', 'failed', 'completed']) {
+    const r = run({ externalReview: [{ provider: 'coderabbit', source: 'status', state }] });
+    assert.deepEqual([r.pending, r.failed, r.confirm, r.observed], [[], [], [], [`coderabbit ${state}`]], state);
+  }
+  const theirs = (status, conclusion = null, name = 'CodeRabbit') => ({ id: 2, name, status, conclusion, app: { slug: 'coderabbitai' } });
+  for (const [check, text] of [[theirs('in_progress'), 'check CodeRabbit in_progress'], [theirs('queued'), 'check CodeRabbit queued'], [theirs('completed', 'failure'), 'check CodeRabbit failure'], [theirs('completed', 'action_required'), 'check CodeRabbit action_required']]) {
+    const r = run({ checks: [ci, check] });
+    assert.deepEqual([r.pending, r.failed, r.observed], [[], [], [text]], text);
+  }
+  assert.deepEqual(run({ checks: [ci, theirs('completed', 'success')] }).observed, ['check CodeRabbit success'], 'a passed provider check is reported too');
+  // Protection requires it: the check keeps the rule of every required check.
+  assert.deepEqual(run({ checks: [ci, theirs('in_progress')], contexts: ['CodeRabbit'] }).pending, ['check CodeRabbit']);
+  assert.deepEqual(run({ checks: [ci, theirs('completed', 'failure')], contexts: ['CodeRabbit'] }).failed, ['check CodeRabbit failure']);
+  // The provider's commit status follows the same rule (pre-push sweep): skipped unless protection requires the context.
+  const status = (state) => [{ id: 1, context: 'CodeRabbit', state, created_at: '2026-09-29T00:00:00Z', creator: { login: 'coderabbitai[bot]' } }];
+  for (const state of ['pending', 'failure', 'error']) { const r = run({ statuses: status(state) }); assert.deepEqual([r.pending, r.failed], [[], []], `an unrequired status ${state}`); }
+  assert.deepEqual(run({ statuses: status('pending'), contexts: ['CodeRabbit'] }).pending, ['status CodeRabbit']);
+  assert.deepEqual(run({ statuses: status('failure'), contexts: ['CodeRabbit'] }).failed, ['status CodeRabbit failure']);
+  assert.deepEqual(run({ statuses: status('error'), contexts: ['CodeRabbit'] }).failed, ['status CodeRabbit error']);
+  const met = run({ statuses: status('success'), contexts: ['CodeRabbit'] }); assert.deepEqual([met.pending, met.failed], [[], []], 'a required status that passed');
+  // Round 1 of PR #227 (CONV-227-PINNED-REVIEW-CHECK-001): a requirement pinned to another app is not the provider's
+  // check or status. The provider's is observed; the pinned requirement is still missing, and that is what waits.
+  const missing = ['required check CodeRabbit from app 7 has not reported'], other = [{ context: 'CodeRabbit', app_id: 7 }], from = (check, id) => ({ ...check, app: { slug: 'coderabbitai', id } });
+  for (const [check, text] of [[theirs('in_progress'), 'check CodeRabbit in_progress'], [theirs('completed', 'failure'), 'check CodeRabbit failure']]) {
+    const r = run({ checks: [ci, from(check, 42)], pins: other });
+    assert.deepEqual([r.pending, r.failed, r.observed], [missing, [], [text]], `${text} beside a pin on another app`);
+  }
+  for (const state of ['pending', 'failure']) { const r = run({ statuses: status(state), pins: other }); assert.deepEqual([r.pending, r.failed], [missing, []], `a status ${state} beside a pin`); }
+  // The requirement pinned to the provider's own app, or accepting any source, is the provider's check.
+  assert.deepEqual(run({ checks: [ci, from(theirs('completed', 'failure'), 42)], pins: [{ context: 'CodeRabbit', app_id: 42 }] }).failed, ['check CodeRabbit failure']);
+  assert.deepEqual(run({ checks: [ci, from(theirs('in_progress'), 42)], pins: [{ context: 'CodeRabbit', app_id: -1 }] }).pending, ['check CodeRabbit']);
+  assert.deepEqual(run({ statuses: status('failure'), pins: [{ context: 'CodeRabbit', app_id: -1 }] }).failed, ['status CodeRabbit failure']);
+  // Round 3 of PR #227 (SAFETY-227-STATUS-SOURCE-001): only the provider's own status is exempt. A status of the same
+  // context from another creator is an ordinary status and keeps its rule, required or not.
+  const foreign = (state) => [{ ...status(state)[0], creator: { login: 'ci-bot[bot]' } }];
+  assert.deepEqual(run({ statuses: foreign('pending') }).pending, ['status CodeRabbit']);
+  for (const state of ['failure', 'error']) assert.deepEqual(run({ statuses: foreign(state) }).failed, [`status CodeRabbit ${state}`]);
+  assert.deepEqual(run({ statuses: [{ ...status('failure')[0], creator: undefined }] }).failed, ['status CodeRabbit failure'], 'a status without a creator');
+  const passed = run({ statuses: foreign('success') }); assert.deepEqual([passed.pending, passed.failed], [[], []]);
+  // Pre-push sweep: the exempt context is exactly the one CL-D92's classification reads, and the order of the statuses
+  // is consistent whatever an undated record does, so an older provider status cannot stand in for a newer status of
+  // another creator.
+  assert.deepEqual(run({ statuses: [{ ...status('failure')[0], context: 'coderabbit' }] }).failed, ['status coderabbit failure'], 'the provider\'s context in another letter case');
+  const mixed = [{ id: 2, context: 'ci', state: 'success', created_at: '2026-10-01T00:00:02Z', creator: { login: 'ci-bot[bot]' } }, { id: 5, context: 'CodeRabbit', state: 'success', created_at: '2026-10-01T00:00:00Z', creator: { login: 'coderabbitai[bot]' } },
+    { id: 4, context: 'ci', state: 'success', created_at: null, creator: { login: 'ci-bot[bot]' } }, { id: 1, context: 'CodeRabbit', state: 'failure', created_at: '2026-10-01T00:00:05Z', creator: { login: 'ci-bot[bot]' } }];
+  assert.deepEqual(run({ statuses: mixed }).failed, ['status CodeRabbit failure'], 'the newest status of the context decides, whatever an undated record does to the order');
+  // An undated status cannot be placed in time: it is judged beside the newest dated one, never instead of it.
+  assert.deepEqual(run({ statuses: [{ id: 9, context: 'ci', state: 'failure', created_at: null }, { id: 1, context: 'ci', state: 'success', created_at: '2026-10-01T00:00:00Z' }] }).failed, ['status ci failure'], 'an undated failure still counts');
+  assert.deepEqual(run({ statuses: [{ id: 9, context: 'ci', state: 'success', created_at: 'not a date' }, { id: 1, context: 'ci', state: 'failure', created_at: '2026-10-01T00:00:00Z' }] }).failed, ['status ci failure'], 'an undated success hides nothing');
+  // Another app's check with the provider's name is no provider check, and a pending CI check still waits.
+  assert.deepEqual(run({ checks: [ci, { ...theirs('in_progress'), app: { slug: 'github-actions' } }] }).pending, ['check CodeRabbit']);
+  assert.deepEqual(run({ checks: [{ ...ci, status: 'in_progress', conclusion: null }] }).pending, ['check ci']);
 });
 
 // Round 42 of PR #199: every command that opens a run judges its directory as start does, so result, resume, and

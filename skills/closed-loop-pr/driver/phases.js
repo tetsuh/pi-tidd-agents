@@ -9,7 +9,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { externalTiming, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, readiness, ignoredInventory, sha256, die, git, gh } = require('./run');
+const { externalEvents, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, readiness, ignoredInventory, sha256, die, git, gh } = require('./run');
 
 const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 // gate-contract.md: a missing or unparsable result, its runner status record included, is relaunched once without spending a round; still running is
@@ -82,7 +82,7 @@ function readGate(run, runId, self, { codes = RELAUNCHABLE, may = (p) => !p.rela
 }
 function describeExternal(snapshot) {
   const r = readiness(snapshot, snapshot.after.head);
-  return `${(snapshot.comments || []).length} comments, ${(snapshot.reviews || []).length} reviews, ${(snapshot.threads || []).length} threads (${r.unresolved.length} unresolved), ${(snapshot.checks || []).length} checks and ${(snapshot.statuses || []).length} statuses (${r.failed.length} failing, ${r.pending.length} pending)`;
+  return `${(snapshot.comments || []).length} comments, ${(snapshot.reviews || []).length} reviews, ${(snapshot.threads || []).length} threads (${r.unresolved.length} unresolved), ${(snapshot.checks || []).length} checks and ${(snapshot.statuses || []).length} statuses (${r.failed.length} failing, ${r.pending.length} pending); external review: ${r.observed.join(', ') || 'none observed'}`;
 }
 // The snapshot, its fingerprint, the evidence envelope, and the required-evidence set, as of now; `cwd` holds the head.
 // Returns the snapshot and whether it carries external evidence the previous one did not.
@@ -96,9 +96,8 @@ function collectSnapshotEvidence(run, cwd = run.state.checkout) {
   const previous = s.fingerprints.snapshot;
   s.fingerprints.snapshot = snap.value; s.records.snapshot = snap.record; s.snapshotChanged = Boolean(previous) && previous !== snap.value;
   const fresh = s.snapshotChanged;
-  s.observedFrom = new Date().toISOString(); s.origin = s.origin || s.observedFrom;
-  if (fresh) s.changedAt = s.observedFrom;
-  s.external = `${describeExternal(snapshot)}; ${externalTiming(snapshot, s.origin, Date.now(), s.changedAt).report}`;
+  s.observedFrom = new Date().toISOString();
+  s.external = `${describeExternal(snapshot)}; ${externalEvents(snapshot)}`;
   const captureIdentity = { repository: t.repository, number: t.number, baseOid: t.baseOid, baseBranch: t.baseBranch, headOid: t.headOid, headRepository: t.headRepository, headBranch: t.headBranch, state: 'open', draft: false };
   run.op('evidence_verify', { envelope: { schemaVersion: 1, captureIdentity, brackets: { before: snapshot.before, after: snapshot.after }, completeness: snapshot.completeness, fingerprints: s.records }, expected: { ...captureIdentity, fingerprints: s.fingerprints } });
   const fp = s.fingerprints;
@@ -124,14 +123,12 @@ function sameSpec(run, pull, cwd, keys) {
 // The final policy on a fresh snapshot: an unresolved review thread is an external finding for the owner, then failing
 // and pending requirements. Returns only when everything passes.
 function finalPolicy(run, snapshot, waitAction) {
-  const s = run.state, r = readiness(snapshot, s.target.headOid), timing = externalTiming(snapshot, s.origin, Date.now(), s.changedAt);
-  // review-only.md's quiet period after the latest external event, and the end of this head's observation window.
-  if (timing.quiet) r.pending.push(timing.quiet);
-  if (r.pending.length && timing.windowEnded) r.pending.push('the fifteen-minute observation window for this head has ended');
+  const s = run.state, r = readiness(snapshot, s.target.headOid);
   if (r.unresolved.length) { s.nextAction = 'the owner dispositions the external findings, then a fresh run'; s.operatorActions = `disposition and resolve ${r.unresolved.length} external review thread(s)`; run.stop('WAITING_FOR_OWNER', `unresolved external finding(s): ${r.unresolved.join('; ')}`); }
   if (r.failed.length) { s.nextAction = 'the author addresses the failure, then a fresh run'; run.stop('BLOCKED', `final policy failed: ${r.failed.join('; ')}`); }
   if (r.pending.length) { s.nextAction = waitAction; run.stop('WAITING_EXTERNAL_REVIEW', `pending: ${r.pending.join('; ')}`); }
-  s.activeGate = 'none'; s.nextAction = 'human merge decision; the workflow never merges'; s.operatorActions = 'none; a human may merge';
+  // What only a human or GitHub settles never holds readiness back; the operator's actions name it (CL-D100).
+  s.activeGate = 'none'; s.nextAction = 'human merge decision; the workflow never merges'; s.operatorActions = r.confirm.length ? `before merging, a human confirms: ${r.confirm.join('; ')}` : 'none; a human may merge';
 }
 
 // Ignored paths a validation, a gate, or a writer changed since the run took them (review-only.md, autofix.md): a list
