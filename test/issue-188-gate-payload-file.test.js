@@ -4,8 +4,9 @@
 // launch carried a 14,283-character task and the parent's subagent call a 9,968-character one, first differing at
 // character 4,872 inside the envelope's base64 diff. After CL-D90 took the schema out of the parent's hands, the task
 // was the last large document it transcribed. `build_gate_launch` now writes the complete task to a run-owned payload
-// file and returns a request whose task is only a pointer: the path, the SHA-256, and the instruction to verify it
-// through the packaged CLI (`gate_payload_verify`) before following the file verbatim.
+// file and returns a request whose task is only a pointer: the instruction to verify the payload through the packaged
+// CLI (`gate_payload_verify`) before following the file verbatim. Since CL-D101 (#225) the pointer names a verification
+// request the builder wrote beside the payload; the payload's path and its SHA-256 are in that request, not in the task.
 //
 // TDD provenance: behavioural RED — the request carries the whole task and no verify operation exists before the change.
 
@@ -315,7 +316,7 @@ test('Issue #188 the payload is 0600 whatever the umask', () => {
 
 test('Issue #188 the map and the contract state the pointer rule', () => {
   const map = readText('skills/closed-loop-pr/references/helper-map.md');
-  assert.match(map, /\| The gate child's first step, on the payload its launch points to \(CL-D91\) \| `gate_payload_verify` \| `path`, `sha256` \|/);
+  assert.match(map, /\| The gate child's first step: it runs the request its launch names, which verifies the payload \(CL-D91, CL-D101\) \| `gate_payload_verify` \| `path`, `sha256` \|/);
   const contract = readText('skills/closed-loop-shared/references/gate-contract.md');
   assert.match(contract, /A packaged gate launch carries a pointer, not the payload: `build_gate_launch` writes the complete task to a run-owned payload file, and the child verifies its SHA-256 with `gate_payload_verify` before reading it completely and following it verbatim \(CL-D91\)\./);
 });
