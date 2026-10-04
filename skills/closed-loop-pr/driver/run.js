@@ -35,9 +35,10 @@ function parseArgs(argv) {
 // GIT_WORK_TREE, GIT_INDEX_FILE, …) never moves them off the checkout; `gh`, which resolves the repository through Git,
 // drops the same redirection and keeps its own credentials (CONV-199-GIT-ENV-CHECKOUT).
 const REDIRECT_ENV = /^GIT_(?:DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|NAMESPACE|CEILING_DIRECTORIES)$/i;
-function git(cwd, list, encoding = 'utf8', stdio) {
-  // The helpers' safe configuration too, so no hook, fsmonitor, or external diff the checkout names ever runs.
-  return execFileSync('git', gitArgs(list), { cwd, encoding, stdio, maxBuffer: 256 * 1024 * 1024, env: sanitizedEnv({ LC_ALL: 'C' }, 'git') });
+function git(cwd, list, encoding = 'utf8') {
+  // The helpers' safe configuration too, so no hook, fsmonitor, or external diff the checkout names ever runs; Git's own
+  // error output is captured, never passed through, so the driver's last line is its own (CL-D104).
+  return execFileSync('git', gitArgs(list), { cwd, encoding, stdio: 'pipe', maxBuffer: 256 * 1024 * 1024, env: sanitizedEnv({ LC_ALL: 'C' }, 'git') });
 }
 function gh(list, cwd) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !REDIRECT_ENV.test(key)));
@@ -76,8 +77,8 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
     const ok = Array.isArray(commands) && commands.length > 0 && commands.every((c) => Array.isArray(c) && c.length > 0 && c.every((a) => typeof a === 'string' && a.length > 0));
     return ok ? { commands } : { problem: `${where} must carry ${list ? '' : 'validate: '}a nonempty list of nonempty argv lists` };
   };
-  try { git(cwd, ['cat-file', '-e', `${baseOid}^{commit}`], 'utf8', 'pipe'); } catch { return { problem: `the base commit ${baseOid} is not available to read .tidd.json from`, source: 'none' }; }
-  let present = true; try { git(cwd, ['cat-file', '-e', `${baseOid}:.tidd.json`], 'utf8', 'pipe'); } catch { present = false; }
+  try { git(cwd, ['cat-file', '-e', `${baseOid}^{commit}`]); } catch { return { problem: `the base commit ${baseOid} is not available to read .tidd.json from`, source: 'none' }; }
+  let present = true; try { git(cwd, ['cat-file', '-e', `${baseOid}:.tidd.json`]); } catch { present = false; }
   if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer'), '.tidd.json at the base commit'), source: 'base .tidd.json' };
   // Node decodes argv lossily, so a replacement character means bytes that were not UTF-8 (pre-push sweep).
   if (validate !== undefined) return String(validate).includes('\uFFFD') ? { problem: '--validate carries a replacement character: its bytes were not UTF-8', source: '--validate' } : { ...parse(String(validate), '--validate', true), source: '--validate' };
