@@ -18,15 +18,33 @@ const helpers = require('../skills/closed-loop-pr/helpers');
 const INDEX_HEADING = '## Record index';
 const ENTRY = /^- \[(contract\/([A-Za-z0-9._-]+)\.md)\]\(\1\) — (.+)$/;
 
+const INDEX_NOTE = 'Each record is its own file under `contract/`, listed here in order. The contract is this preamble followed by every record file in this order, one blank line apart (CL-D103).';
+
+// Round 2 of PR #233 (CONV-233-INDEX-STRUCTURE-COVERAGE): after the index heading every line is blank, the one note,
+// or a record entry whose title is its record's heading, so no status column, table or other text joins the index.
+function indexProblems(text) {
+  const at = text.indexOf(`\n${INDEX_HEADING}\n`);
+  if (at === -1) return [`CONTRACT.md carries no "${INDEX_HEADING}"`];
+  const heading = (file) => { try { return readText(file).split('\n')[0]; } catch { return null; } };
+  return text.slice(at + INDEX_HEADING.length + 2).split('\n').filter((line) => {
+    if (line === '' || line === INDEX_NOTE) return false;
+    const m = ENTRY.exec(line);
+    return !m || heading(m[1]) !== `## ${m[2]} — ${m[3]}`;
+  }).map((line) => `not a record entry with its record's title: ${line}`);
+}
 function indexEntries() {
   const text = readText('CONTRACT.md');
-  const at = text.indexOf(`\n${INDEX_HEADING}\n`);
-  assert.notEqual(at, -1, `CONTRACT.md carries "${INDEX_HEADING}"`);
-  return text.slice(at + INDEX_HEADING.length + 2).split('\n').filter((line) => line.startsWith('- ')).map((line) => {
+  assert.deepEqual(indexProblems(text), [], 'the index holds only the note and record entries');
+  return text.slice(text.indexOf(`\n${INDEX_HEADING}\n`)).split('\n').filter((line) => ENTRY.test(line)).map((line) => {
     const m = ENTRY.exec(line);
-    assert.ok(m, `an index line names one record file and its title: ${line}`);
     return { file: m[1], id: m[2], title: m[3] };
   });
+}
+// Round 2 of PR #233 (CONV-233-RECORD-FILE-MODE): a record file is a regular file, never a link, since
+// `required_evidence_set` carries only regular files and a linked record would drop out of a gate's evidence.
+function recordFileProblem(absolute) {
+  const stat = fs.lstatSync(absolute);
+  return stat.isFile() ? null : `${absolute} is not a regular file`;
 }
 
 test('Issue #215 every record is one file under contract/, listed once in the index, in assembly order', () => {
@@ -36,6 +54,8 @@ test('Issue #215 every record is one file under contract/, listed once in the in
   const onDisk = fs.readdirSync(repoPath('contract')).filter((f) => f.endsWith('.md')).map((f) => `contract/${f}`).sort();
   assert.deepEqual(onDisk, entries.map((e) => e.file).sort(), 'no record file is missing from the index and none is unlisted');
   for (const { file, id, title } of entries) {
+    assert.equal(path.basename(file, '.md'), id, `${file} is named by its record's ID`);
+    assert.equal(recordFileProblem(repoPath(file)), null);
     const text = readText(file);
     assert.equal(text.split('\n')[0], `## ${id} — ${title}`, `${file} opens with its own heading, which the index repeats`);
     assert.equal(text.split('\n').filter((line) => line.startsWith('## ')).length, 1, `${file} holds one record`);
@@ -100,4 +120,19 @@ test('Issue #215 a change to one record puts that record, CONTRACT.md and README
     assert.deepEqual(set.data.requiredEvidence, ['CONTRACT.md', 'README.md', 'contract/CL-D2.md'].map((source) => ({ source, kind: 'file', identity: blob(source) })));
     assert.deepEqual(set.data.authority, { included: ['CONTRACT.md', 'README.md'], absent: [], excluded: [] });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+test('Issue #215 the index refuses any line but the note and record entries, and a record file must be a regular file', () => {
+  const index = readText('CONTRACT.md');
+  assert.deepEqual(indexProblems(index), []);
+  for (const [label, extra] of [['a table row', '| CL-D1 | active |'], ['a status after an entry', '- [contract/CL-D1.md](contract/CL-D1.md) — Gate verdicts are supplied by the caller, not by agent files | active'], ['a sub-heading', '### Superseded'], ['a loose sentence', 'Superseded records follow.']]) {
+    assert.equal(indexProblems(`${index}${extra}\n`).length, 1, `${label} is refused`);
+  }
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-215-mode-'));
+  try {
+    fs.writeFileSync(path.join(dir, 'real.md'), '## CL-D1 — one\n');
+    fs.symlinkSync(path.join(dir, 'real.md'), path.join(dir, 'CL-D1.md'));
+    assert.equal(recordFileProblem(path.join(dir, 'real.md')), null);
+    assert.match(recordFileProblem(path.join(dir, 'CL-D1.md')), /not a regular file/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
