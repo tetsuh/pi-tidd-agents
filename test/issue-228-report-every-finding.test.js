@@ -14,7 +14,7 @@ const path = require('node:path');
 const helpers = require('../skills/closed-loop-pr/helpers');
 const { readText, sectionOf } = require('./helpers');
 
-const BLOCK_RULE = 'The child reports every finding it can establish in the invocation, not only the first, and after a finding checks the rest of the change for the same class.';
+const BLOCK_RULE = 'The child reports every finding it can establish in the invocation, not only the first, and after a finding checks the rest of the change for the same class (CL-D102).';
 const ROLE_RULE = '- Report every finding you can establish in this invocation, not only the first: after a finding, check the rest of the change for the same class before you return.';
 const OID = 'a'.repeat(40), SHA = 'e'.repeat(64);
 

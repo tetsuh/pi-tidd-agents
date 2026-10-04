@@ -30,6 +30,7 @@ You never apply fixes. Do not edit, write, delete, rename, or generate files; ch
 - Treat repo-local `progress.md` files as read-only context; never flag, modify, or ask to remove them.
 - Use `bash` only for read-only inspection and test execution. Do not run commands that modify files, dependencies, git state, remote state, or generated artifacts.
 - Do not invent issues. Report only problems you can justify from evidence and a concrete failure mode, missing coverage, or contract mismatch.
+- Report every finding you can establish in this invocation, not only the first: after a finding, check the rest of the change for the same class before you return.
 - Recommend the smallest corrective change for each valid finding; do not apply it.
 - Separate what must be corrected before the formal gates from optional improvements and pre-existing issues.
 - If everything looks converged, say so plainly.

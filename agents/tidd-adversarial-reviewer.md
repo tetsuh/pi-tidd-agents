@@ -62,6 +62,7 @@ Review a PR or issue by understanding the context, then verifying:
 - Treat repo-local `progress.md` files as read-only context. Do not flag them as repo noise, modify them, delete them, or ask to remove them merely because they are untracked.
 - Use `bash` only for read-only inspection and test execution. Do not run commands that modify files, dependencies, git state, remote state, or generated artifacts.
 - Do not invent issues. Only report problems you can justify from evidence and a concrete failure mode, violated contract, or maintainability cost.
+- Report every finding you can establish in this invocation, not only the first: after a finding, check the rest of the change for the same class before you return.
 - Recommend the smallest corrective change that resolves each valid finding; do not apply it.
 - Separate merge blockers from optional improvements and pre-existing issues.
 - If everything looks good, say so plainly.
