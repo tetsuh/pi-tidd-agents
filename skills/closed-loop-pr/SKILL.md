@@ -56,12 +56,12 @@ A target in **another repository** may be reviewed in review-only mode. Its base
 
 After the checks above, a pull request of the repository of the current checkout runs through the packaged driver, which sequences the round, not you; any other target continues with Mode dispatch below. The other sections of this Skill, the shared references and the mode references are the specification the driver and the gates implement; on this path you read no mode reference, compose no helper request, and judge no finding.
 
-1. From the checkout's top-level directory, run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`, where `<skill-dir>` is this Skill's directory, `<driver>` is `review` in review-only mode and `autofix` in autofix mode, and `<owner/name>` is the checkout's repository. Add `--convergence disabled` only when preflight found that role disabled. Set no timeout of your own on a driver command; one that is killed anyway is reported, and you stop.
+1. From the checkout's top-level directory, run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`, where `<skill-dir>` is this Skill's directory, `<driver>` is `review` in review-only mode and `autofix` in autofix mode, and `<owner/name>` is the checkout's repository. Add `--language-profile "conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites={}"` with the profile CL-D16 resolved for this run, and `--convergence disabled` only when preflight found that role disabled. Set no timeout of your own on a driver command; one that is killed anyway is reported, and you stop.
 2. When a line begins `NEXT:`, call `subagent` with exactly the JSON object on the following line. If the call is refused or returns no run id, report it and stop; never change the object. Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it. Then run the command on the `NEXT:` line itself (`result` or `writer-done`) with that run id; commands inside the JSON object are the subagent's, never yours.
 3. When a line begins `WAIT:`, the run has not completed: wait for its completion, then run the command that line names with the same run id. This is not a retry.
-4. When any output of the driver says to review the pull request on the prose path, continue with Mode dispatch below in the parsed mode, whatever reference the message names.
+4. When the last line the driver prints begins `PROSE_PATH:`, continue with Mode dispatch below in the parsed mode, whatever reference that line names.
 5. Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop. Never run the publication script.
-6. When the driver ends without such a line, report the last 30 lines of its combined output and stop; never retry or continue by hand.
+6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.
 
 ## Evidence fingerprints (CL-D9)
 

@@ -49,7 +49,7 @@ function start(opts) {
   const evidence = headFingerprints(run, { cwd: checkout, baseOid: target.baseOid, headOid: target.headOid, issue, comments });
   run.file('pr.diff', evidence.diff);
   // The gate receives the exact diff, so a diff that is not UTF-8 text stops here rather than reaching it altered.
-  if (!isUtf8(Buffer.from(evidence.diff))) run.stop('BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly; review it on the prose path of review-only.md');
+  if (!isUtf8(Buffer.from(evidence.diff))) { const why = 'the diff is not valid UTF-8, so no gate can receive it exactly; review it on the prose path of review-only.md'; run.stop('BLOCKED', why, `PROSE_PATH: ${why}\n`); }
   s.fingerprints = evidence.values; s.records = evidence.records;
   const results = [`source: ${validation.source}`, ...(validation.source === 'none' ? ['no validation commands configured'] : [])];
   for (const command of [...validation.commands, ['git', 'diff', '--check', `${target.baseOid}...${target.headOid}`]]) {

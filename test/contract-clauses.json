@@ -5515,7 +5515,7 @@
         "running its command again after completion is not a retry",
         "This narrows CL-D19 and Mode dispatch, which read exactly one mode reference after mode parsing, to the prose path.",
         "The Skill's other sections, the shared references and the mode references stay as they are, as the specification the driver and the gates implement (D2)",
-        "they measured 156,176 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms",
+        "they measured 156,345 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms, leaving 5,655 bytes",
         "Letting the parent compose or change a request the driver builds, judge an outcome by exit status, or interrupt a running gate, or removing the dispatch section, requires a new owner decision."
       ]
     },
@@ -5533,8 +5533,9 @@
         "If the call is refused or returns no run id, report it and stop; never change the object.",
         "Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it.",
         "When a line begins `WAIT:`, the run has not completed",
-        "continue with Mode dispatch below in the parsed mode, whatever reference the message names.",
-        "When the driver ends without such a line, report the last 30 lines of its combined output and stop; never retry or continue by hand."
+        "4. When the last line the driver prints begins `PROSE_PATH:`, continue with Mode dispatch below in the parsed mode, whatever reference that line names.",
+        "6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.",
+          "with the profile CL-D16 resolved for this run"
       ]
     },
     {
@@ -5576,6 +5577,28 @@
       ]
     },
     {
+      "id": "CL-D104-forward-d93",
+      "marker": "CL-D104",
+      "title": "CL-D93 names the switch",
+      "files": [
+        "contract/CL-D93.md"
+      ],
+      "requires": [
+        "CL-D104 later made the prompt switch: a pull request the driver sends back prints a last line beginning `PROSE_PATH:`"
+      ]
+    },
+    {
+      "id": "CL-D104-driver",
+      "marker": "CL-D104",
+      "title": "The driver prints the send-back line itself",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "function sendBack(message) { process.stdout.write(`PROSE_PATH: ${message}\\n`); process.exit(2); }"
+      ]
+    },
+    {
       "id": "CL-D104-tests",
       "marker": "CL-D104",
       "title": "The section, its command sequence, the record and the raise are pinned",
@@ -5586,7 +5609,9 @@
         "Issue #224 the Skill sends the round to the packaged driver before any mode reference is read",
         "Issue #224 the dispatch section\\'s command sequence runs one review-only round to a terminal outcome",
         "Issue #224 the contract records the dispatch and README names the one way to run a round",
-        "Issue #224 CL-D104 raises the authority ceiling once, with the headroom asserted at the raise"
+        "Issue #224 CL-D104 raises the authority ceiling once, with the headroom asserted at the raise",
+          "Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line after FINISHED",
+          "Issue #224 a head that is not local is sent back on a PROSE_PATH line"
       ]
     }
   ]

@@ -280,11 +280,11 @@ class Run {
     if (!ok && !allowFail) this.stop(status, `${operation} refused: ${result.error?.code || result.data?.code} ${result.error?.message || ''}`.trim());
     return result;
   }
-  stop(state, reason) {
+  stop(state, reason, last = '') {
     Object.assign(this.state, { state, reason, pending: null });
     this.save();
     this.publish();
-    process.stdout.write(`${JSON.stringify({ state, reason, runDir: this.dir })}\n`);
+    process.stdout.write(`${JSON.stringify({ state, reason, runDir: this.dir })}\n${last}`);
     process.exit(state === 'MERGE_READY' ? 0 : 1);
   }
   // Status block and publication artifacts: the CL-D33 template and the CL-D45 marker, with a real observation time.
