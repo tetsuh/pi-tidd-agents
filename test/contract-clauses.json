@@ -5428,7 +5428,7 @@
       "requires": [
         "Issue #228 the shared Every-gate block tells every gate to report all it can establish",
         "Issue #228 each PR gate role\\'s definition carries the rule among its working rules",
-        "Issue #228 the payload the launch builder writes carries the rule, for each gate"
+        "Issue #228 the payload the launch builder writes carries the rule, for every gate of both roots"
       ]
     }
   ]

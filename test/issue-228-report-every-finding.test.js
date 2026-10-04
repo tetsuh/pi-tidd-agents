@@ -34,26 +34,37 @@ test('Issue #228 each PR gate role\'s definition carries the rule among its work
   }
 });
 
-test('Issue #228 the payload the launch builder writes carries the rule, for each gate', () => {
-  for (const gate of ['convergence', 'adversarial', 'safety']) {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i228-'));
+// Round 1 of PR #230 (CONV-230-ISSUE-GATE-PAYLOAD-TEST-COVERAGE): the rule is contracted for every gate of both roots,
+// so the payload is checked for every launch the builder composes: the PR gates in review-only and in exact autofix,
+// and the Issue root's convergence, adversarial and decision-drift gates.
+const CREATED = Object.freeze({ kind: 'linked', path: '/tmp/pi-autofix-helper-test/workspace', root: '/tmp/pi-autofix-helper-test', head: OID, tree: 'b'.repeat(40), cleanupAllowed: true,
+  receipt: { version: 1, id: 'id', root: '/tmp/pi-autofix-helper-test', storedPath: '/tmp/pi-autofix-helper-test/.cleanup-receipt.json' } });
+const LAUNCHES = [
+  ...['convergence', 'adversarial', 'safety'].flatMap((gate) => [['pr', gate, 'review-only'], ['pr', gate, 'autofix']]),
+  ...['convergence', 'adversarial', 'decision-drift'].map((gate) => ['issue', gate, 'review-only']),
+];
+
+test('Issue #228 the payload the launch builder writes carries the rule, for every gate of both roots', () => {
+  for (const [workflow, gate, mode] of LAUNCHES) {
+    const label = `${workflow}/${gate}/${mode}`, dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i228-'));
     try {
       const correlation = { repository: 'o/r', number: 228, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
-      const expectation = helpers.buildGateExpectation({ workflow: 'pr', correlation, assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
-      assert.equal(expectation.ok, true, JSON.stringify(expectation.error));
+      const expectation = helpers.buildGateExpectation({ workflow, correlation, assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
+      assert.equal(expectation.ok, true, `${label}: ${JSON.stringify(expectation.error)}`);
       const expectationPath = path.join(dir, `expectation-${gate}.json`);
       fs.writeFileSync(expectationPath, `${JSON.stringify(expectation.data.expected, null, 2)}\n`);
       const volatile = {
-        target: { repository: 'o/r', number: 228, mode: 'review-only', gate, baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' },
-        fingerprints: { issue_spec: SHA, pr_base: 'b'.repeat(40), pr_tree: 'c'.repeat(40), pr_head: OID, pr_diff: SHA, pr_commits: SHA, snapshot: 'd'.repeat(64) },
+        target: { repository: 'o/r', number: 228, mode, gate, baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' },
+        fingerprints: workflow === 'pr' ? { issue_spec: SHA, pr_base: 'b'.repeat(40), pr_tree: 'c'.repeat(40), pr_head: OID, pr_diff: SHA, pr_commits: SHA, snapshot: 'd'.repeat(64) } : { issue_spec: SHA, snapshot: 'd'.repeat(64) },
         body: 'body', languageProfile: 'conversation: ja; GitHub issue / pull request: en',
-        acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] }, diff: 'diff --git a/a b/a\n',
+        acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] },
       };
-      if (gate !== 'convergence') { volatile.decisions = []; volatile.comments = []; }
-      const built = helpers.buildGateLaunch({ expectation: expectation.data, expectationPath, volatile });
-      assert.equal(built.ok, true, `${gate}: ${JSON.stringify(built.error)}`);
+      if (workflow === 'pr') volatile.diff = 'diff --git a/a b/a\n';
+      if (gate === 'adversarial') { volatile.decisions = []; volatile.comments = []; }
+      const built = helpers.buildGateLaunch({ expectation: expectation.data, expectationPath, volatile, ...(mode === 'autofix' ? { created: CREATED } : {}) });
+      assert.equal(built.ok, true, `${label}: ${JSON.stringify(built.error)}`);
       const payload = fs.readFileSync(built.data.payloadPath, 'utf8');
-      assert.equal(payload.split(BLOCK_RULE).length - 1, 1, `${gate}: the payload carries the rule once`);
+      assert.equal(payload.split(BLOCK_RULE).length - 1, 1, `${label}: the payload carries the rule once`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   }
 });
