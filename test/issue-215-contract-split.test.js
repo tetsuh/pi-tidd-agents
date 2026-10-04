@@ -63,8 +63,9 @@ test('Issue #215 the record files are development records, outside the package p
 });
 
 // AC5 of #215 (CONV-233-AC5-SIZE-HISTORY): a record states a principle, and the fix history of a change stays in its
-// pull request's timeline and commits. A record is at most RECORD_LIMIT bytes. The four records over it at the split
-// may grow by EXEMPT_ROOM and no further, so the next forward note to one of them does not force a trim.
+// pull request's timeline and commits. A record is at most RECORD_LIMIT bytes. The four records over it when CL-D103
+// was adopted (CL-D72 measured with its forward note to CL-D103) may grow by EXEMPT_ROOM and no further, so the next
+// forward note to one of them does not force a trim.
 const RECORD_LIMIT = 8000, EXEMPT_ROOM = 1024;
 const EXEMPT = { 'contract/CL-D93.md': 14396, 'contract/CL-D72.md': 10417, 'contract/CL-D36.md': 8149, 'contract/CL-D96.md': 8086 };
 
