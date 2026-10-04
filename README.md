@@ -122,6 +122,12 @@ The same workflows are available directly as skills when skill commands are enab
 
 An explicit target is always required; the workflow never infers a pull request from the current branch.
 
+### How a round runs (CL-D104)
+
+`/tidd-pr <pr-ref> [autofix]` is the one way to run a round. For a pull request whose head and base commits are in the current checkout, the Skill starts the packaged driver (`skills/closed-loop-pr/driver/review.js`, or `autofix.js` in autofix mode). The driver builds every request, and the parent only makes the `subagent` call it prints and runs the command it names next. The round ends with `FINISHED` and two drafted files, `review-comment.md` and `publish-review.sh`; publishing is yours: `bash "<path>/publish-review.sh"`. A pull request whose head is in another repository, or whose commits are not local, follows the Skill's prose path instead.
+
+The driver runs the validation commands from the first source that exists (CL-D97): `.tidd.json` at the base commit (`{"validate": [["node", "--test"]]}`); otherwise `--validate`, a JSON list of argv lists, when the driver is started with it; otherwise the operator's own `$XDG_CONFIG_HOME/tidd/<owner>/<repo>.json` (`~/.config` when unset or relative) in the same format. The pull request's head is never a source. With none, review-only runs `git diff --check` alone and reports "no validation commands configured". Autofix with none stops `BLOCKED` before it changes anything, because its writer commits and pushes.
+
 ### Owner-gated Issue candidate publication
 
 Issue readiness remains opt-in and is exposed through the equivalent `/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` entrypoints. In the ordinary CL-D31 route, a complete candidate is reviewed by convergence, then Sol, then Terra before the Skill shows one exact frozen preview containing the full body diff and English disposition ledger. Only the current session operator's exact response can authorize the bounded attempt.
