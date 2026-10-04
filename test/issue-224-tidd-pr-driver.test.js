@@ -3,7 +3,7 @@
 // Issue #224 (CL-D104): `/tidd-pr` loaded the Skill and the parent followed its prose step by step, hand-composing the
 // requests the packaged drivers already build. The Skill's dispatch section now sends a pull request the driver accepts
 // to the driver: the parent makes exactly the printed `subagent` call and runs the command the driver names next.
-const { test, assert, fs, path, spawnSync, repoPath, readText, setup, fakeGate, publishable } = require('./issue-196-review-driver.fixtures.js');
+const { test, assert, fs, path, spawnSync, repoPath, readText, git, setup, setFixture, drive, fakeGate, publishable } = require('./issue-196-review-driver.fixtures.js');
 const { sectionOf, readContract } = require('./helpers');
 
 const SKILL = 'skills/closed-loop-pr/SKILL.md';
@@ -29,15 +29,23 @@ test('Issue #224 the Skill sends the round to the packaged driver before any mod
   assert.equal(once(s, "Then run the command on the `NEXT:` line itself (`result` or `writer-done`) with that run id; commands inside the JSON object are the subagent's, never yours."), 1);
   // A WAIT line is the driver's own report that the run is still going (phases.js readGate, autofix.js writer-done).
   assert.equal(once(s, 'When a line begins `WAIT:`, the run has not completed: wait for its completion, then run the command that line names with the same run id. This is not a retry.'), 1);
-  // The prose path is read first, so a stop that drafts artifacts and names the prose path (a diff that is not UTF-8) still reaches it.
-  const prose = s.indexOf('When any output of the driver says to review the pull request on the prose path, continue with Mode dispatch below in the parsed mode, whatever reference the message names.');
-  const finished = s.indexOf('Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop.');
+  // The prose path is read first, so a stop that drafts artifacts and sends the pull request back (a review-only diff that
+  // is not UTF-8) still reaches it; it is the driver's own last line, which no quoted text can print.
+  const prose = s.indexOf('4. When the last line the driver prints begins `PROSE_PATH:`, continue with Mode dispatch below in the parsed mode, whatever reference that line names.');
+  const finished = s.indexOf('5. Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop.');
   assert.ok(prose > 0 && finished > prose, 'the prose-path step comes before the FINISHED step');
   assert.equal(once(s, 'Never run the publication script.'), 1);
-  assert.equal(once(s, 'When the driver ends without such a line, report the last 30 lines of its combined output and stop; never retry or continue by hand.'), 1);
-  // Every driver message that sends a pull request back says "on the prose path", which the section matches.
-  for (const file of ['phases.js', 'review.js']) assert.match(readText(`skills/closed-loop-pr/driver/${file}`), /review it on the prose path of review-only\.md/, file);
-  assert.match(readText('skills/closed-loop-pr/driver/phases.js'), /WAIT: the \$\{gateLabel\(p\.gate\)\} run is still in progress; when it completes, run: node \$\{self\} result --run-dir \$\{run\.dir\} --run-id <runId>/);
+  assert.equal(once(s, '6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.'), 1);
+  assert.equal(once(s, 'with the profile CL-D16 resolved for this run'), 1);
+  // Each send-back site prints the token, and no other text in the driver says to review on the prose path.
+  const driver = (file) => readText(`skills/closed-loop-pr/driver/${file}`);
+  assert.equal(once(driver('phases.js'), 'function sendBack(message) { process.stdout.write(`PROSE_PATH: ${message}\\n`); process.exit(2); }'), 1);
+  assert.equal(once(driver('phases.js'), 'sendBack(`'), 2);
+  assert.equal(once(driver('review.js'), "run.stop('BLOCKED', why, `PROSE_PATH: ${why}\\n`);"), 1);
+  for (const [file, n] of [['phases.js', 2], ['review.js', 1], ['autofix.js', 0], ['run.js', 0], ['readiness.js', 0], ['paths.js', 0], ['writer.js', 0]]) assert.equal(once(driver(file), 'on the prose path'), n, file);
+  // A WAIT line is the driver's own report that a run is still going, for a gate and for the writer.
+  assert.match(driver('phases.js'), /WAIT: the \$\{gateLabel\(p\.gate\)\} run is still in progress; when it completes, run: node \$\{self\} result --run-dir \$\{run\.dir\} --run-id <runId>/);
+  assert.match(driver('autofix.js'), /WAIT: the writer run has no terminal record yet; when it completes, run: node \$\{SELF\} writer-done --run-dir \$\{run\.dir\} --run-id \$\{opts\['run-id'\]\}/);
   // Both drivers it names exist, and the start command always names the target's repository.
   assert.equal(START.exec(s)[1], 'node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>');
   assert.match(s, /`<driver>` is `review` in review-only mode and `autofix` in autofix mode, and `<owner\/name>` is the checkout's repository\./);
@@ -73,6 +81,27 @@ test('Issue #224 the dispatch section\'s command sequence runs one review-only r
   assert.ok(path.isAbsolute(s.publication.comment));
 });
 
+// A review-only diff that is not UTF-8 drafts its artifacts and still sends the pull request back on the last line; the
+// autofix driver stops BLOCKED there without a send-back.
+test('Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line after FINISHED', () => {
+  const t = setup();
+  fs.writeFileSync(path.join(t.target.root, 'bin.txt'), Buffer.from([0x61, 0xff, 0xfe, 0x0a]));
+  git(t.target.root, ['add', 'bin.txt']); git(t.target.root, ['commit', '-q', '-m', 'bytes']);
+  setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: git(t.target.root, ['rev-parse', 'HEAD']) } } });
+  const r = drive(t.start, t.e);
+  assert.match(r.stdout, /^FINISHED comment=/m, r.stderr + r.stdout);
+  assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: the diff is not valid UTF-8, so no gate can receive it exactly; review it on the prose path of review-only\.md$/);
+});
+
+// A pull request the driver cannot read locally is sent back before any run directory, on its only line of output.
+test('Issue #224 a head that is not local is sent back on a PROSE_PATH line', () => {
+  const t = setup();
+  setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: 'd'.repeat(40) } } });
+  const r = drive(t.start, t.e);
+  assert.equal(r.stdout, `PROSE_PATH: the checkout ${t.target.root} does not hold ${'d'.repeat(40)}; the driver needs the head and base locally, so review it on the prose path of review-only.md\n`);
+  assert.equal(fs.existsSync(t.runDir), false);
+});
+
 test('Issue #224 the contract records the dispatch and README names the one way to run a round', () => {
   const record = sectionOf(readContract(), '## CL-D104 — /tidd-pr runs through the packaged driver');
   assert.ok(record, 'CL-D104 is in the contract');
@@ -91,8 +120,8 @@ test('Issue #224 the contract records the dispatch and README names the one way 
 // The raise, with its property asserted at the raise (CL-D43, CL-D48): the section took the eight authority files past
 // 156,000, and the ceiling rises once, to 162,000, against the measurement on this change.
 test('Issue #224 CL-D104 raises the authority ceiling once, with the headroom asserted at the raise', () => {
-  const CL_D104_BASELINE_BYTES = 156176;
-  assert.match(readContract(), /they measured 156,176 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms/);
+  const CL_D104_BASELINE_BYTES = 156345;
+  assert.match(readContract(), /they measured 156,345 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms/);
   assert.ok(CL_D104_BASELINE_BYTES > 156000 && 162000 - CL_D104_BASELINE_BYTES > 5000, `the raise left ${162000 - CL_D104_BASELINE_BYTES} bytes`);
   for (const file of ['test/package.test.js', 'test/issue-73-authority-budget.test.js', 'test/issue-87-authority-floor.test.js', 'test/issue-87-addendum-split.test.js', 'test/issue-100-gate-ids-v2.test.js', 'test/issue-126-sol-component-sweep.test.js', 'test/issue-153-wording-only-minors.test.js']) {
     const text = readText(file);

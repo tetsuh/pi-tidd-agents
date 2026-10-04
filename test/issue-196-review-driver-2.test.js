@@ -184,7 +184,7 @@ test('Issue #196 a pull request with no local checkout of its head is left to th
   const r = drive(t.start, t.e);
   assert.notEqual(r.status, 0);
   assert.equal(fs.existsSync(t.runDir), false);
-  assert.match(r.stderr, /review it on the prose path/);
+  assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: .*review it on the prose path/);
 });
 
 // CONV-199-IGNORED-DELTA-BOUNDARY: ignored paths are frozen after validation (the validation sandbox delta) and
@@ -205,7 +205,7 @@ test('Issue #196 a head from another repository goes to the prose path even when
   const r = drive(t.start, t.e);
   assert.notEqual(r.status, 0);
   assert.equal(fs.existsSync(t.runDir), false);
-  assert.match(r.stderr, /another repository.*prose path/);
+  assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: .*another repository.*prose path/);
 });
 
 test('Issue #196 a validated MERGE that carries a deferred follow-up advances', () => {
