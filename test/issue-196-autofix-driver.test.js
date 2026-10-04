@@ -48,7 +48,11 @@ test('Issue #196 the packaged autofix driver corrects a finding through the writ
   r = writerDone(t);
   assert.equal(r.status, 0, r.stderr + r.stdout);
   for (const gate of ['convergence', 'adversarial', 'safety']) {
-    assert.equal(nextRequest(r.stdout).agent, { convergence: 'tidd-convergence-reviewer', adversarial: 'tidd-adversarial-reviewer', safety: 'tidd-safety-reviewer' }[gate]);
+    const launch = nextRequest(r.stdout);
+    assert.equal(launch.agent, { convergence: 'tidd-convergence-reviewer', adversarial: 'tidd-adversarial-reviewer', safety: 'tidd-safety-reviewer' }[gate]);
+    // CL-D101 (#225): the launch names a verification request and carries no hash for the child to copy.
+    assert.match(launch.task, /gate-verify-[a-z]+-\d+\.json/, launch.task);
+    assert.doesNotMatch(launch.task.replaceAll(t.runDir, ''), /[0-9a-f]{12,}/, launch.task);
     r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.env);
   }
   const s = state(t.runDir);

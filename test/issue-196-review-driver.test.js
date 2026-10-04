@@ -115,6 +115,9 @@ test('Issue #196 the packaged review-only driver runs a PR round to MERGE_READY;
     assert.ok(request, `a subagent call is printed for ${gate}: ${r.stdout}`);
     assert.equal(request.agent, { convergence: 'tidd-convergence-reviewer', adversarial: 'tidd-adversarial-reviewer', safety: 'tidd-safety-reviewer' }[gate]);
     assert.equal(request.outputSchema, undefined, 'the schema lives in the agent definition (CL-D90)');
+    // CL-D101 (#225): the launch names the verification request and carries no hash for the child to copy.
+    assert.ok(request.task.includes(path.join(t.runDir, `gate-verify-${gate}-1.json`)), request.task);
+    assert.doesNotMatch(request.task.replaceAll(t.runDir, ''), /[0-9a-f]{12,}/, request.task);
     r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
   }
   assert.equal(r.status, 0, r.stderr + r.stdout);

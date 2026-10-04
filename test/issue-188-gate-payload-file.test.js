@@ -55,9 +55,17 @@ test('Issue #188 the launch request carries a pointer to a run-owned payload fil
     assert.match(payload, /#### Every-gate invariant payload block/, 'the payload is the composed task');
     assert.match(payload, /## Volatile envelope/);
     assert.ok(request.task.length < 1200, `the pointer is short: ${request.task.length}`);
-    assert.ok(request.task.includes(payloadPath), 'the pointer names the payload path');
-    assert.ok(request.task.includes(payloadSha256), 'the pointer names the digest');
-    assert.ok(request.task.includes('gate_payload_verify'), 'the child verifies through the packaged CLI');
+    // CL-D101 (#225): the pointer names the verification request the builder wrote, and carries no digest. A child
+    // twice mistyped a digest it had to copy; now it copies one short path.
+    const { verifyPath } = built.data;
+    assert.equal(path.dirname(verifyPath), dir, 'the request sits beside the payload');
+    assert.equal(path.basename(verifyPath), 'gate-verify-convergence-1.json');
+    assert.equal(fs.statSync(verifyPath).mode & 0o777, 0o600, 'the request is private to the operator');
+    assert.deepEqual(JSON.parse(fs.readFileSync(verifyPath, 'utf8')), { version: 1, operation: 'gate_payload_verify', data: { path: payloadPath, sha256: payloadSha256 } });
+    assert.ok(request.task.includes(verifyPath), 'the pointer names the verification request');
+    assert.equal(request.task.includes(payloadSha256) || request.task.includes(payloadPath), false, 'the pointer carries neither the digest nor the payload path');
+    assert.doesNotMatch(request.task.replaceAll(dir, ''), /[0-9a-f]{12,}/, 'no hash or hash prefix for the child to copy');
+    assert.ok(request.task.includes(CLI), 'the child verifies through the packaged CLI');
     assert.equal(request.task.includes('## Volatile envelope'), false, 'no payload rides in the request');
     // A second build of the same invocation reuses the identical file rather than failing.
     assert.equal(helpers.buildGateLaunch(inputs(dir)).ok, true);
@@ -174,6 +182,43 @@ test('Issue #188 a resolved location carrying a line break or backtick is refuse
   }
 });
 
+// CL-D101 (#225): the verification request is private and names this build's payload. A later build for the same gate
+// and invocation replaces it whole, through a staged file renamed over the name, so nothing planted at the name is
+// reused or written through.
+test('Issue #225 the verification request is private, replaced whole, and never written through a link', () => {
+  const rebuilt = (prepare) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i225-'));
+    try {
+      const first = helpers.buildGateLaunch(inputs(dir)).data, want = fs.readFileSync(first.verifyPath, 'utf8');
+      prepare(first, dir);
+      const again = helpers.buildGateLaunch(inputs(dir));
+      const stat = again.ok ? fs.lstatSync(first.verifyPath) : null;
+      return [again.ok, again.error?.code, stat ? [stat.isFile(), stat.mode & 0o777, fs.readFileSync(first.verifyPath, 'utf8') === want] : null, fs.readdirSync(dir).filter((f) => f.endsWith('.tmp'))];
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  };
+  const fresh = [true, undefined, [true, 0o600, true], []];
+  assert.deepEqual(rebuilt(() => {}), fresh, 'an identical request');
+  assert.deepEqual(rebuilt((first) => fs.writeFileSync(first.verifyPath, '{}')), fresh, 'different bytes are replaced');
+  assert.deepEqual(rebuilt((first) => fs.chmodSync(first.verifyPath, 0o644)), fresh, 'a widened mode is replaced');
+  const victim = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'i225-victim-')), 'v.txt');
+  try {
+    fs.writeFileSync(victim, 'keep');
+    assert.deepEqual(rebuilt((first) => { fs.rmSync(first.verifyPath); fs.symlinkSync(victim, first.verifyPath); }), fresh, 'a planted link is replaced, not followed');
+    assert.equal(fs.readFileSync(victim, 'utf8'), 'keep', 'the link\'s target is never written');
+  } finally { fs.rmSync(path.dirname(victim), { recursive: true, force: true }); }
+  // Something that cannot be replaced by a rename fails the build closed and leaves no staged file.
+  assert.deepEqual(rebuilt((first) => { fs.rmSync(first.verifyPath); fs.mkdirSync(first.verifyPath); fs.writeFileSync(path.join(first.verifyPath, 'x'), ''); }), [false, 'payload_write_failed', null, []], 'a directory at the name');
+  // Two payloads of one gate and invocation: the request names the newer one.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i225-'));
+  try {
+    const one = helpers.buildGateLaunch(inputs(dir)).data, other = inputs(dir); other.volatile.body = 'another body';
+    const two = helpers.buildGateLaunch(other).data;
+    assert.notEqual(two.payloadPath, one.payloadPath);
+    assert.equal(two.verifyPath, one.verifyPath);
+    assert.deepEqual(JSON.parse(fs.readFileSync(two.verifyPath, 'utf8')).data, { path: two.payloadPath, sha256: two.payloadSha256 });
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('Issue #188 a planted symlink at the payload name is refused, not followed', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
   try {
@@ -197,7 +242,20 @@ test('Issue #188 the pointer is a runnable command and a failed check leaves no 
     // The command, run exactly as written, verifies the payload through the packaged CLI.
     const out = JSON.parse(execFileSync('bash', ['-c', command], { encoding: 'utf8' }));
     assert.deepEqual([out.ok, out.operation, out.data.bytes], [true, 'gate_payload_verify', fs.statSync(payloadPath).size]);
-    assert.ok(command.includes(payloadSha256));
+    assert.equal(out.data.path, fs.realpathSync.native(payloadPath), 'the result names the payload to read');
+    assert.equal(command.includes(payloadSha256), false, 'the command carries no digest (CL-D101)');
+    // The same command refuses a request that names another digest, a payload that changed, and a missing request.
+    const run = () => spawnSync('bash', ['-c', command], { encoding: 'utf8' });
+    const verifyPath = helpers.buildGateLaunch(inputs(dir)).data.verifyPath, good = fs.readFileSync(verifyPath, 'utf8');
+    fs.chmodSync(verifyPath, 0o600); fs.writeFileSync(verifyPath, good.replace(payloadSha256, `${payloadSha256[0] === '0' ? '1' : '0'}${payloadSha256.slice(1)}`));
+    assert.equal(JSON.parse(run().stdout).error?.code, 'payload_digest_mismatch', 'a request naming another digest');
+    fs.writeFileSync(verifyPath, good);
+    fs.chmodSync(payloadPath, 0o600); fs.appendFileSync(payloadPath, 'x');
+    assert.equal(JSON.parse(run().stdout).error?.code, 'payload_digest_mismatch', 'a payload that changed');
+    fs.rmSync(verifyPath);
+    const gone = run();
+    assert.equal(gone.stdout.includes('"ok":true'), false, 'a missing request prints no success');
+    assert.notEqual(gone.status, 0);
     // A failed check ends the child with no structured output: the zero-output transport failure, not a malformed result.
     assert.match(request.task, /If it prints anything but "ok":true, stop at once and end without producing any structured output\./);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -213,13 +271,15 @@ test('Issue #188 the alarm reset left room, asserted against the measurement it 
 
 test('Issue #188 the pointer names the path once, and the child reads the path the verifier authenticated', () => {
   // ADV-189-POINTER-DISPLAY-DIVERGENCE: a path shown for display and a path inside the verify command could diverge,
-  // and the child might read the shown one while the verifier authenticated the other. The pointer carries the path
-  // and the digest exactly once each, inside the verify command, and the verifier's result names the path to read.
+  // and the child might read the shown one while the verifier authenticated the other. The pointer carries one path,
+  // the verification request's, exactly once; the payload path and the digest are inside that request, and the
+  // verifier's result names the path to read (CL-D101).
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i188-'));
   try {
-    const { request, payloadPath, payloadSha256 } = helpers.buildGateLaunch(inputs(dir)).data;
-    assert.equal(request.task.split(payloadPath).length - 1, 1, 'the payload path appears exactly once');
-    assert.equal(request.task.split(payloadSha256).length - 1, 1, 'the digest appears exactly once');
+    const { request, payloadPath, payloadSha256, verifyPath } = helpers.buildGateLaunch(inputs(dir)).data;
+    assert.equal(request.task.split(verifyPath).length - 1, 1, 'the request path appears exactly once');
+    assert.equal(request.task.split(payloadPath).length - 1, 0, 'the payload path is not shown');
+    assert.equal(request.task.split(payloadSha256).length - 1, 0, 'the digest is not shown');
     assert.doesNotMatch(request.task, /^Payload file: /m, 'no display copy of the path');
     assert.match(request.task, /read the file named by `path` in that result completely/, 'the child reads the verifier-authenticated path');
     const verified = cli('gate_payload_verify', { path: payloadPath, sha256: payloadSha256 });
