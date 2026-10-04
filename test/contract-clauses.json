@@ -5255,7 +5255,7 @@
         "return { failed, pending, unresolved, confirm, observed };",
         "if (state === 'blocked') confirm.push(",
         "c.app?.slug === REVIEW_APP && !required(c.name, c.app.id)",
-        "/^coderabbit$/i.test(context) && st.creator?.login === 'coderabbitai[bot]' && !required(context)",
+        "context === 'CodeRabbit' && st.creator?.login === 'coderabbitai[bot]' && !required(context)",
         "external review is not waited for"
       ]
     },
