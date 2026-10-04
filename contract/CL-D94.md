@@ -1,0 +1,12 @@
+## CL-D94 — Every gate launch carries a 60-minute bound
+**Clauses:** CL-D94-record, CL-D94-writer, CL-D94-tests, CL-D94-receiver
+
+*Decision ID:* CL-D94
+*Kind:* contract
+*Target and revision:* `tetsuh/pi-tidd-agents#202` at its body and the owner choice https://github.com/tetsuh/pi-tidd-agents/issues/202#issuecomment-5908281492
+*Question:* `build_gate_launch` emitted no `timeoutMs`, so every gate child ran under pi-subagents' default 30-minute bound for a single async run. On PR #199 that default ended rounds 25 and 30 with no verdict: the convergence child timed out while reading a diff of about 150 KB and running the suite, and the run stopped `BLOCKED`. Does the gate launch state a bound of its own, and which?
+*Options and trade-offs:* Option A emits the writer's bound, `timeoutMs: 3600000`, on every gate launch, so a gate child's limit is a recorded choice that fits a large pull request's read plus one suite run; a gate that hangs costs up to an hour instead of half of one. Option B keeps the receiver's default, which costs nothing and leaves in place a limit nobody chose that has already ended two rounds. Option C sizes the bound from the diff, which needs a size rule the package does not have.
+*Recommendation:* Option A.
+*Owner choice:* Option A (https://github.com/tetsuh/pi-tidd-agents/issues/202#issuecomment-5908281492). `build_gate_launch` emits `timeoutMs: 3600000` beside the fields CL-D68 fixed, for every gate in every workflow and mode. It emits no `checkpointBeforeDeadlineMs`: a gate is read-only and its result is all-or-nothing, so a checkpoint has nothing to save, whereas CL-D80's checkpoint stops the writer's batch between guarded steps. Nothing else in the launch changes.
+*Rationale:* A limit that ends a run should be a decision the contract records. The writer's launch already carried one; the gate launch carried the receiver's by omission, and that omission is what ended the two rounds.
+*Validity and invalidation conditions:* Applies to `build_gate_launch`. The writer's launch settings under CL-D80 and CL-D81 are unchanged, as are the gates' authority, evidence, and verdicts. The regression that drives the installed pi-subagents over the built gate request under CL-D82 also checks that the receiver declares, types, and keeps the bound. Another bound, a checkpoint request on a gate launch, or a bound that varies by gate or diff requires a new owner decision.

@@ -1,0 +1,12 @@
+## CL-D53 — The aggregate helper smoke alarm is reset after firing
+**Clauses:** CL-D53-tests
+
+*Decision ID:* CL-D53
+*Kind:* contract
+*Target and revision:* the CL-D37 aggregate smoke alarm, fired at `main` measuring 139,835 of 140,000 bytes, under the owner's live instruction to make linked-worktree development tolerable rather than constrained
+*Question:* The aggregate helper smoke alarm fired. Is the growth structural drift to stop, or reviewed accretion to acknowledge — and at what value does the alarm resume watching?
+*Options and trade-offs:* Treating the alarm as a budget and trimming code to fit would repeat the authority-floor pattern that #73 and #87 removed, against CL-D37's own words: it is not a size budget. Ignoring it would make the alarm decorative. Reviewing the growth and resetting the alarm is what a smoke alarm is for.
+*Recommendation:* Review, record, reset to 160,000; leave the per-file alarm and every structural assertion unchanged.
+*Owner choice:* As recommended. The aggregate smoke alarm resets from 140,000 to 160,000 bytes. The 30,000-byte per-file alarm is unchanged (largest file 23,334), and every structural boundary assertion — no entrypoint, no provider or writer operation, allowlisted files, operations, filesystem sites, and imports — continues to hold and to bind.
+*Rationale:* The review the alarm demanded: growth from the 108,000-byte region at CL-D37's decision to 139,835 is decision-driven validation surface, not drift — the evidence envelope (CL-D42), composition predicates (CL-D44), reply markers and reconciliation through seven adversarial rounds (CL-D45), derived namespaces (CL-D47), and enumeration fixes (CL-D46) each added checked, mutation-tested code under its own record, and the structural allowlists grew in lockstep by review. Twenty thousand bytes of headroom is roughly the observed cost of the next few decisions, including the request builders #83 proposes, which remain gated on their own decision. The alarm stays an alarm: at 160,000 it fires again and demands this same review, and nothing here converts it into a budget to be negotiated with. CL-D57 performed that review pre-emptively for the guard family and reset the alarm to 200,000.
+*Validity and invalidation conditions:* Applies to the aggregate alarm value alone. No structural assertion, per-file alarm, or operation allowlist is relaxed. A future firing requires a new review and decision; trimming code merely to silence the alarm is the recorded anti-pattern, not compliance.
