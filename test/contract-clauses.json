@@ -5218,7 +5218,8 @@
         "is reported as observed and is never waited for and never a failure",
         "A requirement only a human or GitHub settles never holds `MERGE_READY` back and is named in `operator_actions`",
         "Waiting for a provider again, treating a provider's state as a failure, or holding `MERGE_READY` back for a requirement named above requires a new owner decision.",
-        "A branch protection the workflow cannot read is settled by GitHub's own `mergeable_state`"
+        "A branch protection the workflow cannot read is settled by GitHub's own `mergeable_state`",
+        "every ruleset and protection setting the workflow reads but does not evaluate"
       ]
     },
     {
@@ -5231,6 +5232,7 @@
       "requires": [
         "External review is best effort (CL-D100): answer each external finding present; never wait for one still to come.",
         "CodeRabbit's state, and its own check run or status that no protection requires, is only reported.",
+        "a ruleset or protection setting read but not evaluated",
         "never holds `MERGE_READY` back; name it in `operator_actions`"
       ]
     },
@@ -5245,6 +5247,7 @@
         "failed checks or `CHANGES_REQUESTED` is `BLOCKED`.",
         "A policy the workflow does not evaluate (ruleset, protection setting, approval, `blocked` state) is named in `operator_actions`",
         "a provider's state or own unrequired check, even `unknown`, is reported; neither waits or fails (CL-D100)",
+        "A protection that cannot be read is settled by `mergeable_state`.",
         "final policy failed is `BLOCKED`"
       ]
     },
