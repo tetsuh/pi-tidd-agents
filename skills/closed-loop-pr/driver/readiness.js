@@ -36,8 +36,9 @@ function humanConfirms(snapshot) {
 const PASSED_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
 const FAILED_CONCLUSIONS = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure', 'stale']);
 // GitHub's own mergeability, which any reader sees, settles what an unreadable protection or ruleset would hide (a
-// protection read answers 404 to a non-admin), a head behind its base, and a merge conflict. `blocked` is a requirement
-// only a human or GitHub settles, so it is named; any other state that is not mergeable waits.
+// protection read answers 404 to a non-admin, as it does for no protection), a head behind its base, and a merge
+// conflict. `blocked` is a requirement only a human or GitHub settles, so it is named; any other state that is not
+// mergeable waits; a mergeable state names nothing for a protection that could not be read (CL-D100).
 const MERGEABLE_STATES = new Set(['clean', 'unstable', 'has_hooks']);
 function readiness(snapshot, headOid) {
   const failed = [], pending = [], confirm = humanConfirms(snapshot);
