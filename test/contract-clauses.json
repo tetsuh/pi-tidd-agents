@@ -5241,7 +5241,8 @@
         "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
-        "an approval and a provider's state are reported, never waited for (CL-D100)"
+        "A policy read but not evaluated (ruleset, protection setting, approval, `blocked` state) is not ambiguous: it is named in `operator_actions`",
+        "a provider's state, even `unknown`, is reported; neither waits or fails (CL-D100)"
       ]
     },
     {
