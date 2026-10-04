@@ -465,8 +465,7 @@
         "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
-        "two-minute quiet period",
-        "fifteen-minute",
+        "Observation, reported only",
         "must not busy-poll",
         "not detected",
         "WAITING_EXTERNAL_REVIEW"
@@ -5204,6 +5203,107 @@
       "requires": [
         "Issue #174 every agent definition ships the decided model at high",
         "Issue #174 records of past runs keep the models those runs used"
+      ]
+    },
+    {
+      "id": "CL-D100-record",
+      "marker": "CL-D100",
+      "title": "CL-D100 records that external review is best effort",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D100 — External review is best effort",
+      "requires": [
+        "tetsuh/pi-tidd-agents#226",
+        "is reported as observed and is never waited for and never a failure",
+        "A requirement only a human or GitHub settles never holds `MERGE_READY` back and is named in `operator_actions`",
+        "Waiting for a provider again, treating a provider's state as a failure, or holding `MERGE_READY` back for a requirement named above requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D100-prose",
+      "marker": "CL-D100",
+      "title": "Review-only states the best-effort rule",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "External review is best effort (CL-D100): answer each external finding present; never wait for one still to come.",
+        "A provider's state, and its app's check run that no protection requires, is only reported.",
+        "never holds `MERGE_READY` back; name it in `operator_actions`"
+      ]
+    },
+    {
+      "id": "CL-D100-autofix-prose",
+      "marker": "CL-D100",
+      "title": "Exact autofix states the best-effort rule",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "an approval and a provider's state are reported, never waited for (CL-D100)"
+      ]
+    },
+    {
+      "id": "CL-D100-driver",
+      "marker": "CL-D100",
+      "title": "Readiness separates what waits from what a human confirms and what was observed",
+      "files": [
+        "skills/closed-loop-pr/driver/readiness.js"
+      ],
+      "requires": [
+        "return { failed, pending, unresolved, confirm, observed };",
+        "if (state === 'blocked') confirm.push(",
+        "c.app?.slug === REVIEW_APP && !required.has(c.name)",
+        "external review is not waited for"
+      ]
+    },
+    {
+      "id": "CL-D100-phases",
+      "marker": "CL-D100",
+      "title": "MERGE_READY names what a human confirms",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "`before merging, a human confirms: ${r.confirm.join('; ')}`"
+      ]
+    },
+    {
+      "id": "CL-D100-forward-d18",
+      "marker": "CL-D100",
+      "title": "CL-D18 names the later rule",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D18 — External observation is reported, not enforced",
+      "requires": [
+        "CL-D100 later made external review best effort: the quiet period and the window are gone"
+      ]
+    },
+    {
+      "id": "CL-D100-forward-d93",
+      "marker": "CL-D100",
+      "title": "CL-D93 names the later rule",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
+      "requires": [
+        "CL-D100 later made external review best effort: the driver waits for no provider, quiet period, or observation window"
+      ]
+    },
+    {
+      "id": "CL-D100-tests",
+      "marker": "CL-D100",
+      "title": "The best-effort outcomes are pinned",
+      "files": [
+        "test/issue-196-review-driver.test.js"
+      ],
+      "requires": [
+        "Issue #196 a missing required approval does not hold MERGE_READY back, and the operator\\'s actions name it",
+        "Issue #196 a recent external event does not hold MERGE_READY back, and the publication reports it as observed",
+        "Issue #196 an external review provider\\'s state and its own check run are observed, never waited for"
       ]
     }
   ]
