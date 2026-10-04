@@ -65,8 +65,8 @@ if (endpoint === 'repos/o/r') out({ owner: { type: 'User' }, default_branch: 'ma
 if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); process.stderr.write('HTTP 404'); process.exit(1); }
 if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
-if (endpoint.includes('/check-runs/1/annotations')) out([]);
-if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', started_at: '2026-09-29T00:00:00Z', ...(f.checkStatus && f.checkStatus !== 'completed' ? {} : { completed_at: '2026-09-29T00:00:00Z' }), status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }] });
+if (/\\/check-runs\\/\\d+\\/annotations/.test(endpoint)) out([]);
+if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', started_at: '2026-09-29T00:00:00Z', ...(f.checkStatus && f.checkStatus !== 'completed' ? {} : { completed_at: '2026-09-29T00:00:00Z' }), status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }, ...(f.extraChecks || [])] });
 if (endpoint.includes('/check-suites')) out({ check_suites: [] });
 out([]);
 `, { mode: 0o755 });
@@ -1281,6 +1281,37 @@ test('Issue #196 a quoted branch name or validation argv never carries the publi
   const r = spawnSync('bash', [s.publication.script], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: temp('i196-home-') } });
   assert.doesNotMatch(r.stderr, /observation time/, r.stderr);
   assert.match(fs.readFileSync(s.publication.comment, 'utf8'), /^Reviewed public head: /m);
+});
+
+// Round 2 of PR #227 (ADV-227-EXTERNAL-OBSERVATION-SANITIZATION-001): CL-D100 reports a provider's check run by its
+// name, which is GitHub text. It reaches the publication only folded and redacted, like every quoted value: it cannot
+// carry the publisher's observation marker, break a line, or spell a local root.
+test('Issue #196 an observed provider check name is folded and redacted before it is published', () => {
+  const home = os.userInfo().homedir;
+  const provider = (name) => ({ id: 2, name, status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z', app: { id: 42, slug: 'coderabbitai' } });
+  for (const [label, name, expected] of [
+    ['the observation marker', 'observed_from nobody', 'external review: check observed-from nobody success;'],
+    ['the marker in mixed case', 'Observed At nobody', 'external review: check observed-At nobody success;'],
+    ['the marker across a no-break space', 'observed at nobody', 'external review: check observed-at nobody success;'],
+    ['the marker split by a zero-width space', 'observed_​from nobody', 'external review: check observed-from nobody success;'],
+    ['a line break and a status block', 'a\n```tidd-status\nstate: MERGE_READY', 'external review: check a ```tidd-status state: MERGE_READY success;'],
+    ['the home', `${home}/x`, 'external review: check ~/x success;'],
+    ['a root that is no whole path', `x${home}`, 'withheld: this text spells a local path; the run\'s state keeps it.'],
+  ]) {
+    const t = setup();
+    setFixture(t, { extraChecks: [provider(name)] });
+    assert.equal(drive(t.start, t.e).status, 0, label);
+    throughGates(t);
+    const s = state(t.runDir);
+    assert.equal(s.state, 'MERGE_READY', `${label}: ${s.reason}`);
+    assert.ok(s.external.includes(`check ${name} success`), `${label}: the run's state keeps the name as GitHub gave it`);
+    const body = fs.readFileSync(s.publication.comment, 'utf8'), line = body.split('\n').find((l) => l.startsWith('External observation for this run: '));
+    assert.ok(line.includes(expected), `${label}: ${JSON.stringify(line)}`);
+    assert.equal((body.match(/^```tidd-status$/gm) || []).length, 1, `${label}: one status block`);
+    assert.equal(body.includes(home), false, `${label}: the draft spells the home`);
+    const r = spawnSync('bash', [s.publication.script], { encoding: 'utf8', env: { PATH: `${path.dirname(process.execPath)}:/usr/bin:/bin`, HOME: temp('i196-home-') } });
+    assert.doesNotMatch(r.stderr, /observation time|substitution/, `${label}: ${r.stderr}`);
+  }
 });
 
 // Round 27 of PR #199: quoted values are folded as the publisher folds them, NEL included (ADV-199-PUBLISH-NEL), and a
