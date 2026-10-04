@@ -5344,6 +5344,18 @@
       ]
     },
     {
+      "id": "CL-D101-map",
+      "marker": "CL-D101",
+      "title": "The helper map names both writes of the launch builder",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "are the gate payload file and its verification request beside that expectation file",
+        "its request carries only a pointer to that request (CL-D91, CL-D101)"
+      ]
+    },
+    {
       "id": "CL-D101-forward",
       "marker": "CL-D101",
       "title": "CL-D91 names the later rule",
@@ -5353,6 +5365,18 @@
       "section": "## CL-D91 — The gate launch carries a pointer to a verified payload file",
       "requires": [
         "CL-D101 later took the path and the digest out of the pointer"
+      ]
+    },
+    {
+      "id": "CL-D101-forward-d68",
+      "marker": "CL-D101",
+      "title": "CL-D68 names the second write",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D68 — The gate launch request and the designated-output read are packaged",
+      "requires": [
+        "the composer's one write until CL-D101 added the verification request beside it"
       ]
     },
     {

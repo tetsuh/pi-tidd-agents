@@ -57,14 +57,17 @@ function writePayload(expectationPath, correlation, payload) {
   // exclusively and renamed over the name, so a link planted at either name is never written through (CL-D101).
   const verifyPath = path.join(dir, `gate-verify-${correlation.gate}-${correlation.invocation}.json`);
   const staged = `${verifyPath}.${crypto.randomBytes(8).toString('hex')}.tmp`;
+  let created = false;
   try {
     fs.writeFileSync(staged, JSON.stringify({ version: 1, operation: 'gate_payload_verify', data: { path: payloadPath, sha256: payloadSha256 } }), { mode: 0o600, flag: 'wx' });
+    created = true;
     fs.chmodSync(staged, 0o600);
     fs.renameSync(staged, verifyPath);
     const made = fs.lstatSync(verifyPath);
     if (!made.isFile() || (made.mode & 0o777) !== 0o600) fail('payload_write_failed', 'the verification request is not a private regular file', { verifyPath });
   } catch (error) {
-    fs.rmSync(staged, { force: true });
+    // Only the staged file this build created is removed, never an entry that was already at that name.
+    if (created) fs.rmSync(staged, { force: true });
     fail('payload_write_failed', `the verification request could not be written: ${error.message}`, { verifyPath });
   }
   return { payloadPath, payloadSha256, verifyPath };

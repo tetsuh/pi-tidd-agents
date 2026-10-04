@@ -1,7 +1,7 @@
 'use strict';
 
 // Issue #111 (CL-D68). The two gate documents the parent still assembled by hand, packaged as a
-// read-only reader and a composer whose one write is the gate payload file (CL-D91; otherwise read-only). `readGateResult` opens the runner's own status record
+// read-only reader and a composer whose writes are the gate payload file and its verification request (CL-D91, CL-D101; otherwise read-only). `readGateResult` opens the runner's own status record
 // for a run id and returns the envelope at that record's structured output path (CL-D58): the parent
 // never chooses a path. `buildGateLaunch` composes the launch request from the built expectation and
 // the installed package's own payload blocks (CL-D2, CL-D29): the schema is the builder's byte for
