@@ -1539,6 +1539,13 @@ test('Issue #196 an external review provider\'s state and its own check run are 
   assert.deepEqual(run({ checks: [ci, from(theirs('completed', 'failure'), 42)], pins: [{ context: 'CodeRabbit', app_id: 42 }] }).failed, ['check CodeRabbit failure']);
   assert.deepEqual(run({ checks: [ci, from(theirs('in_progress'), 42)], pins: [{ context: 'CodeRabbit', app_id: -1 }] }).pending, ['check CodeRabbit']);
   assert.deepEqual(run({ statuses: status('failure'), pins: [{ context: 'CodeRabbit', app_id: -1 }] }).failed, ['status CodeRabbit failure']);
+  // Round 3 of PR #227 (SAFETY-227-STATUS-SOURCE-001): only the provider's own status is exempt. A status of the same
+  // context from another creator is an ordinary status and keeps its rule, required or not.
+  const foreign = (state) => [{ ...status(state)[0], creator: { login: 'ci-bot[bot]' } }];
+  assert.deepEqual(run({ statuses: foreign('pending') }).pending, ['status CodeRabbit']);
+  for (const state of ['failure', 'error']) assert.deepEqual(run({ statuses: foreign(state) }).failed, [`status CodeRabbit ${state}`]);
+  assert.deepEqual(run({ statuses: [{ ...status('failure')[0], creator: undefined }] }).failed, ['status CodeRabbit failure'], 'a status without a creator');
+  const passed = run({ statuses: foreign('success') }); assert.deepEqual([passed.pending, passed.failed], [[], []]);
   // Another app's check with the provider's name is no provider check, and a pending CI check still waits.
   assert.deepEqual(run({ checks: [ci, { ...theirs('in_progress'), app: { slug: 'github-actions' } }] }).pending, ['check CodeRabbit']);
   assert.deepEqual(run({ checks: [{ ...ci, status: 'in_progress', conclusion: null }] }).pending, ['check ci']);
