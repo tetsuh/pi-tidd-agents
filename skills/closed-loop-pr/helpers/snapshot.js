@@ -100,6 +100,9 @@ function canonicalPull(value, number) {
 }
 function sameIdentity(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
 
+// The GitHub App whose check suites and check runs are CodeRabbit's (CL-D92); the driver's readiness reads it too.
+const REVIEW_APP = 'coderabbitai';
+
 // The GitHub transport runs only gh, whatever program a caller names (CL-D72).
 function defaultTransport(command, args, options) { if (command !== 'gh') return Promise.reject(Object.assign(new Error('the GitHub transport runs only gh'), { code: 'transport_program' })); return run('gh', args, options); }
 async function ghJson(transport, args, cwd, label) {
@@ -196,7 +199,7 @@ function classifyExternalReview(suites = [], statuses = []) {
     const state = Object.hasOwn(states, latest.state) ? states[latest.state] : 'unknown';
     return one('status', state, latest.description ?? null);
   }
-  const ours = suites.filter((item) => object(item) && item.app?.slug === 'coderabbitai' && item.latest_check_runs_count !== 0);
+  const ours = suites.filter((item) => object(item) && item.app?.slug === REVIEW_APP && item.latest_check_runs_count !== 0);
   if (!ours.length) return [];
   if (ours.some((item) => !Number.isSafeInteger(item.latest_check_runs_count) || item.latest_check_runs_count <= 0)) return one('check_suite', 'unknown');
   if (ours.some((item) => !['queued', 'in_progress', 'completed'].includes(item.status))) return one('check_suite', 'unknown');
@@ -262,4 +265,4 @@ async function collectSnapshot({ owner, repo, number, cwd, transport = defaultTr
   }
 }
 
-module.exports = { reviewThreadsQuery, collectSnapshot, restPages, reviewThreads, collectAnnotations, detailedRulesets, classifyChecks, classifyExternalReview, identity, canonicalPull, MAX_PAGES };
+module.exports = { REVIEW_APP, reviewThreadsQuery, collectSnapshot, restPages, reviewThreads, collectAnnotations, detailedRulesets, classifyChecks, classifyExternalReview, identity, canonicalPull, MAX_PAGES };
