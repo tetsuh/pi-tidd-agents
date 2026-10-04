@@ -5314,6 +5314,59 @@
         "Issue #196 an external review provider\\'s state and its own check run are observed, never waited for",
         "Issue #196 a protection the driver cannot read is settled by mergeability: clean names nothing, blocked is named"
       ]
+    },
+    {
+      "id": "CL-D101-record",
+      "marker": "CL-D101",
+      "title": "CL-D101 records that the launch names a verification request",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D101 — The gate launch names a verification request; the child copies no digest",
+      "requires": [
+        "tetsuh/pi-tidd-agents#225",
+        "carrying the request's path exactly once and neither the payload's path nor its digest",
+        "Putting a digest or a hash prefix back into the launch text, or letting a gate proceed without `gate_payload_verify`, requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D101-pointer",
+      "marker": "CL-D101",
+      "title": "The pointer runs the request file and the request is staged and renamed",
+      "files": [
+        "skills/closed-loop-pr/helpers/payload.js"
+      ],
+      "requires": [
+        "`1. Run: node ${shellWord(CLI_PATH)} < ${shellWord(verifyPath)}`",
+        "`gate-verify-${correlation.gate}-${correlation.invocation}.json`",
+        "fs.renameSync(staged, verifyPath);",
+        "return { payloadPath, payloadSha256, verifyPath };"
+      ]
+    },
+    {
+      "id": "CL-D101-forward",
+      "marker": "CL-D101",
+      "title": "CL-D91 names the later rule",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "section": "## CL-D91 — The gate launch carries a pointer to a verified payload file",
+      "requires": [
+        "CL-D101 later took the path and the digest out of the pointer"
+      ]
+    },
+    {
+      "id": "CL-D101-tests",
+      "marker": "CL-D101",
+      "title": "The digest-free pointer is pinned",
+      "files": [
+        "test/issue-188-gate-payload-file.test.js"
+      ],
+      "requires": [
+        "Issue #225 the verification request is private, replaced whole, and never written through a link",
+        "no hash or hash prefix for the child to copy",
+        "the command carries no digest (CL-D101)"
+      ]
     }
   ]
 }

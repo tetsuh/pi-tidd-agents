@@ -1,9 +1,11 @@
 'use strict';
 
 // Issue #188 (CL-D91): the gate task is written once, here, to a run-owned payload file, and the launch request carries
-// only a pointer: the path, the SHA-256, and the instruction to verify it with gate_payload_verify before following the
-// file verbatim. The parent re-typed the 14 KB task and corrupted it; a pointer is short, and a corrupted one fails the
-// child's verification instead of reaching a review.
+// only a pointer: the instruction to verify the payload with gate_payload_verify before following the file verbatim.
+// The parent re-typed the 14 KB task and corrupted it; a pointer is short, and a corrupted one fails the child's
+// verification instead of reaching a review. CL-D101 (#225): the pointer names a verification request this module
+// writes beside the payload, holding the path and the SHA-256, so the child copies one short path and no digest; it
+// twice mistyped a digest it had to copy.
 
 const crypto = require('node:crypto');
 const fs = require('node:fs');
@@ -50,17 +52,31 @@ function writePayload(expectationPath, correlation, payload) {
     const existing = fs.lstatSync(payloadPath);
     if (!existing.isFile() || (existing.mode & 0o777) !== 0o600 || !fs.readFileSync(payloadPath).equals(Buffer.from(payload, 'utf8'))) fail('payload_exists_different', 'a different or no longer private entry already holds this payload name', { payloadPath });
   }
-  return { payloadPath, payloadSha256 };
+  // The request the child runs: exactly what gate_payload_verify takes. Its name holds no hash, so the pointer has
+  // none. A later build for the same gate and invocation replaces it whole: it is staged in a private file created
+  // exclusively and renamed over the name, so a link planted at either name is never written through (CL-D101).
+  const verifyPath = path.join(dir, `gate-verify-${correlation.gate}-${correlation.invocation}.json`);
+  const staged = `${verifyPath}.${crypto.randomBytes(8).toString('hex')}.tmp`;
+  try {
+    fs.writeFileSync(staged, JSON.stringify({ version: 1, operation: 'gate_payload_verify', data: { path: payloadPath, sha256: payloadSha256 } }), { mode: 0o600, flag: 'wx' });
+    fs.chmodSync(staged, 0o600);
+    fs.renameSync(staged, verifyPath);
+    const made = fs.lstatSync(verifyPath);
+    if (!made.isFile() || (made.mode & 0o777) !== 0o600) fail('payload_write_failed', 'the verification request is not a private regular file', { verifyPath });
+  } catch (error) {
+    fs.rmSync(staged, { force: true });
+    fail('payload_write_failed', `the verification request could not be written: ${error.message}`, { verifyPath });
+  }
+  return { payloadPath, payloadSha256, verifyPath };
 }
 // A single-quoted shell word, so a path with spaces or quotes survives being run as written.
 function shellWord(value) { return `'${String(value).replaceAll("'", "'\\''")}'`; }
-function payloadPointer(payloadPath, payloadSha256) {
-  const request = JSON.stringify({ version: 1, operation: 'gate_payload_verify', data: { path: payloadPath, sha256: payloadSha256 } });
-  // The path and the digest appear once each, inside the command the verifier authenticates; the child reads the
-  // path the verifier returns, never one shown beside it (ADV-189-POINTER-DISPLAY-DIVERGENCE).
+function payloadPointer(verifyPath) {
+  // The pointer shows one path, the request's, once. The payload's path and digest are inside that request, and the
+  // child reads the path the verifier returns, never one shown beside it (ADV-189-POINTER-DISPLAY-DIVERGENCE).
   return [
     'Your complete gate payload is the file below; this message is only its pointer (CL-D91).',
-    `1. Run: printf '%s' ${shellWord(request)} | node ${shellWord(CLI_PATH)}`,
+    `1. Run: node ${shellWord(CLI_PATH)} < ${shellWord(verifyPath)}`,
     'If it prints anything but "ok":true, stop at once and end without producing any structured output.',
     '2. Otherwise read the file named by `path` in that result completely, then follow it verbatim as your task.',
     '',

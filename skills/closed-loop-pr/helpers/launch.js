@@ -279,9 +279,9 @@ function buildGateLaunch(data) {
     if (Object.hasOwn(data, 'created')) request.cwd = gateWorkspaceCwd(data.created);
     // #188, CL-D91: the parent re-typed the 14 KB task and corrupted it, so the task is written here, once, and the
     // request carries only a pointer the child verifies before reading.
-    const { payloadPath, payloadSha256 } = writePayload(data.expectationPath, expected.correlation, payload);
-    request.task = payloadPointer(payloadPath, payloadSha256);
-    return createResult(operation, { request, payloadPath, payloadSha256, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });
+    const { payloadPath, payloadSha256, verifyPath } = writePayload(data.expectationPath, expected.correlation, payload);
+    request.task = payloadPointer(verifyPath);
+    return createResult(operation, { request, payloadPath, payloadSha256, verifyPath, blocks: blocks.map(({ file, heading, sha256: digest, bytes }) => ({ file, heading, sha256: digest, bytes })), packageRoot: PACKAGE_ROOT });
   } catch (error) {
     return createError(operation, error.code || 'build_failed', error.message, 'build', error.details);
   }
