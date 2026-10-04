@@ -5535,8 +5535,8 @@
         "When a line begins `WAIT:`, the run has not completed",
         "4. When the last line the driver prints begins `PROSE_PATH:` (a note your shell tool adds after it, such as the exit code, is not the driver's), continue with Mode dispatch below in the parsed mode, whatever reference that line names.",
         "6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.",
-          "Add `--language-profile \"conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites=<sites>\"` with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none)",
-          "(a note your shell tool adds after it, such as the exit code, is not the driver's)"
+        "Add `--language-profile \"conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites=<sites>\"` with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none)",
+        "(a note your shell tool adds after it, such as the exit code, is not the driver's)"
       ]
     },
     {
@@ -5611,8 +5611,9 @@
         "Issue #224 the dispatch section\\'s command sequence runs one review-only round to a terminal outcome",
         "Issue #224 the contract records the dispatch and README names the one way to run a round",
         "Issue #224 CL-D104 raises the authority ceiling once, with the headroom asserted at the raise",
-          "Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line after FINISHED",
-          "Issue #224 a head that is not local is sent back on a PROSE_PATH line"
+        "Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line after FINISHED",
+        "Issue #224 a head that is not local is sent back on a PROSE_PATH line",
+        "Issue #224 a send-back without a base .tidd.json carries no git error output"
       ]
     }
   ]

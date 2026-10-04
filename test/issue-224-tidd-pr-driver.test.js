@@ -98,6 +98,18 @@ test('Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line 
   assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: the diff is not valid UTF-8, so no gate can receive it exactly; review it on the prose path of review-only\.md$/);
 });
 
+// Without a base .tidd.json (CL-D97's --validate route), git's refusal to show the missing file stays off the output
+// too, so the send-back is all the driver prints beside its own report.
+test('Issue #224 a send-back without a base .tidd.json carries no git error output', () => {
+  const t = setup({ config: null });
+  fs.writeFileSync(path.join(t.target.root, 'bin.txt'), Buffer.from([0x61, 0xff, 0xfe, 0x0a]));
+  git(t.target.root, ['add', 'bin.txt']); git(t.target.root, ['commit', '-q', '-m', 'bytes']);
+  setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: git(t.target.root, ['rev-parse', 'HEAD']) } } });
+  const r = drive([...t.start, '--validate', '[["node","-e","0"]]'], t.e);
+  assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: the diff is not valid UTF-8/, r.stderr + r.stdout);
+  assert.equal(r.stderr, '');
+});
+
 // A pull request the driver cannot read locally is sent back before any run directory, on its only line of output.
 test('Issue #224 a head that is not local is sent back on a PROSE_PATH line', () => {
   const t = setup();
