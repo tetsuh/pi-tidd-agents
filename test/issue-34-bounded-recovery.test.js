@@ -23,7 +23,6 @@ const RECORDS = 'skills/closed-loop-shared/references/records.md';
 const REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
 const CLI = 'skills/closed-loop-pr/helpers/cli.js';
-const CONTRACT = 'CONTRACT.md';
 const RECOVERY_HEADING = '### Bounded pre-writer recovery (CL-D39)';
 
 

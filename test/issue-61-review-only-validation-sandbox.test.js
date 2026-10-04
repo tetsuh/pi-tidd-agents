@@ -15,7 +15,6 @@ const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
-const CONTRACT = 'CONTRACT.md';
 
 
 test('Issue #61 the PR root defines the validation sandbox delta once for both modes', () => {

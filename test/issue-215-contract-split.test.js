@@ -3,11 +3,10 @@
 // Issue #215 (CL-D103): every contract record is its own file under `contract/`. CONTRACT.md keeps its preamble and
 // lists the record files in order; the contract is the preamble followed by those files in that order, one blank line
 // apart (`readContract()` in ./helpers). A pull request that changes one record then carries that record's file in
-// its required evidence and no other record (CL-D69's set: the changed files plus CONTRACT.md and README.md).
+// its required evidence and no other record (CL-D72's set: the changed files plus CONTRACT.md and README.md).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
 
 const { readText, readJson, repoPath, readContract } = require('./helpers');
 
@@ -56,5 +55,4 @@ test('Issue #215 CONTRACT.md is the preamble and the index, and the assembly is 
 test('Issue #215 the record files are development records, outside the package payload', () => {
   const pkg = readJson('package.json');
   assert.equal(pkg.files.some((entry) => entry === 'contract' || entry.startsWith('contract/')), false);
-  assert.equal(path.basename(path.dirname(repoPath('contract/x.md'))), 'contract');
 });
