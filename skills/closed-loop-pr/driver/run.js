@@ -294,15 +294,38 @@ class Run {
     // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
     const label = { adversarial: 'sol', safety: 'terra' };
     const findings = (s.findings || []).map((f) => `  ${quoted(f.findingId)}: ${quoted(f.disposition)}`);
-    const block = publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
+    // Nothing bound for publication spells a local root (#221): the run directory, the package, the home (HOME's and
+    // the account's own) and the temporary root, each also as resolved, an absolute path without its trailing slashes;
+    // a home of `/` is no root. One pass over the text as the publication folds it replaces a root spelled as a whole
+    // path by a placeholder that renders as text. A root is left where a letter, number, mark, `_` or `-` follows it,
+    // or a dot before a letter, number, mark or `_` (a longer name), and where a letter, number, mark, `/`, `.` or `~`
+    // stands before it (a longer path); leading slashes and an attached option (`-I<root>`: its hyphens, an ASCII
+    // letter, then ASCII letters and hyphens) count as its start, matched forward from the option's first hyphen, so
+    // a run is scanned once and the pass is linear. A field that still spells a root after the pass is withheld whole,
+    // never rewritten in part (owner decision REDACTION-FAIL-CLOSED on PR #223); the net reads the field as it is
+    // published, its `$ {` spacing and the full stop the template may add included. The run's state and the operator's
+    // terminal report keep the full text and paths, to resume or remove a retained workspace.
+    const locals = new Map(), fold = (text) => publishable(quoted(text)), account = (() => { try { return os.userInfo().homedir; } catch { return ''; } })();
+    for (const [p, name] of [[this.dir, '{run-dir}'], [PACKAGE, '{package}'], [process.env.HOME, '~'], [account, '~'], [os.tmpdir(), '{tmp}']]) {
+      if (!p) continue; // an empty path would resolve to the current directory
+      let real = p; try { real = fs.realpathSync(p); } catch {}
+      for (let q of [p, real].map((r) => fold(r))) { if (!q.startsWith('/')) continue; while (q.endsWith('/')) q = q.slice(0, -1); if (q && !locals.has(q)) locals.set(q, name); }
+    }
+    const roots = [...locals.keys()].sort((a, b) => b.length - a.length), alts = roots.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const N = '\\p{L}\\p{N}\\p{M}', paths = new RegExp(`(?<=^|[^${N}/.~])((?:(?<!-)-+[A-Za-z][A-Za-z-]*)?/*?)(${alts.join('|')})(?![${N}_-]|\\.[${N}_])`, 'gu');
+    const local = (text) => { const out = publishable(fold(text).replace(paths, (match, start, root) => start + locals.get(root))); return roots.some((root) => `${out}.`.includes(root)) ? 'withheld: this text spells a local path; the run\'s state keeps it' : out; };
+    // Exact fields (the target, the branch, the mode, fingerprints, heads, the observation) are never rewritten; only
+    // the free text that can quote a local path is (CONV-223-AC3-BRANCH-PRESERVATION).
+    const render = (free) => publishable(['```tidd-status', `target: ${t.repository}#${t.number}`, `head_branch: ${quoted(t.headBranch)}`, `mode: ${s.mode}`, `state: ${s.state}`, `active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`,
       `fingerprints: issue_spec ${fp.issue_spec || unknown} base ${fp.pr_base || unknown} tree ${fp.pr_tree || unknown} diff ${fp.pr_diff || unknown} commits ${fp.pr_commits || unknown} head ${t.headOid}`,
       `rounds: ${s.rounds || 'none'}`, `resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`, findings.length ? `findings:\n${findings.join('\n')}` : 'findings: none',
-      'review_misses: none', `pending_decisions: ${quoted((s.pendingDecisions || []).join(', ') || 'none')}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
-      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${quoted([...(s.operatorActions && !/^none\b/.test(s.operatorActions) ? [s.operatorActions] : []), ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', t.repository)}`] : [])].join('; ') || s.operatorActions || 'none')}`, `invalidated_evidence: ${quoted(s.invalidated || 'none')}`, `next_action: ${quoted(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
-    const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${quoted(g.findings)}` : ''}`).join('\n') || '- none';
+      'review_misses: none', `pending_decisions: ${free((s.pendingDecisions || []).join(', ') || 'none')}`, `publication_grant: ${s.grant || 'review-only not-applicable'}`,
+      `external_observation: head ${t.headOid} observed_from ${observed}, this run only`, `operator_actions: ${free([...(s.operatorActions && !/^none\b/.test(s.operatorActions) ? [s.operatorActions] : []), ...(s.validationSource === 'none' ? [`no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', t.repository)}`] : [])].join('; ') || s.operatorActions || 'none')}`, `invalidated_evidence: ${free(s.invalidated || 'none')}`, `next_action: ${free(s.nextAction || NEXT_ACTION[s.state] || 'owner decision')}`, '```'].join('\n'));
+    const block = render(quoted);
+    const gates = (s.gateLog || []).map((g) => `- ${g.gate} ${g.invocation} on \`${g.head.slice(0, 12)}\`: ${quoted(g.verdict)}${g.findings ? `; ${local(g.findings)}` : ''}`).join('\n') || '- none';
     const visible = publishable([`# Review state: ${s.state}`, '', `Pull request: https://github.com/${t.repository}/pull/${t.number}`, `Reviewed public head: \`${t.headOid}\``,
       `External observation for this run: head \`${t.headOid}\` observed at ${observed}; ${s.external || 'no snapshot was taken'}.`, '',
-      `Reason: ${quoted(s.reason || s.state)}.`, '', '## Gates', gates, '', `Validation: ${quoted(s.validation || 'not run')}.`, '', block, ''].join('\n'));
+      `Reason: ${local(s.reason || s.state)}.`, '', '## Gates', gates, '', `Validation: ${local(s.validation || 'not run')}.`, '', render(local), ''].join('\n'));
     const marker = `<!-- pi-tidd-agents:review-publication:v1 repo=${t.repository} pr=${t.number} head=${t.headOid} visibleSha256=${sha256(visible)} -->`;
     const body = `${visible}${marker}\n`;
     // Inside the run directory, which was verified outside every work tree before it was created.
@@ -320,7 +343,7 @@ class Run {
     this.save();
     // The CL-D33 report: both paths, the body digest, the one command, and the head binding; the operator runs it.
     process.stdout.write(`FINISHED comment=${s.publication.comment}\nPUBLISH=${s.publication.script}\nbody sha256 ${sha256(body)}\nrepository ${t.repository}, pull request #${t.number}, head ${t.headOid}\n`
-      + `To publish, the operator runs: bash "${s.publication.script}"\nThe comment is bound to that head; a changed head requires fresh review. It is posted under the operator's own GitHub account.\n${block}\n`);
+      + `To publish, the operator runs: bash "${s.publication.script}"\n${s.state === 'WAITING_EXTERNAL_REVIEW' && s.resumeCommand ? `To resume after the wait, the operator runs: ${s.resumeCommand}\n` : ''}The comment is bound to that head; a changed head requires fresh review. It is posted under the operator's own GitHub account.\n${block}\n`);
   }
   // Print the one call the parent makes, and the command that reads its result.
   next(request, command) {

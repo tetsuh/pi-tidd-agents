@@ -151,7 +151,9 @@ function finalReadiness(run) {
   const { snapshot, fresh } = collectSnapshotEvidence(run);
   s.activeGate = 'external'; s.rounds = rounds(s);
   if (fresh) { s.verdicts = {}; s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return launch(run, 'convergence', { fresh: true }); }
-  finalPolicy(run, snapshot, `wait, then run: node ${__filename} resume --run-dir ${run.dir}`);
+  // The publication names the action, never this machine's paths (#221); the operator's report prints the command.
+  s.resumeCommand = `node ${__filename} resume --run-dir ${run.dir}`;
+  finalPolicy(run, snapshot, 'wait, then resume this run with review.js resume, as the operator report shows');
   s.invalidated = null;
   run.stop('MERGE_READY', `${s.convergenceDisabled ? 'convergence was disabled; Sol and Terra' : 'convergence, Sol and Terra'} returned MERGE on the unchanged head; the final policy passes`);
 }
