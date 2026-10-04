@@ -5515,7 +5515,7 @@
         "running its command again after completion is not a retry",
         "This narrows CL-D19 and Mode dispatch, which read exactly one mode reference after mode parsing, to the prose path.",
         "The Skill's other sections, the shared references and the mode references stay as they are, as the specification the driver and the gates implement (D2)",
-        "they measured 156,345 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms, leaving 5,655 bytes",
+        "they measured 156,472 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms, leaving 5,528 bytes",
         "Letting the parent compose or change a request the driver builds, judge an outcome by exit status, or interrupt a running gate, or removing the dispatch section, requires a new owner decision."
       ]
     },
@@ -5533,9 +5533,10 @@
         "If the call is refused or returns no run id, report it and stop; never change the object.",
         "Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it.",
         "When a line begins `WAIT:`, the run has not completed",
-        "4. When the last line the driver prints begins `PROSE_PATH:`, continue with Mode dispatch below in the parsed mode, whatever reference that line names.",
+        "4. When the last line the driver prints begins `PROSE_PATH:` (a note your shell tool adds after it, such as the exit code, is not the driver's), continue with Mode dispatch below in the parsed mode, whatever reference that line names.",
         "6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.",
-          "with the profile CL-D16 resolved for this run"
+          "Add `--language-profile \"conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites=<sites>\"` with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none)",
+          "(a note your shell tool adds after it, such as the exit code, is not the driver's)"
       ]
     },
     {

@@ -35,9 +35,9 @@ function parseArgs(argv) {
 // GIT_WORK_TREE, GIT_INDEX_FILE, …) never moves them off the checkout; `gh`, which resolves the repository through Git,
 // drops the same redirection and keeps its own credentials (CONV-199-GIT-ENV-CHECKOUT).
 const REDIRECT_ENV = /^GIT_(?:DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|NAMESPACE|CEILING_DIRECTORIES)$/i;
-function git(cwd, list, encoding = 'utf8') {
+function git(cwd, list, encoding = 'utf8', stdio) {
   // The helpers' safe configuration too, so no hook, fsmonitor, or external diff the checkout names ever runs.
-  return execFileSync('git', gitArgs(list), { cwd, encoding, maxBuffer: 256 * 1024 * 1024, env: sanitizedEnv({ LC_ALL: 'C' }, 'git') });
+  return execFileSync('git', gitArgs(list), { cwd, encoding, stdio, maxBuffer: 256 * 1024 * 1024, env: sanitizedEnv({ LC_ALL: 'C' }, 'git') });
 }
 function gh(list, cwd) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !REDIRECT_ENV.test(key)));

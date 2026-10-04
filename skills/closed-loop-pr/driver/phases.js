@@ -39,7 +39,7 @@ function bindTarget(opts, kind) {
   // The driver reads the head and base from a local checkout. A foreign pull request, or one whose objects are not
   // local, is sent back to the prose path (ADV-199-NO-CHECKOUT-PR, CL-D104).
   for (const oid of [pull.base.sha, pull.head.sha]) {
-    try { git(checkout, ['cat-file', '-e', `${oid}^{commit}`]); } catch { sendBack(`the checkout ${checkout} does not hold ${oid}; the driver needs the head and base locally, so review it on the prose path of review-only.md`); }
+    try { git(checkout, ['cat-file', '-e', `${oid}^{commit}`], 'utf8', 'pipe'); } catch { sendBack(`the checkout ${checkout} does not hold ${oid}; the driver needs the head and base locally, so review it on the prose path of review-only.md`); }
   }
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${number}-${kind}.`));
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
