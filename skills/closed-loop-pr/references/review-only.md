@@ -92,7 +92,7 @@ When an external state cannot be determined — a provider that exposes no usabl
 
 Workflow findings carry across resumptions with assigned identities and status dispositions. The initial snapshot is not polling. Review-only has no timers and **must not busy-poll**; a pending check or an unreported required check reports `WAITING_EXTERNAL_REVIEW` with a status block for resume.
 
-Read CodeRabbit's state from the snapshot's `policies.externalReview`, never from raw suites: an empty check suite (zero check runs) is no external-review record, and the newest `CodeRabbit` commit status on the head decides; `unknown` is not complete (CL-D92). CodeRabbit's state, and its own check run or status that no protection requires, is only reported. An unresolved review thread stops `WAITING_FOR_OWNER`; `Changes requested` stops the run. What only a human or GitHub settles (an approval, an unevaluated ruleset or protection setting, a `blocked` mergeable state) never holds `MERGE_READY` back; name it in `operator_actions`.
+Read CodeRabbit's state from the snapshot's `policies.externalReview`, never from raw suites: an empty check suite (zero check runs) is no external-review record, and the newest `CodeRabbit` commit status on the head decides; `unknown` is not complete (CL-D92). CodeRabbit's state, and its own check run or status that no protection requires, is only reported. An unresolved review thread stops `WAITING_FOR_OWNER`; `Changes requested` stops the run. What only a human or GitHub settles (an approval, a ruleset or protection setting read but not evaluated, a `blocked` mergeable state) never holds `MERGE_READY` back; name it in `operator_actions`.
 
 ### SonarCloud (CL-D17)
 
