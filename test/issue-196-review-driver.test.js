@@ -1546,6 +1546,16 @@ test('Issue #196 an external review provider\'s state and its own check run are 
   for (const state of ['failure', 'error']) assert.deepEqual(run({ statuses: foreign(state) }).failed, [`status CodeRabbit ${state}`]);
   assert.deepEqual(run({ statuses: [{ ...status('failure')[0], creator: undefined }] }).failed, ['status CodeRabbit failure'], 'a status without a creator');
   const passed = run({ statuses: foreign('success') }); assert.deepEqual([passed.pending, passed.failed], [[], []]);
+  // Pre-push sweep: the exempt context is exactly the one CL-D92's classification reads, and the order of the statuses
+  // is consistent whatever an undated record does, so an older provider status cannot stand in for a newer status of
+  // another creator.
+  assert.deepEqual(run({ statuses: [{ ...status('failure')[0], context: 'coderabbit' }] }).failed, ['status coderabbit failure'], 'the provider\'s context in another letter case');
+  const mixed = [{ id: 2, context: 'ci', state: 'success', created_at: '2026-10-01T00:00:02Z', creator: { login: 'ci-bot[bot]' } }, { id: 5, context: 'CodeRabbit', state: 'success', created_at: '2026-10-01T00:00:00Z', creator: { login: 'coderabbitai[bot]' } },
+    { id: 4, context: 'ci', state: 'success', created_at: null, creator: { login: 'ci-bot[bot]' } }, { id: 1, context: 'CodeRabbit', state: 'failure', created_at: '2026-10-01T00:00:05Z', creator: { login: 'ci-bot[bot]' } }];
+  assert.deepEqual(run({ statuses: mixed }).failed, ['status CodeRabbit failure'], 'the newest status of the context decides, whatever an undated record does to the order');
+  // An undated status cannot be placed in time: it is judged beside the newest dated one, never instead of it.
+  assert.deepEqual(run({ statuses: [{ id: 9, context: 'ci', state: 'failure', created_at: null }, { id: 1, context: 'ci', state: 'success', created_at: '2026-10-01T00:00:00Z' }] }).failed, ['status ci failure'], 'an undated failure still counts');
+  assert.deepEqual(run({ statuses: [{ id: 9, context: 'ci', state: 'success', created_at: 'not a date' }, { id: 1, context: 'ci', state: 'failure', created_at: '2026-10-01T00:00:00Z' }] }).failed, ['status ci failure'], 'an undated success hides nothing');
   // Another app's check with the provider's name is no provider check, and a pending CI check still waits.
   assert.deepEqual(run({ checks: [ci, { ...theirs('in_progress'), app: { slug: 'github-actions' } }] }).pending, ['check CodeRabbit']);
   assert.deepEqual(run({ checks: [{ ...ci, status: 'in_progress', conclusion: null }] }).pending, ['check ci']);
