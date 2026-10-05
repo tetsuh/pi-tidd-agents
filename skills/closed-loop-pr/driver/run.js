@@ -233,6 +233,8 @@ function runDirNotFresh(dir) {
   if ((typeof process.getuid === 'function' && st.uid !== process.getuid()) || (st.mode & 0o022)) return `the run directory ${dir} is not the operator's own or is writable by others; give a fresh one`;
   return fs.readdirSync(dir).length ? `the run directory ${dir} is not empty; give a fresh one` : null;
 }
+// JSON leaves U+0085, U+2028 and U+2029 raw; escaped, no reader breaks a printed JSON line, its value unchanged (CL-D104).
+const jsonLine = (v) => [...JSON.stringify(v)].map((c) => ('\u0085\u2028\u2029'.includes(c) ? `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}` : c)).join('');
 class Run {
   constructor(dir) {
     this.dir = dir;
@@ -285,9 +287,7 @@ class Run {
     Object.assign(this.state, { state, reason, pending: null });
     this.save();
     this.publish();
-    // JSON leaves U+0085, U+2028 and U+2029 raw; escaped here, no reader breaks this line (CL-D104).
-    const line = [...JSON.stringify({ state, reason, runDir: this.dir })].map((c) => ('\u0085\u2028\u2029'.includes(c) ? `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}` : c)).join('');
-    process.stdout.write(`${line}\n${last}`);
+    process.stdout.write(`${jsonLine({ state, reason, runDir: this.dir })}\n${last}`);
     process.exit(state === 'MERGE_READY' ? 0 : 1);
   }
   // Status block and publication artifacts: the CL-D33 template and the CL-D45 marker, with a real observation time.
@@ -351,7 +351,7 @@ class Run {
   }
   // Print the one call the parent makes, and the command that reads its result.
   next(request, command) {
-    process.stdout.write(`NEXT: make exactly this subagent call, then run: node ${command} --run-dir ${this.dir} --run-id <runId>\n${JSON.stringify(request)}\n`);
+    process.stdout.write(`NEXT: make exactly this subagent call, then run: node ${command} --run-dir ${this.dir} --run-id <runId>\n${jsonLine(request)}\n`);
   }
 }
 
