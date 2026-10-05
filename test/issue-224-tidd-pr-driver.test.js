@@ -40,7 +40,7 @@ test('Issue #224 the Skill sends the round to the packaged driver before any mod
   assert.equal(once(s, "(a note your shell tool adds after it, such as the exit code, is not the driver's)"), 1);
   // Each send-back site prints the token, and no other text in the driver says to review on the prose path.
   const driver = (file) => readText(`skills/closed-loop-pr/driver/${file}`);
-  assert.equal(once(driver('phases.js'), 'function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).replace(/[\\r\\n\\u0085\\u2028\\u2029]+/g, \' \')}\\n`); process.exit(2); }'), 1);
+  assert.equal(once(driver('phases.js'), 'function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).split(/[\\r\\n\\u0085\\u2028\\u2029]+/).join(\' \')}\\n`); process.exit(2); }'), 1);
   assert.equal(once(driver('phases.js'), 'sendBack(`'), 2);
   assert.equal(once(driver('review.js'), "run.stop('BLOCKED', why, `PROSE_PATH: ${why}\\n`);"), 1);
   for (const [file, n] of [['phases.js', 2], ['review.js', 1], ['autofix.js', 0], ['run.js', 0], ['readiness.js', 0], ['paths.js', 0], ['writer.js', 0]]) assert.equal(once(driver(file), 'on the prose path'), n, file);
