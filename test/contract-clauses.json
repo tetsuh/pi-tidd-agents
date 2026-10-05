@@ -5616,7 +5616,8 @@
         "Issue #224 a send-back without a base .tidd.json carries no git error output",
         "Issue #224 a send-back carries no git warning either",
         "Issue #224 a send-back naming a checkout path with a line break is still one PROSE_PATH line",
-        "Issue #224 a stop reason holding a Unicode line separator cannot forge a PROSE_PATH last line"
+        "Issue #224 a stop reason holding a Unicode line separator cannot forge a PROSE_PATH last line",
+        "Issue #224 a NEXT line holding a Unicode line separator stays one line with its value unchanged"
       ]
     }
   ]
