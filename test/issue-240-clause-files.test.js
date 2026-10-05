@@ -47,6 +47,8 @@ test('Issue #240 readManifest concatenates the residual and every clause file in
   const sources = manifestSources();
   assert.equal(sources[0], RESIDUAL, 'the residual comes first while it exists');
   assert.deepEqual(sources.slice(1), contractIndex().files.map(clauseFile).filter((f) => fs.existsSync(repoPath(f))));
+  // The order across every indexed record, with each file present.
+  assert.deepEqual(manifestSources(() => true), [RESIDUAL, ...contractIndex().files.map(clauseFile)]);
   const expected = sources.flatMap((source) => JSON.parse(fs.readFileSync(repoPath(source), 'utf8')).clauses);
   assert.deepEqual(readManifest().clauses, expected);
   // Every id a record lists is assembled once.
@@ -59,6 +61,7 @@ test('Issue #240 a clause in two sources, a duplicate key, or a clause file of a
   const residual = JSON.parse(fs.readFileSync(repoPath(RESIDUAL), 'utf8'));
   const twice = JSON.stringify({ ...residual, clauses: [...residual.clauses, own.clauses[0]] });
   assert.throws(() => readManifest(overlay({ [RESIDUAL]: twice })), new RegExp(`${own.clauses[0].id} is in two sources`));
+  assert.throws(() => readManifest(overlay({ 'contract/CL-D105.clauses.json': JSON.stringify({ clauses: [...own.clauses, own.clauses[0]] }) })), new RegExp(`${own.clauses[0].id} is listed twice in contract/CL-D105\\.clauses\\.json`));
   const source = readText('contract/CL-D105.clauses.json');
   assert.throws(() => readManifest(overlay({ 'contract/CL-D105.clauses.json': source.replace('"id": "CL-D105-record"', '"id": "CL-D105-record", "id": "shadow"') })), /duplicate JSON object key: id/);
   for (const shape of ['{"clauses": []}', '{"clauses": {}}', JSON.stringify({ ...own, extra: 1 }), '[]']) {
