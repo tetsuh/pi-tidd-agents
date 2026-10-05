@@ -43,13 +43,14 @@ function readAutofixProcedure() {
   return `${readText('skills/closed-loop-pr/references/autofix.md')}\n${readText('skills/closed-loop-pr/references/helper-map.md')}`;
 }
 
-// A test parses the clause manifest through readManifest, however the path is spelled or linked (#238).
+// A test parses the clause manifest through readManifest: readJson refuses the manifest's file (its device and inode),
+// however its path is spelled, aliased or linked (#238).
 function readJson(relativePath) {
   if (sameFile(relativePath, MANIFEST)) throw new Error(`read the clause manifest through readManifest(), not readJson(${JSON.stringify(relativePath)})`);
   return JSON.parse(readText(relativePath));
 }
 function sameFile(a, b) {
-  try { return fs.realpathSync(repoPath(a)) === fs.realpathSync(repoPath(b)); } catch { return false; }
+  try { const [x, y] = [a, b].map((p) => fs.statSync(repoPath(p), { bigint: true })); return x.dev === y.dev && x.ino === y.ino; } catch { return false; }
 }
 
 /**
