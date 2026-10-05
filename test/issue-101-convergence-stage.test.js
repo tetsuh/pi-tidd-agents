@@ -19,7 +19,7 @@ const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readAutofixProcedure, readText, readContract, sectionOf, parseFrontmatter, exists } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, parseFrontmatter, exists, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -277,6 +277,6 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D62 later added the convergence role file under its own widening/);
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D62').map((clause) => clause.id).sort(), ['CL-D62-autofix', 'CL-D62-autofix-flow', 'CL-D62-autofix-map', 'CL-D62-issue', 'CL-D62-pr', 'CL-D62-readme', 'CL-D62-shared', 'CL-D62-tests']);
 });

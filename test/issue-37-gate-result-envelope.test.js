@@ -9,7 +9,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readContract, readJson, repoPath, sectionOf } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
@@ -528,6 +528,6 @@ test('Issue #37 CONTRACT.md records CL-D36 and the raised authority baseline', (
   assert.match(section, /exact live response `Aで続けて`/);
   assert.match(section, /parent-owned `\{findingId, blockerKey\}` tuples/);
   assert.match(section, /nonempty fresh-ID suffix matching `\[A-Z0-9\._-\]\+`/);
-  const manifest = readJson('test/contract-clauses.json');
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D36').map((clause) => clause.id).sort(), ['CL-D36-baseline', 'CL-D36-transport', 'CL-D36-validator']);
 });

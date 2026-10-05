@@ -7,7 +7,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readContract, readJson, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf, readManifest } = require('./helpers');
 
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
@@ -199,7 +199,7 @@ test('Issue #51 CONTRACT.md records CL-D34 with its clauses, the raised authorit
   assert.match(section, /PR #48/);
   assert.match(section, /108,000/);
   assert.match(section, /99,182/);
-  const manifest = readJson('test/contract-clauses.json');
+  const manifest = readManifest();
   const ids = manifest.clauses.filter((clause) => clause.marker === 'CL-D34').map((clause) => clause.id).sort();
   assert.deepEqual(ids, ['CL-D34-anchor', 'CL-D34-baseline', 'CL-D34-classes', 'CL-D34-normalization', 'CL-D34-payload', 'CL-D34-readme', 'CL-D34-threat-model']);
   const cl29 = sectionOf(contract, '## CL-D29 — Sol attempts adversarial falsification of absolute claims');

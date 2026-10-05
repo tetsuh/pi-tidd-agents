@@ -32,6 +32,8 @@ function contractFiles() { return ['CONTRACT.md', ...contractIndex().files]; }
 function exists(relativePath) {
   return fs.existsSync(repoPath(relativePath));
 }
+// The clause manifest, read in one place so moving the clauses beside their records (#234) changes only this (#238).
+function readManifest() { return readJson('test/contract-clauses.json'); }
 
 // The exact-autofix procedure a run reads is two files since CL-D83: the reference and the invocation map it names.
 // Cases that ask what the procedure says read both; cases that ask where a sentence lives name the file themselves,
@@ -371,4 +373,4 @@ function receiverTypebox(receiver, options = {}) {
 }
 
 module.exports = {
-  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractFiles, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };
+  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractFiles, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };

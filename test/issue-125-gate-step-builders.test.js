@@ -21,7 +21,7 @@ const crypto = require('node:crypto');
 const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, cliSchemas, readManifest } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40);
@@ -251,7 +251,7 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
   assert.match(readText('test/package.test.js'), /helperBytes < 310000/);
   assert.equal(readText('test/package.test.js').includes('helperBytes < 240000'), false, 'the superseded alarm must not survive');
 
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D73').map((clause) => clause.id).sort(), ['CL-D73-addendum', 'CL-D73-operations', 'CL-D73-record', 'CL-D73-tests', 'CL-D73-transport']);
   const byId = Object.fromEntries(manifest.clauses.map((clause) => [clause.id, clause]));
   assert.equal(byId['CL-D73-transport'].section, '### Structured gate result transport (CL-D36)', 'the transport clause names the section its sentences live in');

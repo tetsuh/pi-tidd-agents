@@ -3,9 +3,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readContract, readJson, exists, sectionOf } = require('./helpers');
+const { readText, readContract, exists, sectionOf, readManifest } = require('./helpers');
 
-const manifest = readJson('test/contract-clauses.json');
+const manifest = readManifest();
 
 /**
  * Returns the lines from `heading` up to the next heading of the same or

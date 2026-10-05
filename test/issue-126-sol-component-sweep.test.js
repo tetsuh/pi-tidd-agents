@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, readContract, repoPath, sectionOf, AUTHORITY_FILES } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf, AUTHORITY_FILES, readManifest } = require('./helpers');
 
 const SENTENCE = 'When a finding exhibits a counterexample against a component, attempt every other counterexample class against that same component — its other inputs, encodings, syntax forms, and boundaries — and report all that succeed in that one result, so the component is corrected once.';
 
@@ -61,7 +61,7 @@ test('Issue #126 CL-D66 records the component sweep, its declined alternatives, 
   assert.match(record, /changes no verdict rule, no severity, no anchoring class, and no round budget/);
   assert.match(record, /leaves the writer and the pre-push sweep carrying the whole burden/);
   assert.match(record, /ends where the gate's evidence ends/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D66').map((clause) => clause.id).sort(), ['CL-D66-payload', 'CL-D66-record', 'CL-D66-sweep', 'CL-D66-sweep-tests', 'CL-D66-tests', 'CL-D66-writer']);
   const payloadClause = manifest.clauses.find((clause) => clause.id === 'CL-D66-sweep');
   assert.deepEqual([payloadClause.files, payloadClause.section], [['skills/closed-loop-shared/references/gate-contract.md'], '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)']);

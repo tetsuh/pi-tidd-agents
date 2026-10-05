@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, readContract, repoPath, sectionOf } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 
 test('Issue #119 the adversarial gate names every same-class rigor gap in one result and the writer writes exact checks', () => {
   const sol = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)');
@@ -38,7 +38,7 @@ test('Issue #119 CL-D66 records the placement, the declined alternatives, and th
   assert.match(record, /a deterministic lint over test files, which classifies open-world test code and is declined/);
   assert.match(record, /a presence check where presence is the criterion is not a finding/);
   assert.match(record, /verdict vocabulary, gate authority, the CL-D30 caps, and the CL-D63 fence-grammar bound are unchanged/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D66').map((clause) => clause.id).sort(), ['CL-D66-payload', 'CL-D66-record', 'CL-D66-sweep', 'CL-D66-sweep-tests', 'CL-D66-tests', 'CL-D66-writer']);
   assert.ok(fs.existsSync(repoPath('test/issue-119-exactness-class.test.js')));
 });

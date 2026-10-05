@@ -13,7 +13,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, readContract, repoPath, sectionOf, AUTHORITY_FILES } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf, AUTHORITY_FILES, readManifest } = require('./helpers');
 
 const ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 
@@ -34,7 +34,7 @@ test('Issue #153 rule 2: the chronology leaves the pull-request body', () => {
   assert.match(template, /A pull-request body under this workflow carries three parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; and the AC-TDD classification of the RED with its command and counts, followed at most by one tooling attribution footer\./);
   assert.match(template, /the chronology of review rounds lives on the target's timeline, so a round edits no body and invalidates no snapshot by doing so \(CL-D67, CL-D85\)\./);
   assert.doesNotMatch(template, /the chronology is appended after each review round/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   const pinned = manifest.clauses.find((clause) => clause.id === 'CL-D67-template');
   assert.ok(pinned.requires.some((sentence) => sentence.includes('carries three parts and nothing else')), 'the manifest pins the three-part body');
   assert.ok(!pinned.requires.some((sentence) => sentence.includes('carries four parts')), 'the superseded four-part sentence must not survive in the manifest');
@@ -61,7 +61,7 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
   // The records CL-D85 amends say so themselves.
   assert.match(sectionOf(readContract(), '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model') || '', /CL-D85/);
   assert.match(sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts') || '', /CL-D85/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D85').map((clause) => clause.id).sort(),
     ['CL-D85-classes', 'CL-D85-gates', 'CL-D85-misses', 'CL-D85-order', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-routing', 'CL-D85-status', 'CL-D85-tests']);
   assert.ok(fs.existsSync(repoPath('test/issue-153-wording-only-minors.test.js')));
@@ -133,7 +133,7 @@ test('Issue #153 the superseded guard figure and phrases leave the repository', 
 });
 
 test('Issue #153 the new pins survive a mutation of what they pin', () => {
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   // A prose pin searched file-wide passes with the sentence moved out of the block it governs; a fixture file has
   // no sections, so the rule is for the Markdown clauses.
   for (const clause of manifest.clauses.filter((entry) => entry.marker === 'CL-D85' && entry.files.every((file) => file.endsWith('.md')))) {
@@ -175,7 +175,7 @@ test('Issue #153 the CL-D85 record says what its carriers say', () => {
   assert.equal(record.includes('records it in the status block as a review miss of the round'), false,
     'exact autofix emits no status block, so the record may not send it there');
   assert.ok(record.includes(ADVANCE), 'the record carries the transition rule its carriers state');
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D85').flatMap((clause) => clause.requires);
   assert.ok(pins.some((sentence) => sentence.includes('advances as `MERGE` at every transition')), 'the manifest pins the transition rule');
 });
@@ -186,7 +186,7 @@ test('Issue #153 AC-GATES carries the CL-D85 counting rule', () => {
   const gates = sectionOf(readContract(), '## AC-GATES — Sequential Sol then Terra');
   assert.ok(gates, 'AC-GATES must exist');
   assert.match(gates, /The Terra gate never starts before the Sol gate returns `MERGE`\. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite \(CL-D85\)\./);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D85').flatMap((clause) => clause.requires);
   assert.ok(pins.some((sentence) => sentence.includes('counts as `MERGE` for that prerequisite')), 'the manifest pins the AC-GATES qualification');
 });
@@ -214,7 +214,7 @@ test('Issue #153 the bars CL-D85 sets are pinned, not only its permissions', () 
   // What the packaged validator can represent today, and where the rest is being decided.
   assert.match(record, /The packaged validator does not yet represent this class: `checkVerdict` treats a fresh Minor with an anchoring class and a no-code disposition as unresolved/);
   assert.match(record, /Until that is decided \(Issue #172\)/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D85').flatMap((clause) => clause.requires);
   for (const bar of ['Treating a `Blocker` or `Major` as wording only', 'it is not wording only and keeps its severity']) {
     assert.ok(pins.some((sentence) => sentence.includes(bar)), `the manifest pins the bar: ${bar}`);

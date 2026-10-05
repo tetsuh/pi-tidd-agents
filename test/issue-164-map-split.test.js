@@ -15,7 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readText, readContract, readJson, repoPath, AUTHORITY_FILES, copyTrackedCheckout } = require('./helpers');
+const { readText, readContract, repoPath, AUTHORITY_FILES, copyTrackedCheckout, readManifest } = require('./helpers');
 
 const MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
@@ -65,7 +65,7 @@ test('Issue #164 the move frees the budget it was taken for', () => {
 });
 
 test('Issue #164 every clause pinned to a moved sentence names the file it moved to', () => {
-  const manifest = readJson('test/contract-clauses.json');
+  const manifest = readManifest();
   const map = readText(MAP);
   const autofix = readText(AUTOFIX);
   for (const clause of manifest.clauses) {

@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, contractFiles, readContract, sectionOf } = require('./helpers');
+const { readAutofixProcedure, readText, contractFiles, readContract, sectionOf, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const { buildOperatorRevalidate } = require(path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'builders.js'));
@@ -95,7 +95,7 @@ test('Issue #169 CL-D86 records both choices and the helper alarm reset', () => 
   }
   assert.match(record, /issues\/169#issuecomment-5786110213/, 'the record cites the owner choices');
   assert.match(record, /The packaged-helper alarm resets from 270,000 to 280,000 bytes/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D86').map((clause) => clause.id).sort(),
     ['CL-D86-builder', 'CL-D86-cli', 'CL-D86-map', 'CL-D86-record', 'CL-D86-tests']);
 });
@@ -166,7 +166,7 @@ test('Issue #169 the post-push invariant names the derivation, wherever it is st
     assert.ok(text.includes(DERIVED), `${file} states the derived chain`);
     assert.equal(text.includes('through the heads the parent names as its own pushes'), false, `${file} keeps no superseded statement of it`);
   }
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   const pinned = manifest.clauses.find((clause) => clause.id === 'CL-D79-definition');
   assert.ok(pinned.requires.every((sentence) => sentence.includes(DERIVED) || !sentence.includes('WORKSPACE_POST_PUSH')),
     'the definition clause pins the amended sentence');
@@ -236,7 +236,7 @@ test('Issue #169 the record names the source the retry recomposes from', () => {
   const record = sectionOf(readContract(), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots');
   assert.match(record, /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter\./);
   assert.equal(record.includes('recomposed once from those snapshots'), false, 'the record may not name a source the operational rule does not');
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   const pins = manifest.clauses.filter((clause) => clause.marker === 'CL-D86').flatMap((clause) => clause.requires);
   assert.ok(pins.some((sentence) => sentence.includes('recomposed once from a freshly taken post-push snapshot')), 'the manifest pins the source');
 });

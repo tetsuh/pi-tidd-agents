@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, readContract, repoPath, sectionOf } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 
 test('Issue #115 the writer iterates on focused validation before the guard and receives pinned literals verbatim', () => {
   const writer = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### The writer (CL-D3)');
@@ -36,7 +36,7 @@ test('Issue #115 CL-D64 records the writer duty without relaxing the terminal ru
   assert.match(record, /issues\/115/);
   assert.match(record, /a retry after the guarded validation fails/);
   assert.match(record, /CL-D39's post-writer terminal rule is unchanged/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D64').map((clause) => clause.id).sort(), ['CL-D64-tests', 'CL-D64-writer']);
   assert.ok(fs.existsSync(repoPath('test/issue-115-writer-pre-guard.test.js')));
 });

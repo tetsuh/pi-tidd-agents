@@ -15,7 +15,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, readContract, repoPath, sectionOf } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 
 test('Issue #120 the PR Skill states the body template and keeps per-head facts out of the body', () => {
   const template = sectionOf(readText('skills/closed-loop-pr/SKILL.md'), '### PR body template (CL-D67)');
@@ -39,7 +39,7 @@ test('Issue #120 CL-D67 records the choice, the declined bounded body edit, and 
   assert.match(record, /Option A adds one bounded pull-request body edit to the exact-autofix grant/);
   assert.match(record, /the exact-autofix publication grant is unchanged: one commit and one push per correction batch, no body edit/);
   assert.match(record, /Adding a body edit to the grant requires a new owner decision/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D67').map((clause) => clause.id).sort(), ['CL-D67-record', 'CL-D67-template', 'CL-D67-tests']);
   assert.ok(fs.existsSync(repoPath('test/issue-120-pr-body-template.test.js')));
 });

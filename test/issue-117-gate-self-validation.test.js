@@ -15,7 +15,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readContract, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf, readManifest } = require('./helpers');
 
 const REVIEWERS = ['tidd-adversarial-reviewer', 'tidd-drift-reviewer', 'tidd-safety-reviewer', 'tidd-convergence-reviewer'];
 // The three envelope duties, stated once here and required verbatim in both the payload block and the record,
@@ -56,7 +56,7 @@ test('Issue #117 CL-D65 records the duty and widens CL-D1 once more', () => {
   assert.match(record, /letting the child's own run substitute for the parent's `gate_result_validate` requires a new owner decision/);
   assert.match(record, /the writer body is unchanged because it returns no gate envelope/);
   assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D65 later added the self-validation sentence to the four reviewer bodies under its own widening/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D65').map((clause) => clause.id).sort(), ['CL-D65-payload', 'CL-D65-record', 'CL-D65-tests']);
   const recordClause = manifest.clauses.find((clause) => clause.id === 'CL-D65-record');
   for (const duty of DUTIES) assert.ok(recordClause.requires.includes(duty), `CL-D65-record pins: ${duty}`);

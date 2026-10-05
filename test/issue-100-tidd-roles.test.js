@@ -17,7 +17,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
-const { readText, readContract, readJson, repoPath, parseFrontmatter, sectionOf } = require('./helpers');
+const { readText, readContract, repoPath, parseFrontmatter, sectionOf, readManifest } = require('./helpers');
 
 const ROLES = {
   'tidd-adversarial-reviewer': { alias: 'sol-reviewer', model: 'gpt-6.1-sol', writer: false, context: 'fresh' },
@@ -114,7 +114,7 @@ test('Issue #100 CL-D59 records the role split, the agents/ widening, and the re
   assert.match(cl3, /For exact PR `autofix`, `tidd-autofix-worker` is the mandatory and sole correction writer\/publisher/);
   const cl22 = sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight');
   assert.match(cl22, /`tidd-adversarial-reviewer` \(default `gpt-6\.1-sol`\)/);
-  const manifest = readJson('test/contract-clauses.json');
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D59').map((clause) => clause.id).sort(), ['CL-D59-resolution', 'CL-D59-tests']);
   // CL-D35's rule still holds: no clause pins an agent file.
   assert.deepEqual(manifest.clauses.filter((clause) => clause.files.some((file) => file.startsWith('agents/'))), []);

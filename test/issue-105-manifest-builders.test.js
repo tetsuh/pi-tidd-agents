@@ -20,7 +20,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const AUTOFIX = readAutofixProcedure();
@@ -234,6 +234,6 @@ test('Issue #105 CL-D61 records the builders, the check, and the CL-D56 widening
   assert.match(record, /`required_evidence_check`/);
   assert.match(record, /widens CL-D56's builder family from five to seven/);
   assert.match(sectionOf(contract, '## CL-D56 — Package-owned builders construct the documents the boundary checks'), /CL-D61 later added the two `manifest_compare` builders under its own decision/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D61').map((clause) => clause.id).sort(), ['CL-D61-map', 'CL-D61-shared', 'CL-D61-tests']);
 });

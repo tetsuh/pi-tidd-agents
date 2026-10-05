@@ -21,7 +21,7 @@ const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { AUTHORITY_FILES, readText, readContract, repoPath, sectionOf } = require('./helpers');
+const { AUTHORITY_FILES, readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -184,7 +184,7 @@ test('Issue #100 the shared contract, the addendum, the README, and CL-D60 recor
   assert.match(record, /no cross-mapping/);
   assert.match(record, /128,000 to 140,000/);
   assert.match(sectionOf(contract, '## CL-D36 — Formal gate results travel as a strict structured envelope'), /CL-D60 later versioned the gate identities/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D60').map((clause) => clause.id).sort(), ['CL-D60-identities', 'CL-D60-tests']);
 });
 

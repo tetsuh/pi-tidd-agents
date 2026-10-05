@@ -14,7 +14,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readContract, readJson, sectionOf, cliSchemas, repoPath } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas, repoPath, readManifest } = require('./helpers');
 
 const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
@@ -224,7 +224,7 @@ test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   // The recorded measurement is revision-qualified so it cannot read as a running total.
   assert.match(section, /measured 112,720 bytes at `f7f3ff9`, when the raise was decided/);
 
-  const manifest = readJson('test/contract-clauses.json');
+  const manifest = readManifest();
   assert.deepEqual(
     manifest.clauses.filter((clause) => clause.marker === 'CL-D39').map((clause) => clause.id).sort(),
     ['CL-D39-baseline', 'CL-D39-recovery', 'CL-D39-stop'],
