@@ -5596,7 +5596,7 @@
         "skills/closed-loop-pr/driver/phases.js"
       ],
       "requires": [
-        "function sendBack(message) { process.stdout.write(`PROSE_PATH: ${message}\\n`); process.exit(2); }"
+        "function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).replace(/[\\r\\n\\u0085\\u2028\\u2029]+/g, ' ')}\\n`); process.exit(2); }"
       ]
     },
     {
