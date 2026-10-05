@@ -14,11 +14,12 @@ const NAME = ['contract', 'clauses'].join('-');
 const MANIFEST = `test/${NAME}.json`;
 // Every line of a script in the repository that names the manifest file, once each and compared after trimming, with
 // why it stays: the helpers' path constant, two comments, and the readers that take the file's text, or an overlay of
-// it, and parse it themselves, which #234 moves with the clauses (contract-record's text source; issue-110's scan list,
-// manifestGaps overlay reader, overlay mutation and mutation case). Any other line naming the file fails, whatever it
-// does with it; a test that parses the manifest's value goes through readManifest, and readJson refuses it however the
-// path is reached (below). Bound: a reader that both computes the path and parses readText's result indirectly has the
-// shape of the listed textual readers and is outside this pin until #234 moves them.
+// it, which #234 moves with the clauses (contract-record's text source; issue-110's scan list, manifestGaps overlay
+// reader, overlay mutation and mutation case). Any other line naming the file fails, whatever it does with it, and
+// readJson refuses the manifest's file however its path is spelled, aliased or linked (below).
+// Bound, stated (AC1 of #238): any other route to the manifest's bytes (readText, fs, require, or a copy) with a path no
+// scanned line spells, and any reader in a file the scan does not read (not a script, or under the root's .git,
+// node_modules, .pi or .pi-subagents), is outside this pin until #234 moves the textual readers.
 const ALLOWED = [
   ["test/helpers.js", "const MANIFEST = 'test/@.json';"],
   ["test/closed-loop-regressions.test.js", "// Prose obligations belong in test/@.json, not here."],
@@ -51,8 +52,8 @@ test('Issue #238 no script names the clause manifest except the readers listed f
 });
 
 // Rounds 1 and 2 of PR #239 (CONV-239-AC1-COMPUTED-PATH-SCAN, CONV-239-AC1-COMPUTED-PATH-GUARD): no text scan can
-// see every way a test reaches the manifest, so readJson refuses it at run time however it is reached: by its path, by
-// an alias of readJson, or through a link to the file.
+// see every way a test reaches the manifest, so readJson refuses the manifest's file (device and inode) at run time:
+// by its path, by an alias of readJson, through a symbolic link, or through a hard link.
 test('Issue #238 readJson refuses the clause manifest however it is reached', () => {
   const helpers = require('./helpers');
   const { readJson: parseFile } = helpers;
@@ -62,6 +63,9 @@ test('Issue #238 readJson refuses the clause manifest however it is reached', ()
   const link = `test/.issue-238-link-${process.pid}.json`;
   fs.symlinkSync(path.basename(MANIFEST), repoPath(link));
   try { assert.throws(() => parseFile(link), refused); } finally { fs.rmSync(repoPath(link), { force: true }); }
+  const hard = `test/.issue-238-hard-${process.pid}.json`;
+  fs.linkSync(repoPath(MANIFEST), repoPath(hard));
+  try { assert.throws(() => parseFile(hard), refused); } finally { fs.rmSync(repoPath(hard), { force: true }); }
   assert.equal(parseFile('package.json').name, JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8')).name, 'any other file still parses');
 });
 
