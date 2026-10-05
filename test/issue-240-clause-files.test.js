@@ -56,6 +56,12 @@ test('Issue #240 readManifest concatenates the residual and every clause file in
   assert.deepEqual(readManifest().clauses.map((c) => c.id).sort(), listed);
 });
 
+test('Issue #240 readJson refuses a clause file as it refuses the residual manifest', () => {
+  const { readJson } = require('./helpers');
+  assert.throws(() => readJson('contract/CL-D105.clauses.json'), /read the clause manifest through readManifest\(\)/);
+  assert.throws(() => readJson(RESIDUAL), /read the clause manifest through readManifest\(\)/);
+});
+
 test('Issue #240 a clause in two sources, a duplicate key, or a clause file of another shape fails', () => {
   const own = JSON.parse(fs.readFileSync(repoPath('contract/CL-D105.clauses.json'), 'utf8'));
   const residual = JSON.parse(fs.readFileSync(repoPath(RESIDUAL), 'utf8'));
