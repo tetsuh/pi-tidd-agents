@@ -43,12 +43,13 @@ test('Issue #240 a clause file holds exactly its record\'s Clauses line, and a s
   }
 });
 
-test('Issue #240 readManifest concatenates the residual and every clause file in index order', () => {
+test('Issue #240 readManifest concatenates every clause file in index order', () => {
   const sources = manifestSources();
-  assert.equal(sources[0], RESIDUAL, 'the residual comes first while it exists');
-  assert.deepEqual(sources.slice(1), contractIndex().files.map(clauseFile).filter((f) => fs.existsSync(repoPath(f))));
+  // Since #234 the shared manifest is gone and every source is a record's clause file.
+  assert.equal(fs.existsSync(repoPath(RESIDUAL)), false, 'the shared manifest is gone');
+  assert.deepEqual(sources, contractIndex().files.map(clauseFile).filter((f) => fs.existsSync(repoPath(f))));
   // The order across every indexed record, with each file present.
-  assert.deepEqual(manifestSources(() => true), [RESIDUAL, ...contractIndex().files.map(clauseFile)]);
+  assert.deepEqual(manifestSources(() => true), contractIndex().files.map(clauseFile));
   const expected = sources.flatMap((source) => JSON.parse(fs.readFileSync(repoPath(source), 'utf8')).clauses);
   assert.deepEqual(readManifest().clauses, expected);
   // Every id a record lists is assembled once.
@@ -56,12 +57,11 @@ test('Issue #240 readManifest concatenates the residual and every clause file in
   assert.deepEqual(readManifest().clauses.map((c) => c.id).sort(), listed);
 });
 
-test('Issue #240 readJson refuses a clause file as it refuses the residual manifest', () => {
+test('Issue #240 readJson refuses a clause file by path, alias, symbolic link and hard link', () => {
   const helpers = require('./helpers');
   const { readJson: parseFile } = helpers;
   const refused = /read the clause manifest through readManifest\(\)/, own = 'contract/CL-D105.clauses.json';
   assert.throws(() => parseFile(own), refused);
-  assert.throws(() => parseFile(RESIDUAL), refused);
   assert.throws(() => helpers.readJson.call(null, 'contract/../contract/CL-D105.clauses.json'), refused);
   // Links go under test/, so a run that dies midway leaves nothing in contract/ for the layout check to trip on.
   const link = `test/.issue-240-link-${process.pid}.json`, hard = `test/.issue-240-hard-${process.pid}.json`;
@@ -73,9 +73,9 @@ test('Issue #240 readJson refuses a clause file as it refuses the residual manif
 
 test('Issue #240 a clause in two sources, a duplicate key, or a clause file of another shape fails', () => {
   const own = JSON.parse(fs.readFileSync(repoPath('contract/CL-D105.clauses.json'), 'utf8'));
-  const residual = JSON.parse(fs.readFileSync(repoPath(RESIDUAL), 'utf8'));
-  const twice = JSON.stringify({ ...residual, clauses: [...residual.clauses, own.clauses[0]] });
-  assert.throws(() => readManifest(overlay({ [RESIDUAL]: twice })), new RegExp(`${own.clauses[0].id} is in two sources`));
+  const other = JSON.parse(fs.readFileSync(repoPath('contract/CL-D1.clauses.json'), 'utf8'));
+  const twice = JSON.stringify({ clauses: [...other.clauses, own.clauses[0]] });
+  assert.throws(() => readManifest(overlay({ 'contract/CL-D1.clauses.json': twice })), new RegExp(`${own.clauses[0].id} is in two sources`));
   assert.throws(() => readManifest(overlay({ 'contract/CL-D105.clauses.json': JSON.stringify({ clauses: [...own.clauses, own.clauses[0]] }) })), new RegExp(`${own.clauses[0].id} is listed twice in contract/CL-D105\\.clauses\\.json`));
   const source = readText('contract/CL-D105.clauses.json');
   assert.throws(() => readManifest(overlay({ 'contract/CL-D105.clauses.json': source.replace('"id": "CL-D105-record"', '"id": "CL-D105-record", "id": "shadow"') })), /duplicate JSON object key: id/);
@@ -110,5 +110,5 @@ test('Issue #240 a change to a record and its clause file puts those two, CONTRA
 test('Issue #240 CONTRACT.md and CL-D105 say where clause pins live', () => {
   assert.match(readText('CONTRACT.md'), /Each record's clause pins live beside it in `contract\/<id>\.clauses\.json`/);
   assert.match(readContract(), /## CL-D105 — /);
-  assert.match(readText('contract/CL-D103.md'), /CL-D105 later put each record's clause pins beside it, in `contract\/<id>\.clauses\.json`, as they move from/);
+  assert.match(readText('contract/CL-D103.md'), /CL-D105 later put each record's clause pins beside it, in `contract\/<id>\.clauses\.json`\./);
 });
