@@ -17,8 +17,8 @@ const MANIFEST = `test/${NAME}.json`;
 // overlay of it rather than its value, which #234 moves with the clauses (contract-record's text source; issue-110's
 // scan list, manifestGaps overlay reader, overlay mutation and mutation case). Any other line naming the file fails,
 // whatever it does with it: a reader goes through readManifest. A reader that reaches the file through a constant or a
-// computed path is refused below wherever it parses JSON through readJson or a JSON.parse of readText; this file reads
-// the file with fs for its independent oracle.
+// computed path is refused below wherever it parses JSON through readJson or a JSON.parse of readText; a read through
+// fs is outside the two forms AC1 names, and this file uses one for its independent oracle.
 const ALLOWED = [
   ["test/helpers.js", "function readManifest() { return readJson('test/@.json'); }"],
   ["test/closed-loop-regressions.test.js", "// Prose obligations belong in test/@.json, not here."],
@@ -50,20 +50,28 @@ test('Issue #238 no script names the clause manifest except the readers listed f
   assert.deepEqual(counts, ALLOWED.map(() => 1), 'every listed line is there exactly once');
 });
 
-// Round 1 of PR #239 (CONV-239-AC1-COMPUTED-PATH-SCAN): a line scan cannot see a reader that reaches the manifest
-// through a constant or a computed path, so the readers that parse a file as JSON take only a literal path outside
-// test/helpers.js. A computed path then has to go through a helper, where readManifest is the one manifest reader.
-const PARSING_READER = /\breadJson\s*\(\s*(?![\s'"])|\bJSON\.parse\s*\(\s*read(?:Text)?\s*\(\s*(?![\s'"])/;
+// Rounds 1 and 2 of PR #239 (CONV-239-AC1-COMPUTED-PATH-SCAN, CONV-239-AC1-COMPUTED-PATH-GUARD): a line scan cannot
+// see a reader that reaches the manifest through a constant, a template, or a concatenation of literals, so every call
+// of the two reader forms AC1 names, readJson and a JSON.parse of readText (or read), outside test/helpers.js must
+// be one whole call whose only argument is one plain string literal. Anything else, a
+// computed path included, goes through a helper, where readManifest is the one manifest reader. The manifest's name in
+// such a literal is then caught by the scan above.
+const OPENERS = [/\breadJson\s*\(/g, /\bJSON\.parse\s*\(\s*read(?:Text)?\s*\(/g];
+const LITERAL_CALL = /^\s*(['"])[^'"\\\n]*\1\s*\)/;
+const computedCalls = (text) => OPENERS.flatMap((opener) => [...text.matchAll(opener)].filter((m) => !LITERAL_CALL.test(text.slice(m.index + m[0].length))).map((m) => text.slice(m.index, text.indexOf('\n', m.index) === -1 ? undefined : text.indexOf('\n', m.index))));
 
-test('Issue #238 a script parses a file as JSON only from a literal path, outside the helpers', () => {
+test('Issue #238 a script parses a file as JSON only from one plain literal path, outside the helpers', () => {
   for (const file of scripts('.').filter((f) => f !== 'test/helpers.js')) {
-    readText(file).split('\n').forEach((line, i) => assert.doesNotMatch(line, PARSING_READER, `${file}:${i + 1} parses a computed path; read the manifest through readManifest(): ${line.trim()}`));
+    assert.deepEqual(computedCalls(readText(file)), [], `${file} parses a computed path; read the manifest through readManifest()`);
   }
-  // The control: the pattern refuses the computed forms and accepts the literal ones.
-  // The control, spelled in pieces so this file's own lines carry none of the forms it refuses.
+  // The control, spelled in pieces so this file's own text carries none of the forms it refuses.
   const call = (...parts) => parts.join('(');
-  for (const bad of [call('readJson', 'MANIFEST)'), call('readJson', '`test/${NAME}.json`)'), call('JSON.parse', 'readText', 'MANIFEST))'), call('JSON.parse', ' read', ' file ))')]) assert.match(bad, PARSING_READER, bad);
-  for (const good of [call('readJson', "'package.json')"), call('JSON.parse', 'readText', '"a.json"))'), call('JSON.parse', "read", "'x.json'))")]) assert.doesNotMatch(good, PARSING_READER, good);
+  const refused = [
+    call('readJson', 'MANIFEST)'), call('readJson', '`test/${NAME}.json`)'), call('JSON.parse', 'readText', 'MANIFEST))'), call('JSON.parse', ' read', ' file ))'),
+    call('readJson', "'test/contract-' + 'clauses.json')"), call('JSON.parse', 'readText', "'test/contract-' + 'clauses.json'))"), call('readJson', "'a' + b)"),
+  ];
+  for (const bad of refused) assert.equal(computedCalls(bad).length, 1, bad);
+  for (const good of [call('readJson', "'package.json')"), call('JSON.parse', 'readText', '"a.json"))'), call('JSON.parse', 'read', "'x.json'))")]) assert.deepEqual(computedCalls(good), [], good);
 });
 
 test('Issue #238 readManifest returns the manifest file\'s value', () => {
