@@ -33,7 +33,8 @@ function exists(relativePath) {
   return fs.existsSync(repoPath(relativePath));
 }
 // The clause manifest, read in one place so moving the clauses beside their records (#234) changes only this (#238).
-function readManifest() { return readJson('test/contract-clauses.json'); }
+const MANIFEST = 'test/contract-clauses.json';
+function readManifest() { return JSON.parse(readText(MANIFEST)); }
 
 // The exact-autofix procedure a run reads is two files since CL-D83: the reference and the invocation map it names.
 // Cases that ask what the procedure says read both; cases that ask where a sentence lives name the file themselves,
@@ -42,8 +43,13 @@ function readAutofixProcedure() {
   return `${readText('skills/closed-loop-pr/references/autofix.md')}\n${readText('skills/closed-loop-pr/references/helper-map.md')}`;
 }
 
+// A test parses the clause manifest through readManifest, however the path is spelled or linked (#238).
 function readJson(relativePath) {
+  if (sameFile(relativePath, MANIFEST)) throw new Error(`read the clause manifest through readManifest(), not readJson(${JSON.stringify(relativePath)})`);
   return JSON.parse(readText(relativePath));
+}
+function sameFile(a, b) {
+  try { return fs.realpathSync(repoPath(a)) === fs.realpathSync(repoPath(b)); } catch { return false; }
 }
 
 /**
