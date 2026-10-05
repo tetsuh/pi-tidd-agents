@@ -1,7 +1,8 @@
 'use strict';
 
 // Issue #240 (#234 part b1, CL-D105): a record's clause pins live beside it in contract/<id>.clauses.json, and the tests
-// read every source through one assembly: the residual manifest while it exists, then each indexed record's clause file.
+// read every source through one assembly: each indexed record's clause file, in index order (#234 removed the shared
+// manifest).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');

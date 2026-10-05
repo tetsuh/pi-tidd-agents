@@ -8,7 +8,7 @@ These decisions were made during [#3](https://github.com/tetsuh/pi-tidd-agents/i
 
 **How this file is enforced.** Each record's clause pins live beside it in `contract/<id>.clauses.json` (CL-D105) and map each obligation to literal text that must appear in a named file, and `test/contract-record.test.js` checks that every clause resolves to a decision here and that every decision here either owns a clause or is annotated `**Clauses:** none — structural`. Adding a clause without a decision, or leaving a decision with nothing enforcing it, fails the build. Three contract changes reached `main` without a record while that record lived in a GitHub comment; nothing could check a comment.
 
-**What a clause can and cannot prove.** A clause proves that required text is present. It cannot prove a document says only one thing: three contradictions passed review because every required literal sat in the stale half of a superseded rule. Retired wordings are therefore named explicitly in the superseded-rule guard in `test/closed-loop-regressions.test.js`.
+**What a clause can and cannot prove.** A clause proves that required text is present. It cannot prove a document says only one thing: three contradictions passed review because every required literal sat in the stale half of a superseded rule. Retired wordings are therefore named explicitly in the superseded-rule guard in `test/closed-loop-regressions.test.js`. A clause without a `section` is matched against the whole file, which is weaker than it looks: a literal deleted from one place can still match an unrelated mention elsewhere. Record formats are therefore pinned whole and scoped to a section.
 
 ---
 
