@@ -12,14 +12,13 @@ const { repoPath, readText, readManifest } = require('./helpers');
 // The file's name is assembled, so this file names it on no line and is scanned like any other.
 const NAME = ['contract', 'clauses'].join('-');
 const MANIFEST = `test/${NAME}.json`;
-// Every line of a script in the repository that names the manifest file, once each and compared after trimming, with
-// why it stays: the helpers' path constant, two comments, and the readers that take the file's text, or an overlay of
-// it, which #234 moves with the clauses (contract-record's text source; issue-110's scan list, manifestGaps overlay
-// reader, overlay mutation and mutation case). Any other line naming the file fails, whatever it does with it, and
-// readJson refuses the manifest's file however its path is spelled, aliased or linked (below).
-// Bound, stated (AC1 of #238): any other route to the manifest's bytes (readText, fs, require, or a copy) with a path no
-// scanned line spells, and any reader in a file the scan does not read (not a script, or under the root's .git,
-// node_modules, .pi or .pi-subagents), is outside this pin until #234 moves the textual readers.
+// Every line of a script in the repository that contains the manifest file's name, once each and compared after
+// trimming, with why it stays: the helpers' path constant, two comments, and the readers that take the file's text, or
+// an overlay of it, which #234 moves with the clauses (contract-record's text source; issue-110's scan list,
+// manifestGaps overlay reader, overlay mutation and mutation case). Any other line that contains the name fails,
+// whatever it does with it, and readJson refuses the manifest's file however its path is spelled, aliased or linked
+// (below). Nothing else is claimed (AC1 of #238): a route that never asks readJson for the manifest's file and has the
+// name on no scanned line is outside this pin until #234 moves the textual readers.
 const ALLOWED = [
   ["test/helpers.js", "const MANIFEST = 'test/@.json';"],
   ["test/closed-loop-regressions.test.js", "// Prose obligations belong in test/@.json, not here."],
@@ -38,7 +37,7 @@ function scripts(dir) {
     .flatMap((e) => (e.isDirectory() ? scripts(path.posix.join(dir, e.name)) : /\.[cm]?[jt]s$/.test(e.name) ? [path.posix.join(dir, e.name)] : []));
 }
 
-test('Issue #238 no script names the clause manifest except the readers listed for #234', () => {
+test('Issue #238 no script line contains the clause manifest\'s name except the lines listed here', () => {
   const counts = ALLOWED.map(() => 0);
   for (const file of scripts('.')) {
     readText(file).split('\n').forEach((line, i) => {
@@ -54,7 +53,7 @@ test('Issue #238 no script names the clause manifest except the readers listed f
 // Rounds 1 and 2 of PR #239 (CONV-239-AC1-COMPUTED-PATH-SCAN, CONV-239-AC1-COMPUTED-PATH-GUARD): no text scan can
 // see every way a test reaches the manifest, so readJson refuses the manifest's file (device and inode) at run time:
 // by its path, by an alias of readJson, through a symbolic link, or through a hard link.
-test('Issue #238 readJson refuses the clause manifest however it is reached', () => {
+test('Issue #238 readJson refuses the clause manifest by path, alias, symbolic link and hard link', () => {
   const helpers = require('./helpers');
   const { readJson: parseFile } = helpers;
   const refused = /read the clause manifest through readManifest\(\)/;

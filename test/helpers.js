@@ -43,8 +43,8 @@ function readAutofixProcedure() {
   return `${readText('skills/closed-loop-pr/references/autofix.md')}\n${readText('skills/closed-loop-pr/references/helper-map.md')}`;
 }
 
-// A test parses the clause manifest through readManifest: readJson refuses the manifest's file (its device and inode),
-// however its path is spelled, aliased or linked (#238).
+// readJson refuses the clause manifest's file (its device and inode), however its path is spelled, aliased or linked;
+// readManifest is the helper that parses it (#238).
 function readJson(relativePath) {
   if (sameFile(relativePath, MANIFEST)) throw new Error(`read the clause manifest through readManifest(), not readJson(${JSON.stringify(relativePath)})`);
   return JSON.parse(readText(relativePath));
