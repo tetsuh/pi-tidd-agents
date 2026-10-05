@@ -15,6 +15,9 @@ const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 // gate-contract.md: a missing or unparsable result, its runner status record included, is relaunched once without spending a round; still running is
 // neither a result nor a failure.
 const RELAUNCHABLE = new Set(['status_absent', 'status_unparsable', 'designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent']);
+// CL-D104: the driver's own last line sends a pull request back to the prose path; a quoted value is one line, never this
+// one, and a control character or line separator in the message (a checkout path may hold one) is folded to a space.
+function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).split(/[\x00-\x1f\x7f-\x9f\u2028\u2029]+/).join(' ')}\n`); process.exit(2); }
 function gateLabel(gate) { return { adversarial: 'sol', safety: 'terra' }[gate] || gate; }
 
 // Everything that can refuse is judged before the run directory exists, so a refusal leaves no half-run behind.
@@ -33,11 +36,11 @@ function bindTarget(opts, kind) {
     if (typeof value !== 'string' || !value) die(`cannot bind pull request ${repository}#${number}: its ${name} is missing`);
   }
   // A head from another repository is a foreign pull request, whatever objects happen to be local (CONV-199-FOREIGN-HEAD-LOCAL).
-  if (pull.head.repo.full_name.toLowerCase() !== pull.base.repo?.full_name?.toLowerCase()) die(`pull request ${repository}#${number} has its head in another repository (${pull.head.repo.full_name}); review it on the prose path of review-only.md`);
+  if (pull.head.repo.full_name.toLowerCase() !== pull.base.repo?.full_name?.toLowerCase()) sendBack(`pull request ${repository}#${number} has its head in another repository (${pull.head.repo.full_name}); review it on the prose path of review-only.md`);
   // The driver reads the head and base from a local checkout. A foreign pull request, or one whose objects are not
-  // local, stays with the prose path of review-only.md until the prompt switch (#196 PR-C) (ADV-199-NO-CHECKOUT-PR).
+  // local, is sent back to the prose path (ADV-199-NO-CHECKOUT-PR, CL-D104).
   for (const oid of [pull.base.sha, pull.head.sha]) {
-    try { git(checkout, ['cat-file', '-e', `${oid}^{commit}`]); } catch { die(`the checkout ${checkout} does not hold ${oid}; the driver needs the head and base locally, so review it on the prose path of review-only.md`); }
+    try { git(checkout, ['cat-file', '-e', `${oid}^{commit}`]); } catch { sendBack(`the checkout ${checkout} does not hold ${oid}; the driver needs the head and base locally, so review it on the prose path of review-only.md`); }
   }
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-pr${number}-${kind}.`));
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
@@ -47,7 +50,14 @@ function bindTarget(opts, kind) {
   return { checkout, runDir, pull, target };
 }
 // Once a run directory exists, a failure anywhere still ends the run with an outcome token and a status block.
-function guard(run) { process.on('uncaughtException', (error) => run.stop('BLOCKED', `the driver failed: ${String(error.message).split('\n')[0]}`)); }
+// Git's error output is captured, not passed through (CL-D104), so a failure carries Git's reason: its last fatal or
+// error line, else its last line, bounded.
+function failure(error) {
+  const lines = String(error.stderr || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const why = ([...lines].reverse().find((l) => /^(?:fatal|error):/.test(l)) || lines.pop() || '').slice(0, 300);
+  return `the driver failed: ${String(error.message).split('\n')[0]}${why ? ` (${why})` : ''}`;
+}
+function guard(run) { process.on('uncaughtException', (error) => run.stop('BLOCKED', failure(error))); }
 function readIssue(run) {
   const s = run.state, t = s.target;
   const issue = gh(['api', `repos/${t.repository}/issues/${s.issueNumber}`], s.checkout);
@@ -140,4 +150,4 @@ function ignoredDrift(saved, cwd) {
 // The gates that returned MERGE on the head the run ends on, by label, for the MERGE_READY reason.
 function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.head === head && g.verdict === 'MERGE').map((g) => gateLabel(g.gate)))].join(' and '); }
 
-module.exports = { TRUSTED, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
+module.exports = { TRUSTED, sendBack, failure, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };

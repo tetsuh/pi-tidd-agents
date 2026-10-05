@@ -11,7 +11,7 @@ test('Issue #196 the autofix driver refuses a head from another repository befor
   const r = drive(t.start, t.env);
   assert.notEqual(r.status, 0);
   assert.equal(fs.existsSync(t.runDir), false);
-  assert.match(r.stderr, /another repository/);
+  assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: .*another repository/);
 });
 
 test('Issue #196 the autofix driver stops readiness WAITING_FOR_OWNER on an unresolved external review thread', () => {

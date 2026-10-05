@@ -62,7 +62,7 @@ test('Issue #196 a checkout switched to another commit between gates stops the n
 
 // Round 13 of PR #199: required checks that never reported (ADV-199-MISSING-REQUIRED-CHECKS), a reply added to an
 // existing thread (ADV-199-THREAD-REPLY-IDENTITY), and a pull request the driver cannot read from a local checkout
-// (ADV-199-NO-CHECKOUT-PR), which stays with the prose path until the prompt switch.
+// (ADV-199-NO-CHECKOUT-PR), which the driver sends back to the prose path (CL-D104).
 test('Issue #196 a required check that never reported keeps readiness waiting when protection requires it; a ruleset is for a human', () => {
   // Protection's required check is judged here and waits. A ruleset is never evaluated (the #196 cut-off), so its
   // required check is part of what a human confirms (CL-D100).

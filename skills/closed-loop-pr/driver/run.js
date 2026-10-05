@@ -36,8 +36,9 @@ function parseArgs(argv) {
 // drops the same redirection and keeps its own credentials (CONV-199-GIT-ENV-CHECKOUT).
 const REDIRECT_ENV = /^GIT_(?:DIR|WORK_TREE|COMMON_DIR|INDEX_FILE|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|NAMESPACE|CEILING_DIRECTORIES)$/i;
 function git(cwd, list, encoding = 'utf8') {
-  // The helpers' safe configuration too, so no hook, fsmonitor, or external diff the checkout names ever runs.
-  return execFileSync('git', gitArgs(list), { cwd, encoding, maxBuffer: 256 * 1024 * 1024, env: sanitizedEnv({ LC_ALL: 'C' }, 'git') });
+  // The helpers' safe configuration too, so no hook, fsmonitor, or external diff the checkout names ever runs; Git's own
+  // error output is captured, never passed through, so the driver's last line is its own (CL-D104).
+  return execFileSync('git', gitArgs(list), { cwd, encoding, stdio: 'pipe', maxBuffer: 256 * 1024 * 1024, env: sanitizedEnv({ LC_ALL: 'C' }, 'git') });
 }
 function gh(list, cwd) {
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !REDIRECT_ENV.test(key)));
@@ -232,6 +233,8 @@ function runDirNotFresh(dir) {
   if ((typeof process.getuid === 'function' && st.uid !== process.getuid()) || (st.mode & 0o022)) return `the run directory ${dir} is not the operator's own or is writable by others; give a fresh one`;
   return fs.readdirSync(dir).length ? `the run directory ${dir} is not empty; give a fresh one` : null;
 }
+// JSON leaves U+0085, U+2028 and U+2029 raw; escaped, no reader breaks a printed JSON line, its value unchanged (CL-D104).
+const jsonLine = (v) => [...JSON.stringify(v)].map((c) => ('\u0085\u2028\u2029'.includes(c) ? `\\u${c.charCodeAt(0).toString(16).padStart(4, '0')}` : c)).join('');
 class Run {
   constructor(dir) {
     this.dir = dir;
@@ -280,11 +283,11 @@ class Run {
     if (!ok && !allowFail) this.stop(status, `${operation} refused: ${result.error?.code || result.data?.code} ${result.error?.message || ''}`.trim());
     return result;
   }
-  stop(state, reason) {
+  stop(state, reason, last = '') {
     Object.assign(this.state, { state, reason, pending: null });
     this.save();
     this.publish();
-    process.stdout.write(`${JSON.stringify({ state, reason, runDir: this.dir })}\n`);
+    process.stdout.write(`${jsonLine({ state, reason, runDir: this.dir })}\n${last}`);
     process.exit(state === 'MERGE_READY' ? 0 : 1);
   }
   // Status block and publication artifacts: the CL-D33 template and the CL-D45 marker, with a real observation time.
@@ -348,7 +351,7 @@ class Run {
   }
   // Print the one call the parent makes, and the command that reads its result.
   next(request, command) {
-    process.stdout.write(`NEXT: make exactly this subagent call, then run: node ${command} --run-dir ${this.dir} --run-id <runId>\n${JSON.stringify(request)}\n`);
+    process.stdout.write(`NEXT: make exactly this subagent call, then run: node ${command} --run-dir ${this.dir} --run-id <runId>\n${jsonLine(request)}\n`);
   }
 }
 

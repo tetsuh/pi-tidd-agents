@@ -119,3 +119,37 @@ test('Issue #196 a confirmed fix that a later gate reports unresolved goes back 
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-autofix-worker', `the regressed fix returns to the writer: ${r.stdout}${r.stderr}`);
   assert.equal(state(t.runDir).ledger.find((e) => e.findingId === 'CONV-7-X1').status, 'open');
 });
+
+// Issue #224: the driver's Git reads capture Git's error output, so a failure keeps Git's own reason in the stop rather
+// than echoing it to a terminal the operator may never see.
+test('Issue #224 a Git failure after the run directory exists keeps Git\'s reason in the stop', () => {
+  const t = setup();
+  git(t.target.checkout, ['remote', 'remove', 'origin']);
+  const r = drive(t.start, t.env);
+  assert.notEqual(r.status, 0);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'BLOCKED');
+  assert.match(s.reason, /^the driver failed: Command failed: git .*remote get-url origin \(error: No such remote 'origin'\)$/);
+  assert.equal(r.stderr, '');
+});
+
+// Git's reason is its fatal or error line, wherever Git puts it: an unknown revision ends on two usage lines.
+test('Issue #224 the stop keeps Git\'s fatal line, not a usage hint after it, bounded', () => {
+  const { failure } = require('../skills/closed-loop-pr/driver/phases');
+  const stderr = "fatal: ambiguous argument 'deadbeef..HEAD': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n";
+  assert.equal(failure({ message: 'Command failed: git log deadbeef..HEAD\nfatal: ...', stderr }), "the driver failed: Command failed: git log deadbeef..HEAD (fatal: ambiguous argument 'deadbeef..HEAD': unknown revision or path not in the working tree.)");
+  assert.equal(failure({ message: 'Command failed: git x', stderr: Buffer.from('warning: w\nsomething broke\n') }), 'the driver failed: Command failed: git x (something broke)');
+  assert.equal(failure(new Error('plain\nmore')), 'the driver failed: plain');
+  assert.equal(failure({ message: 'Command failed: git y', stderr: `error: ${'x'.repeat(400)}` }), `the driver failed: Command failed: git y (error: ${'x'.repeat(293)})`);
+  // The driver's own handler stops with that reason: the listener guard adds, called as Node would call it.
+  const { guard } = require('../skills/closed-loop-pr/driver/phases');
+  const before = process.listeners('uncaughtException');
+  let got;
+  guard({ stop: (state, reason) => { got = [state, reason]; } });
+  const added = process.listeners('uncaughtException').filter((l) => !before.includes(l));
+  try {
+    assert.equal(added.length, 1);
+    added[0]({ message: 'Command failed: git log deadbeef..HEAD', stderr });
+    assert.deepEqual(got, ['BLOCKED', "the driver failed: Command failed: git log deadbeef..HEAD (fatal: ambiguous argument 'deadbeef..HEAD': unknown revision or path not in the working tree.)"]);
+  } finally { for (const l of added) process.removeListener('uncaughtException', l); }
+});

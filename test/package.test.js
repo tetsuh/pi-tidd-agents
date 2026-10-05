@@ -287,10 +287,12 @@ test('Issue #24 the authority files remain below the published baseline', () => 
   // 140,311 bytes on that change, 311 bytes over 140,000.
   // CL-D85 raises it to 156,000 for the three wording-only rules: the eight files measured
   // 149,602 bytes at f71077f, leaving 6,398 asserted at the raise.
+  // CL-D104 raises it to 162,000 for the driver dispatch of /tidd-pr: the eight files measured
+  // 156,472 bytes on that change, 472 bytes over 156,000.
   // The assertion below is the live measurement; the figures here are revision-qualified and
   // are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 156000, `authority files total ${total} bytes, expected less than 156000`);
+  assert.ok(total < 162000, `authority files total ${total} bytes, expected less than 162000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.

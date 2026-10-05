@@ -2460,7 +2460,7 @@
         "test/package.test.js"
       ],
       "requires": [
-        "assert.ok(total < 156000,",
+        "assert.ok(total < 162000,",
         "const PR_SKILL_PRE_SPLIT_BYTES = 57160;",
         "not a budget",
         "revision-qualified"
@@ -5499,6 +5499,125 @@
       "section": "## CL-D26 — The authoritative contract record lives in this file",
       "requires": [
         "CL-D103 later split it: the record is CONTRACT.md's preamble and index followed by the record files under `contract/`, all kept out of `files`."
+      ]
+    },
+    {
+      "id": "CL-D104-record",
+      "marker": "CL-D104",
+      "title": "CL-D104 records that /tidd-pr runs through the packaged driver",
+      "files": [
+        "contract/CL-D104.md"
+      ],
+      "section": "## CL-D104 — /tidd-pr runs through the packaged driver",
+      "requires": [
+        "tetsuh/pi-tidd-agents#224",
+        "The parent judges an outcome by the lines the driver prints, never by its exit status",
+        "running its command again after completion is not a retry",
+        "This narrows CL-D19 and Mode dispatch, which read exactly one mode reference after mode parsing, to the prose path.",
+        "The Skill's other sections, the shared references and the mode references stay as they are, as the specification the driver and the gates implement (D2)",
+        "they measured 156,472 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms, leaving 5,528 bytes",
+        "Letting the parent compose or change a request the driver builds, judge an outcome by exit status, or interrupt a running gate, or removing the dispatch section, requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D104-skill",
+      "marker": "CL-D104",
+      "title": "The Skill's dispatch section",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "section": "## Driver dispatch (CL-D104)",
+      "requires": [
+        "a pull request of the repository of the current checkout runs through the packaged driver, which sequences the round, not you",
+        "run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`",
+        "If the call is refused or returns no run id, report it and stop; never change the object.",
+        "Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it.",
+        "When a line begins `WAIT:`, the run has not completed",
+        "4. When the last line the driver prints begins `PROSE_PATH:` (a note your shell tool adds after it, such as the exit code, is not the driver's), continue with Mode dispatch below in the parsed mode, whatever reference that line names.",
+        "6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.",
+        "Add `--language-profile \"conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites=<sites>\"` with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none)",
+        "(a note your shell tool adds after it, such as the exit code, is not the driver's)"
+      ]
+    },
+    {
+      "id": "CL-D104-readme",
+      "marker": "CL-D104",
+      "title": "README names the one way to run a round",
+      "files": [
+        "README.md"
+      ],
+      "section": "### How a round runs (CL-D104)",
+      "requires": [
+        "`/tidd-pr <pr-ref> [autofix]` is the one way to run a round.",
+        "The driver runs the validation commands from the first source that exists (CL-D97)",
+        "only when you start the driver directly (`/tidd-pr` never passes it)"
+      ]
+    },
+    {
+      "id": "CL-D104-forward-d19",
+      "marker": "CL-D104",
+      "title": "CL-D19 names the narrowing",
+      "files": [
+        "contract/CL-D19.md"
+      ],
+      "section": "## CL-D19 — Division of responsibility between prompts, Skills, and mode references",
+      "requires": [
+        "CL-D104 later narrowed the PR mode continuation to the prose path"
+      ]
+    },
+    {
+      "id": "CL-D104-forward-ceiling",
+      "marker": "CL-D104",
+      "title": "CL-D43 and CL-D85 name the raised ceiling",
+      "files": [
+        "contract/CL-D43.md",
+        "contract/CL-D85.md"
+      ],
+      "requires": [
+        "CL-D104 later raised the authority ceiling to 162,000 bytes on the same terms."
+      ]
+    },
+    {
+      "id": "CL-D104-forward-d93",
+      "marker": "CL-D104",
+      "title": "CL-D93 names the switch",
+      "files": [
+        "contract/CL-D93.md"
+      ],
+      "requires": [
+        "CL-D104 later made the prompt switch: a pull request the driver sends back prints a last line beginning `PROSE_PATH:`"
+      ]
+    },
+    {
+      "id": "CL-D104-driver",
+      "marker": "CL-D104",
+      "title": "The driver prints the send-back line itself",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).split(/[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]+/).join(' ')}\\n`); process.exit(2); }"
+      ]
+    },
+    {
+      "id": "CL-D104-tests",
+      "marker": "CL-D104",
+      "title": "The section, its command sequence, the record and the raise are pinned",
+      "files": [
+        "test/issue-224-tidd-pr-driver.test.js"
+      ],
+      "requires": [
+        "Issue #224 the Skill sends the round to the packaged driver before any mode reference is read",
+        "Issue #224 the dispatch section\\'s command sequence runs one review-only round to a terminal outcome",
+        "Issue #224 the contract records the dispatch and README names the one way to run a round",
+        "Issue #224 CL-D104 raises the authority ceiling once, with the headroom asserted at the raise",
+        "Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line after FINISHED",
+        "Issue #224 a head that is not local is sent back on a PROSE_PATH line",
+        "Issue #224 a send-back without a base .tidd.json carries no git error output",
+        "Issue #224 a send-back carries no git warning either",
+        "Issue #224 a send-back naming a checkout path with a line break is still one PROSE_PATH line",
+        "Issue #224 a stop reason holding a Unicode line separator cannot forge a PROSE_PATH last line",
+        "Issue #224 a NEXT line holding a Unicode line separator stays one line with its value unchanged"
       ]
     }
   ]

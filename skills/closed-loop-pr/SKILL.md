@@ -52,6 +52,17 @@ The shared grammar consumes the target reference first. CL-D6 then consumes only
 
 A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. The same GitHub API evidence path is available to a same-repository review-only target when local Git objects are absent; this requires no fetch, checkout, or git-state mutation. Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 
+## Driver dispatch (CL-D104)
+
+After the checks above, a pull request of the repository of the current checkout runs through the packaged driver, which sequences the round, not you; any other target continues with Mode dispatch below. The other sections of this Skill, the shared references and the mode references are the specification the driver and the gates implement; on this path you read no mode reference, compose no helper request, and judge no finding.
+
+1. From the checkout's top-level directory, run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`, where `<skill-dir>` is this Skill's directory, `<driver>` is `review` in review-only mode and `autofix` in autofix mode, and `<owner/name>` is the checkout's repository. Add `--language-profile "conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites=<sites>"` with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none), and `--convergence disabled` only when preflight found that role disabled. Set no timeout of your own on a driver command; one that is killed anyway is reported, and you stop.
+2. When a line begins `NEXT:`, call `subagent` with exactly the JSON object on the following line. If the call is refused or returns no run id, report it and stop; never change the object. Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it. Then run the command on the `NEXT:` line itself (`result` or `writer-done`) with that run id; commands inside the JSON object are the subagent's, never yours.
+3. When a line begins `WAIT:`, the run has not completed: wait for its completion, then run the command that line names with the same run id. This is not a retry.
+4. When the last line the driver prints begins `PROSE_PATH:` (a note your shell tool adds after it, such as the exit code, is not the driver's), continue with Mode dispatch below in the parsed mode, whatever reference that line names.
+5. Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop. Never run the publication script.
+6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.
+
 ## Evidence fingerprints (CL-D9)
 
 Track identity per kind of evidence, so a change invalidates only what it actually affects:
