@@ -37,7 +37,15 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, contractFiles, readContract, readJson, repoPath, parseFrontmatter, sectionOf, readManifest } = require('./helpers');
+const { readText, contractFiles, readContract, readJson, repoPath, parseFrontmatter, sectionOf, manifestSources, readManifest } = require('./helpers');
+
+// The clause source that holds the CL-D62-autofix-map literal the mutations below change, wherever it lives (CL-D105).
+const CL_D62_LITERAL = '"before each convergence/Sol/Terra invocation"';
+const cld62Source = () => {
+  const sources = manifestSources().filter((source) => readText(source).includes(CL_D62_LITERAL));
+  assert.equal(sources.length, 1, `exactly one clause source holds ${CL_D62_LITERAL}: ${sources.join(', ')}`);
+  return sources[0];
+};
 
 const VOCAB = readJson('test/records/workflow-vocabulary.json');
 const ROLES = VOCAB.roles;
@@ -231,7 +239,7 @@ function fixtureGaps(read) {
   const reviewers = agentTools.match(/const REVIEWERS = \[([^\]]+)\]/), workers = agentTools.match(/const WORKERS = \[([^\]]+)\]/);
   expect(reviewers && workers, 'issue-49 declares REVIEWERS and WORKERS');
   if (reviewers && workers) same([...`${reviewers[1]},${workers[1]}`.matchAll(/'(tidd-[a-z-]+)'/g)].map((match) => match[1]).sort(), DECLARED, 'issue-49 REVIEWERS plus WORKERS are exactly the declared roles');
-  for (const file of [...proseFiles(), 'test/contract-clauses.json', 'test/issue-100-tidd-roles.test.js', 'test/issue-101-convergence-stage.test.js', 'test/issue-49-agent-tools.test.js', 'test/package.test.js', 'test/issue-100-gate-ids-v2.test.js']) {
+  for (const file of [...proseFiles(), ...manifestSources(), 'test/issue-100-tidd-roles.test.js', 'test/issue-101-convergence-stage.test.js', 'test/issue-49-agent-tools.test.js', 'test/package.test.js', 'test/issue-100-gate-ids-v2.test.js']) {
     for (const token of new Set(read(file).match(ROLE_TOKEN) || [])) expect(DECLARED.includes(token), `${file}: undeclared role ${token}`);
   }
   return gaps;
@@ -360,7 +368,7 @@ const MANIFEST = (() => {
 
 function manifestGaps(read) {
   const { gaps, expect, same, exact } = collector();
-  const clauses = JSON.parse(read('test/contract-clauses.json')).clauses.filter((clause) => ['CL-D59', 'CL-D60', 'CL-D62', 'CL-D63'].includes(clause.marker));
+  const clauses = readManifest(read).clauses.filter((clause) => ['CL-D59', 'CL-D60', 'CL-D62', 'CL-D63'].includes(clause.marker));
   same(clauses.map((clause) => clause.id).sort(), Object.keys(MANIFEST).sort(), 'the role and gate manifest clauses are exactly the derived set');
   for (const clause of clauses) if (MANIFEST[clause.id]) exact(clause.requires, MANIFEST[clause.id], `${clause.id} literals`, ' ‖ ');
   return gaps;
@@ -497,7 +505,7 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
   const read = withOverlay(overlay);
   for (const [file, text] of overlay) assert.notEqual(text, readText(file), `${file}: the mutation must change the surface`);
   assert.ok(overlay.get('skills/closed-loop-pr/references/review-only.md').includes(`\n${VOCAB.statusLines.rounds}\n`), 'the relocated rounds line survives in the file outside its block');
-  overlay.set('test/contract-clauses.json', readText('test/contract-clauses.json').replace('"before each convergence/Sol/Terra invocation"', '"before each Sol/Terra invocation"'));
+  overlay.set(cld62Source(), readText(cld62Source()).replace(CL_D62_LITERAL, '"before each Sol/Terra invocation"'));
   const gaps = [...roleSurfaceGaps(read), ...gateOrderGaps(read), ...statusGaps(read), ...fixtureGaps(read), ...manifestGaps(read)];
   const prRoles = VOCAB.gateOrder.pr.map(roleOf), issueRoles = VOCAB.gateOrder.issue.map(roleOf);
   assert.deepEqual(gaps.sort(), [
@@ -536,7 +544,7 @@ test('Issue #110 single-surface mutations are named exactly', () => {
     ['four-backtick second text fence in the gate loop', pr, (text) => text.replace('\n→ MERGE_READY\n```\n', '\n→ MERGE_READY\n```\n\n````text\n→ tidd-safety-reviewer gate\n````\n'), gateOrderGaps, ['review-only order block declares exactly one fenced sequence: found 2']],
     ['wrong-root role in the Issue preflight', issue, (text) => text.replace('`tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve', '`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer`. If one does not resolve'), roleSurfaceGaps, [`Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`]],
     ['wrong-root role in the PR preflight', 'skills/closed-loop-pr/SKILL.md', (text) => text.replace('`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally', '`tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and, conditionally'), roleSurfaceGaps, [`PR root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-drift-reviewer', 'tidd-safety-reviewer', 'tidd-autofix-worker', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('pr').join(', ')}`]],
-    ['convergence dropped from a manifest literal', 'test/contract-clauses.json', (text) => text.replace('"before each convergence/Sol/Terra invocation"', '"before each Sol/Terra invocation"'), manifestGaps, [`CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`]],
+    ['convergence dropped from a manifest literal', cld62Source(), (text) => text.replace(CL_D62_LITERAL, '"before each Sol/Terra invocation"'), manifestGaps, [`CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`]],
     ['indented duplicate role row', 'README.md', (text) => text.replace('\n| `tidd-drift-reviewer` | `gpt-6.1-sol` |', '\n| `tidd-drift-reviewer` | `gpt-6.1-sol` | duplicate |\n | `tidd-drift-reviewer` | `gpt-6.1-sol` |'), roleSurfaceGaps, [`README Included agents rows: found ${[...rows.slice(0, drift + 1), rows[drift], ...rows.slice(drift + 1)].join(', ')}; declared ${rows.join(', ')}`]],
     ['unbackticked duplicate role row', 'README.md', (text) => text.replace('\n| `tidd-drift-reviewer` | `gpt-6.1-sol` |', '\n| tidd-drift-reviewer | gpt-6.1-sol | duplicate |\n| `tidd-drift-reviewer` | `gpt-6.1-sol` |'), roleSurfaceGaps, ['README Included agents malformed row: | tidd-drift-reviewer | gpt-6.1-sol | duplicate |', `README Included agents rows: found ${[...rows.slice(0, drift), 'tidd-drift-reviewer | gpt-6.1-sol', ...rows.slice(drift)].join(', ')}; declared ${rows.join(', ')}`]],
   ];

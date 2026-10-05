@@ -1,7 +1,7 @@
 'use strict';
 
 // CL-D26. CONTRACT.md is the authoritative record of the decisions this package
-// implements, and test/contract-clauses.json is how those decisions are enforced
+// implements, and each record's clause pins (CL-D105) are how those decisions are enforced
 // against the shipped prose. The two must stay in step.
 //
 // The linkage is deliberately per clause rather than per marker. A marker is a
@@ -11,7 +11,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readContract, readJson, exists } = require('./helpers');
+const { readText, readContract, readJson, exists, assertUniqueJsonKeys, manifestSources, readManifest } = require('./helpers');
 
 const RECORD = 'CONTRACT.md';
 const STRUCTURAL_VALUE = 'none — structural';
@@ -40,100 +40,9 @@ const AC_DECISION_FIELDS = [
   'Validity and invalidation conditions',
 ];
 
-// JSON.parse accepts duplicate object keys by keeping only the last value. The
-// manifest is contract input, so scan its raw syntax first and reject duplicate
-// keys before parsing can hide an undocumented mutation.
-function assertUniqueJsonKeys(source) {
-  assert.equal(typeof source, 'string', 'manifest source must be text');
-  let index = 0;
 
-  const fail = (message) => assert.fail(`invalid manifest JSON: ${message} at byte ${index}`);
-  const whitespace = () => {
-    while (/\s/.test(source[index] || '')) index += 1;
-  };
-  const string = () => {
-    if (source[index] !== '"') fail('expected string');
-    const start = index;
-    index += 1;
-    while (index < source.length) {
-      const char = source[index++];
-      if (char === '"') return JSON.parse(source.slice(start, index));
-      if (char === '\\') {
-        if (index >= source.length) fail('unterminated escape');
-        index += 1;
-      } else if (char < ' ') {
-        fail('unescaped control character');
-      }
-    }
-    fail('unterminated string');
-  };
-  const value = () => {
-    whitespace();
-    if (source[index] === '{') return object();
-    if (source[index] === '[') return array();
-    if (source[index] === '"') return string();
-    const start = index;
-    while (index < source.length && !/[\s,}\]]/.test(source[index])) index += 1;
-    const token = source.slice(start, index);
-    if (!token || !['true', 'false', 'null'].includes(token)) {
-      try {
-        JSON.parse(token);
-      } catch {
-        fail(`invalid value ${JSON.stringify(token)}`);
-      }
-    }
-    return token;
-  };
-  const array = () => {
-    index += 1;
-    whitespace();
-    if (source[index] === ']') {
-      index += 1;
-      return;
-    }
-    while (true) {
-      value();
-      whitespace();
-      if (source[index] === ']') {
-        index += 1;
-        return;
-      }
-      if (source[index++] !== ',') fail('expected comma or closing array bracket');
-    }
-  };
-  const object = () => {
-    index += 1;
-    const keys = new Set();
-    whitespace();
-    if (source[index] === '}') {
-      index += 1;
-      return;
-    }
-    while (true) {
-      whitespace();
-      const key = string();
-      if (keys.has(key)) assert.fail(`duplicate JSON object key: ${key}`);
-      keys.add(key);
-      whitespace();
-      if (source[index++] !== ':') fail('expected colon after object key');
-      value();
-      whitespace();
-      if (source[index] === '}') {
-        index += 1;
-        return;
-      }
-      if (source[index++] !== ',') fail('expected comma or closing object brace');
-    }
-  };
-
-  value();
-  whitespace();
-  assert.equal(index, source.length, 'manifest JSON has trailing data');
-}
-
-const manifestSource = readText('test/contract-clauses.json');
-assertUniqueJsonKeys(manifestSource);
-const manifest = JSON.parse(manifestSource);
+// CL-D105: every source is checked for duplicate keys as it is read.
+const manifest = readManifest();
 
 // A null marker opts out of the in-file landmark for user-facing files such as
 // README.md. It still owns the concrete clause ID in CONTRACT.md.
@@ -917,10 +826,12 @@ test('a null marker maps directly to its clause ID and recorded ownership', () =
 });
 
 test('the raw manifest has no duplicate object keys', () => {
-  assert.doesNotThrow(() => assertUniqueJsonKeys(manifestSource));
+  for (const source of manifestSources()) assert.doesNotThrow(() => assertUniqueJsonKeys(readText(source)), source);
 });
 
 test('duplicate manifest id and marker keys fail before JSON.parse', () => {
+  // The source that holds CL-D1-issue, wherever its clauses live (CL-D105).
+  const manifestSource = readText(manifestSources().find((source) => readText(source).includes('"id": "CL-D1-issue"')));
   const duplicateId = manifestSource.replace(
     '"id": "CL-D1-issue"',
     '"id": "CL-D1-issue", "id": "shadow-id"',

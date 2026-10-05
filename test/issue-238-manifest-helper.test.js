@@ -12,22 +12,13 @@ const { repoPath, readText, readManifest } = require('./helpers');
 // The file's name is assembled, so this file names it on no line and is scanned like any other.
 const NAME = ['contract', 'clauses'].join('-');
 const MANIFEST = `test/${NAME}.json`;
-// Every line of a script in the repository that contains the manifest file's name, once each and compared after
-// trimming, with why it stays: the helpers' path constant, two comments, and the readers that take the file's text, or
-// an overlay of it, which #234 moves with the clauses (contract-record's text source; issue-110's scan list,
-// manifestGaps overlay reader, overlay mutation and mutation case). Any other line that contains the name fails,
-// whatever it does with it, and readJson refuses the manifest's file however its path is spelled, aliased or linked
-// (below). Nothing else is claimed (AC1 of #238): a route that never asks readJson for the manifest's file and has the
-// name on no scanned line is outside this pin until #234 moves the textual readers.
+// Every line of a script in the repository that contains the residual manifest file's name, once each and compared
+// after trimming: since #240 only the helpers' path constant (CL-D105). Any other line that contains the name fails,
+// whatever it does with it, and readJson refuses every clause source's file however its path is spelled, aliased or
+// linked (below). Nothing else is claimed (AC1 of #238): a route that never asks readJson for a clause source's file
+// and has the name on no scanned line is outside this pin.
 const ALLOWED = [
   ["test/helpers.js", "const MANIFEST = 'test/@.json';"],
-  ["test/closed-loop-regressions.test.js", "// Prose obligations belong in test/@.json, not here."],
-  ["test/contract-record.test.js", "// implements, and test/@.json is how those decisions are enforced"],
-  ["test/contract-record.test.js", "const manifestSource = readText('test/@.json');"],
-  ["test/issue-110-derived-vocabulary.test.js", "for (const file of [...proseFiles(), 'test/@.json', 'test/issue-100-tidd-roles.test.js', 'test/issue-101-convergence-stage.test.js', 'test/issue-49-agent-tools.test.js', 'test/package.test.js', 'test/issue-100-gate-ids-v2.test.js']) {"],
-  ["test/issue-110-derived-vocabulary.test.js", "const clauses = JSON.parse(read('test/@.json')).clauses.filter((clause) => ['CL-D59', 'CL-D60', 'CL-D62', 'CL-D63'].includes(clause.marker));"],
-  ["test/issue-110-derived-vocabulary.test.js", "overlay.set('test/@.json', readText('test/@.json').replace('\"before each convergence/Sol/Terra invocation\"', '\"before each Sol/Terra invocation\"'));"],
-  ["test/issue-110-derived-vocabulary.test.js", "['convergence dropped from a manifest literal', 'test/@.json', (text) => text.replace('\"before each convergence/Sol/Terra invocation\"', '\"before each Sol/Terra invocation\"'), manifestGaps, [`CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`]],"],
 ].map(([file, line]) => [file, line.split('@').join(NAME)]);
 
 // Every script in the repository, at any depth, that node --test can load (.js, .cjs, .mjs, .ts, .cts, .mts); Git's
@@ -68,8 +59,10 @@ test('Issue #238 readJson refuses the clause manifest by path, alias, symbolic l
   assert.equal(parseFile('package.json').name, JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8')).name, 'any other file still parses');
 });
 
-test('Issue #238 readManifest returns the manifest file\'s value', () => {
-  // The independent oracle for AC2: the file's bytes parsed here, not through helpers.js.
-  assert.deepEqual(readManifest(), JSON.parse(fs.readFileSync(repoPath(MANIFEST), 'utf8')));
+test('Issue #238 readManifest returns every clause source\'s value, in order', () => {
+  // The independent oracle for AC2: each source's bytes parsed here, not through helpers.js, concatenated (CL-D105).
+  const { manifestSources } = require('./helpers');
+  assert.equal(manifestSources()[0], MANIFEST);
+  assert.deepEqual(readManifest().clauses, manifestSources().flatMap((source) => JSON.parse(fs.readFileSync(repoPath(source), 'utf8')).clauses));
   assert.ok(readManifest().clauses.length > 300);
 });

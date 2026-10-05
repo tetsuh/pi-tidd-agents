@@ -6,7 +6,7 @@ These decisions were made during [#3](https://github.com/tetsuh/pi-tidd-agents/i
 
 `CL-D*` entries are decisions taken while implementing the workflow. `AC-*` entries are obligations that come from #3's acceptance criteria rather than from a decision; they are recorded here so every clause resolves to something. `DEC-*` entries are owner decisions taken during a run.
 
-**How this file is enforced.** `test/contract-clauses.json` maps each obligation to literal text that must appear in a named file, and `test/contract-record.test.js` checks that every clause resolves to a decision here and that every decision here either owns a clause or is annotated `**Clauses:** none — structural`. Adding a clause without a decision, or leaving a decision with nothing enforcing it, fails the build. Three contract changes reached `main` without a record while that record lived in a GitHub comment; nothing could check a comment.
+**How this file is enforced.** Each record's clause pins live beside it in `contract/<id>.clauses.json` (CL-D105; clauses not yet moved stay in `test/contract-clauses.json`) and map each obligation to literal text that must appear in a named file, and `test/contract-record.test.js` checks that every clause resolves to a decision here and that every decision here either owns a clause or is annotated `**Clauses:** none — structural`. Adding a clause without a decision, or leaving a decision with nothing enforcing it, fails the build. Three contract changes reached `main` without a record while that record lived in a GitHub comment; nothing could check a comment.
 
 **What a clause can and cannot prove.** A clause proves that required text is present. It cannot prove a document says only one thing: three contradictions passed review because every required literal sat in the stale half of a superseded rule. Retired wordings are therefore named explicitly in the superseded-rule guard in `test/closed-loop-regressions.test.js`.
 
@@ -78,6 +78,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D78.md](contract/CL-D78.md) — A run reports the run roots it retained
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
+- [contract/CL-D105.md](contract/CL-D105.md) — Each record's clause pins live beside it
 - [contract/CL-D104.md](contract/CL-D104.md) — /tidd-pr runs through the packaged driver
 - [contract/CL-D103.md](contract/CL-D103.md) — Every contract record is its own file; CONTRACT.md is the preamble and the record index
 - [contract/CL-D102.md](contract/CL-D102.md) — A gate reports every finding it can establish in one invocation

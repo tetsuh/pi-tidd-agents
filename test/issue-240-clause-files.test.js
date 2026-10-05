@@ -37,7 +37,7 @@ test('Issue #240 a clause file holds exactly its record\'s Clauses line, and a s
     const file = clauseFile(record), ids = clausesLine(record);
     if (!fs.existsSync(repoPath(file))) continue;
     assert.ok(ids.length > 0, `${record} is structural and has no clause file`);
-    const value = JSON.parse(readText(file));
+    const value = JSON.parse(fs.readFileSync(repoPath(file), 'utf8'));
     assert.deepEqual(Object.keys(value), ['clauses'], `${file} holds only its clauses`);
     assert.deepEqual(value.clauses.map((c) => c.id).sort(), [...ids].sort(), `${file} holds exactly the ids ${record} lists`);
   }
@@ -47,7 +47,7 @@ test('Issue #240 readManifest concatenates the residual and every clause file in
   const sources = manifestSources();
   assert.equal(sources[0], RESIDUAL, 'the residual comes first while it exists');
   assert.deepEqual(sources.slice(1), contractIndex().files.map(clauseFile).filter((f) => fs.existsSync(repoPath(f))));
-  const expected = sources.flatMap((source) => JSON.parse(readText(source)).clauses);
+  const expected = sources.flatMap((source) => JSON.parse(fs.readFileSync(repoPath(source), 'utf8')).clauses);
   assert.deepEqual(readManifest().clauses, expected);
   // Every id a record lists is assembled once.
   const listed = contractIndex().files.flatMap(clausesLine).sort();
@@ -55,8 +55,8 @@ test('Issue #240 readManifest concatenates the residual and every clause file in
 });
 
 test('Issue #240 a clause in two sources, a duplicate key, or a clause file of another shape fails', () => {
-  const own = JSON.parse(readText('contract/CL-D105.clauses.json'));
-  const residual = JSON.parse(readText(RESIDUAL));
+  const own = JSON.parse(fs.readFileSync(repoPath('contract/CL-D105.clauses.json'), 'utf8'));
+  const residual = JSON.parse(fs.readFileSync(repoPath(RESIDUAL), 'utf8'));
   const twice = JSON.stringify({ ...residual, clauses: [...residual.clauses, own.clauses[0]] });
   assert.throws(() => readManifest(overlay({ [RESIDUAL]: twice })), new RegExp(`${own.clauses[0].id} is in two sources`));
   const source = readText('contract/CL-D105.clauses.json');
@@ -84,13 +84,13 @@ test('Issue #240 a change to a record and its clause file puts those two, CONTRA
     const set = prHelpers.requiredEvidenceSet({ cwd: root, baseOid: base, headOid: git(['rev-parse', 'HEAD']), identities: [] });
     assert.equal(set.ok, true, JSON.stringify(set.error));
     const blob = (file) => crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex');
-    assert.deepEqual(set.data.requiredEvidence.map((e) => e.source).sort(), ['CONTRACT.md', 'README.md', 'contract/CL-D2.clauses.json', 'contract/CL-D2.md']);
-    for (const entry of set.data.requiredEvidence) assert.equal(entry.identity, blob(entry.source), entry.source);
+    assert.deepEqual(set.data.requiredEvidence, ['CONTRACT.md', 'README.md', 'contract/CL-D2.clauses.json', 'contract/CL-D2.md'].map((source) => ({ source, kind: 'file', identity: blob(source) })));
+    assert.deepEqual(set.data.authority, { included: ['CONTRACT.md', 'README.md'], absent: [], excluded: [] });
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('Issue #240 CONTRACT.md and CL-D105 say where clause pins live', () => {
   assert.match(readText('CONTRACT.md'), /Each record's clause pins live beside it in `contract\/<id>\.clauses\.json`/);
   assert.match(readContract(), /## CL-D105 — /);
-  assert.match(readText('contract/CL-D103.md'), /CL-D105 later moved each record's clause pins beside it/);
+  assert.match(readText('contract/CL-D103.md'), /CL-D105 later put each record's clause pins beside it, in `contract\/<id>\.clauses\.json`, as they move from/);
 });

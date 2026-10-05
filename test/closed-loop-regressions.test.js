@@ -11,7 +11,7 @@
 //    vectors to check against. Fixture tests are named with a `fixture:` prefix
 //    so nobody reads them as proof that the workflow behaves this way.
 //
-// Prose obligations belong in test/contract-clauses.json, not here.
+// Prose obligations belong in the clause pins (CL-D105), not here.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

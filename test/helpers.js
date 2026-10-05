@@ -1,5 +1,6 @@
 'use strict';
 
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
@@ -32,9 +33,121 @@ function contractFiles() { return ['CONTRACT.md', ...contractIndex().files]; }
 function exists(relativePath) {
   return fs.existsSync(repoPath(relativePath));
 }
-// The clause manifest, read in one place so moving the clauses beside their records (#234) changes only this (#238).
+// JSON.parse accepts duplicate object keys by keeping only the last value. The
+// manifest is contract input, so scan its raw syntax first and reject duplicate
+// keys before parsing can hide an undocumented mutation.
+function assertUniqueJsonKeys(source) {
+  assert.equal(typeof source, 'string', 'manifest source must be text');
+  let index = 0;
+
+  const fail = (message) => assert.fail(`invalid manifest JSON: ${message} at byte ${index}`);
+  const whitespace = () => {
+    while (/\s/.test(source[index] || '')) index += 1;
+  };
+  const string = () => {
+    if (source[index] !== '"') fail('expected string');
+    const start = index;
+    index += 1;
+    while (index < source.length) {
+      const char = source[index++];
+      if (char === '"') return JSON.parse(source.slice(start, index));
+      if (char === '\\') {
+        if (index >= source.length) fail('unterminated escape');
+        index += 1;
+      } else if (char < ' ') {
+        fail('unescaped control character');
+      }
+    }
+    fail('unterminated string');
+  };
+  const value = () => {
+    whitespace();
+    if (source[index] === '{') return object();
+    if (source[index] === '[') return array();
+    if (source[index] === '"') return string();
+    const start = index;
+    while (index < source.length && !/[\s,}\]]/.test(source[index])) index += 1;
+    const token = source.slice(start, index);
+    if (!token || !['true', 'false', 'null'].includes(token)) {
+      try {
+        JSON.parse(token);
+      } catch {
+        fail(`invalid value ${JSON.stringify(token)}`);
+      }
+    }
+    return token;
+  };
+  const array = () => {
+    index += 1;
+    whitespace();
+    if (source[index] === ']') {
+      index += 1;
+      return;
+    }
+    while (true) {
+      value();
+      whitespace();
+      if (source[index] === ']') {
+        index += 1;
+        return;
+      }
+      if (source[index++] !== ',') fail('expected comma or closing array bracket');
+    }
+  };
+  const object = () => {
+    index += 1;
+    const keys = new Set();
+    whitespace();
+    if (source[index] === '}') {
+      index += 1;
+      return;
+    }
+    while (true) {
+      whitespace();
+      const key = string();
+      if (keys.has(key)) assert.fail(`duplicate JSON object key: ${key}`);
+      keys.add(key);
+      whitespace();
+      if (source[index++] !== ':') fail('expected colon after object key');
+      value();
+      whitespace();
+      if (source[index] === '}') {
+        index += 1;
+        return;
+      }
+      if (source[index++] !== ',') fail('expected comma or closing object brace');
+    }
+  };
+
+  value();
+  whitespace();
+  assert.equal(index, source.length, 'manifest JSON has trailing data');
+}
+
+// The clause pins (CL-D105): the residual manifest while it exists, then each indexed record's clause file beside it,
+// in index order. Read in one place (#238); `read` lets a test put an overlay in front of every source.
 const MANIFEST = 'test/contract-clauses.json';
-function readManifest() { return JSON.parse(readText(MANIFEST)); }
+function manifestSources(has = exists) {
+  return [...(has(MANIFEST) ? [MANIFEST] : []), ...contractIndex().files.map((file) => file.replace(/\.md$/, '.clauses.json')).filter((file) => has(file))];
+}
+function readManifest(read = readText) {
+  const clauses = [], from = new Map();
+  for (const source of manifestSources()) {
+    const text = read(source);
+    assertUniqueJsonKeys(text);
+    const value = JSON.parse(text);
+    if (source !== MANIFEST) {
+      const ok = value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.clauses) && value.clauses.length > 0;
+      assert.ok(ok, `${source} must hold exactly {"clauses": [...]}, with at least one clause`);
+    }
+    for (const clause of value.clauses) {
+      assert.ok(!from.has(clause.id), from.get(clause.id) === source ? `${clause.id} is listed twice in ${source}` : `${clause.id} is in two sources: ${from.get(clause.id)} and ${source}`);
+      from.set(clause.id, source);
+      clauses.push(clause);
+    }
+  }
+  return { clauses };
+}
 
 // The exact-autofix procedure a run reads is two files since CL-D83: the reference and the invocation map it names.
 // Cases that ask what the procedure says read both; cases that ask where a sentence lives name the file themselves,
@@ -380,4 +493,4 @@ function receiverTypebox(receiver, options = {}) {
 }
 
 module.exports = {
-  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractFiles, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };
+  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };
