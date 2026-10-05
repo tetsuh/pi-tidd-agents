@@ -1,0 +1,48 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D78-addendum",
+      "marker": "CL-D78",
+      "title": "The terminal report names the run roots the run retained",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "section": "### Source-finding replies and final readiness",
+      "requires": [
+        "After any cleanup, the report and any drafted artifacts name each run root this run created and did not see removed",
+        "a `workspace_create` `root` or error `details.root` whose cleanup did not run, failed, or returned a non-null `retainedRoot`",
+        "and their count; no other root is listed or counted (CL-D78)"
+      ]
+    },
+    {
+      "id": "CL-D78-record",
+      "marker": "CL-D78",
+      "title": "CL-D78 records report-only handling of retained run roots",
+      "files": [
+        "contract/CL-D78.md"
+      ],
+      "section": "## CL-D78 — A run reports the run roots it retained",
+      "requires": [
+        "issues/132#issuecomment-5731408176",
+        "removes nothing and lists nothing",
+        "Sweeping, expiring, or listing roots other runs created requires a new owner decision",
+        "issues/143#issuecomment-5740766919",
+        "names the root as `details.root`",
+        "The list is taken after any cleanup",
+        "resets from 260,000 to 270,000 bytes on the CL-D37 review recorded here"
+      ]
+    },
+    {
+      "id": "CL-D78-tests",
+      "marker": "CL-D78",
+      "title": "A failed create names the run root it kept",
+      "files": [
+        "test/issue-143-failed-create-root.test.js"
+      ],
+      "requires": [
+        "Issue #143 a failed create under an explicit run root names that root",
+        "Issue #143 a create refused before any root exists names none"
+      ]
+    }
+  ]
+}

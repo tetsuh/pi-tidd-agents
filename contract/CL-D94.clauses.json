@@ -1,0 +1,55 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D94-record",
+      "marker": "CL-D94",
+      "title": "CL-D94 records the gate launch's bound and what it does not change",
+      "files": [
+        "contract/CL-D94.md"
+      ],
+      "section": "## CL-D94 — Every gate launch carries a 60-minute bound",
+      "requires": [
+        "tetsuh/pi-tidd-agents#202",
+        "`build_gate_launch` emits `timeoutMs: 3600000` beside the fields CL-D68 fixed, for every gate in every workflow and mode",
+        "It emits no `checkpointBeforeDeadlineMs`: a gate is read-only and its result is all-or-nothing",
+        "Another bound, a checkpoint request on a gate launch, or a bound that varies by gate or diff requires a new owner decision"
+      ]
+    },
+    {
+      "id": "CL-D94-writer",
+      "marker": "CL-D94",
+      "title": "The writer's launch record names the gate bound beside its own",
+      "files": [
+        "contract/CL-D81.md"
+      ],
+      "section": "## CL-D81 — The exact-autofix writer launch is composed by a packaged builder",
+      "requires": [
+        "CL-D94 later gave every gate launch the same `timeoutMs` under its own decision, with no checkpoint request."
+      ]
+    },
+    {
+      "id": "CL-D94-tests",
+      "marker": "CL-D94",
+      "title": "Every review-only gate launch carries the bound and no checkpoint",
+      "files": [
+        "test/issue-111-gate-read-launch.test.js"
+      ],
+      "requires": [
+        "Issue #111 build_gate_launch composes the request from the package and cannot carry another schema, an output file, or envelope prose",
+        "assert.equal(request.timeoutMs, 3600000"
+      ]
+    },
+    {
+      "id": "CL-D94-receiver",
+      "marker": "CL-D94",
+      "title": "The receiver declares and keeps the gate bound",
+      "files": [
+        "test/issue-159-gate-launch-cwd.test.js"
+      ],
+      "requires": [
+        "Issue #159 the receiver accepts the cwd the gate launch now carries",
+        "assert.equal(normalized.params.timeoutMs, 3600000, 'and keeps the gate bound');"
+      ]
+    }
+  ]
+}

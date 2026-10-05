@@ -1,0 +1,17 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D5",
+      "title": "pi-subagents is a hard runtime dependency",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "pi-subagents",
+        "If `pi-subagents` is unavailable, stop and report `BLOCKED`",
+        "Refer to agents **by role name** only, **never by model ID**"
+      ],
+      "section": "## Name-level agent resolution (CL-D22, CL-D5, CL-D59)"
+    }
+  ]
+}

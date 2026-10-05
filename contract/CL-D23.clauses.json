@@ -1,0 +1,17 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D23",
+      "title": "Review-only candidate evidence remains outside the repository",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "Review-only never edits any repository file",
+        "outside the repository",
+        "no post-fix formal gate consumes an uncommitted overlay"
+      ],
+      "section": "### Candidate evidence boundary (CL-D23, CL-D9)"
+    }
+  ]
+}

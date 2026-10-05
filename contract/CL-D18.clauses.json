@@ -1,0 +1,17 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D18",
+      "title": "External observation is reported, not enforced",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "Observation, reported only",
+        "must not busy-poll",
+        "not detected",
+        "WAITING_EXTERNAL_REVIEW"
+      ]
+    }
+  ]
+}

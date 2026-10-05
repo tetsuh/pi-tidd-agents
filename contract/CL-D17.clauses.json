@@ -1,0 +1,16 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D17",
+      "title": "SonarCloud disposition in the MVP",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "SonarCloud",
+        "cannot perform provider-side status transitions",
+        "must not be declared on the basis of a transition that was never performed"
+      ]
+    }
+  ]
+}

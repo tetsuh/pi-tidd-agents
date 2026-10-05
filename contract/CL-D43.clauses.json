@@ -1,0 +1,34 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D43-guards",
+      "marker": "CL-D43",
+      "title": "The raised authority guards and the unraised disclosure guard",
+      "files": [
+        "test/package.test.js"
+      ],
+      "requires": [
+        "assert.ok(total < 162000,",
+        "const PR_SKILL_PRE_SPLIT_BYTES = 57160;",
+        "not a budget",
+        "revision-qualified"
+      ]
+    },
+    {
+      "id": "CL-D43-tests",
+      "marker": "CL-D43",
+      "title": "Black-box budget tests pin the guards, the headroom, and the record",
+      "files": [
+        "test/issue-73-authority-budget.test.js"
+      ],
+      "requires": [
+        "the raised guards are the ones the suite actually asserts",
+        "the live measurements sit inside the raised guards",
+        "CL-D43 records what the guards protect and when raising is wrong",
+        "the superseded six-file ceiling must not survive",
+        "the raise left only",
+        "compile/contract RED"
+      ]
+    }
+  ]
+}

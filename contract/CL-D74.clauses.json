@@ -1,0 +1,53 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D74-operation",
+      "marker": "CL-D74",
+      "title": "The invocation map carries the packaged post-commit message check",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
+      "requires": [
+        "| Immediately after the bounded batch's one commit, before the post-commit guard (CL-D25, CL-D74) | `message_verify` | `cwd`, `expected` |"
+      ]
+    },
+    {
+      "id": "CL-D74-addendum",
+      "marker": "CL-D74",
+      "title": "The bounded batch names the operation where it named the format",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "section": "### Exact identity and Luna publication phases",
+      "requires": [
+        "verify the stored bytes/content exactly against the expected approved message through packaged `message_verify`"
+      ]
+    },
+    {
+      "id": "CL-D74-record",
+      "marker": "CL-D74",
+      "title": "CL-D74 records the packaged check and the boundary it reviews",
+      "files": [
+        "contract/CL-D74.md"
+      ],
+      "section": "## CL-D74 — The post-commit message check is packaged",
+      "requires": [
+        "*Owner choice:* Option A",
+        "needs no byte added and none removed"
+      ]
+    },
+    {
+      "id": "CL-D74-tests",
+      "marker": "CL-D74",
+      "title": "The packaged check is pinned by its own tests",
+      "files": [
+        "test/issue-114-message-verify.test.js"
+      ],
+      "requires": [
+        "Issue #114 the packaged verification compares the stored message bytes",
+        "Issue #114 the verification reads the commit object, never the log format"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D56-map",
+      "marker": "CL-D56",
+      "title": "The invocation map offers the builder family",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "requires": [
+        "validates the construction with the boundary's own predicates before returning it, so a builder output the boundary would reject is unrepresentable",
+        "Builders are read-only, reach no network or Git, and grant no authority; none reaches the filesystem except `build_gate_launch`, whose only reads are the installed package's own authority files and the supplied expectation file (CL-D68)",
+        "Prefer a builder over hand-assembly wherever one exists"
+      ]
+    },
+    {
+      "id": "CL-D56-tests",
+      "marker": "CL-D56",
+      "title": "Builder fixtures pin the surface, the round trips, and the rejections",
+      "files": [
+        "test/issue-83-request-builders.test.js"
+      ],
+      "requires": [
+        "the invocation map offers every builder and the builder paragraph",
+        "the CLI exposes exactly the ten builder operations with frozen inputs",
+        "builders are pure: no filesystem, process, network, or Git reach",
+        "the workspace chain round-trips: create, built verify, built cleanup",
+        "builders reject with the boundary vocabulary, not new codes",
+        "CL-D56 records the builder family and its correctness mechanism"
+      ]
+    }
+  ]
+}

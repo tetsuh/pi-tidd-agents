@@ -1,0 +1,37 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D14-issue",
+      "marker": "CL-D14",
+      "title": "Canonical status tokens",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "IMPLEMENTATION_READY",
+        "WAITING_FOR_OWNER",
+        "ROUND_LIMIT_REACHED",
+        "BLOCKED",
+        "ABORTED",
+        "the approved specification is the published specification"
+      ]
+    },
+    {
+      "id": "CL-D14-pr",
+      "marker": "CL-D14",
+      "title": "Canonical status tokens",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "MERGE_READY",
+        "WAITING_EXTERNAL_REVIEW",
+        "WAITING_FOR_OWNER",
+        "ROUND_LIMIT_REACHED",
+        "BLOCKED",
+        "ABORTED",
+        "In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**"
+      ]
+    }
+  ]
+}

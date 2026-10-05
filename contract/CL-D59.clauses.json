@@ -1,0 +1,35 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D59-resolution",
+      "marker": "CL-D59",
+      "title": "Resolution names roles, keeps deployment separate, and fails closed on capability",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "## Name-level agent resolution (CL-D22, CL-D5, CL-D59)",
+      "requires": [
+        "Refer to agents **by role name** only, **never by model ID**",
+        "`tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and `tidd-autofix-worker`",
+        "which provider, model, and thinking level serve a role is deployment configuration, never role semantics",
+        "the old model-derived names resolve only as transitional aliases for one release",
+        "If a required role is missing, disabled, unresolved, or lacks its required capability"
+      ]
+    },
+    {
+      "id": "CL-D59-tests",
+      "marker": "CL-D59",
+      "title": "Role fixtures pin the agent files, the prose, the README, and the record",
+      "files": [
+        "test/issue-100-tidd-roles.test.js"
+      ],
+      "requires": [
+        "the package ships the four CL-D59 role agents, each aliasing its old name, plus the CL-D62 convergence role",
+        "skills and prompts name roles, never model-derived agents",
+        "the shared resolution section separates role from deployment and fails closed on capability",
+        "the README documents the roles, the alias transition, and override keying",
+        "CL-D59 records the role split, the agents/ widening, and the removals"
+      ]
+    }
+  ]
+}

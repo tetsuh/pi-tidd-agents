@@ -1,0 +1,27 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D20-issue",
+      "marker": "CL-D20",
+      "title": "Precondition guard",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "Precondition guard",
+        "stop and print usage"
+      ]
+    },
+    {
+      "id": "CL-D20-pr",
+      "marker": "CL-D20",
+      "title": "Precondition guard",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "Precondition guard"
+      ]
+    }
+  ]
+}

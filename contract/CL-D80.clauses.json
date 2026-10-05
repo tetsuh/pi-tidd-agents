@@ -1,0 +1,20 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D80-record",
+      "marker": "CL-D80",
+      "title": "CL-D80 records the writer launch's acceptance setting",
+      "files": [
+        "contract/CL-D80.md"
+      ],
+      "section": "## CL-D80 — The exact-autofix writer launch carries no pi-subagents acceptance gate",
+      "requires": [
+        "issues/150",
+        "*Owner choice:* `acceptance: false`, with `timeoutMs: 3600000` and `checkpointBeforeDeadlineMs: 600000`",
+        "Packaging the writer launch as a builder, or giving it any other acceptance setting or time bound, requires a new owner decision",
+        "`false` is pi-subagents' deprecated shorthand for `{ level: \"none\" }`",
+        "an elapsed deadline is terminal and not a mutation-safe boundary"
+      ]
+    }
+  ]
+}

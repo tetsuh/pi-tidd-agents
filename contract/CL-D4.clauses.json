@@ -1,0 +1,14 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D4",
+      "title": "Do not use context.md / plan.md",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "Never create `context.md` or `plan.md`"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D11",
+      "title": "Round accounting",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "at most three",
+        "The passing round counts",
+        "do not consume a round",
+        "ROUND_LIMIT_REACHED"
+      ],
+      "section": "## Base round accounting (CL-D11, CL-D12)"
+    },
+    {
+      "id": "CL-D11-review-only",
+      "marker": "CL-D11",
+      "title": "Review-only retains per-gate three-round accounting",
+      "section": "### Review-only round deltas (CL-D11, CL-D12)",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "A gate rerun caused by a fix consumes a round from that gate's budget.",
+        "At the limit, stop and report `ROUND_LIMIT_REACHED`",
+        "retry the invocation once, and if it fails again report `BLOCKED`"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "clauses": [
+    {
+      "id": "AC-ISSUE-NO-EXTERNAL",
+      "title": "Issue readiness excludes external gates",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "are not part of issue readiness"
+      ],
+      "section": "## Issue-specific record and gate obligations"
+    }
+  ]
+}

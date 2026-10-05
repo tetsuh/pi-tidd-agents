@@ -1,0 +1,19 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D6-skill",
+      "marker": "CL-D6",
+      "title": "Mode token parsing is exact and fails closed",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "case-sensitive",
+        "final token of the raw argument vector",
+        "no token remains once the target reference is consumed",
+        "stop and print usage",
+        "`Autofix`, `AUTOFIX`, `--autofix`"
+      ]
+    }
+  ]
+}

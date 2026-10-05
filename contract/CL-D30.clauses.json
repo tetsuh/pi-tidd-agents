@@ -1,0 +1,503 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D30-loop",
+      "marker": "CL-D30",
+      "title": "Exact PR autofix public-head loop",
+      "section": "## Exact PR `autofix` addendum (CL-D30)",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "This addendum is selected only when",
+        "Every successful push invalidates all earlier Sol and Terra approvals",
+        "at most one correction batch",
+        "OPERATOR_CHECKOUT_UNCHANGED@O",
+        "AUTOFIX_WORKSPACE@H",
+        "WORKSPACE_POST_COMMIT(C, P)",
+        "WORKSPACE_POST_PUSH(C, O)",
+        "public head OID"
+      ]
+    },
+    {
+      "id": "CL-D30-publication",
+      "marker": "CL-D30",
+      "title": "Exact Luna identity and publication phases",
+      "section": "### Exact identity and Luna publication phases",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "Before its first edit and immediately before commit",
+        "`AUTOFIX_WORKSPACE@P` with identity, tracked/index, and runtime-root conditions",
+        "`AUTOFIX_WORKSPACE@P` with identity, untracked, and runtime-root conditions",
+        "The index is intentionally not clean",
+        "sole parent `P`",
+        "After verifying public head `C`, require `AUTOFIX_WORKSPACE@C`",
+        "through packaged `message_verify`",
+        "stored bytes/content exactly",
+        "expected approved message",
+        "no encoded backslash-n sequence",
+        "unexpected worktree or index mutation",
+        "regardless of path authorization",
+        "Cleanup failure is fail-closed"
+      ]
+    },
+    {
+      "id": "CL-D30-circuit",
+      "marker": "CL-D30",
+      "title": "Exact autofix circuit breakers and precedence",
+      "section": "### Findings, no-progress, and deterministic status",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result",
+        "Apply this deterministic action order and primary status precedence",
+        "There are maximum 15 gate invocations",
+        "Exact autofix malformed or unparsable verdict stops on first failure"
+      ]
+    },
+    {
+      "id": "CL-D30-replies",
+      "marker": "CL-D30",
+      "title": "Exact source-finding replies and final readiness",
+      "section": "### Source-finding replies and final readiness",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "A reply marker is bound to source identity",
+        "visibly re-fetch the source/destination",
+        "wait until all included findings are finally confirmed",
+        "Exclude only verified workflow-authored replies",
+        "Every reply body states the confirmed disposition",
+        "Replies never approve, request rereview, resolve threads, or invoke bot commands; provider mutation is exactly `REPLY_EXCEPTION`.",
+        "never claims that the whole PR is ready unless final readiness has independently been reached",
+        "parent must create and report the proposed aggregate final-summary body/draft",
+        "The draft is not workflow state",
+        "declining or not posting it never blocks readiness",
+        "Before every allowed reply attempt"
+      ]
+    },
+    {
+      "id": "CL-D30-clean-boundaries",
+      "marker": "CL-D30",
+      "title": "Exact autofix clean boundary at every gate and reply phase",
+      "section": "### Public-head loop and evidence",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "Every pre-push boundary",
+        "requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` at current public `H`",
+        "immediately after a push require `WORKSPACE_POST_PUSH(C, O)`",
+        "post-commit/pre-push boundaries use `WORKSPACE_POST_COMMIT(C, P)`",
+        "concurrent local edit",
+        "cannot enter a gate, reply, final classification, or summary mutation"
+      ]
+    },
+    {
+      "id": "CL-D30-readme-mode",
+      "marker": "CL-D30",
+      "title": "README separates review-only resume from exact autofix fresh runs",
+      "section": "### Stop, status, and fresh runs (CL-D30)",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "PR review-only retains the legacy resumable `tidd-status`",
+        "Exact PR `autofix` ends",
+        "Any later exact-autofix command is a fresh run"
+      ]
+    },
+    {
+      "id": "CL-D30-mode-safety",
+      "marker": "CL-D30",
+      "title": "Exact autofix is mode-gated against review-only and Issue",
+      "section": "## Exact PR `autofix` addendum (CL-D30)",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "supersede only the CL-D30 publication",
+        "Before any exact-autofix edit",
+        "unclear, conflicting, scope-changing, architectural, compatibility, security/risk, or contract-changing finding",
+        "always stops at `WAITING_FOR_OWNER(reason=owner_decision_required)`",
+        "A security or risk finding cannot be delegated",
+        "The run ends at that boundary with no resume"
+      ]
+    },
+    {
+      "id": "CL-D30-language-boundary",
+      "marker": "CL-D30",
+      "title": "Posting boundary is mode-scoped and provider-safe",
+      "section": "### Language Profile (CL-D16)",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "Exact PR `autofix` permits only `REPLY_EXCEPTION` (defined below); all other provider, external, and review-service mutations remain forbidden."
+      ]
+    },
+    {
+      "id": "CL-D30-precondition",
+      "marker": "CL-D30",
+      "title": "Exact autofix starts only at clean published head",
+      "section": "### Worktree precondition (CL-D10)",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "Before the first gate or mutation, the operator runs `gh pr checkout` when needed",
+        "It captures `OPERATOR_CHECKOUT@H` and creates/verifies `AUTOFIX_WORKSPACE@H` outside the repository before any gate",
+        "No resume"
+      ]
+    },
+    {
+      "id": "CL-D30-readiness",
+      "marker": "CL-D30",
+      "title": "Exact autofix readiness is not blocked by aggregate draft",
+      "section": "### Exact-autofix readiness and resume boundary (CL-D30)",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "Exact PR `autofix` has no uncommitted candidate",
+        "optional aggregate-summary draft never blocks readiness",
+        "Exact PR `autofix` never resumes"
+      ]
+    },
+    {
+      "id": "CL-D30-gate-correlation",
+      "marker": "CL-D30",
+      "title": "Exact gates inherit shared verdict/payload/adversarial contract and full correlation",
+      "section": "### Exact gate contract and correlation (CL-D1, CL-D2, CL-D29)",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "shared CL-D1 exact verdict vocabulary",
+        "CL-D2 invocation-payload duties",
+        "CL-D29 adversarial duties",
+        "fresh independent Sol/Terra roles",
+        "Every exact Sol/Terra gate payload and verdict-bearing result",
+        "repository, PR number, base OID",
+        "open/non-draft lifecycle state",
+        "run-wide invocation number",
+        "review-evidence snapshot fingerprint",
+        "Missing, malformed, stale, duplicated, or mismatched correlation stops"
+      ]
+    },
+    {
+      "id": "CL-D30-preconditions",
+      "marker": "CL-D30",
+      "title": "Exact autofix preconditions include lifecycle and non-force writability",
+      "section": "### Worktree precondition (CL-D10)",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "target PR is open and non-draft",
+        "head branch to be verified writable by a normal actor-authorized non-force push without branch-protection or ruleset bypass",
+        "Writability result must be unambiguous",
+        "fails closed before review or mutation",
+        "A branch is not writable when success depends on the actor's bypass permission",
+        "missing, rejected, ambiguous, unavailable, or bypass-dependent result fails closed"
+      ]
+    },
+    {
+      "id": "CL-D30-luna-authorization",
+      "marker": "CL-D30",
+      "title": "Luna payload and complete identity guards are explicit",
+      "section": "### Exact identity and Luna publication phases",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "The parent Luna payload contains",
+        "finding IDs and authorized corrections",
+        "permitted scope and paths",
+        "validation and commit-message requirements",
+        "maximum one commit and one push",
+        "every forbidden action",
+        "Before its first edit and immediately before commit",
+        "every intervening guard does the same",
+        "`AFTER_COMMIT` immediately after commit is the distinct post-commit/pre-push guard: local `HEAD=C` while remote/public head remains `P`; it requires `WORKSPACE_POST_COMMIT(C, P)`",
+        "`BEFORE_PUSH` immediately before push independently repeats `WORKSPACE_POST_COMMIT(C, P)` in full with the deliberate phase delta: local `HEAD=C` while remote/public head remains `P`.",
+        "After verifying public head `C`, require `AUTOFIX_WORKSPACE@C`",
+        "All three local dimensions remain independently guarded",
+        "tracked worktree, index, and untracked state outside `RUNTIME_ROOTS`",
+        "pre-existing tracked unstaged edit is rejected"
+      ]
+    },
+    {
+      "id": "CL-D30-manifest",
+      "marker": "CL-D30",
+      "title": "Run-local staged manifest binds parent/tree/inventory/blob identities",
+      "section": "### Exact identity and Luna publication phases",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "run-local staged manifest is complete and immutable",
+        "parent `P`, staged tree OID",
+        "every allowed path/status/mode and staged blob identity",
+        "index exactly equal to the immutable manifest",
+        "commit tree/inventory/blob identities equal to the immutable manifest"
+      ]
+    },
+    {
+      "id": "CL-D30-source-schema",
+      "marker": "CL-D30",
+      "title": "Source identity and owner confirmation assignment are complete",
+      "section": "### PR finding source identity (AC-DISPOSITION)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "complete stable source identity",
+        "source kind, source ID, source URL",
+        "author identity and author type",
+        "body digest",
+        "created and updated timestamps",
+        "review-commit association",
+        "path and line association"
+      ]
+    },
+    {
+      "id": "CL-D30-snapshot-routing",
+      "marker": "CL-D30",
+      "title": "Snapshot evidence routes new findings to Sol and allows confirmed finding replies",
+      "section": "### Public-head loop and evidence",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "before Terra",
+        "before replies",
+        "post-reply snapshot",
+        "routes to Sol on the same public head",
+        "reply-eligible immediately",
+        "do not wait for whole-PR `MERGE`"
+      ]
+    },
+    {
+      "id": "CL-D30-reply-safety",
+      "marker": "CL-D30",
+      "title": "Reply batches preflight destinations and bind deterministic evidence",
+      "section": "### Source-finding replies and final readiness",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "preflight every planned destination and source",
+        "Order the batch deterministically by source identity",
+        "Every reply body states the confirmed disposition",
+        "corrective commit if any",
+        "confirming gate and exact head",
+        "bounded validation evidence"
+      ]
+    },
+    {
+      "id": "CL-D30-summary-safety",
+      "marker": "CL-D30",
+      "title": "Aggregate summary approval is complete and fail-stop",
+      "section": "### Source-finding replies and final readiness",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "destination language",
+        "exact body bytes",
+        "body length",
+        "body digest",
+        "exactly one comment action",
+        "Immediately before posting, revalidate every bound field",
+        "any movement expires approval",
+        "Failure, rejection, timeout, permission error, or ambiguous result stops with no retry"
+      ]
+    },
+    {
+      "id": "CL-D30-breaker-boundaries",
+      "marker": "CL-D30",
+      "title": "Circuit breaker wording prevents only sixteenth gate and sixth push",
+      "section": "### Findings, no-progress, and deterministic status",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "completed gate counter is already 15",
+        "successful-push counter is already 5",
+        "guards prevent only the 16th invocation and sixth push",
+        "15th invocation and fifth successful push may complete"
+      ]
+    },
+    {
+      "id": "CL-D30-pi-contract",
+      "marker": "CL-D30",
+      "title": "CL-D30 records the Issue #17 operational-cleanliness amendment",
+      "files": [
+        "contract/CL-D30.md"
+      ],
+      "requires": [
+        "Issue #17 operational-cleanliness amendment, Issue #20 named-invariant refactor, and Issue #42 isolation",
+        "`OPERATOR_CHECKOUT@H`",
+        "`WORKSPACE_POST_COMMIT(C, P)`",
+        "`REPLY_EXCEPTION` :=",
+        "`RUNTIME_ROOTS := { \".pi\", \".pi-subagents\" }` stays independently no-follow classified",
+        "every root is classified independently without following links",
+        "Runtime bytes are never claimed cleaned, preserved, validated, committed, or published"
+      ],
+      "section": "## CL-D30 — Exact PR autofix publishes one bounded correction per public head"
+    },
+    {
+      "id": "CL-D30-pi-boundaries",
+      "marker": "CL-D30",
+      "title": "Every gate and reply boundary uses scoped operational cleanliness",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "`OPERATOR_CHECKOUT_UNCHANGED@O`",
+        "before each gate, route-to-Sol, reply, final classification",
+        "immediately after a push require `WORKSPACE_POST_PUSH(C, O)`",
+        "post-commit/pre-push boundaries use `WORKSPACE_POST_COMMIT(C, P)`",
+        "unsafe root",
+        "forbidden candidate/public `HEAD` or index entry",
+        "runtime-root churn"
+      ],
+      "section": "### Public-head loop and evidence"
+    },
+    {
+      "id": "CL-D30-pi-publication",
+      "marker": "CL-D30",
+      "title": "Publication phases exclude Pi from correction and manifest state",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "`AUTOFIX_WORKSPACE@P` with identity, tracked/index, and runtime-root conditions",
+        "`AUTOFIX_WORKSPACE@P` with identity, untracked, and runtime-root conditions",
+        "distinct post-commit/pre-push guard",
+        "`WORKSPACE_POST_COMMIT(C, P)`",
+        "BEFORE_VALIDATION",
+        "AFTER_VALIDATION",
+        "BEFORE_STAGING",
+        "AFTER_STAGING",
+        "BEFORE_COMMIT",
+        "AFTER_COMMIT",
+        "BEFORE_PUSH",
+        "every `RUNTIME_ROOTS` member without following links is reclassified",
+        "Between these two guards, safe untracked runtime-root churn below each root may change",
+        "descendant create, content change, rename, removal",
+        "safe root transition between absent and real directory",
+        "Every other state must remain unchanged",
+        "immutable staged manifest",
+        "parent/tree/inventory/blob identities",
+        "staged deletion never cures a forbidden entry in `P`",
+        "no retry, continuation, or mutation follows"
+      ],
+      "section": "### Exact identity and Luna publication phases"
+    },
+    {
+      "id": "CL-D30-pi-replies",
+      "marker": "CL-D30",
+      "title": "Replies and summaries preserve the scoped runtime boundary",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "Runtime-root churn",
+        "Safe untracked runtime-root bytes and contents are excluded from every gate payload, candidate draft, finding/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim",
+        "the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published",
+        "the only truthful runtime-content statement permitted is that safe untracked runtime state was excluded from candidate/evidence identity and reclassified at the required boundaries without following links",
+        "untracked cleanliness",
+        "no cleanup, retry, compensation, or resume",
+        "every reply/final/post-reply/summary boundary"
+      ],
+      "section": "### Source-finding replies and final readiness"
+    },
+    {
+      "id": "CL-D30-pi-readme",
+      "marker": "CL-D30",
+      "title": "README scopes the Pi exception to exact PR autofix",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "Exact PR `autofix` separates",
+        "Runtime-root entries in candidate `HEAD`, index",
+        "`WORKSPACE_POST_COMMIT(C, P)` and `WORKSPACE_POST_PUSH(C, O)` are distinct",
+        "AFTER_COMMIT and BEFORE_PUSH independently reclassify every `RUNTIME_ROOTS` member",
+        "safe untracked churn",
+        "Every terminal result rechecks the operator",
+        "Exact PR `autofix` separates `OPERATOR_CHECKOUT@H` from `AUTOFIX_WORKSPACE@H`"
+      ],
+      "section": "### Autofix"
+    },
+    {
+      "id": "CL-D30-pi-fixtures",
+      "marker": "CL-D30",
+      "title": "Issue #17 fixtures are explicit and non-authoritative",
+      "files": [
+        "test/pr-operational-cleanliness.test.js"
+      ],
+      "requires": [
+        "non-authoritative",
+        "compile/contract RED",
+        "co-developed, then strengthened review-driven",
+        "Issue #17 vector 01",
+        "Issue #17 vector 23",
+        "required acceptance-vector inventory is complete",
+        "boundary-hazard inventory is complete",
+        "REQUIRED_VECTOR_20_SUBCASES",
+        "raw bytes and digest are unchanged",
+        "new run ID",
+        "raw bytes and digest are unchanged",
+        "RUNTIME_ROOTS",
+        "parameterized over each runtime root",
+        "safe and unsafe roots are classified independently"
+      ]
+    },
+    {
+      "id": "CL-D30-pi-packaging",
+      "marker": "CL-D30",
+      "title": "Issue #17 packaging checks both report and tarball",
+      "files": [
+        "test/package.test.js"
+      ],
+      "requires": [
+        "Issue #28 npm pack excludes every enumerated runtime root from dry-run and actual tarball",
+        "Retrospective behavioral characterization",
+        "dry-run report",
+        "actual tarball",
+        "every enumerated runtime root"
+      ]
+    },
+    {
+      "id": "CL-D30-isolated-workspace",
+      "marker": "CL-D30",
+      "title": "Issue #42 isolated workspace and opaque ignored inventory",
+      "files": [
+        "CONTRACT.md",
+        "skills/closed-loop-pr/references/autofix.md",
+        "README.md"
+      ],
+      "requires": [
+        "OPERATOR_CHECKOUT@H",
+        "AUTOFIX_WORKSPACE@H",
+        "OPERATOR_CHECKOUT_UNCHANGED@O",
+        "opaque sorted ignored inventory explicitly enumerated",
+        "re-enumeration",
+        "git worktree add --detach",
+        "temporary clone",
+        "sanitized noninteractive",
+        "empty run-owned hooksPath",
+        "HEAD:refs/heads/<verified-pr-branch>",
+        "WORKSPACE_POST_PUSH(C, O)",
+        "non-ignored untracked path"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D53-tests",
+      "marker": "CL-D53",
+      "title": "The reset alarm value is the one the suites assert",
+      "files": [
+        "test/issue-59-helper-surface.test.js"
+      ],
+      "requires": [
+        "const AGGREGATE_SMOKE_ALARM = 310000;",
+        "CL-D92 reviewed reset from 300,000 (CL-D91)"
+      ]
+    }
+  ]
+}

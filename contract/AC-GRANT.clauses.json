@@ -1,0 +1,35 @@
+{
+  "clauses": [
+    {
+      "id": "SOL-PR14-CONTRACT-001-grant",
+      "marker": "AC-GRANT",
+      "title": "Provider-mutation exceptions remain exact in the AC-GRANT contract section",
+      "files": [
+        "contract/AC-GRANT.md"
+      ],
+      "requires": [
+        "provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST"
+      ],
+      "section": "## AC-GRANT — Run-scoped bounded publication grant"
+    },
+    {
+      "id": "AC-GRANT",
+      "title": "Run-scoped bounded publication grant",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "Only the exact PR `autofix` mode token supplies a run-scoped publication grant",
+        "For each validated correction batch against one reviewed public head/gate result",
+        "The run-wide cap is five successful correction pushes",
+        "never authorizes",
+        "merge",
+        "force-push",
+        "history rewrite",
+        "source-finding replies",
+        "aggregate summary posting"
+      ],
+      "section": "## Publication (AC-GRANT, CL-D28, CL-D30)"
+    }
+  ]
+}

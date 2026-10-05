@@ -1,0 +1,60 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D1-issue",
+      "marker": "CL-D1",
+      "title": "Gate verdicts are supplied by the caller, not by agent files",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
+        "Do not modify any file under `agents/`",
+        "A missing or unparsable verdict is a tool-level failure"
+      ],
+      "section": "## Gate verdicts (CL-D1)"
+    },
+    {
+      "id": "CL-D1-pr",
+      "marker": "CL-D1",
+      "title": "Gate verdicts are supplied by the caller, not by agent files",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "MERGE | FIX BEFORE MERGE | NEEDS DECISION",
+        "Do not modify any file under `agents/`",
+        "A missing or unparsable verdict is a tool-level failure"
+      ],
+      "section": "## Gate verdicts (CL-D1)"
+    },
+    {
+      "id": "CL-D1-issue-routing",
+      "marker": "CL-D1",
+      "title": "Issue gate routing remains workflow-specific",
+      "section": "## Issue-specific record and gate obligations",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "`tidd-drift-reviewer` has no verdict contract of its own"
+      ]
+    },
+    {
+      "id": "CL-D1-issue-retry",
+      "marker": "CL-D1",
+      "title": "Issue malformed-verdict retry and CL-D32 expiry remain workflow-specific",
+      "section": "### Issue malformed-verdict boundary (CL-D1, CL-D32)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "Only under ordinary CL-D31 rules",
+        "retry the invocation once",
+        "if it fails again report `BLOCKED`",
+        "Under CL-D32",
+        "expire the combined approval"
+      ]
+    }
+  ]
+}

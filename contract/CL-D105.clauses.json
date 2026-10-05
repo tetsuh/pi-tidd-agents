@@ -24,7 +24,7 @@
         "CONTRACT.md"
       ],
       "requires": [
-        "Each record's clause pins live beside it in `contract/<id>.clauses.json` (CL-D105; clauses not yet moved stay in `test/contract-clauses.json`)"
+        "Each record's clause pins live beside it in `contract/<id>.clauses.json` (CL-D105)"
       ]
     },
     {
@@ -35,7 +35,7 @@
         "contract/CL-D103.md"
       ],
       "requires": [
-        "CL-D105 later put each record's clause pins beside it, in `contract/<id>.clauses.json`, as they move from `test/contract-clauses.json`."
+        "CL-D105 later put each record's clause pins beside it, in `contract/<id>.clauses.json`."
       ]
     },
     {
@@ -48,11 +48,11 @@
       "requires": [
         "Issue #240 contract/ holds only indexed records and their clause files, each a regular file",
         "Issue #240 a clause file holds exactly its record\\'s Clauses line, and a structural record has none",
-        "Issue #240 readManifest concatenates the residual and every clause file in index order",
+        "Issue #240 readManifest concatenates every clause file in index order",
         "Issue #240 a clause in two sources, a duplicate key, or a clause file of another shape fails",
         "Issue #240 a change to a record and its clause file puts those two, CONTRACT.md and README.md in the evidence",
         "Issue #240 CONTRACT.md and CL-D105 say where clause pins live",
-        "Issue #240 readJson refuses a clause file as it refuses the residual manifest"
+        "Issue #240 readJson refuses a clause file by path, alias, symbolic link and hard link"
       ]
     }
   ]

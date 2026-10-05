@@ -1,0 +1,42 @@
+{
+  "clauses": [
+    {
+      "id": "AC-DISPOSITION",
+      "title": "Finding disposition values",
+      "section": "## Finding dispositions (AC-DISPOSITION)",
+      "files": [
+        "skills/closed-loop-shared/references/records.md"
+      ],
+      "requires": [
+        "Give every actionable finding **exactly one disposition**:",
+        "fixed\naccepted-as-designed\ndeferred\nduplicate\nnot-applicable\nneeds-owner-decision",
+        "For each finding record"
+      ]
+    },
+    {
+      "id": "AC-DISPOSITION-issue",
+      "marker": "AC-DISPOSITION",
+      "title": "The issue finding record names every field",
+      "section": "### Issue finding record fields (AC-DISPOSITION)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "For each finding record the source gate, severity, the `issue_spec` it was raised against, candidate identity, evidence, impact, exactly one disposition, rationale, revised passage when the disposition is `fixed`, validation evidence that the revision resolves it, and the reply/status URL or explicit snapshot-C assignment."
+      ]
+    },
+    {
+      "id": "AC-DISPOSITION-pr",
+      "marker": "AC-DISPOSITION",
+      "title": "The pull-request finding record names every field",
+      "section": "### PR finding source identity (AC-DISPOSITION)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "For each PR finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published.",
+        "A reviewer score, severity label, or provider recommendation is never by itself a decision to change code."
+      ]
+    }
+  ]
+}

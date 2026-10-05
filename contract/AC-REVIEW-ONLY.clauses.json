@@ -1,0 +1,21 @@
+{
+  "clauses": [
+    {
+      "id": "AC-REVIEW-ONLY-skill",
+      "marker": "AC-REVIEW-ONLY",
+      "title": "Review-only prohibitions",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "Review-only is the default",
+        "do not edit any file in the repository",
+        "do not change git state",
+        "do not commit or push",
+        "do not post to GitHub",
+        "do not reply to review threads",
+        "do not mutate any external service"
+      ]
+    }
+  ]
+}

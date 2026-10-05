@@ -1,0 +1,42 @@
+{
+  "clauses": [
+    {
+      "id": "DEC-I13-ownership",
+      "marker": "DEC-I13-ENTRYPOINT-029",
+      "title": "Durable owner decision identity",
+      "files": [
+        "contract/DEC-I13-ENTRYPOINT-029.md"
+      ],
+      "requires": [
+        "*Decision ID:* DEC-I13-ENTRYPOINT-029"
+      ],
+      "section": "## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints"
+    },
+    {
+      "id": "DEC-I13-decision",
+      "marker": "DEC-I13-ENTRYPOINT-029",
+      "title": "Durable owner decision fields",
+      "files": [
+        "contract/DEC-I13-ENTRYPOINT-029.md"
+      ],
+      "requires": [
+        "*Owner choice:* Equivalent entrypoints"
+      ],
+      "section": "## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints"
+    },
+    {
+      "id": "DEC-I13-publication",
+      "marker": "DEC-I13-ENTRYPOINT-029",
+      "title": "Durable owner decision scope",
+      "files": [
+        "contract/DEC-I13-ENTRYPOINT-029.md"
+      ],
+      "requires": [
+        "two named Issue entrypoints",
+        "Issue #13 bounded exception",
+        "It remains valid until a later explicit owner-approved contract decision separates the entrypoints or changes their shared Skill architecture"
+      ],
+      "section": "## DEC-I13-ENTRYPOINT-029 — Equivalent Issue entrypoints"
+    }
+  ]
+}

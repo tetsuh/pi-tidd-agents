@@ -1,0 +1,18 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D46-tests",
+      "marker": "CL-D46",
+      "title": "Embedded-repository inventory fixtures pin the emission, the strip, and the messages",
+      "files": [
+        "test/issue-78-embedded-repo-inventory.test.js"
+      ],
+      "requires": [
+        "an ignored embedded repository no longer fails operator_capture",
+        "an untracked embedded repository is captured and blocks as untracked, not as a crash",
+        "the normalizer stays strict and its messages name the component and the path",
+        "the strip must remove exactly one trailing separator"
+      ]
+    }
+  ]
+}
