@@ -49,13 +49,14 @@ function bindTarget(opts, kind) {
   return { checkout, runDir, pull, target };
 }
 // Once a run directory exists, a failure anywhere still ends the run with an outcome token and a status block.
-// A captured Git error keeps its own last line in the reason (CL-D104).
-function guard(run) {
-  process.on('uncaughtException', (error) => {
-    const why = String(error.stderr || '').trim().split('\n').pop().slice(0, 300);
-    run.stop('BLOCKED', `the driver failed: ${String(error.message).split('\n')[0]}${why ? ` (${why})` : ''}`);
-  });
+// Git's error output is captured, not passed through (CL-D104), so a failure carries Git's reason: its last fatal or
+// error line, else its last line, bounded.
+function failure(error) {
+  const lines = String(error.stderr || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  const why = ([...lines].reverse().find((l) => /^(?:fatal|error):/.test(l)) || lines.pop() || '').slice(0, 300);
+  return `the driver failed: ${String(error.message).split('\n')[0]}${why ? ` (${why})` : ''}`;
 }
+function guard(run) { process.on('uncaughtException', (error) => run.stop('BLOCKED', failure(error))); }
 function readIssue(run) {
   const s = run.state, t = s.target;
   const issue = gh(['api', `repos/${t.repository}/issues/${s.issueNumber}`], s.checkout);
@@ -148,4 +149,4 @@ function ignoredDrift(saved, cwd) {
 // The gates that returned MERGE on the head the run ends on, by label, for the MERGE_READY reason.
 function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.head === head && g.verdict === 'MERGE').map((g) => gateLabel(g.gate)))].join(' and '); }
 
-module.exports = { TRUSTED, sendBack, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
+module.exports = { TRUSTED, sendBack, failure, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
