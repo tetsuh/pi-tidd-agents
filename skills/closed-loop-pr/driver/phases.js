@@ -16,8 +16,8 @@ const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 // neither a result nor a failure.
 const RELAUNCHABLE = new Set(['status_absent', 'status_unparsable', 'designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent']);
 // CL-D104: the driver's own last line sends a pull request back to the prose path; a quoted value is one line, never this
-// one, and a line separator in the message (a checkout path may hold one) is folded to a space.
-function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).split(/[\r\n\u0085\u2028\u2029]+/).join(' ')}\n`); process.exit(2); }
+// one, and a control character or line separator in the message (a checkout path may hold one) is folded to a space.
+function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).split(/[\x00-\x1f\x7f-\x9f\u2028\u2029]+/).join(' ')}\n`); process.exit(2); }
 function gateLabel(gate) { return { adversarial: 'sol', safety: 'terra' }[gate] || gate; }
 
 // Everything that can refuse is judged before the run directory exists, so a refusal leaves no half-run behind.
