@@ -93,7 +93,9 @@ test('Issue #215 the record files are development records, outside the package p
 // was adopted (CL-D72 measured with its forward note to CL-D103) may grow by EXEMPT_ROOM and no further, so the next
 // forward note to one of them does not force a trim.
 const RECORD_LIMIT = 8000, EXEMPT_ROOM = 1024;
-const EXEMPT = { 'contract/CL-D93.md': 14396, 'contract/CL-D72.md': 10417, 'contract/CL-D36.md': 8149, 'contract/CL-D96.md': 8086 };
+// #235 L1 brought CL-D36 and CL-D96 under the limit, so their exemptions ended; an exemption lasts only while its record
+// is still over the limit.
+const EXEMPT = { 'contract/CL-D93.md': 14396, 'contract/CL-D72.md': 10417 };
 
 test('Issue #215 every record is at most 8,000 bytes, and the four larger at the split stay within their ceiling', () => {
   const files = fs.readdirSync(repoPath('contract')).filter((f) => f.endsWith('.md')).map((f) => `contract/${f}`);
@@ -102,7 +104,7 @@ test('Issue #215 every record is at most 8,000 bytes, and the four larger at the
     const size = fs.statSync(repoPath(file)).size, ceiling = file in EXEMPT ? EXEMPT[file] + EXEMPT_ROOM : RECORD_LIMIT;
     assert.ok(size <= ceiling, `${file} is ${size} bytes, over its ceiling of ${ceiling}; keep fix history in the pull request (CL-D103)`);
   }
-  for (const [file, size] of Object.entries(EXEMPT)) assert.ok(size > RECORD_LIMIT && files.includes(file), `${file} is an exemption only while it exists and was over the limit`);
+  for (const [file, size] of Object.entries(EXEMPT)) assert.ok(size > RECORD_LIMIT && files.includes(file) && fs.statSync(repoPath(file)).size > RECORD_LIMIT, `${file} is an exemption only while it exists and is over the limit`);
 });
 
 // AC3 and AC4 of #215: a pull request that changes one record carries that record's file and no other; the set follows
