@@ -140,5 +140,16 @@ test('Issue #224 the stop keeps Git\'s fatal line, not a usage hint after it, bo
   assert.equal(failure({ message: 'Command failed: git log deadbeef..HEAD\nfatal: ...', stderr }), "the driver failed: Command failed: git log deadbeef..HEAD (fatal: ambiguous argument 'deadbeef..HEAD': unknown revision or path not in the working tree.)");
   assert.equal(failure({ message: 'Command failed: git x', stderr: Buffer.from('warning: w\nsomething broke\n') }), 'the driver failed: Command failed: git x (something broke)');
   assert.equal(failure(new Error('plain\nmore')), 'the driver failed: plain');
-  assert.equal(failure({ message: 'Command failed: git y', stderr: `error: ${'x'.repeat(400)}` }).length, 'the driver failed: Command failed: git y ()'.length + 300);
+  assert.equal(failure({ message: 'Command failed: git y', stderr: `error: ${'x'.repeat(400)}` }), `the driver failed: Command failed: git y (error: ${'x'.repeat(293)})`);
+  // The driver's own handler stops with that reason: the listener guard adds, called as Node would call it.
+  const { guard } = require('../skills/closed-loop-pr/driver/phases');
+  const before = process.listeners('uncaughtException');
+  let got;
+  guard({ stop: (state, reason) => { got = [state, reason]; } });
+  const added = process.listeners('uncaughtException').filter((l) => !before.includes(l));
+  try {
+    assert.equal(added.length, 1);
+    added[0]({ message: 'Command failed: git log deadbeef..HEAD', stderr });
+    assert.deepEqual(got, ['BLOCKED', "the driver failed: Command failed: git log deadbeef..HEAD (fatal: ambiguous argument 'deadbeef..HEAD': unknown revision or path not in the working tree.)"]);
+  } finally { for (const l of added) process.removeListener('uncaughtException', l); }
 });
