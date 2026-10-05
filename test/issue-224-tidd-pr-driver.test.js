@@ -98,6 +98,18 @@ test('Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line 
   assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: the diff is not valid UTF-8, so no gate can receive it exactly; review it on the prose path of review-only\.md$/);
 });
 
+// A checkout path may hold a line break (round 1 of PR #236, ADV-236-SENDBACK-LINE-FRAMING): the send-back folds it, so
+// the PROSE_PATH line is still the one line the driver prints.
+test('Issue #224 a send-back naming a checkout path with a line break is still one PROSE_PATH line', () => {
+  const t = setup();
+  const root = `${t.target.root}\nbreak`;
+  fs.renameSync(t.target.root, root);
+  setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: 'd'.repeat(40) } } });
+  const r = drive(t.start.map((a) => (a === t.target.root ? root : a)), t.e);
+  assert.equal(r.stdout, `PROSE_PATH: the checkout ${t.target.root} break does not hold ${'d'.repeat(40)}; the driver needs the head and base locally, so review it on the prose path of review-only.md\n`);
+  assert.equal(r.stderr, '');
+});
+
 // Without a base .tidd.json (CL-D97's --validate route), git's refusal to show the missing file stays off the output
 // too, so the send-back is all the driver prints beside its own report.
 test('Issue #224 a send-back without a base .tidd.json carries no git error output', () => {

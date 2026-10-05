@@ -5614,7 +5614,8 @@
         "Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line after FINISHED",
         "Issue #224 a head that is not local is sent back on a PROSE_PATH line",
         "Issue #224 a send-back without a base .tidd.json carries no git error output",
-        "Issue #224 a send-back carries no git warning either"
+        "Issue #224 a send-back carries no git warning either",
+        "Issue #224 a send-back naming a checkout path with a line break is still one PROSE_PATH line"
       ]
     }
   ]
