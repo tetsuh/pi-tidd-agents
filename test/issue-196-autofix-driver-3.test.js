@@ -132,3 +132,13 @@ test('Issue #224 a Git failure after the run directory exists keeps Git\'s reaso
   assert.match(s.reason, /^the driver failed: Command failed: git .*remote get-url origin \(error: No such remote 'origin'\)$/);
   assert.equal(r.stderr, '');
 });
+
+// Git's reason is its fatal or error line, wherever Git puts it: an unknown revision ends on two usage lines.
+test('Issue #224 the stop keeps Git\'s fatal line, not a usage hint after it, bounded', () => {
+  const { failure } = require('../skills/closed-loop-pr/driver/phases');
+  const stderr = "fatal: ambiguous argument 'deadbeef..HEAD': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'\n";
+  assert.equal(failure({ message: 'Command failed: git log deadbeef..HEAD\nfatal: ...', stderr }), "the driver failed: Command failed: git log deadbeef..HEAD (fatal: ambiguous argument 'deadbeef..HEAD': unknown revision or path not in the working tree.)");
+  assert.equal(failure({ message: 'Command failed: git x', stderr: Buffer.from('warning: w\nsomething broke\n') }), 'the driver failed: Command failed: git x (something broke)');
+  assert.equal(failure(new Error('plain\nmore')), 'the driver failed: plain');
+  assert.equal(failure({ message: 'Command failed: git y', stderr: `error: ${'x'.repeat(400)}` }).length, 'the driver failed: Command failed: git y ()'.length + 300);
+});
