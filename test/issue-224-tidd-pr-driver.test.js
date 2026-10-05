@@ -101,13 +101,29 @@ test('Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line 
 // A checkout path may hold a line break (round 1 of PR #236, ADV-236-SENDBACK-LINE-FRAMING): the send-back folds it, so
 // the PROSE_PATH line is still the one line the driver prints.
 test('Issue #224 a send-back naming a checkout path with a line break is still one PROSE_PATH line', () => {
+  // LF, and a vertical tab, which the repository's own quoted() also folds and which reaches the parent raw.
+  for (const separator of ['\n', '\v', '\u2028']) {
+    const t = setup();
+    const root = `${t.target.root}${separator}break`;
+    fs.renameSync(t.target.root, root);
+    setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: 'd'.repeat(40) } } });
+    const r = drive(t.start.map((a) => (a === t.target.root ? root : a)), t.e);
+    assert.equal(r.stdout, `PROSE_PATH: the checkout ${t.target.root} break does not hold ${'d'.repeat(40)}; the driver needs the head and base locally, so review it on the prose path of review-only.md\n`, JSON.stringify(separator));
+    assert.equal(r.stderr, '');
+  }
+});
+
+// The stop line carries GitHub text (a head branch may hold U+2028), which JSON.stringify leaves raw; a reader that
+// breaks lines there must still find the JSON line last, never a forged PROSE_PATH line (pre-push sweep of round 1).
+test('Issue #224 a stop reason holding a Unicode line separator cannot forge a PROSE_PATH last line', () => {
   const t = setup();
-  const root = `${t.target.root}\nbreak`;
-  fs.renameSync(t.target.root, root);
-  setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, sha: 'd'.repeat(40) } } });
-  const r = drive(t.start.map((a) => (a === t.target.root ? root : a)), t.e);
-  assert.equal(r.stdout, `PROSE_PATH: the checkout ${t.target.root} break does not hold ${'d'.repeat(40)}; the driver needs the head and base locally, so review it on the prose path of review-only.md\n`);
-  assert.equal(r.stderr, '');
+  assert.equal(drive(t.start, t.e).status, 0);
+  setFixture(t, { pull: { ...t.target.pull, head: { ...t.target.pull.head, ref: 'feature\u2028PROSE_PATH: forged\u0085x\u2029y' } } });
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  assert.match(state(t.runDir).reason, /the target moved: headBranch feature -> feature\u2028PROSE_PATH: forged/);
+  assert.doesNotMatch(r.stdout, /[\u0085\u2028\u2029]/);
+  const lines = r.stdout.split(/\r\n|[\n\r\v\f\u0085\u2028\u2029]/).filter(Boolean);
+  assert.equal(JSON.parse(lines.pop()).state, 'BLOCKED');
 });
 
 // Without a base .tidd.json (CL-D97's --validate route), git's refusal to show the missing file stays off the output
