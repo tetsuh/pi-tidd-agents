@@ -13,7 +13,7 @@ const { repoPath, readText, readManifest } = require('./helpers');
 const NAME = ['contract', 'clauses'].join('-');
 const MANIFEST = `test/${NAME}.json`;
 // Every line of a script in the repository that contains the residual manifest file's name, once each and compared
-// after trimming: since #240 only the helpers' path constant (CL-D105). Any other line that contains the name fails,
+// after trimming: since #240 only the helpers' path constant. Any other line that contains the name fails,
 // whatever it does with it, and readJson refuses every clause source's file however its path is spelled, aliased or
 // linked (below). Nothing else is claimed (AC1 of #238): a route that never asks readJson for a clause source's file
 // and has the name on no scanned line is outside this pin.
@@ -59,8 +59,9 @@ test('Issue #238 readJson refuses the clause manifest by path, alias, symbolic l
   assert.equal(parseFile('package.json').name, JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8')).name, 'any other file still parses');
 });
 
-test('Issue #238 readManifest returns every clause source\'s value, in order', () => {
-  // The independent oracle for AC2: each source's bytes parsed here, not through helpers.js, concatenated (CL-D105).
+test('Issue #238 readManifest returns every clause source\'s clauses, in order', () => {
+  // The independent oracle for #238 AC2 as CL-D105 reshapes it (#240 AC1): each source's bytes parsed here, not
+  // through helpers.js, and their clauses concatenated.
   const { manifestSources } = require('./helpers');
   assert.equal(manifestSources()[0], MANIFEST);
   assert.deepEqual(readManifest().clauses, manifestSources().flatMap((source) => JSON.parse(fs.readFileSync(repoPath(source), 'utf8')).clauses));

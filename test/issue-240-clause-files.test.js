@@ -57,9 +57,18 @@ test('Issue #240 readManifest concatenates the residual and every clause file in
 });
 
 test('Issue #240 readJson refuses a clause file as it refuses the residual manifest', () => {
-  const { readJson } = require('./helpers');
-  assert.throws(() => readJson('contract/CL-D105.clauses.json'), /read the clause manifest through readManifest\(\)/);
-  assert.throws(() => readJson(RESIDUAL), /read the clause manifest through readManifest\(\)/);
+  const helpers = require('./helpers');
+  const { readJson: parseFile } = helpers;
+  const refused = /read the clause manifest through readManifest\(\)/, own = 'contract/CL-D105.clauses.json';
+  assert.throws(() => parseFile(own), refused);
+  assert.throws(() => parseFile(RESIDUAL), refused);
+  assert.throws(() => helpers.readJson.call(null, 'contract/../contract/CL-D105.clauses.json'), refused);
+  // Links go under test/, so a run that dies midway leaves nothing in contract/ for the layout check to trip on.
+  const link = `test/.issue-240-link-${process.pid}.json`, hard = `test/.issue-240-hard-${process.pid}.json`;
+  fs.symlinkSync(path.relative(path.dirname(repoPath(link)), repoPath(own)), repoPath(link));
+  try { assert.throws(() => parseFile(link), refused); } finally { fs.rmSync(repoPath(link), { force: true }); }
+  fs.linkSync(repoPath(own), repoPath(hard));
+  try { assert.throws(() => parseFile(hard), refused); } finally { fs.rmSync(repoPath(hard), { force: true }); }
 });
 
 test('Issue #240 a clause in two sources, a duplicate key, or a clause file of another shape fails', () => {
