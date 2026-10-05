@@ -12,12 +12,13 @@ const { repoPath, readText, readManifest } = require('./helpers');
 // The file's name is assembled, so this file names it on no line and is scanned like any other.
 const NAME = ['contract', 'clauses'].join('-');
 const MANIFEST = `test/${NAME}.json`;
-// Every line of a script in the repository that names the manifest file, once each and compared after trimming, with why it stays: readManifest itself,
-// two comments, and the readers that work on the file's text or on an in-memory overlay of it rather than its value,
-// which #234 moves with the clauses (contract-record's text source; issue-110's scan list, manifestGaps overlay reader,
-// overlay mutation and mutation case). Any other line naming the file fails, whatever it does with it: a reader goes
-// through readManifest. A reader that reaches the file through a constant or a computed path, as this file does, is
-// outside what a line scan can see; that bound is accepted.
+// Every line of a script in the repository that names the manifest file, once each and compared after trimming, with
+// why it stays: readManifest itself, two comments, and the readers that work on the file's text or on an in-memory
+// overlay of it rather than its value, which #234 moves with the clauses (contract-record's text source; issue-110's
+// scan list, manifestGaps overlay reader, overlay mutation and mutation case). Any other line naming the file fails,
+// whatever it does with it: a reader goes through readManifest. A reader that reaches the file through a constant or a
+// computed path is refused below wherever it parses JSON through readJson or a JSON.parse of readText; this file reads
+// the file with fs for its independent oracle.
 const ALLOWED = [
   ["test/helpers.js", "function readManifest() { return readJson('test/@.json'); }"],
   ["test/closed-loop-regressions.test.js", "// Prose obligations belong in test/@.json, not here."],
@@ -47,6 +48,22 @@ test('Issue #238 no script names the clause manifest except the readers listed f
     });
   }
   assert.deepEqual(counts, ALLOWED.map(() => 1), 'every listed line is there exactly once');
+});
+
+// Round 1 of PR #239 (CONV-239-AC1-COMPUTED-PATH-SCAN): a line scan cannot see a reader that reaches the manifest
+// through a constant or a computed path, so the readers that parse a file as JSON take only a literal path outside
+// test/helpers.js. A computed path then has to go through a helper, where readManifest is the one manifest reader.
+const PARSING_READER = /\breadJson\s*\(\s*(?![\s'"])|\bJSON\.parse\s*\(\s*read(?:Text)?\s*\(\s*(?![\s'"])/;
+
+test('Issue #238 a script parses a file as JSON only from a literal path, outside the helpers', () => {
+  for (const file of scripts('.').filter((f) => f !== 'test/helpers.js')) {
+    readText(file).split('\n').forEach((line, i) => assert.doesNotMatch(line, PARSING_READER, `${file}:${i + 1} parses a computed path; read the manifest through readManifest(): ${line.trim()}`));
+  }
+  // The control: the pattern refuses the computed forms and accepts the literal ones.
+  // The control, spelled in pieces so this file's own lines carry none of the forms it refuses.
+  const call = (...parts) => parts.join('(');
+  for (const bad of [call('readJson', 'MANIFEST)'), call('readJson', '`test/${NAME}.json`)'), call('JSON.parse', 'readText', 'MANIFEST))'), call('JSON.parse', ' read', ' file ))')]) assert.match(bad, PARSING_READER, bad);
+  for (const good of [call('readJson', "'package.json')"), call('JSON.parse', 'readText', '"a.json"))'), call('JSON.parse', "read", "'x.json'))")]) assert.doesNotMatch(good, PARSING_READER, good);
 });
 
 test('Issue #238 readManifest returns the manifest file\'s value', () => {
