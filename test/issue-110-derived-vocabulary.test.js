@@ -37,7 +37,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, contractFiles, readContract, readJson, repoPath, parseFrontmatter, sectionOf } = require('./helpers');
+const { readText, contractFiles, readContract, readJson, repoPath, parseFrontmatter, sectionOf, readManifest } = require('./helpers');
 
 const VOCAB = readJson('test/records/workflow-vocabulary.json');
 const ROLES = VOCAB.roles;
@@ -432,7 +432,7 @@ test('Issue #110 the Sol-only payload block pre-checks derived surfaces and CL-D
   assert.match(record, /issues\/110/);
   assert.match(record, /validate declared surfaces with literals derived from one source; never classify prose/);
   assert.match(record, /a denylist entry is added only when a decision retires a phrase/);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   // Owner decision on PR #113 (2026-09-08): the fence grammar of the checks is bounded, recorded as a CL-D63 amendment.
   assert.match(record, /amended by the owner decision https:\/\/github\.com\/tetsuh\/pi-tidd-agents\/pull\/113#issuecomment-5584688495/);
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D63').map((clause) => clause.id).sort(), ['CL-D63-payload', 'CL-D63-record', 'CL-D63-tests']);

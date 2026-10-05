@@ -32,6 +32,9 @@ function contractFiles() { return ['CONTRACT.md', ...contractIndex().files]; }
 function exists(relativePath) {
   return fs.existsSync(repoPath(relativePath));
 }
+// The clause manifest, read in one place so moving the clauses beside their records (#234) changes only this (#238).
+const MANIFEST = 'test/contract-clauses.json';
+function readManifest() { return JSON.parse(readText(MANIFEST)); }
 
 // The exact-autofix procedure a run reads is two files since CL-D83: the reference and the invocation map it names.
 // Cases that ask what the procedure says read both; cases that ask where a sentence lives name the file themselves,
@@ -40,8 +43,14 @@ function readAutofixProcedure() {
   return `${readText('skills/closed-loop-pr/references/autofix.md')}\n${readText('skills/closed-loop-pr/references/helper-map.md')}`;
 }
 
+// readJson refuses the clause manifest's file (its device and inode), however its path is spelled, aliased or linked;
+// readManifest is the helper that parses it (#238).
 function readJson(relativePath) {
+  if (sameFile(relativePath, MANIFEST)) throw new Error(`read the clause manifest through readManifest(), not readJson(${JSON.stringify(relativePath)})`);
   return JSON.parse(readText(relativePath));
+}
+function sameFile(a, b) {
+  try { const [x, y] = [a, b].map((p) => fs.statSync(repoPath(p), { bigint: true })); return x.dev === y.dev && x.ino === y.ino; } catch { return false; }
 }
 
 /**
@@ -371,4 +380,4 @@ function receiverTypebox(receiver, options = {}) {
 }
 
 module.exports = {
-  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractFiles, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };
+  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractFiles, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };

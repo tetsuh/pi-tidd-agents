@@ -20,7 +20,7 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas, readManifest } = require('./helpers');
 
 const AUTOFIX = (readAutofixProcedure() + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
 const CONTRACT = readContract();
@@ -469,6 +469,6 @@ test('Issue #111 the map and the record state what the captured field accepts (C
     'the producer key set exactly',
     'Accepting a payload that is not the producer key set exactly, or normalizing any other declared shape, requires a new owner decision',
   ]) assert.ok(record.includes(phrase), `CL-D70 record: ${phrase}`);
-  const manifest = JSON.parse(readText('test/contract-clauses.json'));
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D70').map((clause) => clause.id), ['CL-D70-map', 'CL-D70-record', 'CL-D70-tests']);
 });

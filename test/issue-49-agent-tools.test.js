@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readContract, readJson, parseFrontmatter, sectionOf } = require('./helpers');
+const { readText, readContract, parseFrontmatter, sectionOf, readManifest } = require('./helpers');
 
 const REVIEWERS = ['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'];
 const WORKERS = ['tidd-autofix-worker'];
@@ -83,7 +83,7 @@ test('Issue #49 CL-D35 narrows the agents/** freeze without reopening it', () =>
   assert.match(shared, /CL-D35 is a single approved exception for the Issue #49 `intercom` removal, not a standing permission/);
   assert.match(shared, /every other agent-file change, and every addition, still requires its own owner decision/);
 
-  const manifest = readJson('test/contract-clauses.json');
+  const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D35').map((clause) => clause.id).sort(), ['CL-D35-freeze', 'CL-D35-readme']);
   // No clause pins an agent file: stamping a CL-D35 marker into one would itself be an
   // addition the freeze forbids, so the allowlists above are pinned by exact comparison.

@@ -7,10 +7,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, AUTHORITY_FILES } = require('./helpers');
+const { repoRoot, repoPath, readText, readJson, exists, parseFrontmatter, readManifest, AUTHORITY_FILES } = require('./helpers');
 
 const manifest = readJson('package.json');
-const contractManifest = readJson('test/contract-clauses.json');
+const contractManifest = readManifest();
 
 const EXPECTED_AGENTS = {
   'tidd-adversarial-reviewer': 'gpt-6.1-sol',

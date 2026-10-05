@@ -9,7 +9,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { readText, readContract, readJson, sectionOf } = require('./helpers');
+const { readText, readContract, sectionOf, readManifest } = require('./helpers');
 
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
@@ -78,7 +78,7 @@ test('Issue #61 CONTRACT.md records CL-D38 with clause ownership', () => {
   assert.match(section, /PYTHONDONTWRITEBYTECODE/);
   assert.match(section, /operator environment convention is not the mechanism/);
 
-  const manifest = readJson('test/contract-clauses.json');
+  const manifest = readManifest();
   assert.deepEqual(
     manifest.clauses.filter((clause) => clause.marker === 'CL-D38').map((clause) => clause.id).sort(),
     ['CL-D38-definition', 'CL-D38-review-only'],
