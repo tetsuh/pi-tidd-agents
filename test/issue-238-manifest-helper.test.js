@@ -13,14 +13,14 @@ const { repoPath, readText, readManifest } = require('./helpers');
 const NAME = ['contract', 'clauses'].join('-');
 const MANIFEST = `test/${NAME}.json`;
 // Every line of a script in the repository that names the manifest file, once each and compared after trimming, with
-// why it stays: readManifest itself, two comments, and the readers that work on the file's text or on an in-memory
-// overlay of it rather than its value, which #234 moves with the clauses (contract-record's text source; issue-110's
-// scan list, manifestGaps overlay reader, overlay mutation and mutation case). Any other line naming the file fails,
-// whatever it does with it: a reader goes through readManifest. A reader that reaches the file through a constant or a
-// computed path is refused below wherever it parses JSON through readJson or a JSON.parse of readText; a read through
-// fs is outside the two forms AC1 names, and this file uses one for its independent oracle.
+// why it stays: the helpers' path constant, two comments, and the readers that take the file's text, or an overlay of
+// it, and parse it themselves, which #234 moves with the clauses (contract-record's text source; issue-110's scan list,
+// manifestGaps overlay reader, overlay mutation and mutation case). Any other line naming the file fails, whatever it
+// does with it; a test that parses the manifest's value goes through readManifest, and readJson refuses it however the
+// path is reached (below). Bound: a reader that both computes the path and parses readText's result indirectly has the
+// shape of the listed textual readers and is outside this pin until #234 moves them.
 const ALLOWED = [
-  ["test/helpers.js", "function readManifest() { return readJson('test/@.json'); }"],
+  ["test/helpers.js", "const MANIFEST = 'test/@.json';"],
   ["test/closed-loop-regressions.test.js", "// Prose obligations belong in test/@.json, not here."],
   ["test/contract-record.test.js", "// implements, and test/@.json is how those decisions are enforced"],
   ["test/contract-record.test.js", "const manifestSource = readText('test/@.json');"],
@@ -31,9 +31,9 @@ const ALLOWED = [
 ].map(([file, line]) => [file, line.split('@').join(NAME)]);
 
 // Every script in the repository, at any depth, that node --test can load (.js, .cjs, .mjs, .ts, .cts, .mts); Git's
-// directory, installed modules and pi's runtime roots are not the repository's own.
+// directory, installed modules and pi's runtime roots at the root are not the repository's own.
 function scripts(dir) {
-  return fs.readdirSync(repoPath(dir), { withFileTypes: true }).filter((e) => !['.git', 'node_modules', '.pi', '.pi-subagents'].includes(e.name))
+  return fs.readdirSync(repoPath(dir), { withFileTypes: true }).filter((e) => dir !== '.' || !['.git', 'node_modules', '.pi', '.pi-subagents'].includes(e.name))
     .flatMap((e) => (e.isDirectory() ? scripts(path.posix.join(dir, e.name)) : /\.[cm]?[jt]s$/.test(e.name) ? [path.posix.join(dir, e.name)] : []));
 }
 
@@ -50,28 +50,19 @@ test('Issue #238 no script names the clause manifest except the readers listed f
   assert.deepEqual(counts, ALLOWED.map(() => 1), 'every listed line is there exactly once');
 });
 
-// Rounds 1 and 2 of PR #239 (CONV-239-AC1-COMPUTED-PATH-SCAN, CONV-239-AC1-COMPUTED-PATH-GUARD): a line scan cannot
-// see a reader that reaches the manifest through a constant, a template, or a concatenation of literals, so every call
-// of the two reader forms AC1 names, readJson and a JSON.parse of readText (or read), outside test/helpers.js must
-// be one whole call whose only argument is one plain string literal. Anything else, a
-// computed path included, goes through a helper, where readManifest is the one manifest reader. The manifest's name in
-// such a literal is then caught by the scan above.
-const OPENERS = [/\breadJson\s*\(/g, /\bJSON\.parse\s*\(\s*read(?:Text)?\s*\(/g];
-const LITERAL_CALL = /^\s*(['"])[^'"\\\n]*\1\s*\)/;
-const computedCalls = (text) => OPENERS.flatMap((opener) => [...text.matchAll(opener)].filter((m) => !LITERAL_CALL.test(text.slice(m.index + m[0].length))).map((m) => text.slice(m.index, text.indexOf('\n', m.index) === -1 ? undefined : text.indexOf('\n', m.index))));
-
-test('Issue #238 a script parses a file as JSON only from one plain literal path, outside the helpers', () => {
-  for (const file of scripts('.').filter((f) => f !== 'test/helpers.js')) {
-    assert.deepEqual(computedCalls(readText(file)), [], `${file} parses a computed path; read the manifest through readManifest()`);
-  }
-  // The control, spelled in pieces so this file's own text carries none of the forms it refuses.
-  const call = (...parts) => parts.join('(');
-  const refused = [
-    call('readJson', 'MANIFEST)'), call('readJson', '`test/${NAME}.json`)'), call('JSON.parse', 'readText', 'MANIFEST))'), call('JSON.parse', ' read', ' file ))'),
-    call('readJson', "'test/contract-' + 'clauses.json')"), call('JSON.parse', 'readText', "'test/contract-' + 'clauses.json'))"), call('readJson', "'a' + b)"),
-  ];
-  for (const bad of refused) assert.equal(computedCalls(bad).length, 1, bad);
-  for (const good of [call('readJson', "'package.json')"), call('JSON.parse', 'readText', '"a.json"))'), call('JSON.parse', 'read', "'x.json'))")]) assert.deepEqual(computedCalls(good), [], good);
+// Rounds 1 and 2 of PR #239 (CONV-239-AC1-COMPUTED-PATH-SCAN, CONV-239-AC1-COMPUTED-PATH-GUARD): no text scan can
+// see every way a test reaches the manifest, so readJson refuses it at run time however it is reached: by its path, by
+// an alias of readJson, or through a link to the file.
+test('Issue #238 readJson refuses the clause manifest however it is reached', () => {
+  const helpers = require('./helpers');
+  const { readJson: parseFile } = helpers;
+  const refused = /read the clause manifest through readManifest\(\)/;
+  assert.throws(() => parseFile(MANIFEST), refused);
+  assert.throws(() => helpers.readJson.call(null, `test/../${MANIFEST}`), refused);
+  const link = `test/.issue-238-link-${process.pid}.json`;
+  fs.symlinkSync(path.basename(MANIFEST), repoPath(link));
+  try { assert.throws(() => parseFile(link), refused); } finally { fs.rmSync(repoPath(link), { force: true }); }
+  assert.equal(parseFile('package.json').name, JSON.parse(fs.readFileSync(repoPath('package.json'), 'utf8')).name, 'any other file still parses');
 });
 
 test('Issue #238 readManifest returns the manifest file\'s value', () => {
