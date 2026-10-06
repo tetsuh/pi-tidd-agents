@@ -53,7 +53,7 @@
         "Issue #215 every record is one file under contract/, listed once in the index, in assembly order",
         "Issue #215 CONTRACT.md is the preamble and the index, and the assembly is the contract",
         "Issue #215 the record files are development records, outside the package payload",
-        "Issue #215 every record is at most 8,000 bytes, and the larger ones at the split stay within their ceiling",
+        "Issue #215 every record is at most 8,000 bytes, and the four larger at the split stay within their ceiling",
         "Issue #215 a change to one record puts that record, CONTRACT.md and README.md in the required evidence, and no other record",
         "Issue #215 the index refuses any line but the note and record entries, and a record file must be a regular file"
       ]

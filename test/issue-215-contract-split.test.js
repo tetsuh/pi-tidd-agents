@@ -97,7 +97,7 @@ const RECORD_LIMIT = 8000, EXEMPT_ROOM = 1024;
 // is still over the limit.
 const EXEMPT = { 'contract/CL-D93.md': 14396, 'contract/CL-D72.md': 10417 };
 
-test('Issue #215 every record is at most 8,000 bytes, and the larger ones at the split stay within their ceiling', () => {
+test('Issue #215 every record is at most 8,000 bytes, and the four larger at the split stay within their ceiling', () => {
   const files = fs.readdirSync(repoPath('contract')).filter((f) => f.endsWith('.md')).map((f) => `contract/${f}`);
   assert.ok(files.length > 100, 'the records are there to measure');
   for (const file of files) {
