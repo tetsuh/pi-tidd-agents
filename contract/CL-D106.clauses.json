@@ -1,0 +1,45 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D106-record",
+      "marker": "CL-D106",
+      "title": "CL-D106 records when a record is written",
+      "files": [
+        "contract/CL-D106.md"
+      ],
+      "section": "## CL-D106 — A record is written only for a decision that changes an obligation",
+      "requires": [
+        "tetsuh/pi-tidd-agents#250",
+        "A contract record is written for a decision that changes what a gate, the writer, or the driver must or must not do, including a cap or budget that bounds what they do.",
+        "A choice that only sets a figure, a path or a wording",
+        "as a forward note in that record naming the issue and the owner decision that permitted it (\"#nnn later …\")",
+        "Writing a record for a figure, path or wording choice alone, or recording an obligation change only in an issue thread, requires a new owner decision.",
+        "it is recorded in its issue thread and, where an existing record states the value,",
+        "Records written before this one are not retired or rewritten by this rule;",
+        "Applies to every record written after this one."
+      ]
+    },
+    {
+      "id": "CL-D106-preamble",
+      "marker": "CL-D106",
+      "title": "CONTRACT.md names when a record is written",
+      "files": [
+        "CONTRACT.md"
+      ],
+      "requires": [
+        "A record is written only for a decision that changes an obligation; a figure, path or wording choice is a forward note in the record that holds it (CL-D106)."
+      ]
+    },
+    {
+      "id": "CL-D106-forward-d34",
+      "marker": "CL-D106",
+      "title": "CL-D34 names the narrowing",
+      "files": [
+        "contract/CL-D34.md"
+      ],
+      "requires": [
+        "CL-D106 later narrowed this: a baseline change alone is a forward note in the record that holds the value, citing the owner decision that permits it, not a new record."
+      ]
+    }
+  ]
+}
