@@ -1,0 +1,15 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D15",
+      "title": "Scratch-file boundary",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "outside the repository"
+      ]
+    }
+  ]
+}

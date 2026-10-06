@@ -1,0 +1,77 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D9",
+      "title": "Authoritative comments and digest honesty are shared",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "## Evidence fingerprints (CL-D9)",
+      "requires": [
+        "author_association",
+        "OWNER",
+        "MEMBER",
+        "COLLABORATOR",
+        "is not a bot",
+        "Never estimate or invent a digest value"
+      ]
+    },
+    {
+      "id": "CL-D9-roots",
+      "marker": "CL-D9",
+      "title": "Each root owns its fingerprint list and serialization",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "sha256",
+        "canonical UTF-8 bytes"
+      ],
+      "section": "## Evidence fingerprints (CL-D9)"
+    },
+    {
+      "id": "CL-D9-issue",
+      "marker": "CL-D9",
+      "title": "Issue fingerprint serialization is byte-stable",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "no trailing separator",
+        "LC_ALL=C",
+        "sha256sum"
+      ]
+    },
+    {
+      "id": "CL-D9-pr",
+      "marker": "CL-D9",
+      "title": "Pull-request fingerprints are evidence specific",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "pr_base",
+        "pr_tree",
+        "pr_diff",
+        "pr_commits",
+        "pr_head",
+        "metadata-only rewrite",
+        "omit a trailing separator",
+        "same raw effective diff bytes",
+        "no checkout",
+        "gh api repos/<owner>/<repo>/pulls/<n>",
+        "gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>",
+        "gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits",
+        "gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha",
+        "same-repository review-only target",
+        "GitHub API evidence path",
+        "local Git objects are absent",
+        "without fetch, checkout, or git-state mutation",
+        "Autofix still requires local objects",
+        "Bracket API evidence collection",
+        "discard the evidence and retry"
+      ]
+    }
+  ]
+}

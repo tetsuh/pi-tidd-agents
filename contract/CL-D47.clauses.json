@@ -1,0 +1,28 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D47-shared",
+      "marker": "CL-D47",
+      "title": "The shared invocation contract derives the fresh-finding namespace",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "the fresh finding namespace is derived, never supplied"
+      ]
+    },
+    {
+      "id": "CL-D47-tests",
+      "marker": "CL-D47",
+      "title": "Derived-namespace fixtures pin derivation, rejection, and the prose",
+      "files": [
+        "test/issue-79-derived-prefix.test.js"
+      ],
+      "requires": [
+        "a gate result validates with no prefix input",
+        "supplying the retired field is rejected, right or wrong alike",
+        "the shared contract says derived, not supplied"
+      ]
+    }
+  ]
+}

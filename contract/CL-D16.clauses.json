@@ -1,0 +1,20 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D16",
+      "title": "Language Profile package defaults",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "conversation",
+        "github.issue",
+        "github.pull_request",
+        "external_sites",
+        "stop and ask before drafting content for that destination",
+        "never governs source code"
+      ],
+      "section": "## Language Profile (CL-D16)"
+    }
+  ]
+}

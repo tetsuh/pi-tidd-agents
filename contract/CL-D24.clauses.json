@@ -1,0 +1,20 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D24",
+      "title": "External observation is per-run and never carried forward",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "observation origin",
+        "before the first Sol invocation",
+        "not polling",
+        "External evidence is never carried across runs",
+        "provider-native finding identity",
+        "unknown, not complete",
+        "current-process snapshots"
+      ]
+    }
+  ]
+}

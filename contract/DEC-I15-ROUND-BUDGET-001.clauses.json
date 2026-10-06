@@ -1,0 +1,17 @@
+{
+  "clauses": [
+    {
+      "id": "DEC-I15-round-budget",
+      "marker": "DEC-I15-ROUND-BUDGET-001",
+      "title": "Canonical Issue #15 round-budget decision",
+      "files": [
+        "contract/DEC-I15-ROUND-BUDGET-001.md"
+      ],
+      "requires": [
+        "*Decision ID:* DEC-I15-ROUND-BUDGET-001",
+        "*Owner choice:* Option B approved by the exact live same-session response"
+      ],
+      "section": "## DEC-I15-ROUND-BUDGET-001 — Bounded post-decision Sol round"
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D54-review-only",
+      "marker": "CL-D54",
+      "title": "Review-only tolerates the runtime roots the harness itself writes",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "section": "### Runtime roots (CL-D54)",
+      "requires": [
+        "`RUNTIME_ROOTS := { \".pi\", \".pi-subagents\" }`",
+        "classify each independently and no-follow as absent or a real directory",
+        "tolerate pre-existing untracked paths beneath them at every boundary",
+        "never claims they were cleaned, preserved, or validated",
+        "untracked paths outside `RUNTIME_ROOTS` and the frozen `VALIDATION_SANDBOX_DELTA` still stop as `BLOCKED`"
+      ]
+    },
+    {
+      "id": "CL-D54-tests",
+      "marker": "CL-D54",
+      "title": "Runtime-root fixtures pin the carve-out, the drift guard, and the record",
+      "files": [
+        "test/issue-93-review-only-runtime-roots.test.js"
+      ],
+      "requires": [
+        "review-only names the runtime-root carve-out and keeps everything else closed",
+        "the amended CL-D38 boundary sentence carries the qualification once",
+        "both mode references and the helpers agree on the root set",
+        "CL-D54 records the carve-out and what it amends"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D52-tests",
+      "marker": "CL-D52",
+      "title": "Branch-churn fixtures pin the tolerance, the pins that remain, and the record",
+      "files": [
+        "test/issue-91-branch-config-churn.test.js"
+      ],
+      "requires": [
+        "foreign-branch config churn does not move the operator baseline",
+        "the current branch, non-branch keys, and unsafe keys still fail closed",
+        "detached HEAD ignores every branch section",
+        "CL-D52 records what the digest ignores and why that is safe here"
+      ]
+    }
+  ]
+}

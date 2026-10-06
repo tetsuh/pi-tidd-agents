@@ -1,0 +1,114 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D100-record",
+      "marker": "CL-D100",
+      "title": "CL-D100 records that external review is best effort",
+      "files": [
+        "contract/CL-D100.md"
+      ],
+      "section": "## CL-D100 — External review is best effort",
+      "requires": [
+        "tetsuh/pi-tidd-agents#226",
+        "is reported as observed and is never waited for and never a failure",
+        "A requirement only a human or GitHub settles never holds `MERGE_READY` back and is named in `operator_actions`",
+        "Waiting for a provider again, treating a provider's state as a failure, or holding `MERGE_READY` back for a requirement named above requires a new owner decision.",
+        "A branch protection the workflow cannot read is settled by GitHub's own `mergeable_state`",
+        "every ruleset and protection setting the workflow reads but does not evaluate"
+      ]
+    },
+    {
+      "id": "CL-D100-prose",
+      "marker": "CL-D100",
+      "title": "Review-only states the best-effort rule",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "External review is best effort (CL-D100): answer each external finding present; never wait for one still to come.",
+        "CodeRabbit's state, and its own check run or status that no protection requires, is only reported.",
+        "a ruleset or protection setting read but not evaluated",
+        "never holds `MERGE_READY` back; name it in `operator_actions`"
+      ]
+    },
+    {
+      "id": "CL-D100-autofix-prose",
+      "marker": "CL-D100",
+      "title": "Exact autofix states the best-effort rule",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "failed checks or `CHANGES_REQUESTED` is `BLOCKED`.",
+        "A policy the workflow does not evaluate (ruleset, protection setting, approval, `blocked` state) is named in `operator_actions`",
+        "a provider's state or own unrequired check, even `unknown`, is reported; neither waits or fails (CL-D100)",
+        "A protection that cannot be read is settled by `mergeable_state`.",
+        "final policy failed is `BLOCKED`"
+      ]
+    },
+    {
+      "id": "CL-D100-driver",
+      "marker": "CL-D100",
+      "title": "Readiness separates what waits from what a human confirms and what was observed",
+      "files": [
+        "skills/closed-loop-pr/driver/readiness.js"
+      ],
+      "requires": [
+        "return { failed, pending, unresolved, confirm, observed };",
+        "if (state === 'blocked') confirm.push(",
+        "c.app?.slug === REVIEW_APP && !required(c.name, c.app.id)",
+        "context === 'CodeRabbit' && st.creator?.login === 'coderabbitai[bot]' && !required(context)",
+        "external review is not waited for"
+      ]
+    },
+    {
+      "id": "CL-D100-phases",
+      "marker": "CL-D100",
+      "title": "MERGE_READY names what a human confirms",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "`before merging, a human confirms: ${r.confirm.join('; ')}`"
+      ]
+    },
+    {
+      "id": "CL-D100-forward-d18",
+      "marker": "CL-D100",
+      "title": "CL-D18 names the later rule",
+      "files": [
+        "contract/CL-D18.md"
+      ],
+      "section": "## CL-D18 — External observation is reported, not enforced",
+      "requires": [
+        "CL-D100 later made external review best effort: the quiet period and the window are gone"
+      ]
+    },
+    {
+      "id": "CL-D100-forward-d93",
+      "marker": "CL-D100",
+      "title": "CL-D93 names the later rule",
+      "files": [
+        "contract/CL-D93.md"
+      ],
+      "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
+      "requires": [
+        "CL-D100 later made external review best effort: the driver waits for no provider, quiet period, or observation window"
+      ]
+    },
+    {
+      "id": "CL-D100-tests",
+      "marker": "CL-D100",
+      "title": "The best-effort outcomes are pinned",
+      "files": [
+        "test/issue-196-review-driver-6.test.js"
+      ],
+      "requires": [
+        "Issue #196 a missing required approval does not hold MERGE_READY back, and the operator\\'s actions name it",
+        "Issue #196 a recent external event does not hold MERGE_READY back, and the publication reports it as observed",
+        "Issue #196 an external review provider\\'s state and its own check run are observed, never waited for",
+        "Issue #196 a protection the driver cannot read is settled by mergeability: clean names nothing, blocked is named"
+      ]
+    }
+  ]
+}

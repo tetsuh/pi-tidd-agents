@@ -124,11 +124,10 @@ function assertUniqueJsonKeys(source) {
   assert.equal(index, source.length, 'manifest JSON has trailing data');
 }
 
-// The clause pins (CL-D105): the residual manifest while it exists, then each indexed record's clause file beside it,
-// in index order. Read in one place (#238); `read` lets a test put an overlay in front of every source.
-const MANIFEST = 'test/contract-clauses.json';
+// The clause pins (CL-D105): each indexed record's clause file beside it, in index order. Read in one place (#238);
+// `read` lets a test put an overlay in front of every source.
 function manifestSources(has = exists) {
-  return [...(has(MANIFEST) ? [MANIFEST] : []), ...contractIndex().files.map((file) => file.replace(/\.md$/, '.clauses.json')).filter((file) => has(file))];
+  return contractIndex().files.map((file) => file.replace(/\.md$/, '.clauses.json')).filter((file) => has(file));
 }
 function readManifest(read = readText) {
   const clauses = [], from = new Map();
@@ -136,10 +135,8 @@ function readManifest(read = readText) {
     const text = read(source);
     assertUniqueJsonKeys(text);
     const value = JSON.parse(text);
-    if (source !== MANIFEST) {
-      const ok = value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.clauses) && value.clauses.length > 0;
-      assert.ok(ok, `${source} must hold exactly {"clauses": [...]}, with at least one clause`);
-    }
+    const ok = value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 1 && Array.isArray(value.clauses) && value.clauses.length > 0;
+    assert.ok(ok, `${source} must hold exactly {"clauses": [...]}, with at least one clause`);
     for (const clause of value.clauses) {
       assert.ok(!from.has(clause.id), from.get(clause.id) === source ? `${clause.id} is listed twice in ${source}` : `${clause.id} is in two sources: ${from.get(clause.id)} and ${source}`);
       from.set(clause.id, source);
@@ -156,8 +153,7 @@ function readAutofixProcedure() {
   return `${readText('skills/closed-loop-pr/references/autofix.md')}\n${readText('skills/closed-loop-pr/references/helper-map.md')}`;
 }
 
-// readJson refuses every clause source's file (its device and inode), the residual manifest and each clause file,
-// however its path is spelled, aliased or linked; readManifest is the helper that parses them (#238, CL-D105).
+// readJson refuses every clause file (its device and inode), however its path is spelled, aliased or linked; readManifest is the helper that parses them (#238, CL-D105).
 function readJson(relativePath) {
   if (manifestSources().some((source) => sameFile(relativePath, source))) throw new Error(`read the clause manifest through readManifest(), not readJson(${JSON.stringify(relativePath)})`);
   return JSON.parse(readText(relativePath));

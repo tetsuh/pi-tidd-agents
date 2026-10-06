@@ -1,0 +1,30 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D10",
+      "title": "Worktree precondition for autofix",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "gh pr checkout",
+        "Never switch, stash, reset, clean, delete, or discard operator work"
+      ]
+    },
+    {
+      "id": "CL-D10-pi-contract",
+      "marker": "CL-D10",
+      "title": "Repository-root Pi runtime exclusion is narrow and fail-closed",
+      "files": [
+        "contract/CL-D10.md"
+      ],
+      "requires": [
+        "`OPERATOR_CHECKOUT@H`",
+        "safe no-follow classification of every enumerated `RUNTIME_ROOTS` member",
+        "Staged deletion never cures a forbidden parent path",
+        "clean tracked/index state"
+      ],
+      "section": "## CL-D10 — Worktree precondition for autofix"
+    }
+  ]
+}

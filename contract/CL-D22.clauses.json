@@ -1,0 +1,63 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D22-issue",
+      "marker": "CL-D22",
+      "title": "Issue closed-loop model requirements and preflight",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "Preflight",
+        "by role name",
+        "never by model ID",
+        "stop and report `BLOCKED`",
+        "override under the role name"
+      ],
+      "section": "## Name-level agent resolution (CL-D22, CL-D5, CL-D59)"
+    },
+    {
+      "id": "CL-D22-pr",
+      "marker": "CL-D22",
+      "title": "PR closed-loop model requirements and preflight",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "Preflight",
+        "by role name",
+        "never by model ID",
+        "stop and report `BLOCKED`",
+        "override under the role name"
+      ],
+      "section": "## Name-level agent resolution (CL-D22, CL-D5, CL-D59)"
+    },
+    {
+      "id": "CL-D22-issue-agents",
+      "marker": "CL-D22",
+      "title": "Issue preflight retains required agent set",
+      "section": "## Preflight (CL-D22, CL-D5)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "tidd-adversarial-reviewer",
+        "tidd-drift-reviewer"
+      ]
+    },
+    {
+      "id": "CL-D22-pr-agents",
+      "marker": "CL-D22",
+      "title": "PR preflight retains required agent set",
+      "section": "## Preflight (CL-D22, CL-D5)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "tidd-adversarial-reviewer",
+        "tidd-safety-reviewer",
+        "conditionally for autofix mode, `tidd-autofix-worker`"
+      ]
+    }
+  ]
+}

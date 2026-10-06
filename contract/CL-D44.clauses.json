@@ -1,0 +1,72 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D44-autofix",
+      "marker": "CL-D44",
+      "title": "Exact autofix declares and checks cross-operation input shapes",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "section": "### Cross-operation input shapes (CL-D44)",
+      "requires": [
+        "`envelope`, `data`, and `receipt` are distinct input shapes",
+        "the map names the shape each field expects, not only the field",
+        "no shape is accepted as a tolerant alternative for another",
+        "a supplied shape that is not the declared one stops with `input_shape_mismatch`",
+        "never as a later identity, capture, or evidence failure",
+        "it is not a validator of producer output",
+        "rejected because it fails that one predicate, never because of what it was recognized to be",
+        "calibrated to what fails downstream",
+        "the closed CL-D36 schema remains the sole validator of gate results",
+        "constructed by hand to satisfy a declared predicate passes",
+        "The five declared fields are the complete CL-D44 set"
+      ]
+    },
+    {
+      "id": "CL-D44-map",
+      "marker": "CL-D44",
+      "title": "The invocation map publishes each field's declared shape",
+      "files": [
+        "skills/closed-loop-pr/references/helper-map.md"
+      ],
+      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
+      "requires": [
+        "`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)",
+        "`expected` (data of `workspace_create`)",
+        "`receipt` (receipt inside `workspace_create` data)",
+        "`snapshot` (data of `snapshot`)",
+        "`result` (structured gate output)"
+      ]
+    },
+    {
+      "id": "CL-D44-readme",
+      "marker": "CL-D44",
+      "title": "README documents the declared input shapes",
+      "files": [
+        "README.md"
+      ],
+      "section": "### Autofix",
+      "requires": [
+        "declares one input shape for each cross-operation field",
+        "rejects any other shape with `input_shape_mismatch` before the operation runs",
+        "instead of letting it surface later as an unrelated identity or capture failure"
+      ]
+    },
+    {
+      "id": "CL-D44-tests",
+      "marker": "CL-D44",
+      "title": "Black-box composition tests pin the declarations, the swaps, and the positives",
+      "files": [
+        "test/issue-74-composition-shapes.test.js"
+      ],
+      "requires": [
+        "each declared field carries one predicate and rejection needs no classification",
+        "the declared shapes are published beside the fields",
+        "the envelope-for-data swap is rejected by name at the boundary",
+        "every other declared field rejects the shapes it does not take",
+        "the documented composition passes exactly as written",
+        "structured gate output composes successfully and rejects envelope/data/receipt swaps"
+      ]
+    }
+  ]
+}

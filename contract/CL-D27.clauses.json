@@ -1,0 +1,15 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D27",
+      "title": "Autofix and publication are governed by one identity invariant",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "Target stability",
+        "stop rather than continue against a moved target"
+      ]
+    }
+  ]
+}

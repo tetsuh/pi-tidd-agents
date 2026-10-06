@@ -1,0 +1,16 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D12",
+      "title": "Round budgets are run-scoped (known MVP limitation)",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "run-scoped",
+        "Do not create a state file"
+      ],
+      "section": "## Base round accounting (CL-D11, CL-D12)"
+    }
+  ]
+}

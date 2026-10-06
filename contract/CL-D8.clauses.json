@@ -1,0 +1,28 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D8",
+      "title": "Targets outside the current repository",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "another repository"
+      ]
+    },
+    {
+      "id": "CL-D8-foreign",
+      "marker": "CL-D8",
+      "title": "A foreign review-only target needs no checkout and refuses mutation",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "foreign review-only target",
+        "no local Git object or checkout is required",
+        "Autofix and every publication action refuse such a target"
+      ]
+    }
+  ]
+}

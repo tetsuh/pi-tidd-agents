@@ -1,0 +1,18 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D7",
+      "title": "Target kind is verified, never assumed",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "complete raw argument vector",
+        "one two-token reference",
+        "Verify that the resolved target is the expected kind",
+        "never inferred from the current branch"
+      ],
+      "section": "## Target grammar (CL-D7, CL-D8)"
+    }
+  ]
+}

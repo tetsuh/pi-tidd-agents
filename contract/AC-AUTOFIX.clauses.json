@@ -1,0 +1,33 @@
+{
+  "clauses": [
+    {
+      "id": "SOL-PR14-CONTRACT-001-autofix",
+      "marker": "AC-AUTOFIX",
+      "title": "Provider-mutation exceptions remain exact in the AC-AUTOFIX contract section",
+      "files": [
+        "contract/AC-AUTOFIX.md"
+      ],
+      "requires": [
+        "provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST"
+      ],
+      "section": "## AC-AUTOFIX — Autofix token grants only bounded CL-D30 actions"
+    },
+    {
+      "id": "AC-AUTOFIX",
+      "title": "Autofix token grants only bounded CL-D30 actions",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "The exact PR `autofix` token itself selects and approves only the bounded CL-D30 actions",
+        "one normal commit",
+        "one non-force push",
+        "confirmed source-finding replies",
+        "Everything else remains forbidden",
+        "does not authorize merge",
+        "aggregate-summary posting"
+      ],
+      "section": "## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)"
+    }
+  ]
+}

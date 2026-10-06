@@ -1,0 +1,30 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D71-record",
+      "marker": "CL-D71",
+      "title": "The CL-D71 record states the reset, the measurement, and the anti-pattern",
+      "files": [
+        "contract/CL-D71.md"
+      ],
+      "section": "## CL-D71 — The aggregate helper smoke alarm is reset a third time",
+      "requires": [
+        "resets from 200,000 to 220,000 bytes",
+        "19,021 bytes of headroom asserted at this reset",
+        "trimming code merely to silence the alarm remains the recorded anti-pattern, not compliance"
+      ]
+    },
+    {
+      "id": "CL-D71-tests",
+      "marker": "CL-D71",
+      "title": "The reset value is the one every suite asserts",
+      "files": [
+        "test/issue-59-helper-surface.test.js"
+      ],
+      "requires": [
+        "const AGGREGATE_SMOKE_ALARM = 310000;",
+        "CL-D92 reviewed reset from 300,000 (CL-D91)"
+      ]
+    }
+  ]
+}

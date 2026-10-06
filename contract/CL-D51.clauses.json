@@ -1,0 +1,33 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D51-mapping",
+      "marker": "CL-D51",
+      "title": "The recovery mapping carries the zero-output relaunch and its bounds",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "section": "### Bounded pre-writer recovery (CL-D39)",
+      "requires": [
+        "| gate transport failure with zero designated output bytes | `gate_transport@gate_launch` | one relaunch of the same prevalidated invocation | recoverable | no output existed; nothing is preserved or invalidated |",
+        "except the CL-D51 zero-output transport key",
+        "any designated output byte, however malformed, keeps the failure terminal",
+        "at most one relaunch per run, consuming no counter",
+        "after any mutation, Luna task, or reply the key is terminal exactly as before"
+      ]
+    },
+    {
+      "id": "CL-D51-tests",
+      "marker": "CL-D51",
+      "title": "Relaunch fixtures pin the row, the carve-out, and the record",
+      "files": [
+        "test/issue-82-zero-output-relaunch.test.js"
+      ],
+      "requires": [
+        "the recovery mapping gains the zero-output relaunch row and its carve-out",
+        "the stop rule names both exceptions",
+        "CL-D51 records the widening under CL-D39"
+      ]
+    }
+  ]
+}

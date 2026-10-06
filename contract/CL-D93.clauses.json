@@ -1,0 +1,67 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D93-phases",
+      "marker": "CL-D93",
+      "title": "The review-only round's phases live in one shared module",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "function bindTarget(opts, kind)",
+        "function readGate(run, runId, self, { codes = RELAUNCHABLE, may = (p) => !p.relaunched, before = () => {} } = {})",
+        "function finalPolicy(run, snapshot, waitAction)"
+      ]
+    },
+    {
+      "id": "CL-D93-driver",
+      "marker": "CL-D93",
+      "title": "The review-only driver sequences helpers through the packaged CLI",
+      "files": [
+        "skills/closed-loop-pr/driver/run.js"
+      ],
+      "requires": [
+        "const CLI = path.join(PACKAGE, 'skills', 'closed-loop-pr', 'helpers', 'cli.js');",
+        "git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer')",
+        "function contractInput(files)"
+      ]
+    },
+    {
+      "id": "CL-D93-record",
+      "marker": "CL-D93",
+      "title": "CL-D93 records the driver boundary",
+      "files": [
+        "contract/CL-D93.md"
+      ],
+      "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
+      "requires": [
+        "issues/196#issuecomment-5870929892",
+        "Giving the driver a writing operation, reading validation commands from the head, or computing `contractInput` from the target checkout requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D93-readiness-scope",
+      "marker": "CL-D93",
+      "title": "CL-D93 states what readiness reads and what the owner reads",
+      "files": [
+        "contract/CL-D93.md"
+      ],
+      "section": "## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints",
+      "requires": [
+        "Readiness takes external findings only from unresolved review threads and review states: pull-request conversation comments and `COMMENTED` review bodies are not evaluated as findings, and the owner who merges reads them (https://github.com/tetsuh/pi-tidd-agents/issues/203#issuecomment-5900278433). CL-D96 later added `autofix.js`, `paths.js`, and `writer.js` to `driver/` and reset the aggregate driver alarm to 100,000 bytes."
+      ]
+    },
+    {
+      "id": "CL-D93-tests",
+      "marker": "CL-D93",
+      "title": "The CL-D93 fixtures drive a review round",
+      "files": [
+        "test/issue-196-review-driver-1.test.js"
+      ],
+      "requires": [
+        "Issue #196 the packaged review-only driver runs a PR round to MERGE_READY; the parent only makes printed calls",
+        "Issue #196 a malformed .tidd.json at the base, or an issue without acceptance criteria, stops before any gate"
+      ]
+    }
+  ]
+}

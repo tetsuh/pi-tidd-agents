@@ -1,0 +1,44 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D13",
+      "title": "Status block and resume",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "tidd-status",
+        "revalidate the fingerprints"
+      ]
+    },
+    {
+      "id": "CL-D13-issue",
+      "marker": "CL-D13",
+      "title": "The issue status block marks publication as not applicable",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "publication_grant: not-applicable",
+        "findings: <internal finding id: disposition, one per line>"
+      ]
+    },
+    {
+      "id": "CL-D13-pr",
+      "marker": "CL-D13",
+      "title": "The PR status block carries resumable observation and publication state",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "external_observation: head <sha> observed_from <timestamp>, this run only",
+        "findings: <internal finding id: disposition, one per line>",
+        "operator_actions:",
+        "review-only",
+        "fresh run"
+      ],
+      "section": "## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)"
+    }
+  ]
+}

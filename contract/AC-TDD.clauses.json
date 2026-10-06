@@ -1,0 +1,37 @@
+{
+  "clauses": [
+    {
+      "id": "AC-TDD",
+      "title": "Risk-based test-first policy and truthful provenance",
+      "files": [
+        "skills/closed-loop-shared/references/records.md"
+      ],
+      "requires": [
+        "pre-implementation behavioral RED",
+        "pre-implementation compile/contract RED",
+        "co-developed integration coverage",
+        "review-driven regression",
+        "retrospective reproduction",
+        "Never fabricate RED evidence",
+        "never rewrite history to simulate",
+        "Assertion polarity is irrelevant",
+        "inspects an artifact's content or structure",
+        "executes the thing being specified and observes what it does"
+      ],
+      "section": "## AC-TDD coverage and truthful provenance"
+    },
+    {
+      "id": "AC-TDD-issue-quality-gate",
+      "marker": "AC-TDD",
+      "title": "Issue readiness requires acceptance contract and validation plan",
+      "section": "### Issue AC-TDD quality gate (AC-TDD)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "An issue is not ready until it states its acceptance contract and validation plan.",
+        "Apply the risk-based test-first default when reviewing that plan."
+      ]
+    }
+  ]
+}

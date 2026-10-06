@@ -1,0 +1,29 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D50-base",
+      "marker": "CL-D50",
+      "title": "The base reference directs the third disclosure stage",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "The exact `autofix` token additionally selects the CL-D30 addendum in `references/autofix-addendum.md`; read it only then, after this reference (CL-D50)."
+      ]
+    },
+    {
+      "id": "CL-D50-tests",
+      "marker": "CL-D50",
+      "title": "Split fixtures pin the seven-file set, the stage bounds, and the record",
+      "files": [
+        "test/issue-87-addendum-split.test.js"
+      ],
+      "requires": [
+        "the addendum is its own authority file and the aggregate set has eight entries",
+        "the addendum content moved whole and the base directs to it",
+        "the disclosure stages are bounded per stage",
+        "CL-D50 records the third disclosure stage"
+      ]
+    }
+  ]
+}

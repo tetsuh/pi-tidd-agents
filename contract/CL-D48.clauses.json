@@ -1,0 +1,31 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D48-guard",
+      "marker": "CL-D48",
+      "title": "The headroom property is asserted against the raise baseline",
+      "files": [
+        "test/issue-73-authority-budget.test.js"
+      ],
+      "requires": [
+        "RAISE_BASELINE_BYTES = 114563",
+        "128000 - RAISE_BASELINE_BYTES > 8000",
+        "made the margin a second, unstated ceiling"
+      ]
+    },
+    {
+      "id": "CL-D48-tests",
+      "marker": "CL-D48",
+      "title": "Floor-form fixtures pin the live ceiling and the raise-time property",
+      "files": [
+        "test/issue-87-authority-floor.test.js"
+      ],
+      "requires": [
+        "the headroom property is asserted at the raise, not against live growth",
+        "no live margin may be asserted against the aggregate total",
+        "CL-D48 records why the constant form failed",
+        "this suite must not reintroduce one either"
+      ]
+    }
+  ]
+}

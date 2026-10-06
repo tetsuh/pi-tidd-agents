@@ -1,0 +1,16 @@
+{
+  "clauses": [
+    {
+      "id": "AC-GATES",
+      "title": "Sequential Sol then Terra gates",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md",
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "tidd-adversarial-reviewer",
+        "Never start the Terra gate before the Sol gate returns `MERGE`"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "clauses": [
+    {
+      "id": "AC-DECISION",
+      "title": "Owner decision record names every field",
+      "section": "## Owner decisions (AC-DECISION)",
+      "files": [
+        "skills/closed-loop-shared/references/records.md"
+      ],
+      "requires": [
+        "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions",
+        "While an owner decision or owner action is pending, the state is `WAITING_FOR_OWNER`."
+      ]
+    },
+    {
+      "id": "AC-DECISION-pr",
+      "marker": "AC-DECISION",
+      "title": "The pull-request owner decision record is whole and section-scoped",
+      "section": "## Owner decisions (AC-DECISION)",
+      "files": [
+        "skills/closed-loop-shared/references/records.md"
+      ],
+      "requires": [
+        "Decision ID\nKind\nTarget and revision\nQuestion\nOptions and trade-offs\nRecommendation\nOwner choice\nRationale\nValidity and invalidation conditions"
+      ]
+    },
+    {
+      "id": "AC-DECISION-issue-scope",
+      "marker": "AC-DECISION",
+      "title": "Issue owner-decision scope remains Issue-specific",
+      "section": "### Issue owner-decision scope (AC-DECISION)",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "The shared AC-DECISION triggers and pending state apply unchanged; this Issue root adds no trigger of its own."
+      ]
+    },
+    {
+      "id": "AC-DECISION-pr-scope",
+      "marker": "AC-DECISION",
+      "title": "PR owner-decision scope remains PR-specific",
+      "section": "### PR owner-decision scope (AC-DECISION)",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "The shared AC-DECISION triggers and pending state apply; this PR root additionally pauses on dangerous operations, and ship decisions."
+      ]
+    }
+  ]
+}
