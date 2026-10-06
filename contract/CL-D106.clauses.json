@@ -13,7 +13,10 @@
         "A contract record is written for a decision that changes what a gate, the writer, or the driver must or must not do, a cap or budget that bounds what they do included.",
         "A choice that only sets a figure, a path or a wording",
         "as a forward note in that record naming the issue and the owner decision that permitted it (\"#nnn later …\")",
-        "Writing a record for a figure, path or wording choice alone, or recording an obligation change only in an issue thread, requires a new owner decision."
+        "Writing a record for a figure, path or wording choice alone, or recording an obligation change only in an issue thread, requires a new owner decision.",
+        "it is recorded in its issue thread and, where an existing record states the value,",
+        "Records written before this one are not retired or rewritten by this rule;",
+        "Applies to every record written after this one."
       ]
     },
     {
