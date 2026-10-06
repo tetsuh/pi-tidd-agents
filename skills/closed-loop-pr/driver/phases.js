@@ -81,9 +81,10 @@ function readGate(run, runId, self, { codes = RELAUNCHABLE, may = (p) => !p.rela
   const p = run.state.pending;
   const read = run.op('gate_result_read', { runId: runId || die('--run-id is required'), expectationPath: p.expectationPath }, { allowFail: true });
   if (read.ok) return read.data;
-  const code = read.error?.code;
+  // A failed step with no designated output is an absent output, not a status verdict (gate-contract.md, CL-D51; #241).
+  const code = read.error?.code, d = read.error?.details, as = code === 'step_incomplete' && d?.stepStatus === 'failed' && !fs.existsSync(d.structuredOutputPath || '') ? 'designated_output_absent' : code;
   if (code === 'run_in_progress') { process.stdout.write(`WAIT: the ${gateLabel(p.gate)} run is still in progress; when it completes, run: node ${self} result --run-dir ${run.dir} --run-id <runId>\n`); process.exit(3); }
-  if (codes.has(code) && may(p)) {
+  if (codes.has(as) && may(p)) {
     p.relaunched = true; run.save(); before();
     run.next(JSON.parse(fs.readFileSync(p.launch, 'utf8')), `${self} result`);
     return undefined;

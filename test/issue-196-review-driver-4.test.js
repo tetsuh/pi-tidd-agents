@@ -9,11 +9,14 @@ test('Issue #196 the driver is packaged under its own alarms and names no writin
   const files = fs.readdirSync(repoPath(DRIVER_DIR)).filter((f) => f.endsWith('.js')).map((f) => `${DRIVER_DIR}/${f}`);
   // phases.js holds the phases of a review-only round that autofix.js shares with review.js; CL-D96 adds autofix.js,
   // the one driver file that names the writer operations (test/issue-196-autofix-driver-*.test.js), and reset the
-  // aggregate alarm from 60,000 to 100,000; CL-D97 resets it to 105,000 for the kernel-like path walk.
+  // aggregate alarm from 60,000 to 100,000; CL-D97 resets it to 105,000 for the kernel-like path walk; #241 resets it to
+  // 110,000 for the failed-step relaunch, the files measuring 105,250 bytes on that change (CL-D106: a forward note in CL-D97).
   assert.deepEqual(files.sort(), [`${DRIVER_DIR}/autofix.js`, `${DRIVER_DIR}/paths.js`, `${DRIVER_DIR}/phases.js`, `${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`, `${DRIVER_DIR}/writer.js`]);
   const sizes = files.map((f) => fs.statSync(repoPath(f)).size);
   for (const [i, size] of sizes.entries()) assert.ok(size < 30000, `${files[i]} is ${size} bytes`);
-  assert.ok(sizes.reduce((a, b) => a + b, 0) < 105000, 'driver aggregate alarm');
+  assert.ok(sizes.reduce((a, b) => a + b, 0) < 110000, 'driver aggregate alarm');
+  // The raise left room when it was taken (CL-D43's terms).
+  assert.ok(110000 - 105250 > 4000, 'the #241 raise left room');
   for (const f of files.filter((f) => !f.endsWith('/autofix.js'))) assert.doesNotMatch(readText(f), /commit_create|push_publish|marker_create|\/merge\b|'merge'|--approve|'APPROVE'/, `${f} names a writing operation`);
   for (const f of files) assert.doesNotMatch(readText(f), /require\('\.\.\/helpers\/(?:fingerprints|evidence)'\)/, `${f} computes evidence outside the packaged operations`);
   assert.ok(/^## CL-D93 — /m.test(require('./helpers').readContract()), 'CL-D93 records the driver boundary');
