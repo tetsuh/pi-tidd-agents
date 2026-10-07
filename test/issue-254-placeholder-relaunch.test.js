@@ -4,7 +4,7 @@
 // failed, and the gate still returned a placeholder envelope whose correlation names no run: every OID and digest the
 // null value. gate_result_read refused it as a correlation mismatch and the round ended BLOCKED with no gate run. A
 // placeholder that names no run is no result of the launch, so review-only relaunches it once, as it does an absent
-// output; a correlation that names any real OID stays a refusal, and exact autofix keeps CL-D51's terminal rule.
+// output (CL-D107); a correlation that names any real OID stays a refusal, and exact autofix keeps CL-D51's terminal rule.
 const { test, assert, fs, path, drive, fakeGate, setup, state, nextRequest } = require('./issue-196-review-driver.fixtures.js');
 const af = require('./issue-196-autofix-driver.fixtures.js');
 

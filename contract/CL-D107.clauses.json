@@ -1,0 +1,67 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D107-record",
+      "marker": "CL-D107",
+      "title": "CL-D107 records the review-only relaunch of a result that names no run",
+      "files": [
+        "contract/CL-D107.md"
+      ],
+      "section": "## CL-D107 — A review-only gate result whose correlation names no run is relaunched once",
+      "requires": [
+        "issues/254#issuecomment-6040793987",
+        "A designated output whose correlation has `baseOid` and `headOid` both 40 zeros and `contractInput` and `snapshotFingerprint` both 64 zeros names no run.",
+        "A correlation that names any real value, another run's result included, stays a refusal at once.",
+        "Exact autofix keeps CL-D51's terminal rule for any designated output byte; relaunching this result there, a second relaunch, or a weaker test than all four null values requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D107-driver",
+      "marker": "CL-D107",
+      "title": "The review-only reader relaunches a result that names no run",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "'verdict_inconsistent', 'result_names_no_run']);",
+        ": code === 'correlation_mismatch' && noRun() ? 'result_names_no_run' : code;"
+      ]
+    },
+    {
+      "id": "CL-D107-tests",
+      "marker": "CL-D107",
+      "title": "The CL-D107 tests replay PR #253 round 2",
+      "files": [
+        "test/issue-254-placeholder-relaunch.test.js"
+      ],
+      "requires": [
+        "Issue #254 a gate result whose correlation names no run is relaunched once, not BLOCKED",
+        "Issue #254 a second result that names no run stops BLOCKED after one relaunch",
+        "Issue #254 a mismatched correlation that names any real value is not relaunched",
+        "Issue #254 exact autofix does not relaunch a result that names no run"
+      ]
+    },
+    {
+      "id": "CL-D107-forward-d93",
+      "marker": "CL-D107",
+      "title": "CL-D93 names the added relaunch",
+      "files": [
+        "contract/CL-D93.md"
+      ],
+      "requires": [
+        "CL-D107 later added a result whose correlation names no run (#254)."
+      ]
+    },
+    {
+      "id": "CL-D107-review-only",
+      "marker": "CL-D107",
+      "title": "review-only.md names the added relaunch",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "A verdict whose correlation names no run is one too (CL-D107)."
+      ]
+    }
+  ]
+}
