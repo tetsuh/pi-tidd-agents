@@ -12,6 +12,10 @@ const path = require('node:path');
 const { externalEvents, headFingerprints, snapshotFingerprint, runDirProblem, runDirNotFresh, targetMoved, readiness, ignoredInventory, sha256, die, git, gh } = require('./run');
 
 const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
+// Both driver commands, review.js and autofix.js, load this file before they write. A pipe's writes are asynchronous in
+// Node and process.exit drops what the pipe has not yet taken (#237), so both streams block: a write returns once the
+// pipe has every byte. A file is written synchronously and has no such handle; a terminal already blocks on POSIX.
+for (const stream of [process.stdout, process.stderr]) stream._handle?.setBlocking?.(true);
 // gate-contract.md: a missing or unparsable result, its runner status record included, is relaunched once without spending a round; still running is
 // neither a result nor a failure.
 const RELAUNCHABLE = new Set(['status_absent', 'status_unparsable', 'designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent']);
