@@ -3,8 +3,8 @@
 // Issue #254: in round 2 of PR #253 the parent changed one path in a gate launch's task, the gate's verification
 // failed, and the gate still returned a placeholder envelope whose correlation names no run: every OID and digest the
 // null value. gate_result_read refused it as a correlation mismatch and the round ended BLOCKED with no gate run. A
-// placeholder that names no run is no result of the launch, so review-only relaunches it once, as it does an absent
-// output (CL-D107); a correlation that names any real OID stays a refusal, and exact autofix keeps CL-D51's terminal rule.
+// placeholder that names no run is no result of the launch, so it is relaunched once, as an absent output is (CL-D107):
+// review-only per gate invocation, exact autofix within its one relaunch per run; any real OID stays a refusal.
 const { test, assert, fs, path, drive, fakeGate, setup, state, nextRequest } = require('./issue-196-review-driver.fixtures.js');
 const af = require('./issue-196-autofix-driver.fixtures.js');
 
@@ -58,11 +58,24 @@ test('Issue #254 a mismatched correlation that names any real value is not relau
   }
 });
 
-// CL-D51 keeps any designated output byte terminal in exact autofix; widening it there needs its own owner decision.
-test('Issue #254 exact autofix does not relaunch a result that names no run', () => {
+// The owner widened CL-D51 for this result (#254): exact autofix relaunches it within its one relaunch per run, never
+// after the writer, and a correlation that names any real value stays terminal there too.
+test('Issue #254 exact autofix relaunches a result that names no run once per run', () => {
   const t = af.setup();
   assert.equal(af.drive(t.start, t.env).status, 0);
-  const r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, none)], t.env);
+  let r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, none)], t.env);
+  assert.equal(af.nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `the one relaunch: ${r.stdout}`);
+  assert.equal(af.nextRequest(af.result(t).stdout)?.agent, 'tidd-adversarial-reviewer');
+  r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, none)], t.env);
+  assert.equal(af.nextRequest(r.stdout), null, 'a second relaunch in the same run');
+  assert.equal(af.state(t.runDir).state, 'BLOCKED');
+  assert.match(af.state(t.runDir).reason, /correlation_mismatch/);
+});
+
+test('Issue #254 exact autofix does not relaunch a mismatched correlation that names a real value', () => {
+  const t = af.setup();
+  assert.equal(af.drive(t.start, t.env).status, 0);
+  const r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, (c) => ({ headOid: c.headOid }))], t.env);
   assert.equal(af.nextRequest(r.stdout), null, r.stdout);
   assert.equal(af.state(t.runDir).state, 'BLOCKED');
   assert.match(af.state(t.runDir).reason, /correlation_mismatch/);
