@@ -82,3 +82,32 @@ test('Issue #254 exact autofix does not relaunch a mismatched correlation that n
   assert.equal(af.state(t.runDir).state, 'BLOCKED');
   assert.match(af.state(t.runDir).reason, /correlation_mismatch/);
 });
+
+// CONV-255-AC4-POST-WRITER-COVERAGE (PR #255 round 3): the budget's "never after the writer" half, end to end. A writer
+// batch is pushed, then the next gate returns a result that names no run: the run stops BLOCKED with no relaunch.
+test('Issue #254 exact autofix does not relaunch a result that names no run after the writer has launched', () => {
+  const t = af.setup();
+  assert.equal(af.drive(t.start, t.env).status, 0);
+  af.result(t, { fresh: true });
+  assert.equal(af.writerBatch(t, 'module.exports = 3;\n').status, 0);
+  assert.equal(af.state(t.runDir).writerLaunched, true);
+  assert.equal(af.state(t.runDir).counters.pushes, 1, 'the next gate runs on the pushed head');
+  const r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, none)], t.env);
+  assert.notEqual(r.status, 0);
+  assert.equal(af.nextRequest(r.stdout), null, `a relaunch after the writer: ${r.stdout}`);
+  assert.equal(af.state(t.runDir).state, 'BLOCKED');
+  assert.match(af.state(t.runDir).reason, /^gate_result_read refused: correlation_mismatch/);
+});
+
+// The budget's "after the target is rechecked" half: a pull request that became a draft while the gate ran is a moved
+// target, so the relaunch is refused and the run stops BLOCKED with no launch printed.
+test('Issue #254 exact autofix rechecks the target before it relaunches a result that names no run', () => {
+  const t = af.setup();
+  assert.equal(af.drive(t.start, t.env).status, 0);
+  af.setFixture(t.bin, { prDraft: true });
+  const r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, none)], t.env);
+  assert.notEqual(r.status, 0);
+  assert.equal(af.nextRequest(r.stdout), null, `a relaunch on a moved target: ${r.stdout}`);
+  assert.equal(af.state(t.runDir).state, 'BLOCKED');
+  assert.doesNotMatch(af.state(t.runDir).reason, /correlation_mismatch/, 'the recheck, not the read, stopped the run');
+});

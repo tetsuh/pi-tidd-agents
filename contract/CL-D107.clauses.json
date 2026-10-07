@@ -41,7 +41,9 @@
         "Issue #254 a second result that names no run stops BLOCKED after one relaunch",
         "Issue #254 a mismatched correlation that names any real value is not relaunched",
         "Issue #254 exact autofix relaunches a result that names no run once per run",
-        "Issue #254 exact autofix does not relaunch a mismatched correlation that names a real value"
+        "Issue #254 exact autofix does not relaunch a mismatched correlation that names a real value",
+        "Issue #254 exact autofix does not relaunch a result that names no run after the writer has launched",
+        "Issue #254 exact autofix rechecks the target before it relaunches a result that names no run"
       ]
     },
     {
