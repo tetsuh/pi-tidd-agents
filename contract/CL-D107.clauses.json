@@ -126,6 +126,29 @@
       "requires": [
         "and malformed output stops `BLOCKED`; CL-D107 later added one, #254)"
       ]
+    },
+    {
+      "id": "CL-D107-gate-contract",
+      "marker": "CL-D107",
+      "title": "The shared gate contract names the added relaunch",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "remain unchanged by this rule; CL-D107 (#254) later added one relaunchable output, which the owning mode reference states with its budget."
+      ]
+    },
+    {
+      "id": "CL-D107-forward-d58",
+      "marker": "CL-D107",
+      "title": "CL-D58 names the added relaunch",
+      "files": [
+        "contract/CL-D58.md"
+      ],
+      "requires": [
+        "Exact autofix's first-malformed-result terminal rule and CL-D51's zero-byte relaunch remain unchanged (CL-D107 later added a designated output whose correlation names no run to that relaunch, #254).",
+        "CL-D51's single zero-byte relaunch and its preconditions remain unchanged (CL-D107 later added one output to it, within its budget)."
+      ]
     }
   ]
 }
