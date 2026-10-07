@@ -186,8 +186,9 @@ function result(opts) {
   const run = openRun(opts), s = run.state, p = s.pending;
   if (!p || p.kind !== 'gate') die('no gate is pending in this run');
   guard(run);
-  // CL-D51's key (autofix.md): only an absent or empty output, once per run, never after a writer, freshly rechecked.
-  const read = readGate(run, opts['run-id'], SELF, { codes: new Set(['designated_output_absent', 'designated_output_empty']), may: () => !s.relaunched && !s.writerLaunched, before: () => { s.relaunched = true; recheck(run); } });
+  // CL-D51's key (autofix.md): only an absent or empty output, or one that names no run (CL-D107), once per run, never
+  // after a writer, freshly rechecked.
+  const read = readGate(run, opts['run-id'], SELF, { codes: new Set(['designated_output_absent', 'designated_output_empty', 'result_names_no_run']), may: () => !s.relaunched && !s.writerLaunched, before: () => { s.relaunched = true; recheck(run); } });
   if (!read) return undefined;
   const envelope = read.envelope, gate = p.gate, findings = envelope.findings || [];
   if (gate === 'convergence') s.counters.conv += 1; else s.counters.gates += 1;

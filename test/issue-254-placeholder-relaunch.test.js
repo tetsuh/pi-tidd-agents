@@ -62,9 +62,11 @@ test('Issue #254 a mismatched correlation that names any real value is not relau
 // after the writer, and a correlation that names any real value stays terminal there too.
 test('Issue #254 exact autofix relaunches a result that names no run once per run', () => {
   const t = af.setup();
-  assert.equal(af.drive(t.start, t.env).status, 0);
+  const first = af.drive(t.start, t.env);
+  assert.equal(first.status, 0);
   let r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, none)], t.env);
-  assert.equal(af.nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `the one relaunch: ${r.stdout}`);
+  assert.deepEqual(af.nextRequest(r.stdout), af.nextRequest(first.stdout), `the one relaunch repeats the launch: ${r.stdout}`);
+  assert.equal(af.state(t.runDir).counters.conv, 0, 'no gate counter is spent');
   assert.equal(af.nextRequest(af.result(t).stdout)?.agent, 'tidd-adversarial-reviewer');
   r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, none)], t.env);
   assert.equal(af.nextRequest(r.stdout), null, 'a second relaunch in the same run');

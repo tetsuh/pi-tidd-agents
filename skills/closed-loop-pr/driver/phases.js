@@ -90,7 +90,7 @@ function readGate(run, runId, self, { codes = RELAUNCHABLE, may = (p) => !p.rela
   const code = read.error?.code, d = read.error?.details;
   const timedOut = () => { try { return JSON.parse(fs.readFileSync(d.statusPath, 'utf8')).steps.some((x) => x.structuredOutputPath === d.structuredOutputPath && x.timedOut); } catch { return true; } };
   // A correlation whose base and head OIDs and both digests are all the null value names no run: no result of this
-  // launch (CL-D107; #254). Only review-only relaunches it; exact autofix keeps CL-D51's terminal rule.
+  // launch (CL-D107; #254), relaunched as an absent output is: exact autofix within CL-D51's budget.
   const noRun = () => { try { const c = JSON.parse(fs.readFileSync(d.structuredOutputPath, 'utf8')).correlation; return [c.baseOid, c.headOid].every((x) => x === '0'.repeat(40)) && [c.contractInput, c.snapshotFingerprint].every((x) => x === '0'.repeat(64)); } catch { return false; } };
   const as = code === 'step_incomplete' && d?.stepStatus === 'failed' && !fs.existsSync(d.structuredOutputPath || '') && !timedOut() ? 'designated_output_absent'
     : code === 'correlation_mismatch' && noRun() ? 'result_names_no_run' : code;
