@@ -30,8 +30,8 @@ const DIFF = file('src/big.js', Array.from({ length: 1500 }, (_, i) => `const v$
   + file('a b.txt', ['spaced name']);
 const FILES = [['src/big.js', 1500, 1], ['docs/notes.md', 7, 1], ['a b.txt', 1, 1]];
 
-function launch(gate, mode) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i261-'));
+function launch(gate, mode) { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i261-')); return launchWith(dir, DIFF, gate, mode); }
+function launchWith(dir, diff, gate = 'convergence', mode = 'review-only') {
   const correlation = { repository: 'o/r', number: 261, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
   const expectation = helpers.buildGateExpectation({ workflow: 'pr', correlation, assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
   assert.equal(expectation.ok, true, JSON.stringify(expectation.error));
@@ -40,7 +40,7 @@ function launch(gate, mode) {
   const volatile = {
     target: { repository: 'o/r', number: 261, mode, gate, baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' },
     fingerprints: { issue_spec: SHA, pr_base: 'b'.repeat(40), pr_tree: 'c'.repeat(40), pr_head: OID, pr_diff: SHA, pr_commits: SHA, snapshot: 'd'.repeat(64) },
-    body: 'body', diff: DIFF, languageProfile: 'conversation: ja; GitHub issue / pull request: en', acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] },
+    body: 'body', diff, languageProfile: 'conversation: ja; GitHub issue / pull request: en', acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] },
   };
   if (gate === 'adversarial') { volatile.decisions = []; volatile.comments = []; }
   const built = helpers.buildGateLaunch({ expectation: expectation.data, expectationPath, volatile, ...(mode === 'autofix' ? { created: CREATED } : {}) });
@@ -54,6 +54,7 @@ test('Issue #261 no payload line carries the diff whole, and the envelope still 
   try {
     const longest = Math.max(...payload.split('\n').map((l) => l.length));
     assert.ok(longest <= 4000, `the longest payload line is ${longest} characters`);
+    assert.equal(payload.includes('\\ndiff --git'), false, 'no line carries the diff as an escaped string');
     assert.equal(typeof envelopeOf(payload), 'object');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -100,4 +101,28 @@ test('Issue #261 gate_payload_verify accepts the payload, and every PR gate of b
       } finally { fs.rmSync(dir, { recursive: true, force: true }); }
     }
   }
+});
+
+// The index names the file a gate reads (this change's pre-push sweep): git C-quotes a non-ASCII path under core.quotePath, a
+// path may itself contain " b/", a rename names its new path only after the header, a deletion's `+++` is /dev/null,
+// and a diff need not end in a newline.
+const EDGES = [
+  'diff --git "a/\\346\\227\\245\\346\\234\\254.md" "b/\\346\\227\\245\\346\\234\\254.md"', 'new file mode 100644', 'index 0000000..1111111', '--- /dev/null', '+++ "b/\\346\\227\\245\\346\\234\\254.md"', '@@ -0,0 +1,2 @@', '+x', '+y',
+  'diff --git a/d b/n.md b/d b/n.md', 'index 1111111..2222222 100644', '--- a/d b/n.md', '+++ b/d b/n.md', '@@ -1 +1 @@', '-old', '+new',
+  'diff --git a/old.txt b/new.txt', 'similarity index 100%', 'rename from old.txt', 'rename to new.txt',
+  'diff --git a/gone.txt b/gone.txt', 'deleted file mode 100644', 'index 1111111..0000000', '--- a/gone.txt', '+++ /dev/null', '@@ -1,2 +0,0 @@', '-a', '-b',
+].join('\n');
+
+test('Issue #261 the index names quoted, spaced, renamed and deleted files, and a diff without a final newline stays whole', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i261-edges-'));
+  try {
+    const { payload } = launchWith(dir, EDGES);
+    const lines = payload.split('\n'), index = envelopeOf(payload).diff;
+    assert.deepEqual(index.files.map(({ path: p, additions, deletions }) => [p, additions, deletions]), [['日本.md', 2, 0], ['d b/n.md', 1, 1], ['new.txt', 0, 0], ['gone.txt', 0, 2]]);
+    const headers = EDGES.split('\n').filter((l) => l.startsWith('diff --git '));
+    index.files.forEach((f, i) => assert.equal(lines[f.line - 1], headers[i], `${f.path} starts at its own header`));
+    const at = lines.findIndex((l) => l.startsWith('## Diff')), fence = lines[at + 2].replace(/diff$/, '');
+    assert.equal(lines.at(-2), fence, 'the closing fence is a line of its own');
+    assert.equal(lines.slice(at + 3, -2).join('\n'), EDGES, 'the section holds the diff byte for byte');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
