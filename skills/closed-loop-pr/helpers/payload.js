@@ -118,7 +118,7 @@ function gitPath(text) {
   }
   return Buffer.from(bytes).toString('utf8');
 }
-// The file a `diff --git` header names: both sides quoted, or `a/X b/X` split where its halves agree; the `rename to`,
+// The file a `diff --git` header names: both sides quoted, or `a/X b/X` split where its halves agree; `rename to`, `copy to`,
 // `+++` and `---` lines that follow, when present, override it.
 function headerPath(rest) {
   const quoted = /^("(?:[^"\\]|\\.)*") ("(?:[^"\\]|\\.)*")$/.exec(rest);
@@ -138,7 +138,7 @@ function diffSection(diff, before) {
     if (!file) return;
     if (text.startsWith('@@')) hunk = true;
     else if (hunk) { if (text[0] === '+') file.additions += 1; else if (text[0] === '-') file.deletions += 1; }
-    else if (text.startsWith('rename to ')) file.path = gitPath(text.slice(10));
+    else if (/^(rename|copy) to /.test(text)) file.path = gitPath(text.slice(text.indexOf(' to ') + 4));
     else if (text.startsWith('--- ') && text !== '--- /dev/null') file.minus = gitPath(text.slice(4)).replace(/^a\//, '');
     else if (text.startsWith('+++ ')) { file.path = text === '+++ /dev/null' ? file.minus ?? file.path : gitPath(text.slice(4)).replace(/^b\//, ''); delete file.minus; }
   });
