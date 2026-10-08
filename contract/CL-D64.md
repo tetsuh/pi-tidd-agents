@@ -1,5 +1,5 @@
 ## CL-D64 — The writer iterates on focused validation before the guard
-**Clauses:** CL-D64-writer, CL-D64-tests
+**Clauses:** CL-D64-writer, CL-D64-tests, CL-D64-forward-d96
 
 *Decision ID:* CL-D64
 *Kind:* contract
@@ -9,4 +9,4 @@
 *Recommendation:* Option A.
 *Owner choice:* Option A. The edit step is where the writer iterates; the guarded focused validation stays the single terminal check; pre-guard runs use commands that leave no untracked artifact behind so `BEFORE_VALIDATION` and the frozen overlay are unaffected. A correction that targets a literal a fixture or the clause manifest pins receives that literal verbatim from its source (CL-D47's copy-never-re-author rule applied to correction instructions).
 *Rationale:* The writer's agent definition already permits `bash` for inspection, validation, and relevant tests, and a writer run costs about a tenth of a dollar, so iterating before the guard costs almost nothing and was simply never asked for; the three lost runs each cost a convergence and a writer invocation plus a fresh-run restart. Declining a retry after the guarded validation fails keeps the post-writer boundary exactly where CL-D39 put it.
-*Validity and invalidation conditions:* Applies to the exact-autofix writer prose and the parent's correction instruction. CL-D39's post-writer terminal rule is unchanged, as are every guard, the sandbox-delta rules, and the 15/5/3 budgets; the pre-guard runs are inspection, never the guarded validation. Permitting a retry after the guarded validation, or letting the writer skip the guard because its own runs passed, requires a new owner decision.
+*Validity and invalidation conditions:* Applies to the exact-autofix writer prose and the parent's correction instruction. CL-D39's post-writer terminal rule is unchanged, as are every guard, the sandbox-delta rules, and the 15/5/3 budgets; the pre-guard runs are inspection, never the guarded validation. Permitting a retry after the guarded validation, or letting the writer skip the guard because its own runs passed, requires a new owner decision. #248 later scoped the writer-runs-validation rule above to the prose path (https://github.com/tetsuh/pi-tidd-agents/issues/248#issuecomment-6054013937): on the packaged driver path (CL-D96) the writer does not run the validation commands itself, and after the edit the driver's `batch` runs them once, as the guarded focused validation, which stays the single terminal check.

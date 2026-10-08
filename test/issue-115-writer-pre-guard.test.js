@@ -37,6 +37,6 @@ test('Issue #115 CL-D64 records the writer duty without relaxing the terminal ru
   assert.match(record, /a retry after the guarded validation fails/);
   assert.match(record, /CL-D39's post-writer terminal rule is unchanged/);
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D64').map((clause) => clause.id).sort(), ['CL-D64-tests', 'CL-D64-writer']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D64').map((clause) => clause.id).sort(), ['CL-D64-forward-d96', 'CL-D64-tests', 'CL-D64-writer']);
   assert.ok(fs.existsSync(repoPath('test/issue-115-writer-pre-guard.test.js')));
 });
