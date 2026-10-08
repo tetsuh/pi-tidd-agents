@@ -1,6 +1,6 @@
 'use strict';
 
-// Issue #261 (#260): build_gate_launch rendered the volatile envelope as one JSON block with the pull request's diff as
+// Issue #261 (#260, CL-D109): build_gate_launch rendered the volatile envelope as one JSON block with the pull request's diff as
 // a single JSON string, so on tetsuh/hekatus PR #107 line 30 of the convergence payload was 386,937 characters long. A
 // gate child cannot `read` such a line; convergence paged it with dd and sed and reviewed the first region it reached.
 // The diff now travels as its own fenced section of the same payload, with real newlines, and the envelope's `diff` is

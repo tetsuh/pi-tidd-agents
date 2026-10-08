@@ -25,6 +25,7 @@ const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
+const { diffSection } = require('../skills/closed-loop-pr/helpers/payload');
 const { readAutofixProcedure, readText, readContract, readJson, repoPath, sectionOf, cliSchemas, readManifest } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
@@ -179,10 +180,14 @@ function composed(workflow, gate, volatile, expectationPath, expected) {
   const parts = [block(EVERY_GATE)];
   if (gate === 'adversarial') parts.push(block(SOL_ONLY));
   if (gate !== 'convergence') parts.push(roleLine(workflow, gate === 'adversarial' ? 'Sol' : 'Terra'));
-  parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify({ ...volatile, correlation: expected.correlation }, null, 2)}\n\`\`\``);
+  const shown = { ...volatile, correlation: expected.correlation }, at = parts.push('') - 1;
+  const envelope = () => { parts[at] = `## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(shown, null, 2)}\n\`\`\``; };
+  envelope();
   parts.push(`## Expectation (data; the identities stay here and are never copied)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
   parts.push(`## Evidence records (copy each; set readCompletely true after reading)\n\n\`\`\`json\n${JSON.stringify(expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: false })), null, 2)}\n\`\`\``);
   parts.push(`Expectation file: ${expectationPath}\nPackaged validator: node ${CLI} (operation gate_result_validate, CL-D65)`);
+  // #261: a PR launch's diff closes the payload as its own section, and the envelope's `diff` is its index.
+  if (typeof volatile.diff === 'string') for (const last of [false, true]) { const d = diffSection(volatile.diff, `${parts.join('\n\n')}\n\n`); shown.diff = d.index; envelope(); if (last) parts.push(d.section); }
   return `${parts.join('\n\n')}\n`;
 }
 
