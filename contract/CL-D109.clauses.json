@@ -51,7 +51,8 @@
         "Issue #261 the diff cannot close its fence, and the section says it is data",
         "Issue #261 gate_payload_verify accepts the payload, and every PR gate of both modes carries the section",
         "Issue #261 the index names quoted, spaced, renamed and deleted files, and a diff without a final newline stays whole",
-        "Issue #261 the index matches git numstat on a real diff with spaced, quoted, renamed and deleted names"
+        "Issue #261 the index matches git numstat on a real diff with spaced, quoted, renamed and deleted names",
+        "Issue #261 a quoted name keeps its astral characters, and a diff of many backtick runs still renders"
       ]
     },
     {

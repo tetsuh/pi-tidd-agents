@@ -158,3 +158,17 @@ test('Issue #261 the index matches git numstat on a real diff with spaced, quote
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+// PR #262 round 1: under core.quotePath=false git quotes a name holding a quote but leaves an astral character raw
+// (CONV-262-QUOTED-UNICODE-PATH), and a diff may carry far more backtick runs than a spread call takes
+// (CONV-262-BACKTICK-ARGUMENT-LIMIT).
+test('Issue #261 a quoted name keeps its astral characters, and a diff of many backtick runs still renders', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i261-limits-'));
+  try {
+    const quoted = ['diff --git "a/🚀 \\"f.txt" "b/🚀 \\"f.txt"', 'new file mode 100644', 'index 0000000..1111111', '--- /dev/null', '+++ "b/🚀 \\"f.txt"', '@@ -0,0 +1 @@', '+x', ''].join('\n');
+    const runs = `diff --git a/t.md b/t.md\n--- a/t.md\n+++ b/t.md\n@@ -0,0 +1,130000 @@\n${'+`\n'.repeat(130000)}`;
+    const { payload } = launchWith(dir, runs);
+    assert.deepEqual(envelopeOf(payload).diff.files.map(({ additions }) => additions), [130000]);
+    assert.deepEqual(envelopeOf(launchWith(dir, quoted).payload).diff.files.map((f) => f.path), ['🚀 "f.txt']);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
