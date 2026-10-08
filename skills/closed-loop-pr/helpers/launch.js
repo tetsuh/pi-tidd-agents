@@ -268,7 +268,7 @@ function buildGateLaunch(data) {
     // #184, CL-D90: the schema is the gate role's own `outputSchema` (its agent definition), so the request carries none and the
     // parent has nothing to re-type; a parent-typed schema displaced every `required` array into `properties`.
     // #261: the diff's own section closes the payload; a second pass sets the index's lines, whose values never move one.
-    if (typeof shown.diff === 'string') for (const last of [false, true]) { const d = diffSection(data.volatile.diff, `${parts.join('\n\n')}\n\n`); shown.diff = d.index; envelope(); if (last) parts.push(d.section); }
+    if (expected.workflow === 'pr') for (const last of [false, true]) { const d = diffSection(data.volatile.diff, `${parts.join('\n\n')}\n\n`); shown.diff = d.index; envelope(); if (last) parts.push(d.section); }
     const payload = `${parts.join('\n\n')}\n`;
     // CL-D94 (#202): a bound the package states, not the receiver's 30-minute default, which ended two rounds of PR #199;
     // no checkpoint request, since a gate is read-only and its result is all-or-nothing.
