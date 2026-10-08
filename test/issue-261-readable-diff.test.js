@@ -104,13 +104,14 @@ test('Issue #261 gate_payload_verify accepts the payload, and every PR gate of b
 });
 
 // The index names the file a gate reads (this change's pre-push sweep): git C-quotes a non-ASCII path under core.quotePath, a
-// path may itself contain " b/", a rename names its new path only after the header, a deletion's `+++` is /dev/null,
+// path may itself contain " b/", a rename or a copy (diff.renames=copies) names its new path only after the header, a deletion's `+++` is /dev/null,
 // and a diff need not end in a newline.
 const EDGES = [
   'diff --git "a/\\346\\227\\245\\346\\234\\254.md" "b/\\346\\227\\245\\346\\234\\254.md"', 'new file mode 100644', 'index 0000000..1111111', '--- /dev/null', '+++ "b/\\346\\227\\245\\346\\234\\254.md"', '@@ -0,0 +1,2 @@', '+x', '+y',
   'diff --git a/d b/n.md b/d b/n.md', 'index 1111111..2222222 100644', '--- a/d b/n.md', '+++ b/d b/n.md', '@@ -1 +1 @@', '-old', '+new',
   'diff --git a/old.txt b/new.txt', 'similarity index 100%', 'rename from old.txt', 'rename to new.txt',
   'diff --git a/gone.txt b/gone.txt', 'deleted file mode 100644', 'index 1111111..0000000', '--- a/gone.txt', '+++ /dev/null', '@@ -1,2 +0,0 @@', '-a', '-b',
+  'diff --git a/s b/x.txt b/copy.txt', 'similarity index 100%', 'copy from s b/x.txt', 'copy to copy.txt',
 ].join('\n');
 
 test('Issue #261 the index names quoted, spaced, renamed and deleted files, and a diff without a final newline stays whole', () => {
@@ -118,7 +119,7 @@ test('Issue #261 the index names quoted, spaced, renamed and deleted files, and 
   try {
     const { payload } = launchWith(dir, EDGES);
     const lines = payload.split('\n'), index = envelopeOf(payload).diff;
-    assert.deepEqual(index.files.map(({ path: p, additions, deletions }) => [p, additions, deletions]), [['日本.md', 2, 0], ['d b/n.md', 1, 1], ['new.txt', 0, 0], ['gone.txt', 0, 2]]);
+    assert.deepEqual(index.files.map(({ path: p, additions, deletions }) => [p, additions, deletions]), [['日本.md', 2, 0], ['d b/n.md', 1, 1], ['new.txt', 0, 0], ['gone.txt', 0, 2], ['copy.txt', 0, 0]]);
     const headers = EDGES.split('\n').filter((l) => l.startsWith('diff --git '));
     index.files.forEach((f, i) => assert.equal(lines[f.line - 1], headers[i], `${f.path} starts at its own header`));
     const at = lines.findIndex((l) => l.startsWith('## Diff')), fence = lines[at + 2].replace(/diff$/, '');
