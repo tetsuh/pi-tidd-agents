@@ -78,6 +78,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D78.md](contract/CL-D78.md) — A run reports the run roots it retained
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
+- [contract/CL-D108.md](contract/CL-D108.md) — A trusted timeline correction settles a body claim
 - [contract/CL-D107.md](contract/CL-D107.md) — A gate result whose correlation names no run is relaunched once
 - [contract/CL-D106.md](contract/CL-D106.md) — A record is written only for a decision that changes an obligation
 - [contract/CL-D105.md](contract/CL-D105.md) — Each record's clause pins live beside it

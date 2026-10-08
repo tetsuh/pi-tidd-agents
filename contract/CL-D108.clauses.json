@@ -1,0 +1,53 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D108-record",
+      "marker": "CL-D108",
+      "title": "CL-D108 records how a gate judges a corrected body claim",
+      "files": [
+        "contract/CL-D108.md"
+      ],
+      "section": "## CL-D108 — A trusted timeline correction settles a body claim",
+      "requires": [
+        "issues/242#issuecomment-6054014308",
+        "An uncorrected body claim is judged as CL-D95 says.",
+        "Letting a correction by an untrusted author or a bot settle a claim, or settling a claim the correction misstates, requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D108-block",
+      "marker": "CL-D108",
+      "title": "The shared Every-gate block carries the rule",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Every-gate invariant payload block (CL-D2)",
+      "requires": [
+        "A pull-request body claim that a later conversation comment by a trusted author (owner, member or collaborator, not a bot) corrects is judged as corrected: the gate cites that comment and raises no finding against the body sentence, unless the correction itself is inaccurate against the head (CL-D108)."
+      ]
+    },
+    {
+      "id": "CL-D108-tests",
+      "marker": "CL-D108",
+      "title": "The rule is pinned in the block and in every gate payload",
+      "files": [
+        "test/issue-242-timeline-correction.test.js"
+      ],
+      "requires": [
+        "Issue #242 the shared Every-gate block says a trusted timeline correction settles a body claim",
+        "Issue #242 the payload the launch builder writes carries the rule, for every gate of both roots"
+      ]
+    },
+    {
+      "id": "CL-D108-forward-d95",
+      "marker": "CL-D108",
+      "title": "CL-D95 names the narrowing",
+      "files": [
+        "contract/CL-D95.md"
+      ],
+      "requires": [
+        "A body claim that is false at the head remains a finding under any template (CL-D108 later judged one that a trusted timeline comment corrects as corrected)."
+      ]
+    }
+  ]
+}
