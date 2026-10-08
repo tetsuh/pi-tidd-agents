@@ -1,0 +1,156 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D107-record",
+      "marker": "CL-D107",
+      "title": "CL-D107 records the relaunch of a result that names no run",
+      "files": [
+        "contract/CL-D107.md"
+      ],
+      "section": "## CL-D107 — A gate result whose correlation names no run is relaunched once",
+      "requires": [
+        "issues/254#issuecomment-6040793987",
+        "issues/254#issuecomment-6041458658",
+        "A designated output whose correlation has `baseOid` and `headOid` both 40 zeros and `contractInput` and `snapshotFingerprint` both 64 zeros names no run.",
+        "A correlation that names any real value, another run's result included, stays a refusal at once.",
+        "Exact autofix relaunches it within CL-D51's budget: once per run, never after the writer has launched, after the target is rechecked.",
+        "A second relaunch, a larger budget, or a weaker test than all four null values requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D107-driver",
+      "marker": "CL-D107",
+      "title": "Both readers relaunch a result that names no run",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "'verdict_inconsistent', 'result_names_no_run']);",
+        ": code === 'correlation_mismatch' && noRun() ? 'result_names_no_run' : code;"
+      ]
+    },
+    {
+      "id": "CL-D107-tests",
+      "marker": "CL-D107",
+      "title": "The CL-D107 tests replay PR #253 round 2",
+      "files": [
+        "test/issue-254-placeholder-relaunch.test.js"
+      ],
+      "requires": [
+        "Issue #254 a gate result whose correlation names no run is relaunched once, not BLOCKED",
+        "Issue #254 a second result that names no run stops BLOCKED after one relaunch",
+        "Issue #254 a mismatched correlation that names any real value is not relaunched",
+        "Issue #254 exact autofix relaunches a result that names no run once per run",
+        "Issue #254 exact autofix does not relaunch a mismatched correlation that names a real value",
+        "Issue #254 exact autofix does not relaunch a result that names no run after the writer has launched",
+        "Issue #254 exact autofix rechecks the target before it relaunches a result that names no run"
+      ]
+    },
+    {
+      "id": "CL-D107-forward-d93",
+      "marker": "CL-D107",
+      "title": "CL-D93 names the added relaunch",
+      "files": [
+        "contract/CL-D93.md"
+      ],
+      "requires": [
+        "CL-D107 later added a result whose correlation names no run (#254)."
+      ]
+    },
+    {
+      "id": "CL-D107-review-only",
+      "marker": "CL-D107",
+      "title": "review-only.md names the added relaunch",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "A verdict whose correlation names no run is one too (CL-D107)."
+      ]
+    },
+    {
+      "id": "CL-D107-autofix-driver",
+      "marker": "CL-D107",
+      "title": "Exact autofix's codes hold the label",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "codes: new Set(['designated_output_absent', 'designated_output_empty', 'result_names_no_run'])"
+      ]
+    },
+    {
+      "id": "CL-D107-forward-d51",
+      "marker": "CL-D107",
+      "title": "CL-D51 names the widening",
+      "files": [
+        "contract/CL-D51.md"
+      ],
+      "requires": [
+        "CL-D107 later let this key cover one more output, a designated output whose correlation names no run (#254, https://github.com/tetsuh/pi-tidd-agents/issues/254#issuecomment-6041458658)."
+      ]
+    },
+    {
+      "id": "CL-D107-autofix",
+      "marker": "CL-D107",
+      "title": "autofix.md names the added output",
+      "files": [
+        "skills/closed-loop-pr/references/autofix.md"
+      ],
+      "requires": [
+        "CL-D107 adds one output to this key: a designated output whose correlation names no run takes the same relaunch, within the same budget.",
+        "or a designated output whose correlation names no run (CL-D107), and only when all hold",
+        "or a designated output whose correlation names no run (CL-D107); the failed operation",
+        "keeps the failure terminal, save the one output CL-D107 names below;",
+        "correlation mismatch other than CL-D107's, and stale target at `gate_result`"
+      ]
+    },
+    {
+      "id": "CL-D107-addendum",
+      "marker": "CL-D107",
+      "title": "The autofix addendum's stop sentences name the added output",
+      "files": [
+        "skills/closed-loop-pr/references/autofix-addendum.md"
+      ],
+      "requires": [
+        "stops as before, save the one CL-D107 names: a designated output whose correlation names no run takes that same relaunch.",
+        "permits that single relaunch first, as does a designated output whose correlation names no run (CL-D107).",
+        "The CL-D51 relaunch also takes a designated output whose correlation names no run (CL-D107)."
+      ]
+    },
+    {
+      "id": "CL-D107-forward-d96",
+      "marker": "CL-D107",
+      "title": "CL-D96 names the added output",
+      "files": [
+        "contract/CL-D96.md"
+      ],
+      "requires": [
+        "and malformed output stops `BLOCKED`; CL-D107 later added one, #254)"
+      ]
+    },
+    {
+      "id": "CL-D107-gate-contract",
+      "marker": "CL-D107",
+      "title": "The shared gate contract names the added relaunch",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "remain unchanged by this rule; CL-D107 (#254) later added one relaunchable output, which the owning mode reference states with its budget."
+      ]
+    },
+    {
+      "id": "CL-D107-forward-d58",
+      "marker": "CL-D107",
+      "title": "CL-D58 names the added relaunch",
+      "files": [
+        "contract/CL-D58.md"
+      ],
+      "requires": [
+        "Exact autofix's first-malformed-result terminal rule and CL-D51's zero-byte relaunch remain unchanged (CL-D107 later added a designated output whose correlation names no run to that relaunch, #254).",
+        "CL-D51's single zero-byte relaunch and its preconditions remain unchanged (CL-D107 later added one output to it, within its budget)."
+      ]
+    }
+  ]
+}

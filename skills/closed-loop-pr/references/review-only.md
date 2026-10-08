@@ -70,7 +70,7 @@ The shared gate contract supplies the common three-round, passing-round, failure
 - A gate rerun caused by a fix consumes a round from that gate's budget.
 - If a Terra finding forces a change to something Sol already approved, the Sol gate must run again and consumes one of its own rounds. The same applies to a fix that originates from an external finding.
 - At the limit, stop and report `ROUND_LIMIT_REACHED` and ask the owner whether to grant more rounds.
-- A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`.
+- A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`. A verdict whose correlation names no run is one too (CL-D107).
 - Convergence rounds are accounted separately as `convergence <used>/3`, one per candidate identity and snapshot fingerprint; at the cap the candidate goes to Sol with open convergence findings assigned (CL-D62).
 
 ## External review (PR review-only baseline; CL-D18, CL-D24, CL-D17)

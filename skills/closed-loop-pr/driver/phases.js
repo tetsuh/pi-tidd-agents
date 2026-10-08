@@ -18,7 +18,7 @@ const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 for (const stream of [process.stdout, process.stderr]) stream._handle?.setBlocking?.(true);
 // gate-contract.md: a missing or unparsable result, its runner status record included, is relaunched once without spending a round; still running is
 // neither a result nor a failure.
-const RELAUNCHABLE = new Set(['status_absent', 'status_unparsable', 'designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent']);
+const RELAUNCHABLE = new Set(['status_absent', 'status_unparsable', 'designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent', 'result_names_no_run']);
 // CL-D104: the driver's own last line sends a pull request back to the prose path; a quoted value is one line, never this
 // one, and a control character or line separator in the message (a checkout path may hold one) is folded to a space.
 function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).split(/[\x00-\x1f\x7f-\x9f\u2028\u2029]+/).join(' ')}\n`); process.exit(2); }
@@ -89,7 +89,11 @@ function readGate(run, runId, self, { codes = RELAUNCHABLE, may = (p) => !p.rela
   // unless the runner ended it for its time bound (CL-D94) or its status cannot be read.
   const code = read.error?.code, d = read.error?.details;
   const timedOut = () => { try { return JSON.parse(fs.readFileSync(d.statusPath, 'utf8')).steps.some((x) => x.structuredOutputPath === d.structuredOutputPath && x.timedOut); } catch { return true; } };
-  const as = code === 'step_incomplete' && d?.stepStatus === 'failed' && !fs.existsSync(d.structuredOutputPath || '') && !timedOut() ? 'designated_output_absent' : code;
+  // A correlation whose base and head OIDs and both digests are all the null value names no run: no result of this
+  // launch (CL-D107; #254), relaunched as an absent output is: exact autofix within CL-D51's budget.
+  const noRun = () => { try { const c = JSON.parse(fs.readFileSync(d.structuredOutputPath, 'utf8')).correlation; return [c.baseOid, c.headOid].every((x) => x === '0'.repeat(40)) && [c.contractInput, c.snapshotFingerprint].every((x) => x === '0'.repeat(64)); } catch { return false; } };
+  const as = code === 'step_incomplete' && d?.stepStatus === 'failed' && !fs.existsSync(d.structuredOutputPath || '') && !timedOut() ? 'designated_output_absent'
+    : code === 'correlation_mismatch' && noRun() ? 'result_names_no_run' : code;
   if (code === 'run_in_progress') { process.stdout.write(`WAIT: the ${gateLabel(p.gate)} run is still in progress; when it completes, run: node ${self} result --run-dir ${run.dir} --run-id <runId>\n`); process.exit(3); }
   if (codes.has(as) && may(p)) {
     p.relaunched = true; run.save(); before();
