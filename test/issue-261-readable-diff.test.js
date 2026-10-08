@@ -11,7 +11,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { spawnSync } = require('node:child_process');
+const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const { repoPath } = require('./helpers');
@@ -125,4 +125,35 @@ test('Issue #261 the index names quoted, spaced, renamed and deleted files, and 
     assert.equal(lines.at(-2), fence, 'the closing fence is a line of its own');
     assert.equal(lines.slice(at + 3, -2).join('\n'), EDGES, 'the section holds the diff byte for byte');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// Real git output (this change's second pre-push sweep): for a name with a space git ends its `---`/`+++` lines with a
+// tab, quoted or not. The index is compared with git's own numstat for the drivers' diff command (driver/run.js).
+test('Issue #261 the index matches git numstat on a real diff with spaced, quoted, renamed and deleted names', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'i261-git-'));
+  try {
+    const git = (args) => execFileSync('git', args, { cwd: root, env: { ...process.env, LC_ALL: 'C' } });
+    const put = (name, text) => { fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true }); fs.writeFileSync(path.join(root, name), text); };
+    git(['init', '-q', '-b', 'main']); git(['config', 'user.name', 'i261']); git(['config', 'user.email', 'i261@example.invalid']);
+    put('d b/n.md', 'one\ntwo\n'); put('q b/r.txt', 'a\nb\nc\nd\ne\nf\n'); put('gone b.txt', 'x\ny\n'); put('plain.js', 'let a;\n');
+    git(['add', '.']); git(['commit', '-q', '-m', 'base']);
+    const base = git(['rev-parse', 'HEAD']).toString().trim();
+    put('d b/n.md', 'one\nTWO\nthree\n'); put('x 日 "q".txt', 'new\n'); fs.rmSync(path.join(root, 'gone b.txt'));
+    fs.mkdirSync(path.join(root, 'z b')); git(['mv', 'q b/r.txt', 'z b/r2.txt']); put('z b/r2.txt', 'a\nb\nc\nd\ne\nF\n'); put('plain.js', 'let a = 1;\n');
+    git(['add', '-A']); git(['commit', '-q', '-m', 'head']);
+    const range = `${base}...HEAD`, diff = git(['diff', '--binary', '--no-ext-diff', '--no-textconv', range]).toString('utf8');
+    const fields = git(['diff', '--numstat', '-z', '--no-ext-diff', '--no-textconv', range]).toString('utf8').split('\0');
+    const expected = [];
+    for (let i = 0; i < fields.length - 1; i += 1) {
+      const [additions, deletions, name] = fields[i].split('\t');
+      expected.push([name || fields[(i += 2)], Number(additions), Number(deletions)]);
+    }
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i261-real-'));
+    try {
+      const { payload } = launchWith(dir, diff);
+      const index = envelopeOf(payload).diff, lines = payload.split('\n');
+      assert.deepEqual(index.files.map(({ path: p, additions, deletions }) => [p, additions, deletions]).sort(), expected.sort());
+      index.files.forEach((f) => assert.match(lines[f.line - 1], /^diff --git /, f.path));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
