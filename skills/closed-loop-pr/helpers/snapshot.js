@@ -166,11 +166,14 @@ async function detailedRulesets(transport, endpoint, cwd, summaries = undefined)
   if (policyIdentity(before) !== policyIdentity(after)) throw schemaError(`${endpoint} policy changed during collection`, 'stale_policy');
   return details;
 }
+// A completed run passes on success, skipped or neutral, as the driver's readiness does (#200). Any other conclusion
+// fails here, one GitHub adds later included, where the driver's readiness waits on an unknown one.
+const PASSING_CONCLUSIONS = new Set(['success', 'skipped', 'neutral']);
 function classifyChecks(checks = []) {
   if (!Array.isArray(checks)) throw schemaError('checks are not an array');
   return checks.map((check) => {
     if (!object(check) || typeof check.name !== 'string' || typeof check.status !== 'string' || (check.conclusion !== null && typeof check.conclusion !== 'string')) throw schemaError('check run lacks status classification');
-    return { id: check.id, name: check.name, status: check.status, conclusion: check.conclusion, successful: check.status === 'completed' && check.conclusion === 'success', pending: check.status !== 'completed' || check.conclusion === null, failed: check.status === 'completed' && check.conclusion !== null && check.conclusion !== 'success' };
+    return { id: check.id, name: check.name, status: check.status, conclusion: check.conclusion, successful: check.status === 'completed' && PASSING_CONCLUSIONS.has(check.conclusion), pending: check.status !== 'completed' || check.conclusion === null, failed: check.status === 'completed' && check.conclusion !== null && !PASSING_CONCLUSIONS.has(check.conclusion) };
   });
 }
 // CL-D92 (#193): an empty check suite (zero runs) carries no provider state; CodeRabbit's state is its newest
