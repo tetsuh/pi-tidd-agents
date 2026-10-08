@@ -25,6 +25,17 @@
         "the writer iterates on focused validation before the guard and receives pinned literals verbatim",
         "CL-D64 records the writer duty without relaxing the terminal rule"
       ]
+    },
+    {
+      "id": "CL-D64-forward-d96",
+      "marker": "CL-D64",
+      "title": "CL-D64 names the path it governs",
+      "files": [
+        "contract/CL-D64.md"
+      ],
+      "requires": [
+        "#248 later scoped the writer-runs-validation rule above to the prose path (https://github.com/tetsuh/pi-tidd-agents/issues/248#issuecomment-6054013937): on the packaged driver path (CL-D96) the writer does not run the validation commands itself, and after the edit the driver's `batch` runs them once, as the guarded focused validation, which stays the single terminal check."
+      ]
     }
   ]
 }
