@@ -17,7 +17,7 @@ const { SCHEMA, ROOT_GATES, expectedState, validateGateResult } = require('./gat
 const { inputShapeProblem } = require('./composition');
 const { VOLATILE_FIELDS, volatileRequired, volatileEmptiness, nestedProblem, citedRecords } = require('./envelope');
 // CL-D91, CL-D101: the gate payload file, the verification request the launch names, and the child's verification.
-const { writePayload, payloadPointer } = require('./payload');
+const { writePayload, payloadPointer, diffSection } = require('./payload');
 
 const PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..');
 const CLI_PATH = path.join(__dirname, 'cli.js');
@@ -256,7 +256,10 @@ function buildGateLaunch(data) {
       blocks.push(role.block); parts.push(role.line);
     }
     // The envelope carries the gate correlation as the expectation states it, derived here (CL-D47's rule).
-    parts.push(`## Volatile envelope\n\n\`\`\`json\n${JSON.stringify({ ...data.volatile, ...cited.lists, correlation: expected.correlation }, null, 2)}\n\`\`\``);
+    const shown = { ...data.volatile, ...cited.lists, correlation: expected.correlation }, at = parts.push('') - 1;
+    const d = expected.workflow === 'pr' ? diffSection(data.volatile.diff) : null; if (d) shown.diff = d.index;
+    const envelope = () => { parts[at] = `## Volatile envelope\n\n\`\`\`json\n${JSON.stringify(shown, null, 2)}\n\`\`\``; };
+    envelope();
     // The expectation rides along as data for the child's self-validation (CL-D65); its identities stay here (CL-D69).
     parts.push(`## Expectation (data; the identities stay here and are never copied)\n\n\`\`\`json\n${JSON.stringify(expected, null, 2)}\n\`\`\``);
     // The evidence records the envelope carries: source and kind from the expectation, no identity, and readCompletely
@@ -265,6 +268,8 @@ function buildGateLaunch(data) {
     parts.push(`Expectation file: ${data.expectationPath}\nPackaged validator: node ${CLI_PATH} (operation gate_result_validate, CL-D65)`);
     // #184, CL-D90: the schema is the gate role's own `outputSchema` (its agent definition), so the request carries none and the
     // parent has nothing to re-type; a parent-typed schema displaced every `required` array into `properties`.
+    // #261: the diff's own section closes the payload; placing it sets the index's lines, whose values never move one.
+    if (d) { d.place(`${parts.join('\n\n')}\n\n`); envelope(); parts.push(d.section); }
     const payload = `${parts.join('\n\n')}\n`;
     // CL-D94 (#202): a bound the package states, not the receiver's 30-minute default, which ended two rounds of PR #199;
     // no checkpoint request, since a gate is read-only and its result is all-or-nothing.
