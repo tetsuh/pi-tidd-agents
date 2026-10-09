@@ -34,13 +34,14 @@ test('Issue #263 the driver diff and commit log keep the pinned form whatever th
     const base = raw(['rev-parse', 'HEAD']);
     put('f.txt', 'two\n'); fs.rmSync(path.join(root, 'e')); raw(['mv', 'old.txt', 'new.txt']);
     raw(['add', '-A']); raw(['commit', '-q', '-m', 'head']);
-    // A signed commit, so log.showSignature has something to show.
-    const key = path.join(root, '.key');
-    if (spawnSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', key]).status === 0) {
-      put('f.txt', 'three\n'); raw(['add', '-A']);
-      raw(['-c', 'gpg.format=ssh', '-c', `user.signingkey=${key}`, 'commit', '-q', '-S', '-m', 'signed']);
-    }
+    // A signed commit, so log.showSignature has something to show; without ssh-keygen the fixture cannot be built
+    // (CONV-265-SSH-KEY-OPTIONAL).
+    const key = path.join(root, '.key'), keygen = spawnSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', key], { encoding: 'utf8' });
+    assert.equal(keygen.status, 0, `the fixture needs ssh-keygen to sign a commit: ${keygen.error?.message || keygen.stderr}`);
+    put('f.txt', 'three\n'); raw(['add', '-A']);
+    raw(['-c', 'gpg.format=ssh', '-c', `user.signingkey=${key}`, 'commit', '-q', '-S', '-m', 'signed']);
     const head = raw(['rev-parse', 'HEAD']);
+    assert.match(raw(['cat-file', 'commit', head]), /^gpgsig -----BEGIN SSH SIGNATURE-----$/m, 'the range ends in an ssh-signed commit');
     const read = () => [git(root, ['diff', '--binary', '--no-ext-diff', '--no-textconv', `${base}...${head}`], 'buffer').toString('utf8'), git(root, ['log', '-z', '--reverse', '--format=%H%n%B', `${base}..${head}`])];
     const plain = read();
     assert.match(plain[0], /^diff --git a\/e b\/e$/m, 'the baseline carries the a/ and b/ prefixes');
