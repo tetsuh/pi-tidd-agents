@@ -59,9 +59,11 @@
         "test/issue-259-cross-run-ledger.test.js"
       ],
       "requires": [
-        "Issue #259 the findings of earlier rounds reach every gate as settled, with the head they were raised on",
+        "Issue #259 the settled findings of earlier rounds reach every gate, with the head they were raised on",
+        "Issue #259 a round that names no head carries its findings without one",
         "Issue #259 a round by an untrusted author or a bot, or for another target, is not read",
         "Issue #259 five earlier rounds without MERGE_READY stop the run before any gate",
+        "Issue #259 untrusted, bot and BLOCKED publications do not count toward the stop",
         "Issue #259 a MERGE_READY round or a trusted continue comment starts the count again"
       ]
     }
