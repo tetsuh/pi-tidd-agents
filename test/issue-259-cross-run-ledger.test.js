@@ -27,17 +27,18 @@ test('Issue #259 the settled findings of earlier rounds reach every gate, with t
   setFixture(t, { prComments: [
     round('WAITING_FOR_OWNER', [['CONV-7-001', 'fixed (proposed; correction pending)'], ['CONV-7-002', 'fixed (recorded under CL-D85)']], { head: HEAD(1) }),
     round('WAITING_FOR_OWNER', [['CONV-7-005', 'fixed (recorded under CL-D85)']], { head: HEAD(4), association: 'NONE' }),
-    round('WAITING_FOR_OWNER', [['ADV-7-001', 'deferred (proposed; correction pending)'], ['ADV-7-002', 'needs-owner-decision (proposed; correction pending)'], ['ADV-7-003', 'fixed (confirmed by sol)'], ['SAFETY-7-001', 'not-applicable (out of scope)']], { head: HEAD(2) }),
+    round('WAITING_FOR_OWNER', [['ADV-7-001', 'deferred (proposed; correction pending)'], ['ADV-7-002', 'needs-owner-decision (recorded under CL-D85)'], ['ADV-7-003', 'fixed (confirmed by sol)'], ['ADV-7-004', 'deferred (recorded under CL-D85)'], ['SAFETY-7-001', 'not-applicable (proposed; correction pending)'], ['SAFETY-7-002', 'accepted-as-designed (confirmed by terra)']], { head: HEAD(2) }),
   ] });
   const r = drive(t.start, t.e);
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', r.stdout + r.stderr);
   const settled = settledOf(t.runDir);
-  // Owner decision A on #259: an unconfirmed `fixed (proposed …)` and a needs-owner-decision line are not settled.
+  // Owner decision A on #259, as refined: only a line marked recorded or confirmed is settled; any `(proposed …)` line,
+  // a deferral included, is still open, and a needs-owner-decision line is never carried.
   assert.deepEqual(settled.map(({ findingId, sourceGate, disposition, status, raisedAgainst }) => [findingId, sourceGate, disposition, status, raisedAgainst]), [
     ['CONV-7-002', 'convergence', 'fixed (recorded under CL-D85)', 'settled', HEAD(1)],
-    ['ADV-7-001', 'adversarial', 'deferred (proposed; correction pending)', 'settled', HEAD(2)],
     ['ADV-7-003', 'adversarial', 'fixed (confirmed by sol)', 'settled', HEAD(2)],
-    ['SAFETY-7-001', 'safety', 'not-applicable (out of scope)', 'settled', HEAD(2)],
+    ['ADV-7-004', 'adversarial', 'deferred (recorded under CL-D85)', 'settled', HEAD(2)],
+    ['SAFETY-7-002', 'safety', 'accepted-as-designed (confirmed by terra)', 'settled', HEAD(2)],
   ]);
   assert.ok(settled.every((x) => /earlier round/.test(x.summary)), 'each carried entry says where it came from');
 });
@@ -81,7 +82,7 @@ test('Issue #259 untrusted, bot and BLOCKED publications do not count toward the
 test('Issue #259 a MERGE_READY round or a trusted continue comment starts the count again', () => {
   for (const reset of [round('MERGE_READY', [['CONV-7-009', 'fixed (recorded under CL-D85)']]), comment('tidd-budget: continue')]) {
     const t = setup();
-    setFixture(t, { prComments: [...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER', [['ADV-7-004', 'deferred (proposed; correction pending)']])), reset, round('WAITING_FOR_OWNER')] });
+    setFixture(t, { prComments: [...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER', [['ADV-7-004', 'deferred (recorded under CL-D85)']])), reset, round('WAITING_FOR_OWNER')] });
     assert.equal(nextRequest(drive(t.start, t.e).stdout)?.agent, 'tidd-convergence-reviewer', reset.body.slice(0, 40));
     // A reset starts the count again but drops nothing already carried.
     assert.ok(settledOf(t.runDir).some((x) => x.findingId === 'ADV-7-004'), 'the deferral before the reset is still carried');
