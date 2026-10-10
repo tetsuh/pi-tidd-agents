@@ -29,7 +29,7 @@ function settledOf(runDir, gate = 'convergence') {
 
 test('Issue #259 the settled findings of earlier rounds reach every gate, with the head they were raised on', () => {
   const t = setup();
-  setFixture(t, { prComments: [untrusted(), 
+  setFixture(t, { prComments: [untrusted(),
     round('WAITING_FOR_OWNER', [['CONV-7-001', 'fixed (proposed; correction pending)'], ['CONV-7-002', 'fixed (recorded under CL-D85)']], { head: HEAD(1) }),
     round('WAITING_FOR_OWNER', [['CONV-7-005', 'fixed (recorded under CL-D85)']], { head: HEAD(4), association: 'NONE' }),
     round('WAITING_FOR_OWNER', [['ADV-7-001', 'deferred (proposed; correction pending)'], ['ADV-7-002', 'needs-owner-decision (recorded under CL-D85)'], ['ADV-7-003', 'fixed (confirmed by sol)'], ['ADV-7-004', 'deferred (recorded under CL-D85)'], ['SAFETY-7-001', 'not-applicable (proposed; correction pending)'], ['SAFETY-7-002', 'accepted-as-designed (confirmed by terra)']], { head: HEAD(2) }),
@@ -58,7 +58,7 @@ test('Issue #259 a round that names no head carries its findings without one', (
 
 test('Issue #259 a round by an untrusted author or a bot, or for another target, is not read', () => {
   const t = setup();
-  setFixture(t, { prComments: [untrusted(), 
+  setFixture(t, { prComments: [untrusted(),
     round('WAITING_FOR_OWNER', [['CONV-7-009', 'fixed (proposed; correction pending)']], { association: 'NONE' }),
     round('WAITING_FOR_OWNER', [['CONV-7-010', 'fixed (proposed; correction pending)']], { type: 'Bot' }),
     round('WAITING_FOR_OWNER', [['CONV-8-001', 'fixed (proposed; correction pending)']], { target: 'o/r#8' }),
