@@ -71,10 +71,9 @@ function readIssue(run) {
 // CL-D110 (#259): the pull request's earlier rounds, read from its conversation: a trusted, non-bot comment that opens
 // `# Review state: ` and carries a `tidd-status` block whose target is this one (no publication marker is required; a
 // consumer may post the round by hand). Rounds that ran, after the latest MERGE_READY round or a trusted comment opening
-// `tidd-budget: continue`, are counted; a BLOCKED one is not (CL-D11). Every round's settled finding lines are carried,
-// across a reset too: recorded, confirmed, deferred, not-applicable or accepted-as-designed, never an unconfirmed
-// proposal or an owner decision (owner decision A).
-const SETTLED_LINE = /^(?:deferred|not-applicable|accepted-as-designed)\b|\((?:recorded under|confirmed by) /;
+// `tidd-budget: continue`, are counted; a BLOCKED one is not. Every round's settled finding lines are carried, across a
+// reset too: a disposition marked recorded or confirmed, never a proposal or an owner decision (owner decision A).
+const SETTLED_LINE = /^[a-z-]+ \((?:recorded under|confirmed by) [^)]*\)$/;
 function earlierRounds(run) {
   const t = run.state.target, gates = { CONV: 'convergence', ADV: 'adversarial', SAFETY: 'safety' }, carried = [];
   let count = 0;
@@ -87,7 +86,7 @@ function earlierRounds(run) {
     const head = / head ([0-9a-f]{40}|[0-9a-f]{64})$/m.exec(block)?.[1], at = block.indexOf('\nfindings:\n');
     for (const line of at < 0 ? [] : block.slice(at + 11).split('\n')) {
       const m = /^ {2}([A-Z]+)(-\S+): (.+)$/.exec(line); if (!m) break;
-      if (SETTLED_LINE.test(m[3])) carried.push({ findingId: m[1] + m[2], sourceGate: gates[m[1]] || m[1].toLowerCase(), disposition: m[3].slice(0, 200), status: 'settled', ...(head ? { raisedAgainst: head } : {}), summary: `carried from an earlier round of this pull request (${c.html_url})` });
+      if (SETTLED_LINE.test(m[3]) && !m[3].startsWith('needs-owner-decision')) carried.push({ findingId: m[1] + m[2], sourceGate: gates[m[1]] || m[1].toLowerCase(), disposition: m[3].slice(0, 200), status: 'settled', ...(head ? { raisedAgainst: head } : {}), summary: `carried from an earlier round of this pull request (${c.html_url})` });
     }
   }
   return { count, carried };

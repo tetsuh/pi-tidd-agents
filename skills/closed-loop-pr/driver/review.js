@@ -37,7 +37,7 @@ function start(opts) {
   const before = checkoutProblem(checkout, target.headOid); if (before) run.stop('BLOCKED', before);
   // CL-D110 (#259): five earlier rounds without MERGE_READY are the owner's to cut off, before any validation or gate.
   const earlier = earlierRounds(run); s.carried = earlier.carried;
-  if (earlier.count >= 5) run.stop('WAITING_FOR_OWNER', `${earlier.count} earlier rounds of this pull request ended without MERGE_READY; the owner decides whether to cut the scope off or continue (a trusted \`tidd-budget: continue\` comment restarts the count)`);
+  if (earlier.count >= 5) run.stop('WAITING_FOR_OWNER', `${earlier.count} earlier rounds of this pull request ended without MERGE_READY; the owner decides whether to cut the scope off or continue (a trusted comment opening with the line \`tidd-budget: continue\` restarts the count)`);
   // The Issue this PR serves, its acceptance criteria, and the validation the base commit names; each gap stops here.
   const closes = opts.issue ? [null, String(opts.issue)] : /\b(?:closes|fixes|resolves)\s+#(\d+)/i.exec(s.body);
   if (!closes) run.stop('BLOCKED', 'the PR body names no `Closes #N` issue and no --issue was given');
