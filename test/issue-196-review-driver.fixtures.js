@@ -64,6 +64,7 @@ if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slu
 if (endpoint === 'repos/o/r') out({ owner: { type: 'User' }, default_branch: 'main' });
 if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); process.stderr.write('HTTP 404'); process.exit(1); }
 if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
+if (endpoint.startsWith('repos/o/r/issues/7/comments?')) out(args.includes('--slurp') ? [f.prComments || []] : (f.prComments || []));
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
 if (/\\/check-runs\\/\\d+\\/annotations/.test(endpoint)) out([]);
 if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', started_at: '2026-09-29T00:00:00Z', ...(f.checkStatus && f.checkStatus !== 'completed' ? {} : { completed_at: '2026-09-29T00:00:00Z' }), status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }, ...(f.extraChecks || [])] });
