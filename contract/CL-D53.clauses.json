@@ -8,8 +8,8 @@
         "test/issue-59-helper-surface.test.js"
       ],
       "requires": [
-        "const AGGREGATE_SMOKE_ALARM = 310000;",
-        "CL-D92 reviewed reset from 300,000 (CL-D91)"
+        "const AGGREGATE_SMOKE_ALARM = 320000;",
+        "#264 reviewed reset from 310,000 (CL-D92)"
       ]
     }
   ]

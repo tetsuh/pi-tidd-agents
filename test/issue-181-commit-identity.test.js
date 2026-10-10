@@ -457,16 +457,16 @@ test('Issue #181 the map, the addendum, and CL-D89 route the commit and push thr
 
 test('Issue #181 the helper alarm reset is the one every suite asserts, with room left at the raise', () => {
   // The pre-push review corrections put the helpers at 280,749 bytes; CL-D89 resets the alarm to 290,000.
-  // CL-D91 and CL-D92 later reset the live alarm to 300,000 and 310,000; the arithmetic below is the CL-D89 raise's own.
-  assert.match(readText('test/issue-59-helper-surface.test.js'), /const AGGREGATE_SMOKE_ALARM = 310000; \/\/ CL-D92 reviewed reset from 300,000 \(CL-D91\)/);
-  assert.match(readText('test/package.test.js'), /helperBytes < 310000/);
+  // CL-D91, CL-D92 and #264 later reset the live alarm to 300,000, 310,000 and 320,000; the arithmetic below is the CL-D89 raise's own.
+  assert.match(readText('test/issue-59-helper-surface.test.js'), /const AGGREGATE_SMOKE_ALARM = 320000; \/\/ #264 reviewed reset from 310,000 \(CL-D92\)/);
+  assert.match(readText('test/package.test.js'), /helperBytes < 320000/);
   for (const file of fs.readdirSync(__dirname)) {
     if (!file.endsWith('.test.js') || ['issue-169-post-push-revalidation.test.js', 'issue-181-commit-identity.test.js'].includes(file)) continue;
     assert.equal(readText(`test/${file}`).includes('280000'), false, `${file} must not keep the superseded helper alarm`);
   }
   const dir = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers');
   const bytes = fs.readdirSync(dir).filter((f) => f.endsWith('.js')).reduce((sum, f) => sum + fs.statSync(path.join(dir, f)).size, 0);
-  assert.ok(bytes < 310000, `packaged helpers total ${bytes}`);
+  assert.ok(bytes < 320000, `packaged helpers total ${bytes}`);
   assert.ok(290000 - 280749 > 9000, 'the raise left room, asserted against the measurement it was taken on');
   const boundary = sectionOf(readContract(), '## CL-D37 — Bounded helper surface is structural');
   assert.match(boundary, /CL-D89 reset it an eighth time to 290,000 bytes after the review corrections of its own change put the helpers at 280,749, on the same terms\./);

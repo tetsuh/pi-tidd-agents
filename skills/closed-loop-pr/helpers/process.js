@@ -29,6 +29,16 @@ const SAFE_GIT_CONFIG = [
   'diff.relative=false',
   'diff.renames=true',
   'log.showSignature=false',
+  // #264: and the remaining keys that change the bytes, per invocation only; the checkout's own file is never written.
+  'diff.context=3',
+  'diff.interHunkContext=0',
+  'diff.suppressBlankEmpty=false',
+  'core.quotePath=true',
+  'core.abbrev=auto',
+  'diff.algorithm=myers',
+  'diff.indentHeuristic=true',
+  'diff.orderFile=',
+  'i18n.logOutputEncoding=UTF-8',
 ];
 
 let isolation;
@@ -236,8 +246,9 @@ function sanitizedEnv(extra = {}, kind = 'git') {
 
 function gitArgs(args, options = {}) {
   if (!Array.isArray(args)) throw new TypeError('git args must be an array');
-  const hooks = options.hooksPath || isolationPaths().hooks;
-  const config = SAFE_GIT_CONFIG.map((entry) => entry === 'core.hooksPath=' ? `core.hooksPath=${hooks}` : entry)
+  const iso = isolationPaths(), hooks = options.hooksPath || iso.hooks;
+  // An empty order file is no order; a `/`-led path such as /dev/null is rewritten under the install dir by older Git for Windows.
+  const config = SAFE_GIT_CONFIG.map((entry) => entry === 'core.hooksPath=' ? `core.hooksPath=${hooks}` : entry === 'diff.orderFile=' ? `diff.orderFile=${iso.emptyGlobal}` : entry)
     .flatMap((entry) => ['-c', entry]);
   return [...config, '--no-pager', ...args];
 }

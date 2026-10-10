@@ -54,3 +54,10 @@ test('Issue #264 the pins never write the checkout configuration', () => {
     assert.equal(fs.readFileSync(path.join(root, '.git', 'config'), 'utf8'), before);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+// The owner allowed the helpers' aggregate alarm to rise for this change (CL-D37): it measured 310,373 bytes.
+test('Issue #264 the aggregate helper alarm is reset to 320,000 with headroom asserted at the raise', () => {
+  const { readContract } = require('./helpers');
+  assert.match(readContract(), /#264 later reset it an eleventh time to 320,000 bytes/);
+  assert.ok(320000 - 310373 > 9000, 'the raise left room');
+});
