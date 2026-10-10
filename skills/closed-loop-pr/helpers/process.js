@@ -20,6 +20,15 @@ const SAFE_GIT_CONFIG = [
   'tag.gpgsign=false',
   'diff.external=',
   'color.ui=false',
+  // #263: a checkout's own config cannot change a diff's prefixes, color or rename detection, or a log's records.
+  'color.diff=false',
+  'diff.noprefix=false',
+  'diff.mnemonicPrefix=false',
+  'diff.srcPrefix=a/',
+  'diff.dstPrefix=b/',
+  'diff.relative=false',
+  'diff.renames=true',
+  'log.showSignature=false',
 ];
 
 let isolation;
