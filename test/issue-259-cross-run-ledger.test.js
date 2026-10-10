@@ -4,7 +4,7 @@
 // disposition from earlier runs (tetsuh/hekatus PR #107: fourteen rounds, each run opening at `convergence 1/3`). A run
 // now reads the pull request's earlier round publications, carries their findings to every gate as settled, and stops
 // WAITING_FOR_OWNER before any gate after five rounds without MERGE_READY (owner decision on #259: N = 5).
-const { test, assert, fs, path, drive, setup, state, setFixture, nextRequest } = require('./issue-196-review-driver.fixtures.js');
+const { test, assert, fs, path, drive, setup, state, setFixture, nextRequest, fakeGate } = require('./issue-196-review-driver.fixtures.js');
 
 const HEAD = (n) => String(n).repeat(40).slice(0, 40);
 let id = 100;
@@ -17,8 +17,8 @@ function round(stateName, findings = [], { head = HEAD(1), target = 'o/r#7', ass
   return { id, html_url: `https://github.com/o/r/pull/7#issuecomment-${id}`, user: { login: 'o', type }, author_association: association, created_at: `2026-10-0${Math.min(9, 1 + (id % 9))}T00:00:00Z`, updated_at: '2026-10-09T00:00:00Z', body };
 }
 const comment = (body, association = 'OWNER') => ({ id: (id += 1), html_url: 'u', user: { login: 'o', type: 'User' }, author_association: association, created_at: '2026-10-09T00:00:00Z', updated_at: '2026-10-09T00:00:00Z', body });
-function settledOf(runDir) {
-  const payload = fs.readdirSync(runDir).find((f) => f.startsWith('gate-payload-convergence-1-'));
+function settledOf(runDir, gate = 'convergence') {
+  const payload = fs.readdirSync(runDir).find((f) => f.startsWith(`gate-payload-${gate}-1-`));
   return JSON.parse(fs.readFileSync(path.join(runDir, payload), 'utf8').split('## Volatile envelope\n\n```json\n')[1].split('\n```')[0]).history.settled;
 }
 
@@ -93,4 +93,16 @@ test('Issue #259 a MERGE_READY round or a trusted continue comment starts the co
   const t = setup();
   setFixture(t, { prComments: [...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER')), comment('tidd-budget: continue', 'NONE'), round('WAITING_FOR_OWNER')] });
   assert.equal(nextRequest(drive(t.start, t.e).stdout), null);
+});
+
+// CONV-267-COVERAGE-001 (PR #267 round 1): AC1 says every gate. After a convergence and a Sol MERGE, Sol's and Terra's
+// payloads carry the same settled entries as convergence's.
+test('Issue #259 the carried findings reach Sol and Terra as well as convergence', () => {
+  const t = setup();
+  setFixture(t, { prComments: [round('WAITING_FOR_OWNER', [['CONV-7-002', 'fixed (recorded under CL-D85)'], ['ADV-7-004', 'deferred (recorded under CL-D85)']], { head: HEAD(1) })] });
+  assert.equal(nextRequest(drive(t.start, t.e).stdout)?.agent, 'tidd-convergence-reviewer');
+  assert.equal(nextRequest(drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e).stdout)?.agent, 'tidd-adversarial-reviewer');
+  assert.equal(nextRequest(drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e).stdout)?.agent, 'tidd-safety-reviewer');
+  const ids = (gate) => settledOf(t.runDir, gate).map((x) => x.findingId);
+  for (const gate of ['convergence', 'adversarial', 'safety']) assert.deepEqual(ids(gate), ['CONV-7-002', 'ADV-7-004'], gate);
 });
