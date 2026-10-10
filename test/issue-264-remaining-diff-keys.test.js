@@ -61,3 +61,17 @@ test('Issue #264 the aggregate helper alarm is reset to 320,000 with headroom as
   assert.match(readContract(), /#264 later reset it an eleventh time to 320,000 bytes/);
   assert.ok(320000 - 310373 > 9000, 'the raise left room');
 });
+
+// CONV-266-AC2-ARGV (PR #266 round 1): AC2 says the pins ride on the package's own command lines. The arguments
+// gitArgs builds carry each of the nine as a `-c` pair, diff.orderFile naming the isolation directory's empty file.
+test('Issue #264 gitArgs carries each remaining pin as a -c pair on the command line', () => {
+  const { gitArgs, isolationPaths } = require('../skills/closed-loop-pr/helpers/process');
+  const args = gitArgs(['diff']), pairs = [];
+  for (let i = 0; i < args.length - 1; i += 1) if (args[i] === '-c') pairs.push(args[i + 1]);
+  const empty = isolationPaths().emptyGlobal;
+  for (const pin of ['diff.context=3', 'diff.interHunkContext=0', 'diff.suppressBlankEmpty=false', 'core.quotePath=true', 'core.abbrev=auto', 'diff.algorithm=myers', 'diff.indentHeuristic=true', `diff.orderFile=${empty}`, 'i18n.logOutputEncoding=UTF-8']) {
+    assert.ok(pairs.includes(pin), `gitArgs carries -c ${pin}`);
+  }
+  assert.equal(fs.readFileSync(empty, 'utf8'), '', 'the order file is empty, so it orders nothing');
+  assert.deepEqual(args.slice(-2), ['--no-pager', 'diff'], 'the pins precede the command');
+});
