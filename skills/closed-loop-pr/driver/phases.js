@@ -68,6 +68,29 @@ function readIssue(run) {
   const comments = gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${s.issueNumber}/comments?per_page=100`], s.checkout).flat();
   return { issue, comments };
 }
+// CL-D110 (#259): the pull request's earlier rounds, read from its conversation: a trusted, non-bot comment that opens
+// `# Review state: ` and carries a `tidd-status` block whose target is this one (no publication marker is required; a
+// consumer may post the round by hand). Rounds after the latest MERGE_READY round or trusted `tidd-budget: continue`
+// comment are counted, and each finding line of theirs is carried as settled with its disposition verbatim, except a
+// needs-owner-decision line, which has no settled meaning.
+function earlierRounds(run) {
+  const t = run.state.target, gates = { CONV: 'convergence', ADV: 'adversarial', SAFETY: 'safety' };
+  let count = 0, carried = [];
+  for (const c of gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${t.number}/comments?per_page=100`], run.state.checkout).flat()) {
+    if (!TRUSTED.includes(c.author_association) || c.user?.type === 'Bot') continue;
+    const body = String(c.body || ''), stateName = /^# Review state: ([A-Z_]+)/.exec(body)?.[1], block = /^```tidd-status\n([\s\S]*?)\n```/m.exec(body)?.[1];
+    if (!stateName && /^tidd-budget: continue[ \t]*$/m.test(body)) { count = 0; carried = []; continue; }
+    if (!stateName || !block || !block.split('\n').includes(`target: ${t.repository}#${t.number}`)) continue;
+    if (stateName === 'MERGE_READY') { count = 0; carried = []; continue; }
+    count += 1;
+    const head = / head ([0-9a-f]{40})$/m.exec(block)?.[1] || null, at = block.indexOf('\nfindings:\n');
+    for (const line of at < 0 ? [] : block.slice(at + 11).split('\n')) {
+      const m = /^ {2}([A-Z]+)(-\S+): (.+)$/.exec(line); if (!m) break;
+      if (!m[3].startsWith('needs-owner-decision')) carried.push({ findingId: m[1] + m[2], sourceGate: gates[m[1]] || m[1].toLowerCase(), disposition: m[3], status: 'settled', reviewedHead: head, summary: `carried from an earlier round of this pull request (${c.html_url}), raised against ${head || 'an unnamed head'}` });
+    }
+  }
+  return { count, carried };
+}
 // Sol's authoritative comments: a trusted association and never a bot (CONV-199-BOT-COMMENTS-TRUSTED).
 function trustedComments(run) { return JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter((c) => TRUSTED.includes(c.author_association) && c.user?.type !== 'Bot'); }
 // CL-D85: a Minor whose correction changes no file of the head is recorded and advances. Whether a correction changes
@@ -162,4 +185,4 @@ function ignoredDrift(saved, cwd) {
 // The gates that returned MERGE on the head the run ends on, by label, for the MERGE_READY reason.
 function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.head === head && g.verdict === 'MERGE').map((g) => gateLabel(g.gate)))].join(' and '); }
 
-module.exports = { TRUSTED, sendBack, failure, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
+module.exports = { TRUSTED, sendBack, failure, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };

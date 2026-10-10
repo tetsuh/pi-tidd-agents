@@ -1,6 +1,6 @@
 'use strict';
 
-// Issue #259: review-only had no bound on the sequence of fresh runs of one pull request, and a fresh run's gates saw no
+// Issue #259 (CL-D110): review-only had no bound on the sequence of fresh runs of one pull request, and a fresh run's gates saw no
 // disposition from earlier runs (tetsuh/hekatus PR #107: fourteen rounds, each run opening at `convergence 1/3`). A run
 // now reads the pull request's earlier round publications, carries their findings to every gate as settled, and stops
 // WAITING_FOR_OWNER before any gate after five rounds without MERGE_READY (owner decision on #259: N = 5).

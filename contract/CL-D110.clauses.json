@@ -1,0 +1,69 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D110-record",
+      "marker": "CL-D110",
+      "title": "CL-D110 records review-only accounting across fresh runs",
+      "files": [
+        "contract/CL-D110.md"
+      ],
+      "section": "## CL-D110 — Review-only carries earlier rounds and stops after five without MERGE_READY",
+      "requires": [
+        "issues/259#issuecomment-6091945569",
+        "Option B with N = 5.",
+        "a `needs-owner-decision` line is not carried.",
+        "At five counted rounds a run stops `WAITING_FOR_OWNER` before any validation or gate and names the count.",
+        "Changing N, reading a round from an untrusted author or a bot, or carrying a needs-owner-decision line requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D110-driver",
+      "marker": "CL-D110",
+      "title": "The review-only driver reads earlier rounds and stops at five",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js",
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "CL-D110 (#259)"
+      ]
+    },
+    {
+      "id": "CL-D110-review-only",
+      "marker": "CL-D110",
+      "title": "review-only.md names the cross-run bound",
+      "files": [
+        "skills/closed-loop-pr/references/review-only.md"
+      ],
+      "requires": [
+        "- Across fresh runs of one pull request (CL-D110): its earlier rounds are the trusted conversation comments that open `# Review state:` with a `tidd-status` block for the target; their findings reach every gate as settled, except a needs-owner-decision line, and after five such rounds without `MERGE_READY` a run stops `WAITING_FOR_OWNER` before any gate, until a `MERGE_READY` round or a trusted `tidd-budget: continue` comment restarts the count."
+      ]
+    },
+    {
+      "id": "CL-D110-forward",
+      "marker": "CL-D110",
+      "title": "CL-D11 and CL-D93 name the cross-run bound",
+      "files": [
+        "contract/CL-D11.md",
+        "contract/CL-D93.md"
+      ],
+      "requires": [
+        "CL-D110 later"
+      ]
+    },
+    {
+      "id": "CL-D110-tests",
+      "marker": "CL-D110",
+      "title": "The ledger and the stop are pinned",
+      "files": [
+        "test/issue-259-cross-run-ledger.test.js"
+      ],
+      "requires": [
+        "Issue #259 the findings of earlier rounds reach every gate as settled, with the head they were raised on",
+        "Issue #259 a round by an untrusted author or a bot, or for another target, is not read",
+        "Issue #259 five earlier rounds without MERGE_READY stop the run before any gate",
+        "Issue #259 a MERGE_READY round or a trusted continue comment starts the count again"
+      ]
+    }
+  ]
+}
