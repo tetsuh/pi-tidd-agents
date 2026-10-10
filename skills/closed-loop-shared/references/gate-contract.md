@@ -106,7 +106,7 @@ Supply this envelope alongside the invariant and owning-role blocks, not inside 
 - If a later gate finding forces a change to something an earlier gate approved, the earlier gate must run again and consumes one of its own rounds.
 - At the limit, ask the owner whether to grant more rounds. Workflow-specific candidate, retry, extension, and resume boundaries remain authoritative in their owning files.
 
-`ROUND_LIMIT_REACHED` is reported when a gate reaches its limit. Round budgets are **run-scoped**. This MVP keeps no state between invocations, so re-running the command resets every counter. Report rounds used per gate in every status block so the owner can carry them forward. **Do not create a state file** to work around this; persistent workflow state is a later stage.
+`ROUND_LIMIT_REACHED` is reported when a gate reaches its limit. Round budgets are **run-scoped**. This MVP keeps no state between invocations, so re-running the command resets every counter. CL-D110 later bounded the packaged review-only driver across runs, reading the pull request's earlier rounds rather than a state file. Report rounds used per gate in every status block so the owner can carry them forward. **Do not create a state file** to work around this; persistent workflow state is a later stage.
 
 ## Convergence stage (CL-D62)
 

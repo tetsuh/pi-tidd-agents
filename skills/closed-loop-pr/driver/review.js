@@ -13,7 +13,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { isUtf8 } = require('node:buffer');
 const { Run, headFingerprints, targetMoved, roleLabel, checkoutProblem, ignoredInventory, ROLE, LANGUAGE_PROFILE, die, parseArgs, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
-const { gateLabel: label, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
+const { gateLabel: label, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3;
@@ -35,6 +35,9 @@ function start(opts) {
   guard(run);
   if (pull.state !== 'open' || pull.draft) run.stop('BLOCKED', `the pull request is ${pull.state}${pull.draft ? ' (draft)' : ''}`);
   const before = checkoutProblem(checkout, target.headOid); if (before) run.stop('BLOCKED', before);
+  // CL-D110 (#259): five earlier rounds without MERGE_READY are the owner's to cut off, before any validation or gate.
+  const earlier = earlierRounds(run); s.carried = earlier.carried;
+  if (earlier.count >= 5) run.stop('WAITING_FOR_OWNER', `${earlier.count} earlier rounds of this pull request ended without MERGE_READY; the owner decides whether to cut the scope off or continue (a trusted comment opening with the line \`tidd-budget: continue\` restarts the count)`);
   // The Issue this PR serves, its acceptance criteria, and the validation the base commit names; each gap stops here.
   const closes = opts.issue ? [null, String(opts.issue)] : /\b(?:closes|fixes|resolves)\s+#(\d+)/i.exec(s.body);
   if (!closes) run.stop('BLOCKED', 'the PR body names no `Closes #N` issue and no --issue was given');
@@ -98,7 +101,7 @@ function launch(run, gate, { fresh = false } = {}) {
   const correlation = { repository: t.repository, number: t.number, baseOid: t.baseOid, headRepository: t.headRepository, headBranch: t.headBranch, headOid: t.headOid, lifecycle: 'open', draft: false, gate, invocation, contractInput: s.contractInput, snapshotFingerprint: s.fingerprints.snapshot };
   const expectation = run.op('build_gate_expectation', { workflow: 'pr', correlation, assignedFindings: gate === 'adversarial' ? s.assigned || [] : [], requiredEvidence: s.requiredEvidence }).data;
   const expectationPath = run.file(`expectation-${gate}-${invocation}.json`, expectation.expected);
-  const settled = s.findings.filter((f) => f.recorded).map((f) => ({ findingId: f.findingId, sourceGate: f.gate, disposition: f.disposition, status: 'settled', summary: f.summary }));
+  const settled = [...(s.carried || []), ...s.findings.filter((f) => f.recorded).map((f) => ({ findingId: f.findingId, sourceGate: f.gate, disposition: f.disposition, status: 'settled', summary: f.summary }))];
   const volatile = { target: { repository: t.repository, number: t.number, headRepository: t.headRepository, headBranch: t.headBranch, baseOid: t.baseOid, headOid: t.headOid, mode: 'review-only', gate },
     fingerprints: s.fingerprints, body: s.body, diff: fs.readFileSync(path.join(run.dir, 'pr.diff'), 'utf8'), languageProfile: s.languageProfile, acceptanceCriteria: s.acceptanceCriteria, history: { unresolved: gate === 'adversarial' ? s.unresolved || [] : [], reopened: [], settled } };
   if (gate === 'adversarial') { volatile.decisions = []; volatile.comments = trustedComments(run); }

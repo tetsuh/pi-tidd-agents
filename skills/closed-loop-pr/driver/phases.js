@@ -68,8 +68,33 @@ function readIssue(run) {
   const comments = gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${s.issueNumber}/comments?per_page=100`], s.checkout).flat();
   return { issue, comments };
 }
-// Sol's authoritative comments: a trusted association and never a bot (CONV-199-BOT-COMMENTS-TRUSTED).
-function trustedComments(run) { return JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter((c) => TRUSTED.includes(c.author_association) && c.user?.type !== 'Bot'); }
+// CL-D110 (#259): the pull request's earlier rounds, read from its conversation: a trusted comment (trusted below) that opens
+// `# Review state: ` and carries a `tidd-status` block whose target is this one (no publication marker is required; a
+// consumer may post the round by hand). Rounds that ran, after the latest MERGE_READY round or a trusted comment opening
+// `tidd-budget: continue`, are counted; a BLOCKED one is not. Every round's settled finding lines are carried, across a
+// reset too: a disposition marked recorded or confirmed, never a proposal or an owner decision (owner decision A).
+const SETTLED_LINE = /^[a-z-]+ \((?:recorded under|confirmed by) [^)]*\)$/;
+function earlierRounds(run) {
+  const t = run.state.target, gates = { CONV: 'convergence', ADV: 'adversarial', SAFETY: 'safety' }, carried = [];
+  let count = 0;
+  for (const c of gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${t.number}/comments?per_page=100`], run.state.checkout).flat()) {
+    if (!trusted(c)) continue;
+    const body = String(c.body || '').replace(/\r\n?/g, '\n'), stateName = /^# Review state: ([A-Z_]+)/.exec(body)?.[1], block = /^```tidd-status\n([\s\S]*?)\n```/m.exec(body)?.[1];
+    if (!stateName && /^tidd-budget: continue[ \t]*(?:\n|$)/.test(body)) { count = 0; continue; }
+    if (!stateName || !block || !block.split('\n').includes(`target: ${t.repository}#${t.number}`)) continue;
+    if (stateName === 'MERGE_READY') count = 0; else if (stateName !== 'BLOCKED') count += 1;
+    const head = / head ([0-9a-f]{40}|[0-9a-f]{64})$/m.exec(block)?.[1], at = block.indexOf('\nfindings:\n');
+    for (const line of at < 0 ? [] : block.slice(at + 11).split('\n')) {
+      const m = /^ {2}([A-Z]+)(-\S+): (.+)$/.exec(line); if (!m) break;
+      if (SETTLED_LINE.test(m[3]) && !m[3].startsWith('needs-owner-decision')) carried.push({ findingId: m[1] + m[2], sourceGate: gates[m[1]] || m[1].toLowerCase(), disposition: m[3].slice(0, 200), status: 'settled', ...(head ? { raisedAgainst: head } : {}), summary: `carried from an earlier round of this pull request (${c.html_url})` });
+    }
+  }
+  return { count, carried };
+}
+// Sol's authoritative comments: a trusted association and a `User` author, so a bot, or a record whose author type is
+// missing or another kind, is never one (CONV-199-BOT-COMMENTS-TRUSTED, CONV-267-001).
+function trusted(c) { return TRUSTED.includes(c.author_association) && c.user?.type === 'User'; }
+function trustedComments(run) { return JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter(trusted); }
 // CL-D85: a Minor whose correction changes no file of the head is recorded and advances. Whether a correction changes
 // no file is not readable from a proposed disposition, so only the classes that change none by construction are
 // recorded (CONV-199-CLD85-MINOR-BYPASS). A deferred follow-up that is not a Blocker is resolved by the validator's own
@@ -162,4 +187,4 @@ function ignoredDrift(saved, cwd) {
 // The gates that returned MERGE on the head the run ends on, by label, for the MERGE_READY reason.
 function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.head === head && g.verdict === 'MERGE').map((g) => gateLabel(g.gate)))].join(' and '); }
 
-module.exports = { TRUSTED, sendBack, failure, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
+module.exports = { TRUSTED, sendBack, failure, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
