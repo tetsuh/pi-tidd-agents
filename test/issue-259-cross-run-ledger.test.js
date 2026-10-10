@@ -17,14 +17,19 @@ function round(stateName, findings = [], { head = HEAD(1), target = 'o/r#7', ass
   return { id, html_url: `https://github.com/o/r/pull/7#issuecomment-${id}`, user: { login: 'o', type }, author_association: association, created_at: `2026-10-0${Math.min(9, 1 + (id % 9))}T00:00:00Z`, updated_at: '2026-10-09T00:00:00Z', body };
 }
 const comment = (body, association = 'OWNER') => ({ id: (id += 1), html_url: 'u', user: { login: 'o', type: 'User' }, author_association: association, created_at: '2026-10-09T00:00:00Z', updated_at: '2026-10-09T00:00:00Z', body });
+// ADV-267-AC4-001 (PR #267 round 3): every scenario's listing also holds a settled round by an untrusted author, which
+// must never be counted or carried (AC4).
+const untrusted = () => round('WAITING_FOR_OWNER', [['CONV-7-099', 'fixed (recorded under CL-D85)']], { association: 'NONE' });
 function settledOf(runDir, gate = 'convergence') {
   const payload = fs.readdirSync(runDir).find((f) => f.startsWith(`gate-payload-${gate}-1-`));
-  return JSON.parse(fs.readFileSync(path.join(runDir, payload), 'utf8').split('## Volatile envelope\n\n```json\n')[1].split('\n```')[0]).history.settled;
+  const settled = JSON.parse(fs.readFileSync(path.join(runDir, payload), 'utf8').split('## Volatile envelope\n\n```json\n')[1].split('\n```')[0]).history.settled;
+  assert.ok(!settled.some((x) => x.findingId === 'CONV-7-099'), 'the untrusted round carries nothing');
+  return settled;
 }
 
 test('Issue #259 the settled findings of earlier rounds reach every gate, with the head they were raised on', () => {
   const t = setup();
-  setFixture(t, { prComments: [
+  setFixture(t, { prComments: [untrusted(), 
     round('WAITING_FOR_OWNER', [['CONV-7-001', 'fixed (proposed; correction pending)'], ['CONV-7-002', 'fixed (recorded under CL-D85)']], { head: HEAD(1) }),
     round('WAITING_FOR_OWNER', [['CONV-7-005', 'fixed (recorded under CL-D85)']], { head: HEAD(4), association: 'NONE' }),
     round('WAITING_FOR_OWNER', [['ADV-7-001', 'deferred (proposed; correction pending)'], ['ADV-7-002', 'needs-owner-decision (recorded under CL-D85)'], ['ADV-7-003', 'fixed (confirmed by sol)'], ['ADV-7-004', 'deferred (recorded under CL-D85)'], ['SAFETY-7-001', 'not-applicable (proposed; correction pending)'], ['SAFETY-7-002', 'accepted-as-designed (confirmed by terra)']], { head: HEAD(2) }),
@@ -46,14 +51,14 @@ test('Issue #259 the settled findings of earlier rounds reach every gate, with t
 // A round posted by hand may name no head; its settled findings still reach the gates (this change's pre-push sweep).
 test('Issue #259 a round that names no head carries its findings without one', () => {
   const t = setup();
-  setFixture(t, { prComments: [round('WAITING_FOR_OWNER', [['CONV-7-002', 'fixed (recorded under CL-D85)']], { head: null })] });
+  setFixture(t, { prComments: [untrusted(), round('WAITING_FOR_OWNER', [['CONV-7-002', 'fixed (recorded under CL-D85)']], { head: null })] });
   assert.equal(nextRequest(drive(t.start, t.e).stdout)?.agent, 'tidd-convergence-reviewer');
   assert.deepEqual(settledOf(t.runDir).map((x) => [x.findingId, Object.hasOwn(x, 'raisedAgainst')]), [['CONV-7-002', false]]);
 });
 
 test('Issue #259 a round by an untrusted author or a bot, or for another target, is not read', () => {
   const t = setup();
-  setFixture(t, { prComments: [
+  setFixture(t, { prComments: [untrusted(), 
     round('WAITING_FOR_OWNER', [['CONV-7-009', 'fixed (proposed; correction pending)']], { association: 'NONE' }),
     round('WAITING_FOR_OWNER', [['CONV-7-010', 'fixed (proposed; correction pending)']], { type: 'Bot' }),
     round('WAITING_FOR_OWNER', [['CONV-8-001', 'fixed (proposed; correction pending)']], { target: 'o/r#8' }),
@@ -64,7 +69,7 @@ test('Issue #259 a round by an untrusted author or a bot, or for another target,
 
 test('Issue #259 five earlier rounds without MERGE_READY stop the run before any gate', () => {
   const t = setup();
-  setFixture(t, { prComments: Array.from({ length: 5 }, (_, i) => round('WAITING_FOR_OWNER', [['CONV-7-001', 'fixed (proposed; correction pending)']], { crlf: i % 2 === 1 })) });
+  setFixture(t, { prComments: [untrusted(), ...Array.from({ length: 5 }, (_, i) => round('WAITING_FOR_OWNER', [['CONV-7-001', 'fixed (proposed; correction pending)']], { crlf: i % 2 === 1 }))] });
   const r = drive(t.start, t.e);
   assert.equal(nextRequest(r.stdout), null, r.stdout);
   assert.equal(state(t.runDir).state, 'WAITING_FOR_OWNER');
@@ -75,23 +80,23 @@ test('Issue #259 five earlier rounds without MERGE_READY stop the run before any
 // Only a trusted, non-bot round that ran counts: an untrusted, bot or BLOCKED publication does not (CL-D11).
 test('Issue #259 untrusted, bot and BLOCKED publications do not count toward the stop', () => {
   const t = setup();
-  setFixture(t, { prComments: [...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER')), round('WAITING_FOR_OWNER', [], { association: 'NONE' }), round('WAITING_FOR_OWNER', [], { type: 'Bot' }), round('BLOCKED')] });
+  setFixture(t, { prComments: [untrusted(), ...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER')), round('WAITING_FOR_OWNER', [], { association: 'NONE' }), round('WAITING_FOR_OWNER', [], { type: 'Bot' }), round('BLOCKED')] });
   assert.equal(nextRequest(drive(t.start, t.e).stdout)?.agent, 'tidd-convergence-reviewer');
 });
 
 test('Issue #259 a MERGE_READY round or a trusted continue comment starts the count again', () => {
   for (const reset of [round('MERGE_READY', [['CONV-7-009', 'fixed (recorded under CL-D85)']]), comment('tidd-budget: continue')]) {
     const t = setup();
-    setFixture(t, { prComments: [...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER', [['ADV-7-004', 'deferred (recorded under CL-D85)']])), reset, round('WAITING_FOR_OWNER')] });
+    setFixture(t, { prComments: [untrusted(), ...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER', [['ADV-7-004', 'deferred (recorded under CL-D85)']])), reset, round('WAITING_FOR_OWNER')] });
     assert.equal(nextRequest(drive(t.start, t.e).stdout)?.agent, 'tidd-convergence-reviewer', reset.body.slice(0, 40));
     // A reset starts the count again but drops nothing already carried.
     assert.ok(settledOf(t.runDir).some((x) => x.findingId === 'ADV-7-004'), 'the deferral before the reset is still carried');
   }
   // A MERGE_READY round's own settled findings are carried too.
-  assert.ok(settledOf((() => { const t = setup(); setFixture(t, { prComments: [round('MERGE_READY', [['CONV-7-009', 'fixed (recorded under CL-D85)']])] }); drive(t.start, t.e); return t.runDir; })()).some((x) => x.findingId === 'CONV-7-009'));
+  assert.ok(settledOf((() => { const t = setup(); setFixture(t, { prComments: [untrusted(), round('MERGE_READY', [['CONV-7-009', 'fixed (recorded under CL-D85)']])] }); drive(t.start, t.e); return t.runDir; })()).some((x) => x.findingId === 'CONV-7-009'));
   // An untrusted continue comment changes nothing.
   const t = setup();
-  setFixture(t, { prComments: [...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER')), comment('tidd-budget: continue', 'NONE'), round('WAITING_FOR_OWNER')] });
+  setFixture(t, { prComments: [untrusted(), ...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER')), comment('tidd-budget: continue', 'NONE'), round('WAITING_FOR_OWNER')] });
   assert.equal(nextRequest(drive(t.start, t.e).stdout), null);
 });
 
@@ -99,7 +104,7 @@ test('Issue #259 a MERGE_READY round or a trusted continue comment starts the co
 // payloads carry the same settled entries as convergence's.
 test('Issue #259 the carried findings reach Sol and Terra as well as convergence', () => {
   const t = setup();
-  setFixture(t, { prComments: [round('WAITING_FOR_OWNER', [['CONV-7-002', 'fixed (recorded under CL-D85)'], ['ADV-7-004', 'deferred (recorded under CL-D85)']], { head: HEAD(1) })] });
+  setFixture(t, { prComments: [untrusted(), round('WAITING_FOR_OWNER', [['CONV-7-002', 'fixed (recorded under CL-D85)'], ['ADV-7-004', 'deferred (recorded under CL-D85)']], { head: HEAD(1) })] });
   assert.equal(nextRequest(drive(t.start, t.e).stdout)?.agent, 'tidd-convergence-reviewer');
   assert.equal(nextRequest(drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e).stdout)?.agent, 'tidd-adversarial-reviewer');
   assert.equal(nextRequest(drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e).stdout)?.agent, 'tidd-safety-reviewer');
@@ -113,7 +118,7 @@ test('Issue #259 a comment with no author type, or a type other than User, is no
   const t = setup();
   const odd = [round('WAITING_FOR_OWNER', [['CONV-7-002', 'fixed (recorded under CL-D85)']]), round('WAITING_FOR_OWNER', [['CONV-7-003', 'fixed (recorded under CL-D85)']])];
   delete odd[0].user; odd[1].user.type = 'Organization';
-  setFixture(t, { prComments: [...odd, ...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER'))] });
+  setFixture(t, { prComments: [untrusted(), ...odd, ...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER'))] });
   assert.equal(nextRequest(drive(t.start, t.e).stdout)?.agent, 'tidd-convergence-reviewer', 'the two untyped rounds do not count toward five');
   assert.deepEqual(settledOf(t.runDir), [], 'and carry nothing');
   // Sol's comments: an Issue comment with no author type stays out of the adversarial payload.
