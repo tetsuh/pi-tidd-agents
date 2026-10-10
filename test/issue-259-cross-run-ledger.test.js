@@ -106,3 +106,18 @@ test('Issue #259 the carried findings reach Sol and Terra as well as convergence
   const ids = (gate) => settledOf(t.runDir, gate).map((x) => x.findingId);
   for (const gate of ['convergence', 'adversarial', 'safety']) assert.deepEqual(ids(gate), ['CONV-7-002', 'ADV-7-004'], gate);
 });
+
+// CONV-267-001 (PR #267 round 2): trust fails closed. A comment whose author type is missing or anything but `User`
+// is not trusted, for the earlier rounds and for Sol's comments alike (they shared the `!== 'Bot'` test).
+test('Issue #259 a comment with no author type, or a type other than User, is not trusted', () => {
+  const t = setup();
+  const odd = [round('WAITING_FOR_OWNER', [['CONV-7-002', 'fixed (recorded under CL-D85)']]), round('WAITING_FOR_OWNER', [['CONV-7-003', 'fixed (recorded under CL-D85)']])];
+  delete odd[0].user; odd[1].user.type = 'Organization';
+  setFixture(t, { prComments: [...odd, ...Array.from({ length: 4 }, () => round('WAITING_FOR_OWNER'))] });
+  assert.equal(nextRequest(drive(t.start, t.e).stdout)?.agent, 'tidd-convergence-reviewer', 'the two untyped rounds do not count toward five');
+  assert.deepEqual(settledOf(t.runDir), [], 'and carry nothing');
+  // Sol's comments: an Issue comment with no author type stays out of the adversarial payload.
+  const { trustedComments } = require('../skills/closed-loop-pr/driver/phases');
+  fs.writeFileSync(path.join(t.runDir, 'issue-comments.json'), JSON.stringify([{ id: 1, author_association: 'OWNER', body: 'a decision' }, { id: 2, author_association: 'OWNER', user: { login: 'o', type: 'User' }, body: 'b' }]));
+  assert.deepEqual(trustedComments({ dir: t.runDir }).map((c) => c.id), [2]);
+});

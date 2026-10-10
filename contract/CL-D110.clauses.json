@@ -80,7 +80,8 @@
         "Issue #259 five earlier rounds without MERGE_READY stop the run before any gate",
         "Issue #259 untrusted, bot and BLOCKED publications do not count toward the stop",
         "Issue #259 a MERGE_READY round or a trusted continue comment starts the count again",
-        "Issue #259 the carried findings reach Sol and Terra as well as convergence"
+        "Issue #259 the carried findings reach Sol and Terra as well as convergence",
+        "Issue #259 a comment with no author type, or a type other than User, is not trusted"
       ]
     }
   ]
