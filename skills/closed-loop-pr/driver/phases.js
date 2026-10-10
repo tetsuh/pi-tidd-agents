@@ -68,7 +68,7 @@ function readIssue(run) {
   const comments = gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${s.issueNumber}/comments?per_page=100`], s.checkout).flat();
   return { issue, comments };
 }
-// CL-D110 (#259): the pull request's earlier rounds, read from its conversation: a trusted, non-bot comment that opens
+// CL-D110 (#259): the pull request's earlier rounds, read from its conversation: a trusted comment (trusted below) that opens
 // `# Review state: ` and carries a `tidd-status` block whose target is this one (no publication marker is required; a
 // consumer may post the round by hand). Rounds that ran, after the latest MERGE_READY round or a trusted comment opening
 // `tidd-budget: continue`, are counted; a BLOCKED one is not. Every round's settled finding lines are carried, across a
@@ -78,7 +78,7 @@ function earlierRounds(run) {
   const t = run.state.target, gates = { CONV: 'convergence', ADV: 'adversarial', SAFETY: 'safety' }, carried = [];
   let count = 0;
   for (const c of gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${t.number}/comments?per_page=100`], run.state.checkout).flat()) {
-    if (!TRUSTED.includes(c.author_association) || c.user?.type === 'Bot') continue;
+    if (!trusted(c)) continue;
     const body = String(c.body || '').replace(/\r\n?/g, '\n'), stateName = /^# Review state: ([A-Z_]+)/.exec(body)?.[1], block = /^```tidd-status\n([\s\S]*?)\n```/m.exec(body)?.[1];
     if (!stateName && /^tidd-budget: continue[ \t]*(?:\n|$)/.test(body)) { count = 0; continue; }
     if (!stateName || !block || !block.split('\n').includes(`target: ${t.repository}#${t.number}`)) continue;
@@ -91,8 +91,10 @@ function earlierRounds(run) {
   }
   return { count, carried };
 }
-// Sol's authoritative comments: a trusted association and never a bot (CONV-199-BOT-COMMENTS-TRUSTED).
-function trustedComments(run) { return JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter((c) => TRUSTED.includes(c.author_association) && c.user?.type !== 'Bot'); }
+// Sol's authoritative comments: a trusted association and a `User` author, so a bot, or a record whose author type is
+// missing or another kind, is never one (CONV-199-BOT-COMMENTS-TRUSTED, CONV-267-001).
+function trusted(c) { return TRUSTED.includes(c.author_association) && c.user?.type === 'User'; }
+function trustedComments(run) { return JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')).filter(trusted); }
 // CL-D85: a Minor whose correction changes no file of the head is recorded and advances. Whether a correction changes
 // no file is not readable from a proposed disposition, so only the classes that change none by construction are
 // recorded (CONV-199-CLD85-MINOR-BYPASS). A deferred follow-up that is not a Blocker is resolved by the validator's own
