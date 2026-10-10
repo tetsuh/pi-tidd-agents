@@ -70,23 +70,24 @@ function readIssue(run) {
 }
 // CL-D110 (#259): the pull request's earlier rounds, read from its conversation: a trusted, non-bot comment that opens
 // `# Review state: ` and carries a `tidd-status` block whose target is this one (no publication marker is required; a
-// consumer may post the round by hand). Rounds after the latest MERGE_READY round or trusted `tidd-budget: continue`
-// comment are counted, and each finding line of theirs is carried as settled with its disposition verbatim, except a
-// needs-owner-decision line, which has no settled meaning.
+// consumer may post the round by hand). Rounds that ran, after the latest MERGE_READY round or a trusted comment opening
+// `tidd-budget: continue`, are counted; a BLOCKED one is not (CL-D11). Every round's settled finding lines are carried,
+// across a reset too: recorded, confirmed, deferred, not-applicable or accepted-as-designed, never an unconfirmed
+// proposal or an owner decision (owner decision A).
+const SETTLED_LINE = /^(?:deferred|not-applicable|accepted-as-designed)\b|\((?:recorded under|confirmed by) /;
 function earlierRounds(run) {
-  const t = run.state.target, gates = { CONV: 'convergence', ADV: 'adversarial', SAFETY: 'safety' };
-  let count = 0, carried = [];
+  const t = run.state.target, gates = { CONV: 'convergence', ADV: 'adversarial', SAFETY: 'safety' }, carried = [];
+  let count = 0;
   for (const c of gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${t.number}/comments?per_page=100`], run.state.checkout).flat()) {
     if (!TRUSTED.includes(c.author_association) || c.user?.type === 'Bot') continue;
-    const body = String(c.body || ''), stateName = /^# Review state: ([A-Z_]+)/.exec(body)?.[1], block = /^```tidd-status\n([\s\S]*?)\n```/m.exec(body)?.[1];
-    if (!stateName && /^tidd-budget: continue[ \t]*$/m.test(body)) { count = 0; carried = []; continue; }
+    const body = String(c.body || '').replace(/\r\n?/g, '\n'), stateName = /^# Review state: ([A-Z_]+)/.exec(body)?.[1], block = /^```tidd-status\n([\s\S]*?)\n```/m.exec(body)?.[1];
+    if (!stateName && /^tidd-budget: continue[ \t]*(?:\n|$)/.test(body)) { count = 0; continue; }
     if (!stateName || !block || !block.split('\n').includes(`target: ${t.repository}#${t.number}`)) continue;
-    if (stateName === 'MERGE_READY') { count = 0; carried = []; continue; }
-    count += 1;
-    const head = / head ([0-9a-f]{40})$/m.exec(block)?.[1] || null, at = block.indexOf('\nfindings:\n');
+    if (stateName === 'MERGE_READY') count = 0; else if (stateName !== 'BLOCKED') count += 1;
+    const head = / head ([0-9a-f]{40}|[0-9a-f]{64})$/m.exec(block)?.[1], at = block.indexOf('\nfindings:\n');
     for (const line of at < 0 ? [] : block.slice(at + 11).split('\n')) {
       const m = /^ {2}([A-Z]+)(-\S+): (.+)$/.exec(line); if (!m) break;
-      if (!m[3].startsWith('needs-owner-decision')) carried.push({ findingId: m[1] + m[2], sourceGate: gates[m[1]] || m[1].toLowerCase(), disposition: m[3], status: 'settled', reviewedHead: head, summary: `carried from an earlier round of this pull request (${c.html_url}), raised against ${head || 'an unnamed head'}` });
+      if (SETTLED_LINE.test(m[3])) carried.push({ findingId: m[1] + m[2], sourceGate: gates[m[1]] || m[1].toLowerCase(), disposition: m[3].slice(0, 200), status: 'settled', ...(head ? { raisedAgainst: head } : {}), summary: `carried from an earlier round of this pull request (${c.html_url})` });
     }
   }
   return { count, carried };

@@ -10,10 +10,12 @@
       "section": "## CL-D110 — Review-only carries earlier rounds and stops after five without MERGE_READY",
       "requires": [
         "issues/259#issuecomment-6091945569",
-        "Option B with N = 5.",
-        "a `needs-owner-decision` line is not carried.",
+        "issues/259#issuecomment-6092237722",
+        "Option B with N = 5",
+        "An unconfirmed `fixed (proposed …)` line and a `needs-owner-decision` line are not carried",
+        "a `BLOCKED` round is not, as a tool failure consumes no round (CL-D11)",
         "At five counted rounds a run stops `WAITING_FOR_OWNER` before any validation or gate and names the count.",
-        "Changing N, reading a round from an untrusted author or a bot, or carrying a needs-owner-decision line requires a new owner decision."
+        "Changing N, reading a round from an untrusted author or a bot, or carrying an unconfirmed proposal or a needs-owner-decision line requires a new owner decision."
       ]
     },
     {
@@ -36,7 +38,7 @@
         "skills/closed-loop-pr/references/review-only.md"
       ],
       "requires": [
-        "- Across fresh runs of one pull request (CL-D110): its earlier rounds are the trusted conversation comments that open `# Review state:` with a `tidd-status` block for the target; their findings reach every gate as settled, except a needs-owner-decision line, and after five such rounds without `MERGE_READY` a run stops `WAITING_FOR_OWNER` before any gate, until a `MERGE_READY` round or a trusted `tidd-budget: continue` comment restarts the count."
+        "- The packaged review-only driver, across fresh runs of one pull request (CL-D110): its earlier rounds are the trusted conversation comments that open `# Review state:` with a `tidd-status` block for the target. Their settled findings (recorded, confirmed, deferred, not-applicable, accepted-as-designed) reach every gate as settled; an unconfirmed proposed fix is not carried. After five such rounds without `MERGE_READY`, a BLOCKED one not counted, a run stops `WAITING_FOR_OWNER` before any gate, until a `MERGE_READY` round or a trusted comment opening `tidd-budget: continue` restarts the count."
       ]
     },
     {
@@ -49,6 +51,18 @@
       ],
       "requires": [
         "CL-D110 later"
+      ]
+    },
+    {
+      "id": "CL-D110-forward-run-scoped",
+      "marker": "CL-D110",
+      "title": "CL-D12 and the shared contract name the cross-run bound",
+      "files": [
+        "contract/CL-D12.md",
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "CL-D110 later bounded the packaged review-only driver across runs, reading the pull request's earlier rounds rather than a state file"
       ]
     },
     {
