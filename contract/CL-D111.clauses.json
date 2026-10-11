@@ -36,6 +36,19 @@
       ]
     },
     {
+      "id": "CL-D111-mode-dispatch",
+      "marker": "CL-D111",
+      "title": "The Mode dispatch block is a non-operative note until #249 deletes it",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "section": "## Mode dispatch (CL-D19)",
+      "requires": [
+        "Since CL-D111 no pull request takes this path: every run goes through the driver (Driver dispatch above), and you read no mode reference. The block stays as specification until #249 deletes it with the mode references.",
+        "The former continuation, for the record only:"
+      ]
+    },
+    {
       "id": "CL-D111-boundary",
       "marker": "CL-D111",
       "title": "The target-kind boundary states the refusal in place of the foreign review-only path",
@@ -113,7 +126,11 @@
         "Issue #249 no driver file sends a pull request back or names the prose path",
         "Issue #249 the dispatch section routes every pull request to the driver and names the refusal",
         "Issue #249 README names the refusal in place of the send-back",
-        "Issue #249 CL-D111 records the refusal and the superseded records name it"
+        "Issue #249 CL-D111 records the refusal and the superseded records name it",
+        "Issue #249 the review-only driver refuses a base commit the checkout does not hold before any run directory",
+        "Issue #249 the autofix driver refuses a base commit the checkout does not hold before any run directory",
+        "Issue #249 the autofix driver refuses a head commit the checkout does not hold before any run directory",
+        "Issue #249 no instruction anywhere in the Skill routes a pull request to a mode reference"
       ]
     }
   ]

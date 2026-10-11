@@ -44,8 +44,9 @@ test('Issue #87 the addendum content moved whole and the base directs to it', ()
   // The base directs the third disclosure stage, gated on the exact token, and the mode
   // invariant's subject is untouched: the addendum is not a mode reference.
   assert.match(base, /The exact `autofix` token additionally selects the CL-D30 addendum in `references\/autofix-addendum\.md`; read it only then, after this reference \(CL-D50\)\./);
+  // Since CL-D111 the Skill's Mode dispatch block names the mode reference for the record only.
   const skill = readText('skills/closed-loop-pr/SKILL.md');
-  assert.match(skill, /- exact CL-D30 `autofix` mode: read `references\/autofix\.md`\./);
+  assert.match(skill, /exact CL-D30 `autofix` mode read `references\/autofix\.md`\./);
 });
 
 test('Issue #87 the disclosure stages are bounded per stage', () => {

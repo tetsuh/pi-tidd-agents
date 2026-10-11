@@ -135,9 +135,6 @@ A pull-request body under this workflow carries three parts and nothing else: a 
 
 ## Mode dispatch (CL-D19)
 
-After CL-D6 mode parsing succeeds and the shared preflight, target, evidence, language, gate, disposition, decision, and test-provenance rules above are available, load the authoritative continuation for the parsed mode:
+Since CL-D111 no pull request takes this path: every run goes through the driver (Driver dispatch above), and you read no mode reference. The block stays as specification until #249 deletes it with the mode references.
 
-- review-only mode: read `references/review-only.md`;
-- exact CL-D30 `autofix` mode: read `references/autofix.md`.
-
-Read exactly one mode reference after mode parsing. Never read both. Follow the selected reference together with this shared contract; no instruction from the unselected mode applies.
+The former continuation, for the record only: review-only mode read `references/review-only.md`; exact CL-D30 `autofix` mode read `references/autofix.md`. Exactly one was read after mode parsing, never both.

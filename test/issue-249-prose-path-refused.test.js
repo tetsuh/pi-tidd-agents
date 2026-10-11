@@ -49,8 +49,12 @@ test('Issue #249 the autofix driver refuses a head from another repository the s
 // Round 1 CONV-269-AC1-LOCAL-COMMIT-COVERAGE: AC1 names the base as well as the head, in both modes. Each missing commit
 // is refused the same way through each driver, before any run directory.
 const MISSING = 'd'.repeat(40);
-for (const [mode, which] of [['review-only', 'base'], ['autofix', 'base'], ['autofix', 'head']]) {
-  test(`Issue #249 the ${mode} driver refuses a ${which} commit the checkout does not hold before any run directory`, () => {
+for (const [mode, which, title] of [
+  ['review-only', 'base', 'Issue #249 the review-only driver refuses a base commit the checkout does not hold before any run directory'],
+  ['autofix', 'base', 'Issue #249 the autofix driver refuses a base commit the checkout does not hold before any run directory'],
+  ['autofix', 'head', 'Issue #249 the autofix driver refuses a head commit the checkout does not hold before any run directory'],
+]) {
+  test(title, () => {
     let r, runDir, root;
     if (mode === 'review-only') {
       const t = review.setup(); runDir = t.runDir; root = t.target.root;
