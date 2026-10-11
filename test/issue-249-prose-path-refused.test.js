@@ -46,6 +46,28 @@ test('Issue #249 the autofix driver refuses a head from another repository the s
   assert.doesNotMatch(r.stderr, /prose path|PROSE_PATH/);
 });
 
+// Round 1 CONV-269-AC1-LOCAL-COMMIT-COVERAGE: AC1 names the base as well as the head, in both modes. Each missing commit
+// is refused the same way through each driver, before any run directory.
+const MISSING = 'd'.repeat(40);
+for (const [mode, which] of [['review-only', 'base'], ['autofix', 'base'], ['autofix', 'head']]) {
+  test(`Issue #249 the ${mode} driver refuses a ${which} commit the checkout does not hold before any run directory`, () => {
+    let r, runDir, root;
+    if (mode === 'review-only') {
+      const t = review.setup(); runDir = t.runDir; root = t.target.root;
+      review.setFixture(t, { pull: { ...t.target.pull, [which]: { ...t.target.pull[which], sha: MISSING } } });
+      r = review.drive(t.start, t.e);
+    } else {
+      const t = autofix.setup(); runDir = t.runDir; root = t.target.checkout;
+      autofix.setFixture(t.bin, which === 'base' ? { base: MISSING } : { headSha: MISSING });
+      r = autofix.drive(t.start, t.env);
+    }
+    assert.notEqual(r.status, 0);
+    assert.equal(fs.existsSync(runDir), false);
+    assert.equal(r.stdout, '');
+    assert.equal(r.stderr, `tidd-driver: the checkout ${root} does not hold ${MISSING}; the driver needs the head and base locally\n`);
+  });
+}
+
 // A review-only diff that is not UTF-8 stops BLOCKED with its artifacts drafted, as the autofix driver already did; the
 // FINISHED line is the last line, and no line sends the pull request anywhere.
 test('Issue #249 a review-only diff that is not UTF-8 stops BLOCKED and ends on the driver status line', () => {
@@ -94,6 +116,18 @@ test('Issue #249 the dispatch section routes every pull request to the driver an
   assert.match(boundary, /A pull request of another repository than the current checkout's is refused before the driver: report it and stop, and review nothing \(CL-D111\)\./);
   // The evidence section's foreign path is specification until #249 deletes it, and says so.
   assert.match(sectionOf(skill, '## Evidence fingerprints (CL-D9)'), /Since CL-D111 no run takes the following path; it stays as specification until #249 deletes it\./);
+});
+
+// Round 1 CONV-269-AC3-MODE-DISPATCH: AC3 covers the whole Skill, not only the dispatch section. No line of it instructs
+// the parent to read a mode reference; the Mode dispatch block is a non-operative note until #249 deletes it.
+test('Issue #249 no instruction anywhere in the Skill routes a pull request to a mode reference', () => {
+  const skill = readText(SKILL);
+  assert.doesNotMatch(skill, /^- [^\n]*mode: read `references\//m);
+  assert.doesNotMatch(skill, /load the authoritative continuation|Read exactly one mode reference|Follow the selected reference/);
+  const dispatch = sectionOf(skill, '## Mode dispatch (CL-D19)');
+  assert.ok(dispatch, 'the Mode dispatch block is still the final block until #249 deletes it');
+  assert.match(dispatch, /^Since CL-D111 no pull request takes this path: every run goes through the driver \(Driver dispatch above\), and you read no mode reference\. The block stays as specification until #249 deletes it with the mode references\./m);
+  assert.match(dispatch, /The former continuation, for the record only: review-only mode read `references\/review-only\.md`; exact CL-D30 `autofix` mode read `references\/autofix\.md`\. Exactly one was read after mode parsing, never both\./);
 });
 
 test('Issue #249 README names the refusal in place of the send-back', () => {
