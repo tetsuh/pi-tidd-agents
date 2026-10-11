@@ -1,0 +1,106 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D111-record",
+      "marker": "CL-D111",
+      "title": "CL-D111 records that the prose path is refused",
+      "files": [
+        "contract/CL-D111.md"
+      ],
+      "section": "## CL-D111 — Every pull request runs through the driver; the prose path is refused",
+      "requires": [
+        "issues/249#issuecomment-6105220135",
+        "Option (a). A head in another repository, or a base or head commit the checkout does not hold, is refused before any run directory exists",
+        "A review-only diff that is not UTF-8 stops `BLOCKED` with its artifacts drafted",
+        "The driver prints no `PROSE_PATH:` line, the dispatch section has no step for one",
+        "the mode references are deleted in later pull requests of #249",
+        "Reinstating a hand-composed round, or reviewing a pull request from the GitHub API alone, requires a new owner decision."
+      ]
+    },
+    {
+      "id": "CL-D111-skill",
+      "marker": "CL-D111",
+      "title": "The dispatch section routes every pull request to the driver and names the refusal",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "section": "## Driver dispatch (CL-D104)",
+      "requires": [
+        "After the checks above, the pull request runs through the packaged driver, which sequences the round, not you.",
+        "you read no mode reference, compose no helper request, and judge no finding.",
+        "A pull request the driver refuses before any run (a head in another repository, or a base or head commit the checkout does not hold) is reported on its error output; report it and stop, and review nothing by hand (CL-D111).",
+        "4. Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop. Never run the publication script.",
+        "5. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand."
+      ]
+    },
+    {
+      "id": "CL-D111-boundary",
+      "marker": "CL-D111",
+      "title": "The target-kind boundary states the refusal in place of the foreign review-only path",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "section": "## Workflow target-kind boundary (CL-D7, CL-D8)",
+      "requires": [
+        "A pull request whose head is in **another repository** is refused by the driver before any run, as is one whose base or head commit the checkout does not hold; nothing is reviewed from the GitHub API alone (CL-D111).",
+        "Autofix and every publication action refuse such a target"
+      ]
+    },
+    {
+      "id": "CL-D111-driver",
+      "marker": "CL-D111",
+      "title": "The driver refuses the two unbindable cases and stops on a non-UTF-8 diff",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js",
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "CL-D111"
+      ]
+    },
+    {
+      "id": "CL-D111-readme",
+      "marker": "CL-D111",
+      "title": "README names the refusal",
+      "files": [
+        "README.md"
+      ],
+      "section": "### How a round runs (CL-D104)",
+      "requires": [
+        "A pull request whose head is in another repository, or whose commits the checkout does not hold, is refused before any run and reported; a review-only diff that is not UTF-8 stops `BLOCKED` (CL-D111)."
+      ]
+    },
+    {
+      "id": "CL-D111-forward",
+      "marker": "CL-D111",
+      "title": "CL-D8, CL-D19, CL-D93 and CL-D104 name the refusal",
+      "files": [
+        "contract/CL-D8.md",
+        "contract/CL-D19.md",
+        "contract/CL-D93.md",
+        "contract/CL-D104.md"
+      ],
+      "requires": [
+        "#249 later refused"
+      ]
+    },
+    {
+      "id": "CL-D111-tests",
+      "marker": "CL-D111",
+      "title": "The refusal is pinned by tests",
+      "files": [
+        "test/issue-249-prose-path-refused.test.js"
+      ],
+      "requires": [
+        "Issue #249 the review-only driver refuses a head from another repository before any run directory",
+        "Issue #249 the review-only driver refuses a head the checkout does not hold before any run directory",
+        "Issue #249 the autofix driver refuses a head from another repository the same way",
+        "Issue #249 a review-only diff that is not UTF-8 stops BLOCKED and ends on the driver status line",
+        "Issue #249 no driver file sends a pull request back or names the prose path",
+        "Issue #249 the dispatch section routes every pull request to the driver and names the refusal",
+        "Issue #249 README names the refusal in place of the send-back",
+        "Issue #249 CL-D111 records the refusal and the superseded records name it"
+      ]
+    }
+  ]
+}

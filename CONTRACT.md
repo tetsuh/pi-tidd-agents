@@ -79,6 +79,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
 - [contract/CL-D110.md](contract/CL-D110.md) — Review-only carries earlier rounds and stops after five without MERGE_READY
+- [contract/CL-D111.md](contract/CL-D111.md) — Every pull request runs through the driver; the prose path is refused
 - [contract/CL-D109.md](contract/CL-D109.md) — The gate payload carries the diff as its own readable section
 - [contract/CL-D108.md](contract/CL-D108.md) — A trusted timeline correction settles a body claim
 - [contract/CL-D107.md](contract/CL-D107.md) — A gate result whose correlation names no run is relaunched once

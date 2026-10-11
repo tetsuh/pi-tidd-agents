@@ -65,7 +65,6 @@
         "gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits",
         "gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha",
         "same-repository review-only target",
-        "GitHub API evidence path",
         "local Git objects are absent",
         "without fetch, checkout, or git-state mutation",
         "Autofix still requires local objects",

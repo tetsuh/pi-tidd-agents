@@ -14,13 +14,12 @@
     {
       "id": "CL-D8-foreign",
       "marker": "CL-D8",
-      "title": "A foreign review-only target needs no checkout and refuses mutation",
+      "title": "A foreign pull request is refused and autofix refuses mutation",
       "files": [
         "skills/closed-loop-pr/SKILL.md"
       ],
       "requires": [
-        "foreign review-only target",
-        "no local Git object or checkout is required",
+        "is refused by the driver before any run",
         "Autofix and every publication action refuse such a target"
       ]
     }
