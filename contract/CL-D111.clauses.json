@@ -10,6 +10,7 @@
       "section": "## CL-D111 — Every pull request runs through the driver; the prose path is refused",
       "requires": [
         "issues/249#issuecomment-6105220135",
+        "issues/249#issuecomment-6105653537",
         "Option (a). A pull request of another repository than the current checkout's is refused by the parent before the driver",
         "A head in another repository, or a base or head commit the checkout does not hold, is refused before any run directory exists",
         "A review-only diff that is not UTF-8 stops `BLOCKED` with its artifacts drafted",
