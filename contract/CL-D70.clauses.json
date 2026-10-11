@@ -3,13 +3,23 @@
     {
       "id": "CL-D70-map",
       "marker": "CL-D70",
-      "title": "The invocation map states what the captured field accepts",
+      "title": "A declared envelope field also accepts the complete payload",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
-      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)"
+        "A declared envelope field also accepts the producer's complete payload, normalized here (CL-D70)."
+      ]
+    },
+    {
+      "id": "CL-D70-map-composition",
+      "marker": "CL-D70",
+      "title": "The payload is wrapped as its envelope before any check",
+      "files": [
+        "skills/closed-loop-pr/helpers/composition.js"
+      ],
+      "requires": [
+        "CL-D70: a producer payload is wrapped as its envelope before any check, so one form crosses."
       ]
     },
     {

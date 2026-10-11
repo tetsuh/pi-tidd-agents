@@ -14,13 +14,46 @@
     {
       "id": "CL-D81-autofix-map",
       "marker": "CL-D81",
-      "title": "The map and the writer section state that the writer launch is built, not typed (map)",
+      "title": "The CLI declares build_writer_launch and its inputs",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
       "requires": [
-        "| Construct the writer launch from the workspace the run created (CL-D81) | `build_writer_launch` | `created` (data of `workspace_create`), `task` |",
-        "exactly the route the three launch fields and the packaged cleanup's took (CL-D68, CL-D81, CL-D82, CL-D84)"
+        "build_writer_launch: { required: ['created', 'task'], optional: [] },"
+      ]
+    },
+    {
+      "id": "CL-D81-autofix-map-launch",
+      "marker": "CL-D81",
+      "title": "build_writer_launch checks the declared shape and requires the linked workspace",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "const shapeProblem = inputShapeProblem('build_writer_launch', data);",
+        "if (data.created.kind !== 'linked') fail('invalid_request', 'the writer edits the run-owned linked workspace"
+      ]
+    },
+    {
+      "id": "CL-D81-autofix-map-composition",
+      "marker": "CL-D81",
+      "title": "created is workspace_create data",
+      "files": [
+        "skills/closed-loop-pr/helpers/composition.js"
+      ],
+      "requires": [
+        "build_writer_launch: Object.freeze({ created: 'data:workspace_create' }),"
+      ]
+    },
+    {
+      "id": "CL-D81-autofix-map-driver",
+      "marker": "CL-D81",
+      "title": "The autofix driver launches the writer through build_writer_launch",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "const built = data(run.op('build_writer_launch', { created: s.created, task }));"
       ]
     },
     {

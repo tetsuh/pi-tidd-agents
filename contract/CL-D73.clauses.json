@@ -3,15 +3,59 @@
     {
       "id": "CL-D73-operations",
       "marker": "CL-D73",
-      "title": "The invocation map offers the three packaged gate-step compositions",
+      "title": "The CLI declares gate_result_read, build_gate_assignments and workspace_cleanup and their inputs",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
-      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "| `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |",
-        "| `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |",
-        "| `workspace_cleanup` | `cwd`, and either `receipt` (receipt inside `workspace_create` data) or `workspace` (the run workspace path) |"
+        "gate_result_read: { required: ['runId'], optional: ['expectationPath'] },",
+        "build_gate_assignments: { required: ['findings', 'settledKeys'], optional: ['reopens'] },",
+        "workspace_cleanup: { required: ['cwd'], optional: ['receipt', 'workspace'] },"
+      ]
+    },
+    {
+      "id": "CL-D73-operations-builders",
+      "marker": "CL-D73",
+      "title": "build_gate_assignments takes the validated findings and maps reopens to settled keys",
+      "files": [
+        "skills/closed-loop-pr/helpers/builders.js"
+      ],
+      "requires": [
+        "fail('invalid_request', 'findings must be the validated result findings array');",
+        "fail('invalid_request', 'reopens must map a fresh finding id to the settled blocker key it reopens');"
+      ]
+    },
+    {
+      "id": "CL-D73-operations-workspace",
+      "marker": "CL-D73",
+      "title": "workspace_cleanup takes either the receipt or the workspace path",
+      "files": [
+        "skills/closed-loop-pr/helpers/workspace.js"
+      ],
+      "requires": [
+        "createError('workspace_cleanup', 'invalid_request', 'give either the receipt or the workspace path, never both', 'workspace_cleanup');"
+      ]
+    },
+    {
+      "id": "CL-D73-operations-review",
+      "marker": "CL-D73",
+      "title": "The review-only driver builds the assignments from the validated result",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "s.assigned = run.op('build_gate_assignments', { findings: open, settledKeys: [] }).data.assignedFindings;"
+      ]
+    },
+    {
+      "id": "CL-D73-operations-autofix",
+      "marker": "CL-D73",
+      "title": "The autofix driver builds the assignments from the validated result and the ledger",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "data(run.op('build_gate_assignments', { findings: fresh, settledKeys: s.ledger.filter((e) => e.status === 'settled')"
       ]
     },
     {

@@ -25,6 +25,7 @@ const INPUT_SHAPES = Object.freeze({
   // CL-D68: the composer's cross-operation field, the data of build_gate_expectation.
   // CL-D82: the workspace an exact-autofix gate child runs in, optional because review-only has none.
   build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation', created: 'data:workspace_create' }),
+  // The writer launch takes the run-owned workspace by its declared shape (CL-D81).
   build_writer_launch: Object.freeze({ created: 'data:workspace_create' }),
   // CL-D89: the writer's commit and push run in the created workspace with what the capture recorded.
   commit_create: Object.freeze({ created: 'data:workspace_create', captured: 'envelope:operator_capture' }),

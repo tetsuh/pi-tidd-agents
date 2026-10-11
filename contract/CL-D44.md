@@ -1,5 +1,5 @@
 ## CL-D44 — Cross-operation input shapes are declared and checked
-**Clauses:** CL-D44-autofix, CL-D44-map, CL-D44-readme, CL-D44-tests
+**Clauses:** CL-D44-autofix, CL-D44-autofix-launch, CL-D44-autofix-record, CL-D44-map, CL-D44-readme, CL-D44-tests
 
 *Decision ID:* CL-D44
 *Kind:* fail-closed request-validation boundary

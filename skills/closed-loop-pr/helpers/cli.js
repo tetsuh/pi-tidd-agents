@@ -5,6 +5,9 @@ const helpers = require('./index');
 const fingerprints = require('./fingerprints');
 const { createError, createResult, isResult } = require('./protocol');
 
+// The operation table states each operation's inputs. Records newly pinned here since the helper map's pins moved here (CL-D112):
+// CL-D42, CL-D45, CL-D61, CL-D68, CL-D70, CL-D72, CL-D73, CL-D74, CL-D81, CL-D82, CL-D84, CL-D86, CL-D88, CL-D89.
+
 const SCHEMAS = Object.freeze({
   operator_capture: { required: ['cwd', 'identity'], optional: [] },
   operator_revalidate: { required: ['captured', 'cwd'], optional: ['postPushHead', 'priorPushHeads'] },

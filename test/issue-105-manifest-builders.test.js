@@ -235,5 +235,5 @@ test('Issue #105 CL-D61 records the builders, the check, and the CL-D56 widening
   assert.match(record, /widens CL-D56's builder family from five to seven/);
   assert.match(sectionOf(contract, '## CL-D56 — Package-owned builders construct the documents the boundary checks'), /CL-D61 later added the two `manifest_compare` builders under its own decision/);
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D61').map((clause) => clause.id).sort(), ['CL-D61-map', 'CL-D61-shared', 'CL-D61-tests']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D61').map((clause) => clause.id).sort(), ['CL-D61-map', 'CL-D61-map-autofix', 'CL-D61-map-builders', 'CL-D61-map-guards', 'CL-D61-map-review', 'CL-D61-shared', 'CL-D61-tests']);
 });

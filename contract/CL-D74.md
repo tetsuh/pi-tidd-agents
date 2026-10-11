@@ -1,5 +1,5 @@
 ## CL-D74 — The post-commit message check is packaged
-**Clauses:** CL-D74-operation, CL-D74-addendum, CL-D74-record, CL-D74-tests
+**Clauses:** CL-D74-operation, CL-D74-operation-driver, CL-D74-addendum, CL-D74-record, CL-D74-tests
 
 *Decision ID:* CL-D74
 *Kind:* contract

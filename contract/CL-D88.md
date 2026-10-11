@@ -1,5 +1,5 @@
 ## CL-D88 — The workspace verification runs in the workspace the run created
-**Clauses:** CL-D88-map, CL-D88-builder, CL-D88-record, CL-D88-tests
+**Clauses:** CL-D88-map, CL-D88-map-builders, CL-D88-map-driver, CL-D88-builder, CL-D88-record, CL-D88-tests
 
 *Decision ID:* CL-D88
 *Kind:* contract

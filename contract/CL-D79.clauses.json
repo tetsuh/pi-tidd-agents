@@ -15,12 +15,13 @@
     {
       "id": "CL-D79-autofix",
       "marker": "CL-D79",
-      "title": "The invocation map names the chain a later push passes",
+      "title": "After an earlier push the chain of pushed heads is checked, oldest first",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/operator.js"
       ],
       "requires": [
-        "After an earlier push in the same run, linked also passes `priorPushHeads`, the heads it pushed before `C`, oldest first; the chain from `O` to `C` must run through only those heads, each the sole child of the one before, at most five in all (CL-D79)."
+        "The heads the caller names as its pushes, oldest first, ending at the current one: each the sole child of the one before it, the",
+        "first of the baseline, at most the five a run may make (Issue #140, CL-D79)."
       ]
     },
     {
@@ -37,12 +38,12 @@
     {
       "id": "CL-D79-record-keeping",
       "marker": "CL-D79",
-      "title": "The residual CL-D86 leaves on the post-push chain",
+      "title": "The record keeps the sole-child residual",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "contract/CL-D79.md"
       ],
       "requires": [
-        "A linear child someone else pushed still passes the helper if the run's snapshots name it, a residual of CL-D79 this decision does not remove."
+        "A linear child someone else pushed, supplied in the chain, is accepted by the helper: a known residual, not a defect"
       ]
     },
     {

@@ -143,9 +143,11 @@ test('Issue #161 a workspace it must not remove is refused, with the boundary it
   });
 });
 
-test('Issue #161 the map and the record name the packaged terminal cleanup', () => {
-  const map = readText('skills/closed-loop-pr/references/helper-map.md');
-  assert.ok(map.includes('| Terminal cleanup of the run-owned linked workspace (CL-D84) | `workspace_cleanup_created` | `created` (data of `workspace_create`); the request is composed inside the package |'), 'the map declares the operation');
+test('Issue #161 the CLI table, the driver and the record name the packaged terminal cleanup', () => {
+  // #249 B1 (CL-D112): the map's row is pinned where the rule lives, the packaged CLI's operation table and the code.
+  assert.ok(readText('skills/closed-loop-pr/helpers/cli.js').includes("workspace_cleanup_created: { required: ['created'], optional: [] },"), 'the CLI declares the terminal cleanup and its one input');
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("run.op('workspace_cleanup_created', { created: s.created }, { allowFail: true });"), 'the driver runs it at the end');
+  assert.ok(readText('skills/closed-loop-pr/helpers/workspace.js').includes('const built = buildWorkspaceCleanup(data);'), 'the request is composed inside the package');
   const record = readContract();
   assert.ok(record.includes('## CL-D84 — The terminal cleanup is one packaged operation'), 'CL-D84 must exist');
 });

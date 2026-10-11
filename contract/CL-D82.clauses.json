@@ -3,12 +3,35 @@
     {
       "id": "CL-D82-map",
       "marker": "CL-D82",
-      "title": "The map declares the workspace the gate launch takes",
+      "title": "The CLI declares build_gate_launch with created optional",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
       "requires": [
-        "| Gate launch request (CL-D2, CL-D68, CL-D82) | `build_gate_launch` | `expectation` (data of `build_gate_expectation`), `expectationPath`, `volatile`, `created` (data of `workspace_create`; required in autofix, refused in review-only) |"
+        "build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: ['created'] },"
+      ]
+    },
+    {
+      "id": "CL-D82-map-launch",
+      "marker": "CL-D82",
+      "title": "created is required in autofix and refused in review-only",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "fail('invalid_request', 'an autofix gate runs in the run-owned workspace; pass the workspace_create data as created');",
+        "fail('invalid_request', 'a review-only gate reviews the operator checkout; it takes no workspace');"
+      ]
+    },
+    {
+      "id": "CL-D82-map-composition",
+      "marker": "CL-D82",
+      "title": "created is workspace_create data and expectation is build_gate_expectation data",
+      "files": [
+        "skills/closed-loop-pr/helpers/composition.js"
+      ],
+      "requires": [
+        "build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation', created: 'data:workspace_create' }),"
       ]
     },
     {

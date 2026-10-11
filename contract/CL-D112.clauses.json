@@ -1,0 +1,60 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D112-record",
+      "marker": "CL-D112",
+      "title": "CL-D112 records where the helper map's pins went",
+      "files": [
+        "contract/CL-D112.md"
+      ],
+      "section": "## CL-D112 — The clause pins of the helper map move to the code and the records",
+      "requires": [
+        "issues/249#issuecomment-6105250786",
+        "Option A, as the corrected order already states.",
+        "Four sentences were about the map document itself and are retired",
+        "CL-D83-map",
+        "The file is byte-identical and the drivers read it into `contractInput` as before.",
+        "The autofix driver does not recompose a refused post-push revalidation (CL-D86); that gap is recorded here, not closed."
+      ]
+    },
+    {
+      "id": "CL-D112-markers",
+      "marker": "CL-D112",
+      "title": "The operation table and the drivers name the records newly pinned to them",
+      "files": [
+        "skills/closed-loop-pr/helpers/cli.js",
+        "skills/closed-loop-pr/driver/review.js",
+        "skills/closed-loop-pr/driver/autofix.js",
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "the helper map's pins moved here (CL-D112)"
+      ]
+    },
+    {
+      "id": "CL-D112-forward",
+      "marker": "CL-D112",
+      "title": "CL-D83 names the move",
+      "files": [
+        "contract/CL-D83.md"
+      ],
+      "requires": [
+        "#249 later moved every pin off the map (CL-D112)"
+      ]
+    },
+    {
+      "id": "CL-D112-tests",
+      "marker": "CL-D112",
+      "title": "The move is pinned by tests",
+      "files": [
+        "test/issue-270-helper-map-pins.test.js"
+      ],
+      "requires": [
+        "Issue #270 no clause pin names references/helper-map.md",
+        "Issue #270 the rule-stating tests read the code or the record, not the map; the structural reads stay",
+        "Issue #270 the map is byte-identical and the drivers still read it into contractInput",
+        "Issue #270 CL-D112 records the repoint and CL-D83 names it"
+      ]
+    }
+  ]
+}

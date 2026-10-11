@@ -1,5 +1,5 @@
 ## CL-D70 — The declared envelope field accepts the producer payload
-**Clauses:** CL-D70-map, CL-D70-record, CL-D70-tests
+**Clauses:** CL-D70-map, CL-D70-map-composition, CL-D70-record, CL-D70-tests
 
 *Decision ID:* CL-D70
 *Kind:* contract

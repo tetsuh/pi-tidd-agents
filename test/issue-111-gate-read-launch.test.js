@@ -391,7 +391,7 @@ test('Issue #111 CL-D68 records the widening and the manifest pins it', () => {
   assert.ok(CL_D68_BASELINE_BYTES > 140000 && 150000 - CL_D68_BASELINE_BYTES > 8000, `the raise left ${150000 - CL_D68_BASELINE_BYTES} bytes`);
   for (const file of ['test/package.test.js', 'test/issue-73-authority-budget.test.js', 'test/issue-87-authority-floor.test.js', 'test/issue-87-addendum-split.test.js', 'test/issue-100-gate-ids-v2.test.js']) assert.match(readText(file), /assert\.ok\(total < 162000,/, `${file} asserts the raised ceiling`);
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D68').map((clause) => clause.id).sort(), ['CL-D68-map', 'CL-D68-record', 'CL-D68-tests', 'CL-D68-transport']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D68').map((clause) => clause.id).sort(), ['CL-D68-map', 'CL-D68-map-autofix', 'CL-D68-map-launch', 'CL-D68-map-operator', 'CL-D68-map-phases', 'CL-D68-map-record', 'CL-D68-map-review', 'CL-D68-record', 'CL-D68-tests', 'CL-D68-transport']);
   assert.ok(fs.existsSync(repoPath('test/issue-111-gate-read-launch.test.js')));
 });
 

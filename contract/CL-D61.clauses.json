@@ -3,18 +3,66 @@
     {
       "id": "CL-D61-map",
       "marker": "CL-D61",
-      "title": "The invocation map offers the manifest builders and the required-evidence check",
+      "title": "The CLI declares the two manifest builders and required_evidence_check",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
-      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "| `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |",
-        "| `build_manifest_compare` | `captured` (data of `manifest_compare`), `cwd` |",
-        "| `required_evidence_check` | `cwd`, `requiredEvidence` |",
-        "with requests built by `build_manifest_capture` and `build_manifest_compare` (CL-D61)",
-        "so a request carrying both mode fields is unrepresentable",
-        "it requires every `file`-kind required-evidence entry to exist before the expectation is built"
+        "build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },",
+        "build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },",
+        "required_evidence_check: { required: ['cwd', 'requiredEvidence'], optional: [] },"
+      ]
+    },
+    {
+      "id": "CL-D61-map-builders",
+      "marker": "CL-D61",
+      "title": "The manifest builders derive every value from a producing operation",
+      "files": [
+        "skills/closed-loop-pr/helpers/builders.js"
+      ],
+      "requires": [
+        "CL-D61: the two manifest_compare requests derive every value from a producing operation —",
+        "the frozen overlay's parent and authorized set, the capture's parent — so a request carrying",
+        "both mode fields (the PR #103 killer) is unrepresentable here.",
+        "const problem = inputShapeProblem('overlay_compare', { cwd: data.cwd, overlay: data.overlay });",
+        "return built('build_manifest_compare', 'manifest_compare', { cwd: data.cwd, parent, manifest: captured }, { from: 'manifest', to: 'captured' });"
+      ]
+    },
+    {
+      "id": "CL-D61-map-guards",
+      "marker": "CL-D61",
+      "title": "A required-evidence file that does not exist is an assembly error",
+      "files": [
+        "skills/closed-loop-pr/helpers/guards.js"
+      ],
+      "requires": [
+        "CL-D61: a required-evidence entry naming a file that does not exist is an assembly error to",
+        "catch before any gate runs (PR #104 spent Terra's only retry on one), never a gate outcome.",
+        "fail('invalid_request', 'required_evidence_presence', `required evidence source is not an existing file (${kind}): ${entry.source}`, entry.source);"
+      ]
+    },
+    {
+      "id": "CL-D61-map-autofix",
+      "marker": "CL-D61",
+      "title": "The autofix driver captures at AFTER_STAGING and compares at BEFORE_COMMIT through the builders, and checks the evidence set",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "const manifest = step('manifest_compare', step('build_manifest_capture', { overlay, cwd: ws }).request.data); // AFTER_STAGING",
+        "step('manifest_compare', step('build_manifest_compare', { captured: manifest, cwd: ws }).request.data); // BEFORE_COMMIT",
+        "run.op('required_evidence_check', { cwd: s.workspace, requiredEvidence });"
+      ]
+    },
+    {
+      "id": "CL-D61-map-review",
+      "marker": "CL-D61",
+      "title": "The review-only driver checks the evidence set before building the expectation",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "run.op('required_evidence_check', { cwd: s.checkout, requiredEvidence: s.requiredEvidence });"
       ]
     },
     {

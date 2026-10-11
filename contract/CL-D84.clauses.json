@@ -3,12 +3,45 @@
     {
       "id": "CL-D84-map",
       "marker": "CL-D84",
-      "title": "The map declares the packaged terminal cleanup",
+      "title": "The CLI declares workspace_cleanup_created and its input",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
       "requires": [
-        "| Terminal cleanup of the run-owned linked workspace (CL-D84) | `workspace_cleanup_created` | `created` (data of `workspace_create`); the request is composed inside the package |"
+        "workspace_cleanup_created: { required: ['created'], optional: [] },"
+      ]
+    },
+    {
+      "id": "CL-D84-map-workspace",
+      "marker": "CL-D84",
+      "title": "The cleanup request is composed inside the package",
+      "files": [
+        "skills/closed-loop-pr/helpers/workspace.js"
+      ],
+      "requires": [
+        "const built = buildWorkspaceCleanup(data);"
+      ]
+    },
+    {
+      "id": "CL-D84-map-composition",
+      "marker": "CL-D84",
+      "title": "created is workspace_create data",
+      "files": [
+        "skills/closed-loop-pr/helpers/composition.js"
+      ],
+      "requires": [
+        "workspace_cleanup_created: Object.freeze({ created: 'data:workspace_create' }),"
+      ]
+    },
+    {
+      "id": "CL-D84-map-driver",
+      "marker": "CL-D84",
+      "title": "The autofix driver runs the terminal cleanup through workspace_cleanup_created",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "const c = run.op('workspace_cleanup_created', { created: s.created }, { allowFail: true });"
       ]
     },
     {
@@ -37,7 +70,7 @@
         "Issue #161 the packaged terminal cleanup removes the workspace from the receipt alone",
         "Issue #161 the parent supplies the created workspace and nothing else",
         "Issue #161 a workspace it must not remove is refused, with the boundary it belongs to",
-        "Issue #161 the map and the record name the packaged terminal cleanup"
+        "Issue #161 the CLI table, the driver and the record name the packaged terminal cleanup"
       ]
     }
   ]

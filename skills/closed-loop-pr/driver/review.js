@@ -8,6 +8,7 @@
 //   node review.js result --run-dir DIR --run-id ID
 //   node review.js resume --run-dir DIR
 //   node review.js status --run-dir DIR
+// Call sites newly pinned since the helper map's pins moved here (CL-D112): CL-D61, CL-D62, CL-D68, CL-D72, CL-D73.
 
 const fs = require('node:fs');
 const path = require('node:path');

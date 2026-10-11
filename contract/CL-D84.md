@@ -1,5 +1,5 @@
 ## CL-D84 — The terminal cleanup is one packaged operation
-**Clauses:** CL-D84-map, CL-D84-record, CL-D84-tests
+**Clauses:** CL-D84-map, CL-D84-map-workspace, CL-D84-map-composition, CL-D84-map-driver, CL-D84-record, CL-D84-tests
 
 *Decision ID:* CL-D84
 *Kind:* contract

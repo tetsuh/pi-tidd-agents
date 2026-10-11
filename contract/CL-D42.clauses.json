@@ -25,13 +25,23 @@
     {
       "id": "CL-D42-helper",
       "marker": "CL-D42",
-      "title": "The packaged helper map carries the preflight verifier",
+      "title": "The CLI declares evidence_verify and its inputs",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
-      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "| `evidence_verify` | `envelope`, `expected` |"
+        "evidence_verify: { required: ['envelope', 'expected'], optional: [] },"
+      ]
+    },
+    {
+      "id": "CL-D42-helper-driver",
+      "marker": "CL-D42",
+      "title": "The driver runs evidence_verify on the assembled evidence before each gate",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "run.op('evidence_verify', { envelope: { schemaVersion: 1, captureIdentity, brackets: { before: snapshot.before, after: snapshot.after }"
       ]
     },
     {

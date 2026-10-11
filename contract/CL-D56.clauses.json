@@ -3,14 +3,38 @@
     {
       "id": "CL-D56-map",
       "marker": "CL-D56",
-      "title": "The invocation map offers the builder family",
+      "title": "Builders validate with the boundary's own predicates and are read-only",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/builders.js"
       ],
       "requires": [
-        "validates the construction with the boundary's own predicates before returning it, so a builder output the boundary would reject is unrepresentable",
-        "Builders are read-only, reach no network or Git, and grant no authority; none reaches the filesystem except `build_gate_launch`, whose only reads are the installed package's own authority files and the supplied expectation file (CL-D68)",
-        "Prefer a builder over hand-assembly wherever one exists"
+        "boundary's own predicates before returning it, so a builder output the boundary would",
+        "reject is unrepresentable. Builders are pure and read-only: no filesystem, process,",
+        "network, or Git reach, and no authority beyond assembling a request the caller still runs."
+      ]
+    },
+    {
+      "id": "CL-D56-map-launch",
+      "marker": "CL-D56",
+      "title": "The one exception: the launch composer reads the installed package's blocks and the supplied expectation file, and writes the payload file and its verification request",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "read-only reader and a composer whose writes are the gate payload file and its verification request",
+        "the installed package's own payload blocks (CL-D2, CL-D29): the schema is the builder's byte for",
+        "try { expectationText = readUtf8(data.expectationPath); }"
+      ]
+    },
+    {
+      "id": "CL-D56-map-record",
+      "marker": "CL-D56",
+      "title": "The record states the preference for a builder",
+      "files": [
+        "contract/CL-D56.md"
+      ],
+      "requires": [
+        "Prefer a builder over hand-assembly wherever one exists."
       ]
     },
     {

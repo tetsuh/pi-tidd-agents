@@ -14,7 +14,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, contractFiles, readContract, sectionOf, readManifest } = require('./helpers');
+const { readText, contractFiles, readContract, sectionOf, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const { buildOperatorRevalidate } = require(path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'builders.js'));
@@ -81,10 +81,13 @@ test('Issue #169 the packaged CLI declares and enforces the same input', () => {
   assert.equal(refused.error.phase, 'cli', 'an unknown field is refused by the CLI input table itself');
 });
 
-test('Issue #169 the addendum states where the transition comes from and what a refusal costs', () => {
-  const procedure = readAutofixProcedure();
-  assert.match(procedure, /The pre-writer `operator_revalidate` after a push is composed by `build_operator_revalidate` from the run's own snapshots, oldest first; the parent supplies no head by hand \(CL-D86\)\./);
-  assert.match(procedure, /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter \(CL-D86\)\./);
+test('Issue #169 the builder and the driver derive the transition, and CL-D86 states what a refusal costs', () => {
+  // #249 B1 (CL-D112): the map's sentences are read where the rule lives, the builder, the driver call site and the record.
+  const builders = readText('skills/closed-loop-pr/helpers/builders.js');
+  assert.ok(builders.includes('The transition is derived from the post-push snapshots the run already takes, oldest first, so the parent'));
+  assert.ok(builders.includes('has no head to supply and no list to remember (Issue #169, CL-D86). A head beside them would be a second'));
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("const built = run.op('build_operator_revalidate', { captured: s.captured, cwd: s.checkout, ...(s.pushes.length ? { pushes: s.pushes } : {}) }, opts);"));
+  assert.match(sectionOf(readContract(), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots'), /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter\./);
 });
 
 test('Issue #169 CL-D86 records both choices and the helper alarm reset', () => {
@@ -96,8 +99,7 @@ test('Issue #169 CL-D86 records both choices and the helper alarm reset', () => 
   assert.match(record, /issues\/169#issuecomment-5786110213/, 'the record cites the owner choices');
   assert.match(record, /The packaged-helper alarm resets from 270,000 to 280,000 bytes/);
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D86').map((clause) => clause.id).sort(),
-    ['CL-D86-builder', 'CL-D86-cli', 'CL-D86-map', 'CL-D86-record', 'CL-D86-tests']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D86').map((clause) => clause.id).sort(), ['CL-D86-builder', 'CL-D86-cli', 'CL-D86-map', 'CL-D86-map-builders', 'CL-D86-map-driver', 'CL-D86-map-record', 'CL-D86-record', 'CL-D86-tests']);
 });
 
 test('Issue #169 the reset helper alarm is the one every suite asserts', () => {
@@ -134,9 +136,8 @@ test('Issue #169 the cap counts what the builder will emit, not what the input c
 });
 
 test('Issue #169 the retry is stated where the no-retry rule is stated', () => {
-  const procedure = readAutofixProcedure();
-  assert.match(procedure, /no retry beyond the CL-D39 recovery defined above and the CL-D86 recomposition after a push/);
-  assert.match(procedure, /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter \(CL-D86\)\./);
+  // #249 B1 (CL-D112): the map's "no retry beyond ... defined above" pointer is retired; the addendum and the record state the rule.
+  assert.match(sectionOf(readContract(), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots'), /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter\./);
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.match(addendum, /the CL-D39 recovery defined above, the CL-D51 zero-output relaunch, and the CL-D86 recomposition after a push/);
 });
@@ -144,7 +145,8 @@ test('Issue #169 the retry is stated where the no-retry rule is stated', () => {
 test('Issue #169 nothing still says the parent supplies the heads', () => {
   // CONV-173-DOC-001: naming the derivation is not enough while the sentence still opens with the parent doing
   // it. Every live statement says the builder derives the heads; only a clause marked as history may say more.
-  for (const file of [...contractFiles(), 'README.md', 'skills/closed-loop-pr/references/helper-map.md']) {
+  // #249 B1 (CL-D112): the map is no longer a live statement; the records and README are.
+  for (const file of [...contractFiles(), 'README.md']) {
     const text = readText(file);
     assert.equal(text.includes('an obligation no check enforces'), false, `${file} still calls the transition an unchecked obligation`);
     assert.equal(text.includes("taken from the parent's own record"), false, `${file} still takes the heads from the parent's record`);

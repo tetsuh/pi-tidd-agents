@@ -78,6 +78,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D78.md](contract/CL-D78.md) — A run reports the run roots it retained
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
+- [contract/CL-D112.md](contract/CL-D112.md) — The clause pins of the helper map move to the code and the records
 - [contract/CL-D111.md](contract/CL-D111.md) — Every pull request runs through the driver; the prose path is refused
 - [contract/CL-D110.md](contract/CL-D110.md) — Review-only carries earlier rounds and stops after five without MERGE_READY
 - [contract/CL-D109.md](contract/CL-D109.md) — The gate payload carries the diff as its own readable section

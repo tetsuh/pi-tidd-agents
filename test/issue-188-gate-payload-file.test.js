@@ -314,9 +314,9 @@ test('Issue #188 the payload is 0600 whatever the umask', () => {
   } finally { process.umask(saved); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('Issue #188 the map and the contract state the pointer rule', () => {
-  const map = readText('skills/closed-loop-pr/references/helper-map.md');
-  assert.match(map, /\| The gate child's first step: it runs the request its launch names, which verifies the payload \(CL-D91, CL-D101\) \| `gate_payload_verify` \| `path`, `sha256` \|/);
+test('Issue #188 the CLI table and the contract state the pointer rule', () => {
+  // #249 B1 (CL-D112): the map's row is pinned where the rule lives, the packaged CLI's operation table and the code.
+  assert.ok(readText('skills/closed-loop-pr/helpers/cli.js').includes("gate_payload_verify: { required: ['path', 'sha256'], optional: [] },"), 'the CLI declares the verification and its inputs');
   const contract = readText('skills/closed-loop-shared/references/gate-contract.md');
   assert.match(contract, /A packaged gate launch carries a pointer, not the payload: `build_gate_launch` writes the complete task to a run-owned payload file, and the child verifies its SHA-256 with `gate_payload_verify` before reading it completely and following it verbatim \(CL-D91\)\./);
 });

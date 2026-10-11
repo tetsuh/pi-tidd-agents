@@ -1,5 +1,5 @@
 ## CL-D83 — The packaged helper invocation map is its own reference
-**Clauses:** CL-D83-map, CL-D83-autofix, CL-D83-record, CL-D83-tests
+**Clauses:** CL-D83-autofix, CL-D83-record, CL-D83-tests
 
 *Decision ID:* CL-D83
 *Kind:* contract
@@ -9,4 +9,4 @@
 *Recommendation:* Option A.
 *Owner choice:* Option A. The packaged helper invocation map and the CL-D44 cross-operation input shapes move to `references/helper-map.md`, which `references/autofix.md` names once and which is read with it. The move carries every sentence unchanged: no rule is dropped, reworded, or added by it, and each clause pinned to a moved sentence names the file it moved to, splitting into two clauses where a record's sentences now live in both files. The new file carries no grant, boundary, or rule that its rows' own decisions do not already state.
 *Rationale:* The map is the part that grows with the package: every packaged operation adds a row, and the rows are what a parent reads when it composes a request. Keeping it in the file that also states the run's boundaries made the boundaries compete with the documentation for bytes, and the budget started deciding what could be written down.
-*Validity and invalidation conditions:* Applies to where these two sections live and to the clauses pinned to them. It grants nothing, changes no boundary, and leaves both modes' rules as they were; review-only is untouched, since it carries no map. Moving a rule into the new file, or adding one there that its rows' decisions do not state, requires a new owner decision.
+*Validity and invalidation conditions:* Applies to where these two sections live and to the clauses pinned to them. It grants nothing, changes no boundary, and leaves both modes' rules as they were; review-only is untouched, since it carries no map. Moving a rule into the new file, or adding one there that its rows' decisions do not state, requires a new owner decision. #249 later moved every pin off the map (CL-D112): the rows are pinned to the packaged CLI's operation table and the rules to the code that enforces them or to their record's own sentence, CL-D83-map is retired, and the file is deleted with the other mode references in the last pull request of #249.

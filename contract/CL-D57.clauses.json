@@ -3,14 +3,25 @@
     {
       "id": "CL-D57-map",
       "marker": "CL-D57",
-      "title": "The invocation map offers the packaged guard family",
+      "title": "The packaged guards encode the recorded failure classes",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/guards.js"
       ],
       "requires": [
-        "authorized paths are a maximum set: the overlay must stay inside them and must not be empty, but no authorized path is required to change",
-        "compares the index against the immutable staged manifest, never against only the authorized changed files, so an entry the parent commit already carries cannot be misclassified",
-        "a true failure keeps its CL-D39 consequences unchanged"
+        "Authorized paths are a maximum set, not a demand: the overlay must stay inside them",
+        "and must not be empty, but no authorized path is required to change.",
+        "immutable staged manifest, never against only the authorized changed files; and a guard"
+      ]
+    },
+    {
+      "id": "CL-D57-map-record",
+      "marker": "CL-D57",
+      "title": "A true guard failure keeps its CL-D39 consequences",
+      "files": [
+        "contract/CL-D57.md"
+      ],
+      "requires": [
+        "a true failure keeps its CL-D39 consequences, terminal after editing begins"
       ]
     },
     {

@@ -3,13 +3,23 @@
     {
       "id": "CL-D74-operation",
       "marker": "CL-D74",
-      "title": "The invocation map carries the packaged post-commit message check",
+      "title": "The CLI declares message_verify and its inputs",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
-      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "| Immediately after the bounded batch's one commit, before the post-commit guard (CL-D25, CL-D74) | `message_verify` | `cwd`, `expected` |"
+        "message_verify: { required: ['cwd', 'expected'], optional: [] },"
+      ]
+    },
+    {
+      "id": "CL-D74-operation-driver",
+      "marker": "CL-D74",
+      "title": "The batch verifies the message immediately after its one commit",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "step('message_verify', { cwd: ws, expected: b.message });"
       ]
     },
     {
