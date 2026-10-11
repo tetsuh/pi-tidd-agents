@@ -100,15 +100,27 @@
     {
       "id": "CL-D111-forward",
       "marker": "CL-D111",
-      "title": "CL-D8, CL-D19, CL-D93 and CL-D104 name the refusal",
+      "title": "CL-D8, CL-D9, CL-D19, CL-D93 and CL-D104 name the refusal",
       "files": [
         "contract/CL-D8.md",
+        "contract/CL-D9.md",
         "contract/CL-D19.md",
         "contract/CL-D93.md",
         "contract/CL-D104.md"
       ],
       "requires": [
         "#249 later refused"
+      ]
+    },
+    {
+      "id": "CL-D111-forward-d9",
+      "marker": "CL-D111",
+      "title": "CL-D9 names the driver as the only fingerprint source",
+      "files": [
+        "contract/CL-D9.md"
+      ],
+      "requires": [
+        "#249 later refused the foreign review-only path (CL-D111): the packaged driver computes the pull-request fingerprints from the local checkout, and no run collects them from the GitHub API alone."
       ]
     },
     {
