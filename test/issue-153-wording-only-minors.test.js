@@ -44,8 +44,8 @@ test('Issue #153 rule 3: a repeat of a settled class is recorded as the earlier 
   const findings = sectionOf(readText(ADDENDUM), '### Findings, no-progress, and deterministic status');
   assert.ok(findings, 'the findings section must exist');
   assert.match(findings, /When a gate raises a finding of the same counterexample class as one the settled ledger already carries for an earlier head of this pull request, the run also records it/);
-  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
-  assert.match(reviewOnly, /A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` \(CL-D85\)\./);
+  // #249 B2 (CL-D113): the review-only driver records such a Minor and advances.
+  assert.match(readText('skills/closed-loop-pr/driver/phases.js'), /CL-D85: a Minor whose correction changes no file of the head is recorded and advances\./);
 });
 
 test('Issue #153 CL-D85 records the three rules and the addendum guard reset', () => {
@@ -63,7 +63,7 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
   assert.match(sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts') || '', /CL-D85/);
   const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D85').map((clause) => clause.id).sort(),
-    ['CL-D85-classes', 'CL-D85-gates', 'CL-D85-misses', 'CL-D85-order', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-routing', 'CL-D85-status', 'CL-D85-tests']);
+    ['CL-D85-classes', 'CL-D85-gates', 'CL-D85-misses', 'CL-D85-order', 'CL-D85-order-record', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-routing', 'CL-D85-status', 'CL-D85-status-record', 'CL-D85-status-review', 'CL-D85-tests']);
   assert.ok(fs.existsSync(repoPath('test/issue-153-wording-only-minors.test.js')));
 });
 
@@ -104,18 +104,24 @@ test('Issue #153 rule 1 is bounded to the pull-request root and states both disj
 test('Issue #153 readiness is reachable when the only open findings are recorded Minors', () => {
   const readiness = sectionOf(readText('skills/closed-loop-pr/references/autofix-addendum.md'), '### Source-finding replies and final readiness');
   assert.match(readiness, /Sol and Terra both returned `MERGE` for the same exact head, counting a gate result whose only open findings are Minors recorded under CL-D85 as `MERGE` for that conjunct/);
-  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
-  assert.match(reviewOnly, /A new finding other than a Minor recorded under CL-D85, a failed check, `Changes requested`, or a new head revokes readiness\./);
+  // #249 B2 (CL-D113): a recorded Minor is not an open finding, so the gates advance past it; at final readiness the
+  // driver reruns the gates on a fresh snapshot and fails on changes requested.
+  const review = readText('skills/closed-loop-pr/driver/review.js');
+  assert.ok(review.includes('const open = findings.filter((x) => !isRecorded(x) && !settled(x));'), 'a recorded Minor is not open');
+  assert.match(review, /every gate verdict: the external snapshot changed at final readiness/);
+  assert.match(readText('skills/closed-loop-pr/driver/readiness.js'), /changes requested by \$\{login\}/);
 });
 
 test('Issue #153 rule 3 is stated where the artifact that carries it exists', () => {
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.match(addendum, /the run also records it in its terminal report as a review miss of the gate and invocation that did not raise it \(CL-D85\)\./);
   assert.equal(addendum.includes('records it in the status block as a review miss'), false, 'exact autofix emits no status block');
-  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
-  assert.match(reviewOnly, /When a gate raises a finding of the same counterexample class as one this run's ledger already carries for an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it \(CL-D85\)\./);
-  assert.match(reviewOnly, /^review_misses: <counterexample class: the gate and invocation that did not raise it, one per line, or none>$/m);
-  assert.equal(reviewOnly.includes('<finding class:'), false, 'the derived vocabulary is `counterexample class`, as CL-D34 states it');
+  // #249 B2 (CL-D113): the review-only driver renders the line but records no miss; the record states the rule and the gap.
+  const record = readText('contract/CL-D85.md');
+  assert.match(record, /in review-only in the status block's `review_misses`, as a review miss of the gate and invocation that did not raise it/);
+  assert.match(record, /its `review_misses` line is always `none`, a gap recorded and not closed/);
+  assert.ok(readText('skills/closed-loop-pr/driver/run.js').includes("'review_misses: none'"), 'the driver renders the line');
+  assert.equal(record.includes('<finding class:'), false, 'the derived vocabulary is `counterexample class`, as CL-D34 states it');
 });
 
 test('Issue #153 the superseded guard figure and phrases leave the repository', () => {
@@ -157,12 +163,15 @@ test('Issue #153 the new pins survive a mutation of what they pin', () => {
 const ADVANCE = "A gate result whose only open findings are Minors recorded under CL-D85 advances as `MERGE` at every transition — convergence to Sol, Sol to Terra, and Terra to the final check — and is not a correction path; those findings stay recorded and dispositioned, and the head does not move for them.";
 
 test('Issue #153 a qualifying gate result advances at every transition, in both modes', () => {
-  for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/review-only.md']) {
+  // #249 B2 (CL-D113): the review-only carrier is the record; the driver advances whenever no finding is open.
+  for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md', 'contract/CL-D85.md']) {
     assert.ok(readText(file).includes(ADVANCE), `${file} states the transition rule`);
   }
-  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
-  assert.match(reviewOnly, /\*\*Never start the Terra gate before the Sol gate returns `MERGE`, counting a result whose only open findings are Minors recorded under CL-D85 as `MERGE` \(CL-D85\)\.\*\*/);
-  assert.match(reviewOnly, /→ preliminary disposition \(a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol, unless its only open findings are Minors recorded under CL-D85\)/);
+  const review = readText('skills/closed-loop-pr/driver/review.js');
+  assert.ok(review.includes('const open = findings.filter((x) => !isRecorded(x) && !settled(x));'), 'a recorded Minor is not open');
+  assert.match(review, /if \(next\) return launch\(run, next\);/);
+  assert.match(readText('contract/AC-GATES.md'), /a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite \(CL-D85\)/);
+  assert.match(readText('contract/CL-D62.md'), /a result whose only open findings are Minors recorded under CL-D85 advances to Sol instead of stopping/);
 });
 
 test('Issue #153 the CL-D85 record says what its carriers say', () => {
@@ -203,7 +212,7 @@ test('Issue #153 the ceiling diagnostic names the ceiling it enforces', () => {
 test('Issue #153 AC-GATES carries those two sentences and nothing else', () => {
   const gates = sectionOf(readContract(), '## AC-GATES — Sequential Sol then Terra');
   const body = gates.split('\n').slice(1).join('\n').trim();
-  assert.equal(body, '**Clauses:** AC-GATES\n\nThe Terra gate never starts before the Sol gate returns `MERGE`. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite (CL-D85).',
+  assert.equal(body, '**Clauses:** AC-GATES, AC-GATES-record, AC-GATES-driver\n\nThe Terra gate never starts before the Sol gate returns `MERGE`. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite (CL-D85).',
     'a sentence added here can cancel the counting rule while every positive pin still passes');
 });
 

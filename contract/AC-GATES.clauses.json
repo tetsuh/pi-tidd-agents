@@ -4,12 +4,35 @@
       "id": "AC-GATES",
       "title": "Sequential Sol then Terra gates",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
         "tidd-adversarial-reviewer",
         "Never start the Terra gate before the Sol gate returns `MERGE`"
+      ]
+    },
+    {
+      "id": "AC-GATES-record",
+      "marker": "AC-GATES",
+      "title": "The record states the prerequisite",
+      "files": [
+        "contract/AC-GATES.md"
+      ],
+      "requires": [
+        "The Terra gate never starts before the Sol gate returns `MERGE`."
+      ]
+    },
+    {
+      "id": "AC-GATES-driver",
+      "marker": "AC-GATES",
+      "title": "The review-only driver runs the gates in order and advances only when no finding is open",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "const GATES = ['convergence', 'adversarial', 'safety'];",
+        "const next = GATES[GATES.indexOf(gate) + 1];",
+        "if (next) return launch(run, next);"
       ]
     }
   ]

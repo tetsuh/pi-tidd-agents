@@ -212,11 +212,12 @@ function pathWithoutGh(root) {
 
 test('Issue #41 ships a review-only-owned guarded publication template', () => {
   assert.ok(fs.existsSync(repoPath(TEMPLATE)), `missing guarded publication template: ${TEMPLATE}`);
-  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
-  assert.match(reviewOnly, /review-comment\.md/);
-  assert.match(reviewOnly, /publish-review\.sh/);
-  assert.match(reviewOnly, /owner executing that command is the publication grant/i);
-  assert.match(reviewOnly, /publication_grant: review-only not-applicable/);
+  // #249 B2 (CL-D113): the review-only driver drafts both artifacts from the template and reports the operator's command.
+  const driver = readText('skills/closed-loop-pr/driver/run.js');
+  assert.ok(driver.includes("s.publication = { comment: path.join(pub, 'review-comment.md'), script: path.join(pub, 'publish-review.sh') };"), 'both artifacts');
+  assert.ok(driver.includes('The CL-D33 report: both paths, the body digest, the one command, and the head binding; the operator runs it.'), 'the operator runs it');
+  assert.ok(driver.includes("`publication_grant: ${s.grant || 'review-only not-applicable'}`"), 'the grant line');
+  assert.match(readText('contract/CL-D33.md'), /the owner executing the printed Bash command supplies the publication grant/);
 });
 
 test('Issue #41 template is syntax-valid, portable, and does not source body bytes', () => {

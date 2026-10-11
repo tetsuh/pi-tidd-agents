@@ -17,7 +17,7 @@ const TRUSTED = ['OWNER', 'MEMBER', 'COLLABORATOR'];
 // Node and process.exit drops what the pipe has not yet taken (#237), so both streams block: a write returns once the
 // pipe has every byte. A file is written synchronously and has no such handle; a terminal already blocks on POSIX.
 for (const stream of [process.stdout, process.stderr]) stream._handle?.setBlocking?.(true);
-// gate-contract.md: a missing or unparsable result, its runner status record included, is relaunched once without spending a round; still running is
+// gate-contract.md: a missing or unparsable result, its runner status record included, is relaunched once without spending a round (CL-D11); still running is
 // neither a result nor a failure.
 const RELAUNCHABLE = new Set(['status_absent', 'status_unparsable', 'designated_output_absent', 'designated_output_empty', 'designated_output_unparsable', 'designated_output_unrecorded', 'schema_invalid', 'unknown_field', 'unknown_enum', 'finding_records_invalid', 'confirmation_records_invalid', 'evidence_records_invalid', 'verdict_inconsistent', 'result_names_no_run']);
 function gateLabel(gate) { return { adversarial: 'sol', safety: 'terra' }[gate] || gate; }
@@ -155,7 +155,7 @@ function collectSnapshotEvidence(run, cwd = run.state.checkout) {
   return { snapshot, fresh };
 }
 // The pull request body and the fingerprints `keys` names, re-read now, must be what the run bound
-// (review-only.md "Revalidate the target and its evidence before each gate"); `cwd` holds the head.
+// (CL-D27); `cwd` holds the head.
 function sameSpec(run, pull, cwd, keys) {
   const s = run.state, t = s.target;
   if ((pull.body || '') !== s.body) run.stop('BLOCKED', 'the target moved: the pull request body changed');
@@ -176,7 +176,7 @@ function finalPolicy(run, snapshot, waitAction) {
   s.activeGate = 'none'; s.nextAction = 'human merge decision; the workflow never merges'; s.operatorActions = r.confirm.length ? `before merging, a human confirms: ${r.confirm.join('; ')}` : 'none; a human may merge';
 }
 
-// Ignored paths a validation, a gate, or a writer changed since the run took them (review-only.md, autofix.md): a list
+// Ignored paths a validation, a gate, or a writer changed since the run took them (CL-D38): a list
 // of up to five, or null.
 function ignoredDrift(saved, cwd) {
   const now = ignoredInventory(cwd), drift = [...now.filter((x) => !saved.includes(x)), ...saved.filter((x) => !now.includes(x))];

@@ -106,7 +106,12 @@ test('Issue #193 a non-empty CodeRabbit suite is read only when no status exists
 });
 
 test('Issue #193 both roots read the classification instead of raw suites', () => {
-  for (const file of ['skills/closed-loop-pr/references/review-only.md', 'skills/closed-loop-pr/references/autofix-addendum.md']) {
+  // #249 B2 (CL-D113): the review-only root is the packaged driver; readiness.js reads the classification the snapshot emits.
+  const readiness = readText('skills/closed-loop-pr/driver/readiness.js');
+  assert.match(readiness, /pol\.externalReview/);
+  assert.match(readText('skills/closed-loop-pr/helpers/snapshot.js'), /an empty check suite \(zero runs\) carries no provider state/);
+  assert.match(readiness, /An external review provider's state \(CL-D92\) is reported as observed, never waited for\./);
+  for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md']) {
     const text = readText(file);
     assert.match(text, /policies\.externalReview/, file);
     assert.match(text, /empty check suite/i, file);

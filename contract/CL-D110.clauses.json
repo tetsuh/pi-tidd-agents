@@ -34,12 +34,27 @@
     {
       "id": "CL-D110-review-only",
       "marker": "CL-D110",
-      "title": "review-only.md names the cross-run bound",
+      "title": "The review-only driver stops at five earlier rounds and names the restart line",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/review.js"
       ],
       "requires": [
-        "- The packaged review-only driver, across fresh runs of one pull request (CL-D110): its earlier rounds are the trusted conversation comments that open `# Review state:` with a `tidd-status` block for the target. Their settled findings, those marked recorded or confirmed, reach every gate as settled; a proposal, a deferral included, is not carried. After five such rounds without `MERGE_READY`, a BLOCKED one not counted, a run stops `WAITING_FOR_OWNER` before any gate, until a `MERGE_READY` round or a trusted comment opening with the line `tidd-budget: continue` restarts the count."
+        "if (earlier.count >= 5) run.stop('WAITING_FOR_OWNER'",
+        "a trusted comment opening with the line \\`tidd-budget: continue\\` restarts the count"
+      ]
+    },
+    {
+      "id": "CL-D110-earlier-rounds",
+      "marker": "CL-D110",
+      "title": "Earlier rounds are the trusted Review state comments; settled findings carry, BLOCKED is not counted, MERGE_READY resets",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "stateName = /^# Review state: ([A-Z_]+)/.exec(body)?.[1]",
+        "if (!stateName && /^tidd-budget: continue[ \\t]*(?:\\n|$)/.test(body)) { count = 0; continue; }",
+        "if (stateName === 'MERGE_READY') count = 0; else if (stateName !== 'BLOCKED') count += 1;",
+        "const SETTLED_LINE = /^[a-z-]+ \\((?:recorded under|confirmed by) [^)]*\\)$/;"
       ]
     },
     {

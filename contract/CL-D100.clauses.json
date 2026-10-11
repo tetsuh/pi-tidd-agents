@@ -18,17 +18,28 @@
       ]
     },
     {
-      "id": "CL-D100-prose",
+      "id": "CL-D100-readiness",
       "marker": "CL-D100",
-      "title": "Review-only states the best-effort rule",
+      "title": "Readiness answers what is present, reports a provider's own check, and names what only a human or GitHub settles",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/readiness.js"
       ],
       "requires": [
-        "External review is best effort (CL-D100): answer each external finding present; never wait for one still to come.",
-        "CodeRabbit's state, and its own check run or status that no protection requires, is only reported.",
-        "a ruleset or protection setting read but not evaluated",
-        "never holds `MERGE_READY` back; name it in `operator_actions`"
+        "External review is best effort (CL-D100, #226): a finding that is present is answered, and nothing waits for one that",
+        "A check run or commit status an external review provider posts, which no protection requires, is part of that",
+        "out.push(`ruleset ${r?.name || r?.id} can gate the merge (${gating.join(', ')})`);",
+        "if (unsettled.length) out.push(`branch protection requires ${unsettled.join(', ')}`);"
+      ]
+    },
+    {
+      "id": "CL-D100-operator",
+      "marker": "CL-D100",
+      "title": "What only a human or GitHub settles never holds readiness back",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "What only a human or GitHub settles never holds readiness back; the operator's actions name it (CL-D100)."
       ]
     },
     {

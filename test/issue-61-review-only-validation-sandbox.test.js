@@ -35,27 +35,22 @@ test('Issue #61 the PR root defines the validation sandbox delta once for both m
 });
 
 test('Issue #61 review-only permits only the validation delta and keeps every other prohibition', () => {
-  const text = readText(PR_REVIEW_ONLY);
-  const section = sectionOf(text, '### Validation sandbox boundary (CL-D38)');
-  assert.ok(section, `${PR_REVIEW_ONLY} must state its validation sandbox boundary`);
-  assert.match(section, /`VALIDATION_SANDBOX_DELTA`/);
-  assert.match(section, /Every later boundary permits only that exact presence delta/);
-  assert.match(section, /any tracked change, index change, ref movement, unsafe root, or non-validation untracked path/);
-  assert.match(section, /`BLOCKED`/, 'a safety stop must be BLOCKED, not a tool failure');
-  assert.match(section, /grants no cleanup, publication, commit, push, or reply authority/);
+  // #249 B2 (CL-D113): the review-only driver freezes the ignored inventory once validation ran and compares it before
+  // every gate; any other change to the checkout stops BLOCKED.
+  const review = readText('skills/closed-loop-pr/driver/review.js');
+  const run = readText('skills/closed-loop-pr/driver/run.js');
+  assert.ok(review.includes('s.ignoredDelta = ignoredInventory(checkout); run.save();'), 'the delta is frozen after validation');
+  assert.ok(review.includes("the checkout's ignored paths changed after validation:"), 'a later boundary permits only that delta');
+  assert.ok(run.includes('the checkout is not clean:'), 'a tracked, index or untracked change stops');
+  assert.ok(run.includes('return local === headOid ? dirtyCheckout(cwd) : `the checkout is at ${local}, not the public head ${headOid}`;'), 'ref movement stops');
+  assert.ok(run.includes('return `the runtime root ${root} is not a directory`;'), 'an unsafe root stops');
+  assert.ok(review.includes("run.stop('BLOCKED', `validation changed the checkout: ${after}`)"), 'a safety stop is BLOCKED, not a tool failure');
+  assert.match(readText('contract/CL-D38.md'), /It grants no cleanup, publication, commit, push, reply, or provider authority/);
 
-  // The prohibition list survives, including the literal AC-REVIEW-ONLY-skill pins.
-  const prohibitions = sectionOf(text, '## Review-only is the default (AC-REVIEW-ONLY, CL-D15)');
-  for (const line of [
-    'do not edit any file in the repository',
-    'do not change git state',
-    'do not commit or push',
-    'do not post to GitHub',
-    'do not reply to review threads',
-    'do not mutate any external service',
-  ]) assert.ok(prohibitions.includes(line), `review-only lost the prohibition: ${line}`);
-  // The blanket wording must acknowledge the single carve-out rather than contradict it.
-  assert.match(prohibitions, /apart from `VALIDATION_SANDBOX_DELTA`/);
+  // The prohibition list survives in the record, with the driver naming no writing operation.
+  const record = readText('contract/AC-REVIEW-ONLY.md');
+  assert.match(record, /no file edits, no git-state changes, no commits or pushes, no posting to GitHub, no replies to review threads, and no external mutation/);
+  assert.match(record, /the packaged review-only driver names no writing operation/);
 });
 
 test('Issue #61 exact autofix keeps its phase usage and stops redefining the delta', () => {
@@ -69,7 +64,7 @@ test('Issue #61 exact autofix keeps its phase usage and stops redefining the del
 test('Issue #61 CONTRACT.md records CL-D38 with clause ownership', () => {
   const section = sectionOf(readContract(), '## CL-D38 — Review-only tolerates the validation sandbox delta it created');
   assert.ok(section, 'CL-D38 decision is missing');
-  assert.match(section, /^\*\*Clauses:\*\* CL-D38-definition, CL-D38-review-only$/m);
+  assert.match(section, /^\*\*Clauses:\*\* CL-D38-definition, CL-D38-review-only, CL-D38-review-only-freeze, CL-D38-review-only-record$/m); // #249 B2 (CL-D113)
   assert.match(section, /^\*Decision ID:\* CL-D38$/m);
   assert.match(section, /tetsuh\/pi-tidd-agents#61/);
   assert.match(section, /review-only mutates nothing yet aborted on a cache exact autofix already permits/);
@@ -81,6 +76,6 @@ test('Issue #61 CONTRACT.md records CL-D38 with clause ownership', () => {
   const manifest = readManifest();
   assert.deepEqual(
     manifest.clauses.filter((clause) => clause.marker === 'CL-D38').map((clause) => clause.id).sort(),
-    ['CL-D38-definition', 'CL-D38-review-only'],
+    ['CL-D38-definition', 'CL-D38-review-only', 'CL-D38-review-only-freeze', 'CL-D38-review-only-record'],
   );
 });

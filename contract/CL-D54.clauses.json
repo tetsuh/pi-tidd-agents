@@ -3,17 +3,27 @@
     {
       "id": "CL-D54-review-only",
       "marker": "CL-D54",
-      "title": "Review-only tolerates the runtime roots the harness itself writes",
+      "title": "The driver names the two runtime roots, classifies each no-follow, and tolerates untracked paths beneath them",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/run.js"
       ],
-      "section": "### Runtime roots (CL-D54)",
       "requires": [
-        "`RUNTIME_ROOTS := { \".pi\", \".pi-subagents\" }`",
-        "classify each independently and no-follow as absent or a real directory",
-        "tolerate pre-existing untracked paths beneath them at every boundary",
-        "never claims they were cleaned, preserved, or validated",
-        "untracked paths outside `RUNTIME_ROOTS` and the frozen `VALIDATION_SANDBOX_DELTA` still stop as `BLOCKED`"
+        "const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];",
+        "A runtime root may hold untracked files only while it is absent or a real directory, judged without following a",
+        "if (code === '??' && underRoot) continue;",
+        "return `the runtime root ${root} is not a directory`;"
+      ]
+    },
+    {
+      "id": "CL-D54-record",
+      "marker": "CL-D54",
+      "title": "The record states what the roots never contribute and what keeps failing closed",
+      "files": [
+        "contract/CL-D54.md"
+      ],
+      "requires": [
+        "their bytes enter no fingerprint, gate payload, draft, or evidence claim, and the run never claims they were cleaned, preserved, or validated",
+        "untracked paths outside `RUNTIME_ROOTS` and the frozen `VALIDATION_SANDBOX_DELTA` keep failing closed"
       ]
     },
     {
@@ -24,9 +34,9 @@
         "test/issue-93-review-only-runtime-roots.test.js"
       ],
       "requires": [
-        "review-only names the runtime-root carve-out and keeps everything else closed",
-        "the amended CL-D38 boundary sentence carries the qualification once",
-        "both mode references and the helpers agree on the root set",
+        "the review-only driver names the runtime-root carve-out and keeps everything else closed",
+        "the review-only driver stops BLOCKED on a change outside the roots, after validation and before every gate",
+        "the driver, the autofix reference and the helpers agree on the root set",
         "CL-D54 records the carve-out and what it amends"
       ]
     }

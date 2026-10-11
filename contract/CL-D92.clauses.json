@@ -18,14 +18,25 @@
     {
       "id": "CL-D92-prose",
       "marker": "CL-D92",
-      "title": "Both roots read the classification",
+      "title": "The addendum reads the classification",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md",
         "skills/closed-loop-pr/references/autofix-addendum.md"
       ],
       "requires": [
         "policies.externalReview",
         "(CL-D92)"
+      ]
+    },
+    {
+      "id": "CL-D92-readiness",
+      "marker": "CL-D92",
+      "title": "Readiness reads the classification and reports it as observed",
+      "files": [
+        "skills/closed-loop-pr/driver/readiness.js"
+      ],
+      "requires": [
+        "const observed = (pol.externalReview || []).map((r) => `${r.provider} ${r.state}`);",
+        "An external review provider's state (CL-D92) is reported as observed, never waited for."
       ]
     },
     {

@@ -4,15 +4,12 @@
       "id": "CL-D28",
       "marker": "CL-D28",
       "title": "Review-only publication boundary",
-      "section": "## Publication boundary (CL-D28)",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "contract/CL-D28.md"
       ],
       "requires": [
-        "Issue workflow has no publication grant",
-        "PR review-only has no publication grant",
-        "Review-only never commits, pushes, posts, replies, or mutates external state",
-        "Drafting is not publishing"
+        "PR review-only still never commits, pushes, posts, replies, or changes external state",
+        "Drafting is not publishing."
       ]
     }
   ]

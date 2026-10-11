@@ -21,16 +21,12 @@
       "marker": "CL-D14",
       "title": "Canonical status tokens",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "contract/CL-D14.md"
       ],
       "requires": [
-        "MERGE_READY",
-        "WAITING_EXTERNAL_REVIEW",
-        "WAITING_FOR_OWNER",
-        "ROUND_LIMIT_REACHED",
-        "BLOCKED",
-        "ABORTED",
-        "In PR review-only, **never declare `MERGE_READY` while a locally drafted candidate is unpublished**"
+        "`IMPLEMENTATION_READY`, `MERGE_READY`, `WAITING_EXTERNAL_REVIEW`, `WAITING_FOR_OWNER`, `ROUND_LIMIT_REACHED`, `BLOCKED`, `ABORTED`.",
+        "A run that drafted a revision, or left an unpublished candidate, ends at `WAITING_FOR_OWNER`",
+        "Neither packaged driver emits `ABORTED`"
       ]
     }
   ]

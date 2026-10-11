@@ -369,7 +369,6 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
   assert.match(reviewOnly, /## Review-only is the default/);
   assert.match(reviewOnly, /## Gate loop \(PR review-only baseline;/);
   assert.match(reviewOnly, /## Outcome and status block \(PR review-only baseline;/);
-  assert.match(reviewOnly, /A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`\./);
   assert.doesNotMatch(reviewOnly, /Exact PR `autofix`/);
   assert.doesNotMatch(reviewOnly, /publication_grant: .*autofix/);
   assert.match(autofix, /## Autofix \(AC-AUTOFIX,/);
@@ -385,11 +384,11 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(autofix) < PR_SKILL_PRE_SPLIT_BYTES, 'autofix disclosure must be smaller than the pre-split PR Skill');
 
   const addendumStage2 = () => readText(PR_AUTOFIX_ADDENDUM);
+  // #249 B2 (CL-D113): the review-only obligations are read where they live now: the records and the driver.
   const reviewOnlyExclusive = [
-    'Review-only never edits any repository file or creates a working-tree candidate.',
-    'Review-only has no publication phase and no local commit/push window.',
-    'Review-only never commits, pushes, posts, replies, or mutates external state.',
-    'A missing or unparsable verdict is a tool-level failure: retry the invocation once',
+    ['contract/CL-D23.md', 'Review-only never edits the repository and has no formal post-fix working-tree candidate'],
+    ['contract/CL-D28.md', 'PR review-only still never commits, pushes, posts, replies, or changes external state'],
+    ['skills/closed-loop-pr/driver/phases.js', 'is relaunched once without spending a round'],
   ];
   const autofixExclusive = [
     'Exact PR `autofix` submits only the published public-head OID',
@@ -397,7 +396,7 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
     'Exact PR `autofix` never resumes: a later command is a fresh run.',
     'Exact autofix malformed or unparsable verdict stops on first failure.',
   ];
-  for (const text of reviewOnlyExclusive) assert.ok(reviewOnly.includes(text), `review-only reference must own: ${text}`);
+  for (const [file, text] of reviewOnlyExclusive) assert.ok(readText(file).includes(text), `${file} must own: ${text}`);
   const autofixStage = `${autofix}\n${addendumStage2()}`;
   for (const text of autofixExclusive) assert.ok(autofixStage.includes(text), `autofix stage must own: ${text}`);
   assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
@@ -485,7 +484,7 @@ test('Issue #22 removed prompt clauses retain named Skill-scoped enforcement', (
   }
   const surviving = {
     'CL-D6-skill': SKILLS['closed-loop-pr'],
-    'AC-REVIEW-ONLY-skill': PR_MODE_REFERENCES['review-only'],
+    'AC-REVIEW-ONLY-record': 'contract/AC-REVIEW-ONLY.md', // #249 B2 (CL-D113): the pin moved off the mode reference
     'CL-D8': SKILLS['closed-loop-issue'],
     'CL-D31-authority-skill': SKILLS['closed-loop-issue'],
     'CL-D31-preview-skill': SKILLS['closed-loop-issue'],

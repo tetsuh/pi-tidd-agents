@@ -180,16 +180,21 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(pr, /`tidd-convergence-reviewer` is required in both modes for the CL-D62 convergence stage unless it is explicitly disabled: a disabled role skips the stage and reports `convergence: disabled`; a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule/);
   assert.doesNotMatch(pr, /when it resolves and is skipped when disabled/);
   assert.match(pr, /Every convergence invocation in either mode composes the shared Every-gate invariant payload block verbatim and the volatile envelope\/history projection, returns the packaged schema declared by its agent definition, with no `outputSchema` in the launch, and receives neither the Sol-only adversarial block nor a formal role-authority block \(CL-D62\)/);
-  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
-  assert.match(reviewOnly, /→ tidd-convergence-reviewer stage \(non-authoritative, CL-D62\)\n→ preliminary disposition \(a `FIX BEFORE MERGE` stops at `WAITING_FOR_OWNER` before Sol, unless its only open findings are Minors recorded under CL-D85\)\n→ tidd-adversarial-reviewer gate/);
-  assert.match(reviewOnly, /a preliminary `FIX BEFORE MERGE` is reported through the disposition\/draft path as `WAITING_FOR_OWNER` before Sol runs, unless its only open findings are Minors recorded under CL-D85 \(CL-D85\), and open convergence findings are assigned to Sol/);
-  assert.match(reviewOnly, /Convergence rounds are accounted separately as `convergence <used>\/3`, one per candidate identity and snapshot fingerprint; at the cap the candidate goes to Sol with open convergence findings assigned \(CL-D62\)/);
-  assert.match(reviewOnly, /runs first, once per candidate identity and snapshot fingerprint, as the non-authoritative CL-D62 stage/);
-  assert.match(reviewOnly, /active_gate: <convergence\|sol\|terra\|external\|none>/);
-  assert.match(reviewOnly, /rounds: convergence <used>\/3, sol <used>\/3, terra <used>\/3/);
-  assert.match(reviewOnly, /resolved: <role provider\/model:thinking, one per role that ran; convergence: disabled when skipped>/);
+  // #249 B2 (CL-D113): the review-only root is the packaged driver: convergence first, a stop before Sol on an open
+  // finding, convergence at its cap handing to Sol with its findings assigned, and the status lines rendered from state.
+  const review = readText('skills/closed-loop-pr/driver/review.js');
+  assert.ok(review.includes("const GATES = ['convergence', 'adversarial', 'safety'];"), 'convergence runs first');
+  assert.ok(review.includes("run.stop('WAITING_FOR_OWNER', `${label(gate)} returned ${envelope.verdict} with open finding(s): ${open.map((x) => x.findingId).join(', ')}`)"), 'an open finding stops before Sol');
+  assert.ok(review.includes("if (open.length && gate === 'convergence' && p.invocation >= ROUND_CAP) {"), 'convergence at its cap hands to Sol');
+  assert.ok(review.includes("s.assigned = run.op('build_gate_assignments', { findings: open, settledKeys: [] }).data.assignedFindings;"), 'with its open findings assigned');
+  assert.ok(review.includes('`${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`'), 'rounds are accounted per gate');
+  const run = readText('skills/closed-loop-pr/driver/run.js');
+  assert.ok(run.includes("`active_gate: ${label[s.activeGate] || s.activeGate || 'none'}`"), 'the active_gate line');
+  assert.ok(run.includes("`rounds: ${s.rounds || 'none'}`"), 'the rounds line');
+  assert.ok(run.includes("`resolved: ${quoted((s.resolved || []).join('; ') || 'none')}`"), 'the resolved line');
+  assert.match(readText('contract/CL-D62.md'), /Review-only stops at `WAITING_FOR_OWNER` on a preliminary `FIX BEFORE MERGE` before Sol runs\./);
   // CL-D85 (Issue #153) qualifies the prerequisite; the order itself is unchanged.
-  assert.match(reviewOnly, /\*\*Never start the Terra gate before the Sol gate returns `MERGE`, counting a result whose only open findings are Minors recorded under CL-D85 as `MERGE` \(CL-D85\)\.\*\*/);
+  assert.match(readText('contract/AC-GATES.md'), /The Terra gate never starts before the Sol gate returns `MERGE`\. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite \(CL-D85\)\./);
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.match(addendum, /The CL-D62 convergence stage runs once per candidate identity and snapshot fingerprint before each Sol invocation, is accounted separately as `convergence <used>\/5` outside the 15 counted gate invocations, and at its cap hands the candidate to Sol with open convergence findings assigned/);
   assert.match(addendum, /the final summary reports `resolved:` with each role's provider, model, and thinking level/);
@@ -278,5 +283,5 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D62').map((clause) => clause.id).sort(), ['CL-D62-autofix', 'CL-D62-autofix-flow', 'CL-D62-autofix-map', 'CL-D62-autofix-map-driver', 'CL-D62-autofix-map-review', 'CL-D62-autofix-map-schema', 'CL-D62-issue', 'CL-D62-pr', 'CL-D62-readme', 'CL-D62-shared', 'CL-D62-tests']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D62').map((clause) => clause.id).sort(), ['CL-D62-autofix', 'CL-D62-autofix-flow', 'CL-D62-autofix-map', 'CL-D62-autofix-map-driver', 'CL-D62-autofix-map-review', 'CL-D62-autofix-map-schema', 'CL-D62-issue', 'CL-D62-pr', 'CL-D62-pr-record', 'CL-D62-readme', 'CL-D62-shared', 'CL-D62-tests']);
 });

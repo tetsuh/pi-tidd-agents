@@ -1,0 +1,85 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D113-record",
+      "marker": "CL-D113",
+      "title": "CL-D113 records where the review-only reference's pins went",
+      "files": [
+        "contract/CL-D113.md"
+      ],
+      "section": "## CL-D113 — The clause pins of the review-only reference move to the code and the records",
+      "requires": [
+        "issues/249#issuecomment-6105250786",
+        "Option A, as the corrected order already states",
+        "No alarm is raised",
+        "CL-D107-review-only",
+        "CL-D72-route-review-only",
+        "CL-D31-pr-boundary-pr",
+        "Four sentences were about the document or the prose path and are retired",
+        "The file is byte-identical and `driver/review.js` reads it into `contractInput` as before.",
+        "each is recorded here, not closed, and in its own record"
+      ]
+    },
+    {
+      "id": "CL-D113-forward",
+      "marker": "CL-D113",
+      "title": "The records whose only pin was the file carry the move",
+      "files": [
+        "contract/CL-D28.md",
+        "contract/AC-REVIEW-ONLY.md"
+      ],
+      "requires": [
+        "#249 later moved this record's pin off `references/review-only.md` to this record (CL-D113)"
+      ]
+    },
+    {
+      "id": "CL-D113-forward-d54",
+      "marker": "CL-D113",
+      "title": "CL-D54's drift fixture compares the driver's root set",
+      "files": [
+        "contract/CL-D54.md"
+      ],
+      "requires": [
+        "#249 later moved this record's pins to `driver/run.js` (CL-D113); the fixture compares the root set the driver names with `helpers/operator.js` and, until its own pull request, `references/autofix.md`."
+      ]
+    },
+    {
+      "id": "CL-D113-gaps",
+      "marker": "CL-D113",
+      "title": "Each gap is recorded in its own record, not closed",
+      "files": [
+        "contract/CL-D85.md",
+        "contract/CL-D14.md",
+        "contract/CL-D17.md"
+      ],
+      "requires": [
+        "a gap recorded and not closed (#249, CL-D113)"
+      ]
+    },
+    {
+      "id": "CL-D113-resume",
+      "marker": "CL-D113",
+      "title": "CL-D13 states the driver's resume path",
+      "files": [
+        "contract/CL-D13.md"
+      ],
+      "requires": [
+        "every other stop is followed by a fresh run, and a pasted block is not read (#249, CL-D113)"
+      ]
+    },
+    {
+      "id": "CL-D113-tests",
+      "marker": "CL-D113",
+      "title": "The #272 tests pin the repoint",
+      "files": [
+        "test/issue-272-review-only-pins.test.js"
+      ],
+      "requires": [
+        "Issue #272 no clause pin names references/review-only.md, and the retired duplicates are gone",
+        "Issue #272 the rule-stating tests read the code or the record; the mixed files keep only their structural reads; the structural reads stay",
+        "Issue #272 the file is byte-identical, review.js still reads it into contractInput, and the byte alarms are unchanged",
+        "Issue #272 CL-D113 records the repoint, the retired clauses and sentences, and the four gaps"
+      ]
+    }
+  ]
+}

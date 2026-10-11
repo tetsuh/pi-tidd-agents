@@ -58,17 +58,6 @@
       ]
     },
     {
-      "id": "CL-D107-review-only",
-      "marker": "CL-D107",
-      "title": "review-only.md names the added relaunch",
-      "files": [
-        "skills/closed-loop-pr/references/review-only.md"
-      ],
-      "requires": [
-        "A verdict whose correlation names no run is one too (CL-D107)."
-      ]
-    },
-    {
       "id": "CL-D107-autofix-driver",
       "marker": "CL-D107",
       "title": "Exact autofix's codes hold the label",

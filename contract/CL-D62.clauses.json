@@ -41,15 +41,28 @@
     {
       "id": "CL-D62-pr",
       "marker": "CL-D62",
-      "title": "PR review-only runs convergence first, stops before Sol on a preliminary FIX, and reports it",
+      "title": "The review-only driver runs convergence first, stops before Sol on an open finding, and accounts convergence rounds separately",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/review.js"
       ],
       "requires": [
-        "→ tidd-convergence-reviewer stage (non-authoritative, CL-D62)",
-        "a preliminary `FIX BEFORE MERGE` is reported through the disposition/draft path as `WAITING_FOR_OWNER` before Sol runs, unless its only open findings are Minors recorded under CL-D85 (CL-D85)",
-        "Convergence rounds are accounted separately as `convergence <used>/3`, one per candidate identity and snapshot fingerprint",
-        "rounds: convergence <used>/3, sol <used>/3, terra <used>/3"
+        "const GATES = ['convergence', 'adversarial', 'safety'];",
+        "const open = findings.filter((x) => !isRecorded(x) && !settled(x));",
+        "run.stop('WAITING_FOR_OWNER', `${label(gate)} returned ${envelope.verdict} with open finding(s): ${open.map((x) => x.findingId).join(', ')}`)",
+        "if (open.length && gate === 'convergence' && p.invocation >= ROUND_CAP) {",
+        "`${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`"
+      ]
+    },
+    {
+      "id": "CL-D62-pr-record",
+      "marker": "CL-D62",
+      "title": "The record states the preliminary stop and its CL-D85 qualification",
+      "files": [
+        "contract/CL-D62.md"
+      ],
+      "requires": [
+        "Review-only stops at `WAITING_FOR_OWNER` on a preliminary `FIX BEFORE MERGE` before Sol runs.",
+        "a result whose only open findings are Minors recorded under CL-D85 advances to Sol instead of stopping"
       ]
     },
     {

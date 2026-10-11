@@ -1,7 +1,7 @@
 'use strict';
 
 // CL-D93 (#196): the packaged review-only driver. It sequences one PR review round from the package's helpers in the
-// order review-only.md states and leaves the parent one thing per gate: the `subagent` call it prints. Gates judge;
+// order AC-GATES and CL-D62 state and leaves the parent one thing per gate: the `subagent` call it prints. Gates judge;
 // the driver never does.
 //
 //   node review.js start  --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--language-profile P] [--convergence disabled] [--validate JSON]
@@ -17,7 +17,7 @@ const { Run, headFingerprints, targetMoved, roleLabel, checkoutProblem, ignoredI
 const { gateLabel: label, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
-const ROUND_CAP = 3;
+const ROUND_CAP = 3; // CL-D11
 const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-pr/references/review-only.md', 'skills/closed-loop-pr/references/helper-map.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];
 function rounds(s) { return GATES.map((g) => (g === 'convergence' && s.convergenceDisabled ? 'convergence disabled' : `${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`)).join(', '); }
 
@@ -61,11 +61,12 @@ function start(opts) {
     const v = run.op('validation_run', { cwd: checkout, command, timeoutMs: 1800000 }, { allowFail: true });
     results.push(`${command.join(' ')}: ${v.data?.outcome || v.error?.code}`);
     s.validation = results.join('; ');
-    // A failed command is a validation result; a harness that could not run it is never a verdict (review-only.md).
+    // A failed command is a validation result; a harness that could not run it is never a verdict (CL-D72).
     if (v.ok === false && v.error?.code !== 'validation_failed') run.stop('BLOCKED', `harness_failed: ${command.join(' ')}: ${v.error?.code} ${v.error?.message || ''}`.trim());
     if (v.data?.outcome !== 'passed') { s.nextAction = 'the author fixes the validation failure, then a fresh run'; run.stop('WAITING_FOR_OWNER', `validation failed: ${command.join(' ')}`); }
   }
   const after = checkoutProblem(checkout, target.headOid); if (after) run.stop('BLOCKED', `validation changed the checkout: ${after}`);
+  // The validation delta, frozen once validation ran (CL-D38).
   s.ignoredDelta = ignoredInventory(checkout); run.save();
   // Validation takes time; the target and its body are revalidated before the first gate (CONV-199-FIRST-BODY-REVALIDATION).
   revalidate(run);
@@ -74,8 +75,7 @@ function start(opts) {
 }
 
 // Before every gate after the first and at final readiness: the target, the pull request body, the checkout, and every
-// head fingerprint (the issue spec re-read) must be unchanged (review-only.md "Revalidate the target and its evidence
-// before each gate").
+// head fingerprint (the issue spec re-read) must be unchanged (CL-D27).
 function revalidate(run) {
   const s = run.state, t = s.target;
   const pull = gh(['api', `repos/${t.repository}/pulls/${t.number}`], s.checkout);
@@ -163,7 +163,7 @@ function finalReadiness(run) {
   run.stop('MERGE_READY', `${s.convergenceDisabled ? 'convergence was disabled; Sol and Terra' : 'convergence, Sol and Terra'} returned MERGE on the unchanged head; the final policy passes`);
 }
 
-// review-only.md: a stopped run resumes only after every fingerprint is recomputed, never trusting recorded state; a
+// CL-D13: a stopped run resumes only after every fingerprint is recomputed, never trusting recorded state; a
 // changed target is refused and what moved is reported. Only a WAITING_EXTERNAL_REVIEW stop has work left to resume;
 // every other stop is completed by a fresh run. The resumed run reports its own observation time.
 function resume(opts) {
