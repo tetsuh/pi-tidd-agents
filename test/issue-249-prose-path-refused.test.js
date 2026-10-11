@@ -89,6 +89,11 @@ test('Issue #249 the dispatch section routes every pull request to the driver an
   assert.match(boundary, /A pull request whose head is in \*\*another repository\*\* is refused by the driver before any run, as is one whose base or head commit the checkout does not hold; nothing is reviewed from the GitHub API alone \(CL-D111\)\./);
   assert.doesNotMatch(boundary, /may be reviewed in review-only mode|no local Git object or checkout is required/);
   assert.match(boundary, /Autofix and every publication action refuse such a target/);
+  // Pre-push sweep A1: a pull request of another repository (a URL the shared grammar accepts) would otherwise be read
+  // as the checkout repository's pull request of that number, since step 1 fixes --repo to the checkout's repository.
+  assert.match(boundary, /A pull request of another repository than the current checkout's is refused before the driver: report it and stop, and review nothing \(CL-D111\)\./);
+  // The evidence section's foreign path is specification until #249 deletes it, and says so.
+  assert.match(sectionOf(skill, '## Evidence fingerprints (CL-D9)'), /Since CL-D111 no run takes the following path; it stays as specification until #249 deletes it\./);
 });
 
 test('Issue #249 README names the refusal in place of the send-back', () => {
@@ -104,6 +109,9 @@ test('Issue #249 CL-D111 records the refusal and the superseded records name it'
   assert.match(record, /Option \(a\)/);
   assert.match(record, /the mode references are deleted in later pull requests of #249/);
   assert.match(record, /Reinstating a hand-composed round, or reviewing a pull request from the GitHub API alone, requires a new owner decision\./);
+  assert.match(record, /A pull request of another repository than the current checkout's is refused by the parent before the driver/);
+  const index = readText('CONTRACT.md');
+  assert.ok(index.indexOf('contract/CL-D111.md') < index.indexOf('contract/CL-D110.md'), 'the index lists CL-D111 before CL-D110, in its descending block');
   for (const [id, heading] of [
     ['CL-D104', '## CL-D104 — /tidd-pr runs through the packaged driver'],
     ['CL-D19', '## CL-D19 — Division of responsibility between prompts, Skills, and mode references'],
