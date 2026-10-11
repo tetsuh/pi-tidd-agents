@@ -50,7 +50,7 @@ A preflight failure is not a review round.
 
 The shared grammar consumes the target reference first. CL-D6 then consumes only a final exact `autofix` token; reject any leftover token or near-miss. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`.
 
-A pull request whose head is in **another repository** is refused by the driver before any run, as is one whose base or head commit the checkout does not hold; nothing is reviewed from the GitHub API alone (CL-D111). Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
+A pull request of another repository than the current checkout's is refused before the driver: report it and stop, and review nothing (CL-D111). A pull request whose head is in **another repository** is refused by the driver before any run, as is one whose base or head commit the checkout does not hold; nothing is reviewed from the GitHub API alone (CL-D111). Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 
 ## Driver dispatch (CL-D104)
 
@@ -81,7 +81,7 @@ Every digest uses canonical UTF-8 bytes:
 
 For a local target, use `LC_ALL=C`, `git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv` and the matching log options.
 
-For a foreign review-only target, and for a same-repository review-only target whose local Git objects are absent, no checkout is required and evidence comes from the GitHub API without fetch, checkout, or git-state mutation:
+Since CL-D111 no run takes the following path; it stays as specification until #249 deletes it. For a foreign review-only target, and for a same-repository review-only target whose local Git objects are absent, no checkout is required and evidence comes from the GitHub API without fetch, checkout, or git-state mutation:
 
 - `gh api repos/<owner>/<repo>/pulls/<n>` for OIDs;
 - `gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>` for the effective diff;

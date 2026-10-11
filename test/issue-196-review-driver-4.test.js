@@ -80,7 +80,7 @@ test('Issue #196 a stopped run resumes after recomputing its fingerprints, and r
 });
 
 // Round 15 of PR #199: bot comments are never authoritative (CONV-199-BOT-COMMENTS-TRUSTED); a head from another
-// repository goes to the prose path even when its objects are local (CONV-199-FOREIGN-HEAD-LOCAL); a validated MERGE
+// repository is refused even when its objects are local (CONV-199-FOREIGN-HEAD-LOCAL, CL-D111); a validated MERGE
 // that carries a deferred follow-up advances (CONV-199-MAJOR-FOLLOWUP-ADVANCES).
 test('Issue #196 Sol receives trusted human issue comments and never a bot\'s', () => {
   const t = setup();
