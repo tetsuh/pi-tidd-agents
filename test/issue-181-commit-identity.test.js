@@ -438,7 +438,7 @@ test('Issue #181 the push names exactly one credential helper, gh, and no force'
   assert.throws(() => pushArgs('feat/x', 'HEAD', lease), /resolved commit/, 'the push never names HEAD as its source');
 });
 
-test('Issue #181 the map, the addendum, and CL-D89 route the commit and push through the packaged operations', () => {
+test('Issue #181 the CLI table, the declared shapes, the addendum, and CL-D89 route the commit and push through the packaged operations', () => {
   // #249 B1 (CL-D112): the map's row is pinned where the rule lives, the packaged CLI's operation table and the code.
   const composition = readText('skills/closed-loop-pr/helpers/composition.js');
   assert.ok(composition.includes("commit_create: Object.freeze({ created: 'data:workspace_create', captured: 'envelope:operator_capture' }),"), 'the commit takes the workspace and the capture by declared shape');

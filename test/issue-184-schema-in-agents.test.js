@@ -147,7 +147,7 @@ test('Issue #184 a replacement gate definition must declare the packaged schema'
   assert.match(readText('skills/closed-loop-shared/references/gate-contract.md'), /A replacement definition of a gate role must declare the same `outputSchema`; a result whose child ran without the packaged schema is refused when read\./);
 });
 
-test('Issue #184 the helper map says the expectation carries no schema', () => {
+test('Issue #184 the builder and the launch say the expectation carries no schema', () => {
   // CONV-187-SCHEMA-DOCS: the builder paragraph still said build_gate_expectation returns the schema.
   // #249 B1 (CL-D112): the map's row is pinned where the rule lives, the packaged CLI's operation table and the code.
   assert.ok(readText('skills/closed-loop-pr/helpers/builders.js').includes("CL-D90: the CL-D36 schema no longer rides along. The gate roles' agent definitions carry it, so no document the"));

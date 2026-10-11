@@ -314,7 +314,7 @@ test('Issue #188 the payload is 0600 whatever the umask', () => {
   } finally { process.umask(saved); fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('Issue #188 the map and the contract state the pointer rule', () => {
+test('Issue #188 the CLI table and the contract state the pointer rule', () => {
   // #249 B1 (CL-D112): the map's row is pinned where the rule lives, the packaged CLI's operation table and the code.
   assert.ok(readText('skills/closed-loop-pr/helpers/cli.js').includes("gate_payload_verify: { required: ['path', 'sha256'], optional: [] },"), 'the CLI declares the verification and its inputs');
   const contract = readText('skills/closed-loop-shared/references/gate-contract.md');

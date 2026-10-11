@@ -52,7 +52,7 @@ test('Issue #179 a workspace path that cannot be a cwd is refused', () => {
   }
 });
 
-test('Issue #179 the map, the CLI table, and CL-D88 state the input set', () => {
+test('Issue #179 the builder, the CLI table, and CL-D88 state the input set', () => {
   // ADV-180-VERIFY-INPUTS-001: the row and the builder paragraph state the whole input set, `transition` included.
   // #249 B1 (CL-D112): the map's row is pinned where the rule lives, the packaged CLI's operation table and the code.
   const builders = readText('skills/closed-loop-pr/helpers/builders.js');

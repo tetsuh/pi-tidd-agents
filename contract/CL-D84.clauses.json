@@ -70,7 +70,7 @@
         "Issue #161 the packaged terminal cleanup removes the workspace from the receipt alone",
         "Issue #161 the parent supplies the created workspace and nothing else",
         "Issue #161 a workspace it must not remove is refused, with the boundary it belongs to",
-        "Issue #161 the map and the record name the packaged terminal cleanup"
+        "Issue #161 the CLI table, the driver and the record name the packaged terminal cleanup"
       ]
     }
   ]
