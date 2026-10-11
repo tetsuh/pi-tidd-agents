@@ -178,13 +178,13 @@ test('Issue #196 a stop drafts exactly the two CL-D33 artifacts and no status-bl
   assert.ok(r.stdout.includes('```tidd-status'), 'the report carries the block');
 });
 
-test('Issue #196 a pull request with no local checkout of its head is left to the prose path, before any run directory', () => {
+test('Issue #196 a pull request with no local checkout of its head is refused before any run directory', () => {
   const t = setup();
   const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.sha = 'd'.repeat(40); fs.writeFileSync(t.fixture, JSON.stringify(f));
   const r = drive(t.start, t.e);
   assert.notEqual(r.status, 0);
   assert.equal(fs.existsSync(t.runDir), false);
-  assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: .*review it on the prose path/);
+  assert.match(r.stderr, /^tidd-driver: the checkout .* does not hold d{40}; the driver needs the head and base locally\n$/);
 });
 
 // CONV-199-IGNORED-DELTA-BOUNDARY: ignored paths are frozen after validation (the validation sandbox delta) and
@@ -199,13 +199,13 @@ test('Issue #196 an ignored file that appears between gates stops the next launc
   assert.match(state(t.runDir).reason, /ignored paths changed/);
 });
 
-test('Issue #196 a head from another repository goes to the prose path even when its objects are local', () => {
+test('Issue #196 a head from another repository is refused even when its objects are local', () => {
   const t = setup();
   const f = JSON.parse(fs.readFileSync(t.fixture, 'utf8')); f.pull.head.repo = { full_name: 'fork/r' }; fs.writeFileSync(t.fixture, JSON.stringify(f));
   const r = drive(t.start, t.e);
   assert.notEqual(r.status, 0);
   assert.equal(fs.existsSync(t.runDir), false);
-  assert.match(r.stdout.trim().split('\n').pop(), /^PROSE_PATH: .*another repository.*prose path/);
+  assert.match(r.stderr, /^tidd-driver: pull request .* has its head in another repository \(fork\/r\)/);
 });
 
 test('Issue #196 a validated MERGE that carries a deferred follow-up advances', () => {

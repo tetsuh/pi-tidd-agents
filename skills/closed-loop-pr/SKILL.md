@@ -50,18 +50,17 @@ A preflight failure is not a review round.
 
 The shared grammar consumes the target reference first. CL-D6 then consumes only a final exact `autofix` token; reject any leftover token or near-miss. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`.
 
-A target in **another repository** may be reviewed in review-only mode. Its base/head OIDs, tree values, effective diff, and commit sequence come from the foreign GitHub API endpoints described below, so no local Git object or checkout is required. The same GitHub API evidence path is available to a same-repository review-only target when local Git objects are absent; this requires no fetch, checkout, or git-state mutation. Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
+A pull request of another repository than the current checkout's is refused before the driver: report it and stop, and review nothing (CL-D111). A pull request whose head is in **another repository** is refused by the driver before any run, as is one whose base or head commit the checkout does not hold; nothing is reviewed from the GitHub API alone (CL-D111). Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 
 ## Driver dispatch (CL-D104)
 
-After the checks above, a pull request of the repository of the current checkout runs through the packaged driver, which sequences the round, not you; any other target continues with Mode dispatch below. The other sections of this Skill, the shared references and the mode references are the specification the driver and the gates implement; on this path you read no mode reference, compose no helper request, and judge no finding.
+After the checks above, the pull request runs through the packaged driver, which sequences the round, not you. The other sections of this Skill, the shared references and the mode references are the specification the driver and the gates implement; you read no mode reference, compose no helper request, and judge no finding. A pull request the driver refuses before any run (a head in another repository, or a base or head commit the checkout does not hold) is reported on its error output; report it and stop, and review nothing by hand (CL-D111).
 
 1. From the checkout's top-level directory, run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`, where `<skill-dir>` is this Skill's directory, `<driver>` is `review` in review-only mode and `autofix` in autofix mode, and `<owner/name>` is the checkout's repository. Add `--language-profile "conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites=<sites>"` with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none), and `--convergence disabled` only when preflight found that role disabled. Set no timeout of your own on a driver command; one that is killed anyway is reported, and you stop.
 2. When a line begins `NEXT:`, call `subagent` with exactly the JSON object on the following line. If the call is refused or returns no run id, report it and stop; never change the object. Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it. Then run the command on the `NEXT:` line itself (`result` or `writer-done`) with that run id; commands inside the JSON object are the subagent's, never yours.
 3. When a line begins `WAIT:`, the run has not completed: wait for its completion, then run the command that line names with the same run id. This is not a retry.
-4. When the last line the driver prints begins `PROSE_PATH:` (a note your shell tool adds after it, such as the exit code, is not the driver's), continue with Mode dispatch below in the parsed mode, whatever reference that line names.
-5. Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop. Never run the publication script.
-6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.
+4. Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop. Never run the publication script.
+5. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.
 
 ## Evidence fingerprints (CL-D9)
 
@@ -82,7 +81,7 @@ Every digest uses canonical UTF-8 bytes:
 
 For a local target, use `LC_ALL=C`, `git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv` and the matching log options.
 
-For a foreign review-only target, and for a same-repository review-only target whose local Git objects are absent, no checkout is required and evidence comes from the GitHub API without fetch, checkout, or git-state mutation:
+Since CL-D111 no run takes the following path; it stays as specification until #249 deletes it. For a foreign review-only target, and for a same-repository review-only target whose local Git objects are absent, no checkout is required and evidence comes from the GitHub API without fetch, checkout, or git-state mutation:
 
 - `gh api repos/<owner>/<repo>/pulls/<n>` for OIDs;
 - `gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>` for the effective diff;
@@ -136,9 +135,6 @@ A pull-request body under this workflow carries three parts and nothing else: a 
 
 ## Mode dispatch (CL-D19)
 
-After CL-D6 mode parsing succeeds and the shared preflight, target, evidence, language, gate, disposition, decision, and test-provenance rules above are available, load the authoritative continuation for the parsed mode:
+Since CL-D111 no pull request takes this path: every run goes through the driver (Driver dispatch above), and you read no mode reference. The block stays as specification until #249 deletes it with the mode references.
 
-- review-only mode: read `references/review-only.md`;
-- exact CL-D30 `autofix` mode: read `references/autofix.md`.
-
-Read exactly one mode reference after mode parsing. Never read both. Follow the selected reference together with this shared contract; no instruction from the unselected mode applies.
+The former continuation, for the record only: review-only mode read `references/review-only.md`; exact CL-D30 `autofix` mode read `references/autofix.md`. Exactly one was read after mode parsing, never both.

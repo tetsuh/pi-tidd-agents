@@ -46,7 +46,7 @@ function fakeGh(target) {
   fs.writeFileSync(fixture, JSON.stringify({ origin: target.origin, base: target.base, issue: target.issue, body: target.body }));
   fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env node
 const f = JSON.parse(require('fs').readFileSync(${JSON.stringify(fixture)}, 'utf8'));
-const head = require('child_process').execFileSync('git', ['--git-dir', f.origin, 'rev-parse', 'refs/heads/feature'], { encoding: 'utf8' }).trim();
+const head = f.headSha || require('child_process').execFileSync('git', ['--git-dir', f.origin, 'rev-parse', 'refs/heads/feature'], { encoding: 'utf8' }).trim();
 const args = process.argv.slice(2), endpoint = args[args.length - 1];
 const out = (v) => { process.stdout.write(JSON.stringify(v)); process.exit(0); };
 if (args[0] !== 'api') { process.stderr.write('unexpected gh ' + args.join(' ')); process.exit(9); }

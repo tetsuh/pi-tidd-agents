@@ -27,15 +27,13 @@
       ],
       "section": "## Driver dispatch (CL-D104)",
       "requires": [
-        "a pull request of the repository of the current checkout runs through the packaged driver, which sequences the round, not you",
+        "the pull request runs through the packaged driver, which sequences the round, not you",
         "run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`",
         "If the call is refused or returns no run id, report it and stop; never change the object.",
         "Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it.",
         "When a line begins `WAIT:`, the run has not completed",
-        "4. When the last line the driver prints begins `PROSE_PATH:` (a note your shell tool adds after it, such as the exit code, is not the driver's), continue with Mode dispatch below in the parsed mode, whatever reference that line names.",
-        "6. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.",
         "Add `--language-profile \"conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites=<sites>\"` with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none)",
-        "(a note your shell tool adds after it, such as the exit code, is not the driver's)"
+        "5. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand."
       ]
     },
     {
@@ -95,7 +93,8 @@
         "skills/closed-loop-pr/driver/phases.js"
       ],
       "requires": [
-        "function sendBack(message) { process.stdout.write(`PROSE_PATH: ${String(message).split(/[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]+/).join(' ')}\\n`); process.exit(2); }"
+        "die(`pull request ${repository}#${number} has its head in another repository (${pull.head.repo.full_name}); the driver reviews only a pull request whose head is in ${repository}`)",
+        "die(`the checkout ${checkout} does not hold ${oid}; the driver needs the head and base locally`)"
       ]
     },
     {
@@ -110,12 +109,12 @@
         "Issue #224 the dispatch section\\'s command sequence runs one review-only round to a terminal outcome",
         "Issue #224 the contract records the dispatch and README names the one way to run a round",
         "Issue #224 CL-D104 raises the authority ceiling once, with the headroom asserted at the raise",
-        "Issue #224 a review-only diff that is not UTF-8 ends on a PROSE_PATH line after FINISHED",
-        "Issue #224 a head that is not local is sent back on a PROSE_PATH line",
-        "Issue #224 a send-back without a base .tidd.json carries no git error output",
-        "Issue #224 a send-back carries no git warning either",
-        "Issue #224 a send-back naming a checkout path with a line break is still one PROSE_PATH line",
-        "Issue #224 a stop reason holding a Unicode line separator cannot forge a PROSE_PATH last line",
+        "Issue #224 a review-only diff that is not UTF-8 stops BLOCKED after drafting its artifacts",
+        "Issue #224 a head that is not local is refused before any run directory",
+        "Issue #224 a non-UTF-8 stop without a base .tidd.json carries no git error output",
+        "Issue #224 a non-UTF-8 stop carries no git warning either",
+        "Issue #224 a refusal naming a checkout path with a line break is reported as it is",
+        "Issue #224 a stop reason holding a Unicode line separator cannot forge a FINISHED last line",
         "Issue #224 a NEXT line holding a Unicode line separator stays one line with its value unchanged"
       ]
     }
