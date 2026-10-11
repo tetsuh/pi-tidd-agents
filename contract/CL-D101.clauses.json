@@ -31,13 +31,24 @@
     {
       "id": "CL-D101-map",
       "marker": "CL-D101",
-      "title": "The helper map names both writes of the launch builder",
+      "title": "The launch composer writes only the payload file and its verification request, and the request carries a pointer",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/launch.js"
       ],
       "requires": [
-        "are the gate payload file and its verification request beside that expectation file",
-        "its request carries only a pointer to that request (CL-D91, CL-D101)"
+        "a composer whose writes are the gate payload file and its verification request (CL-D91, CL-D101; otherwise read-only)",
+        "request carries only a pointer: the verification request the child runs before reading (CL-D101)."
+      ]
+    },
+    {
+      "id": "CL-D101-map-payload",
+      "marker": "CL-D101",
+      "title": "The payload lives beside the expectation file",
+      "files": [
+        "skills/closed-loop-pr/helpers/payload.js"
+      ],
+      "requires": [
+        "The payload lives beside the expectation file, in the run's own directory: an absolute location outside every Git"
       ]
     },
     {

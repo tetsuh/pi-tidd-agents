@@ -3,39 +3,59 @@
     {
       "id": "CL-D44-autofix",
       "marker": "CL-D44",
-      "title": "Exact autofix declares and checks cross-operation input shapes",
+      "title": "The declared input shapes are distinct, one predicate each, calibrated to what fails downstream",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/composition.js"
       ],
-      "section": "### Cross-operation input shapes (CL-D44)",
       "requires": [
-        "`envelope`, `data`, and `receipt` are distinct input shapes",
-        "the map names the shape each field expects, not only the field",
-        "no shape is accepted as a tolerant alternative for another",
-        "a supplied shape that is not the declared one stops with `input_shape_mismatch`",
-        "never as a later identity, capture, or evidence failure",
-        "it is not a validator of producer output",
-        "rejected because it fails that one predicate, never because of what it was recognized to be",
-        "calibrated to what fails downstream",
-        "the closed CL-D36 schema remains the sole validator of gate results",
-        "constructed by hand to satisfy a declared predicate passes",
-        "The five declared fields are the complete CL-D44 set"
+        "Cross-operation fields carry one declared shape each, checked before the",
+        "output. Each field carries one predicate for its declared shape, and a value is rejected",
+        "envelope belongs — crosses the boundary and surfaces later as an unrelated identity or",
+        "The check separates the declared shapes from one another; it is not a validator of producer",
+        "because it fails that one predicate — never because of what it was recognized to be. The",
+        "One predicate per declared shape. Predicate depth is calibrated to what fails downstream:",
+        "closed CL-D36 schema in gate-result.js remains the sole validator of gate results. The"
+      ]
+    },
+    {
+      "id": "CL-D44-autofix-launch",
+      "marker": "CL-D44",
+      "title": "A shape that is not the declared one stops with input_shape_mismatch; a hand-made value satisfying the predicate passes",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "if (shapeProblem !== null) fail('input_shape_mismatch', shapeProblem);",
+        "The declared shape takes any nonempty string, and a hand-made object satisfying a predicate passes (CL-D44), so"
+      ]
+    },
+    {
+      "id": "CL-D44-autofix-record",
+      "marker": "CL-D44",
+      "title": "The record states the shape rule and the complete declared set",
+      "files": [
+        "contract/CL-D44.md"
+      ],
+      "requires": [
+        "`envelope`, `data`, and `receipt` remain distinct input shapes decided by structure",
+        "the packaged CLI accepts no tolerant alternative for a declared field",
+        "are the complete CL-D44 set, pinned exactly by regression",
+        "the map names each field's shape beside the field"
       ]
     },
     {
       "id": "CL-D44-map",
       "marker": "CL-D44",
-      "title": "The invocation map publishes each field's declared shape",
+      "title": "The composition table declares each cross-operation field's shape",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/composition.js"
       ],
-      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)",
-        "`expected` (data of `workspace_create`)",
-        "`receipt` (receipt inside `workspace_create` data)",
-        "`snapshot` (data of `snapshot`)",
-        "`result` (structured gate output)"
+        "operator_revalidate: Object.freeze({ captured: 'envelope:operator_capture' }),",
+        "workspace_verify: Object.freeze({ expected: 'data:workspace_create' }),",
+        "workspace_cleanup: Object.freeze({ receipt: 'receipt:workspace_create' }),",
+        "fingerprint_snapshot: Object.freeze({ snapshot: 'data:snapshot' }),",
+        "gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),"
       ]
     },
     {

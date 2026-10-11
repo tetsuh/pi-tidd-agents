@@ -96,8 +96,7 @@ test('Issue #169 CL-D86 records both choices and the helper alarm reset', () => 
   assert.match(record, /issues\/169#issuecomment-5786110213/, 'the record cites the owner choices');
   assert.match(record, /The packaged-helper alarm resets from 270,000 to 280,000 bytes/);
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D86').map((clause) => clause.id).sort(),
-    ['CL-D86-builder', 'CL-D86-cli', 'CL-D86-map', 'CL-D86-record', 'CL-D86-tests']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D86').map((clause) => clause.id).sort(), ['CL-D86-builder', 'CL-D86-cli', 'CL-D86-map', 'CL-D86-map-builders', 'CL-D86-map-driver', 'CL-D86-map-record', 'CL-D86-record', 'CL-D86-tests']);
 });
 
 test('Issue #169 the reset helper alarm is the one every suite asserts', () => {
@@ -144,7 +143,8 @@ test('Issue #169 the retry is stated where the no-retry rule is stated', () => {
 test('Issue #169 nothing still says the parent supplies the heads', () => {
   // CONV-173-DOC-001: naming the derivation is not enough while the sentence still opens with the parent doing
   // it. Every live statement says the builder derives the heads; only a clause marked as history may say more.
-  for (const file of [...contractFiles(), 'README.md', 'skills/closed-loop-pr/references/helper-map.md']) {
+  // #249 B1 (CL-D112): the map is no longer a live statement; the records and README are.
+  for (const file of [...contractFiles(), 'README.md']) {
     const text = readText(file);
     assert.equal(text.includes('an obligation no check enforces'), false, `${file} still calls the transition an unchecked obligation`);
     assert.equal(text.includes("taken from the parent's own record"), false, `${file} still takes the heads from the parent's record`);

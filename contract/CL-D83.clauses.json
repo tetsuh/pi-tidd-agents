@@ -1,17 +1,6 @@
 {
   "clauses": [
     {
-      "id": "CL-D83-map",
-      "marker": "CL-D83",
-      "title": "The moved reference names itself and what it carries",
-      "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
-      ],
-      "requires": [
-        "This reference is read with `references/autofix.md` (CL-D83)."
-      ]
-    },
-    {
       "id": "CL-D83-autofix",
       "marker": "CL-D83",
       "title": "The exact-autofix reference points at the map once",

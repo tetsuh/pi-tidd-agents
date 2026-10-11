@@ -14,13 +14,70 @@
     {
       "id": "CL-D72-map-moved",
       "marker": "CL-D72",
-      "title": "The invocation map offers the packaged validation run and names the recovery key (map)",
+      "title": "The CLI declares validation_run and required_evidence_set and their inputs",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
       "requires": [
-        "| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |",
-        "| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |"
+        "validation_run: { required: ['cwd', 'command'], optional: ['timeoutMs'] },",
+        "required_evidence_set: { required: ['cwd', 'baseOid', 'headOid', 'identities'], optional: [] },"
+      ]
+    },
+    {
+      "id": "CL-D72-map-validation",
+      "marker": "CL-D72",
+      "title": "validation_run takes a Git toplevel and an argv, never a shell string",
+      "files": [
+        "skills/closed-loop-pr/helpers/validation.js"
+      ],
+      "requires": [
+        "fail('invalid_request', 'cwd must be the toplevel of a Git work tree', 'cwd', { cwd, answer });",
+        "command must be an argv array of at most ${MAX_ARGUMENTS} strings without NUL, in well-formed Unicode, whose program is non-empty"
+      ]
+    },
+    {
+      "id": "CL-D72-map-guards",
+      "marker": "CL-D72",
+      "title": "required_evidence_set takes a Git toplevel and the git, GitHub and snapshot identity records",
+      "files": [
+        "skills/closed-loop-pr/helpers/guards.js"
+      ],
+      "requires": [
+        "fail('invalid_request', 'cwd_toplevel', 'cwd must be the toplevel of a Git work tree', data.cwd);",
+        "fail('invalid_request', 'identities_shape', 'each identity record carries exactly source, kind (git, github, or snapshot), and identity; file records are derived here'"
+      ]
+    },
+    {
+      "id": "CL-D72-map-review",
+      "marker": "CL-D72",
+      "title": "The review-only driver runs the focused validation in its validation step",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "const v = run.op('validation_run', { cwd: checkout, command, timeoutMs: 1800000 }, { allowFail: true });"
+      ]
+    },
+    {
+      "id": "CL-D72-map-autofix",
+      "marker": "CL-D72",
+      "title": "The autofix driver runs the focused validation after the writer's edit",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "const v = run.op('validation_run', { cwd: ws, command, timeoutMs: 1800000 }, { allowFail: true });"
+      ]
+    },
+    {
+      "id": "CL-D72-map-phases",
+      "marker": "CL-D72",
+      "title": "The driver derives the required-evidence set before each check",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "s.requiredEvidence = run.op('required_evidence_set', { cwd, baseOid: t.baseOid, headOid: t.headOid, identities }).data.requiredEvidence;"
       ]
     },
     {

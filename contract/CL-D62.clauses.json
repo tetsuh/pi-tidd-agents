@@ -81,13 +81,47 @@
     {
       "id": "CL-D62-autofix-map",
       "marker": "CL-D62",
-      "title": "The packaged helper map covers the convergence stage",
+      "title": "The record states the snapshot refresh and the validation of every result, in the gate vocabulary",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "contract/CL-D62.md"
       ],
       "requires": [
         "before each convergence/Sol/Terra invocation",
         "Every convergence, Sol, or Terra result, before it is read as a verdict (CL-D36, CL-D62)"
+      ]
+    },
+    {
+      "id": "CL-D62-autofix-map-review",
+      "marker": "CL-D62",
+      "title": "The review-only driver refreshes the snapshot before each gate and reads a result only as a validated envelope",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "New external evidence before a later gate reruns convergence first (DEC-109-CONV-SNAPSHOT-001).",
+        "owner; the validated envelope is the confirmation authority (gate-contract.md)."
+      ]
+    },
+    {
+      "id": "CL-D62-autofix-map-driver",
+      "marker": "CL-D62",
+      "title": "The autofix driver refreshes the snapshot before each gate",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s)))"
+      ]
+    },
+    {
+      "id": "CL-D62-autofix-map-schema",
+      "marker": "CL-D62",
+      "title": "Convergence results are validated by the same closed schema",
+      "files": [
+        "skills/closed-loop-pr/helpers/gate-result.js"
+      ],
+      "requires": [
+        "`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots."
       ]
     },
     {

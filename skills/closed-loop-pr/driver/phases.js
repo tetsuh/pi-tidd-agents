@@ -5,6 +5,7 @@
 // every obligation review.js does through the same code: the target bound before any run directory, the guard, the
 // Issue read, Sol's trusted comments, the recorded class, the gate-result read, the snapshot evidence, the spec
 // revalidation, and the final policy.
+// Call sites newly pinned since the helper map's pins moved here (CL-D112): CL-D42, CL-D68, CL-D72.
 
 const fs = require('node:fs');
 const os = require('node:os');

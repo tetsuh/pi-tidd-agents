@@ -1,5 +1,5 @@
 ## CL-D89 — The writer commits and pushes through packaged operations with the operator identity
-**Clauses:** CL-D89-map, CL-D89-capture, CL-D89-operations, CL-D89-record, CL-D89-tests, CL-D89-boundary
+**Clauses:** CL-D89-map, CL-D89-map-composition, CL-D89-map-driver, CL-D89-map-publish, CL-D89-capture, CL-D89-operations, CL-D89-record, CL-D89-tests, CL-D89-boundary
 
 *Decision ID:* CL-D89
 *Kind:* contract

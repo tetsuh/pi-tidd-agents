@@ -7,6 +7,8 @@
 // the installed package's own payload blocks (CL-D2, CL-D29): the schema is the builder's byte for
 // byte, the blocks are copied verbatim with their digests recorded, and the request has no output
 // field and no free-text envelope instruction. The helper-trust probe lives in paths.js.
+// The composer's reads of the installed package's blocks and the expectation file, and its two writes, are the one
+// exception to the builders' read-only rule (CL-D56).
 
 const fs = require('node:fs');
 const os = require('node:os');

@@ -76,5 +76,7 @@ test('Issue #185 a transition that does not describe the workspace is still refu
 
 test('Issue #185 the map and the CLI table state the input', () => {
   assert.match(readText('skills/closed-loop-pr/helpers/cli.js'), /guard_before_edit: \{ required: \['cwd', 'expected', 'authorizedPaths'\], optional: \['transition'\] \}/);
-  assert.match(readText('skills/closed-loop-pr/references/helper-map.md'), /\| `guard_before_edit` \| `cwd`, `expected` \(data of `workspace_create`\), `authorizedPaths`, and after a push the same `transition` `workspace_verify` takes \(#185\) \|/);
+  // #249 B1 (CL-D112): the map's row is no longer read; the declared shape and the transition rule are read as code.
+  assert.ok(readText('skills/closed-loop-pr/helpers/composition.js').includes("guard_before_edit: Object.freeze({ expected: 'data:workspace_create' }),"), 'expected is workspace_create data');
+  assert.ok(readText('skills/closed-loop-pr/helpers/guards.js').includes('// After a push the workspace is the pushed head, so the identity is checked through the same transition\n    // workspace_verify takes (#185)'), 'the transition is the one workspace_verify takes');
 });

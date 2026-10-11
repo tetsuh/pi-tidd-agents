@@ -328,6 +328,14 @@ const MANIFEST = (() => {
       `before each ${prD.join('/')} invocation`,
       `Every ${prD[0]}, ${prD[1]}, or ${prD[2]} result, before it is read as a verdict (CL-D36, CL-D62)`,
     ],
+    // #249 B1 (CL-D112): the map's rows are pinned to the record in the derived vocabulary above, and the drivers' call
+    // sites and the schema are pinned as code.
+    'CL-D62-autofix-map-review': [
+      'New external evidence before a later gate reruns convergence first (DEC-109-CONV-SNAPSHOT-001).',
+      'owner; the validated envelope is the confirmation authority (gate-contract.md).',
+    ],
+    'CL-D62-autofix-map-driver': ['if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s)))'],
+    'CL-D62-autofix-map-schema': ['`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots.'],
     'CL-D62-readme': [
       `${convergenceRole} (CL-D62) is the non-authoritative preliminary reviewer that runs before the ${gate.adversarial} gate`,
       'independent patch review is tracked in #102',

@@ -470,5 +470,5 @@ test('Issue #111 the map and the record state what the captured field accepts (C
     'Accepting a payload that is not the producer key set exactly, or normalizing any other declared shape, requires a new owner decision',
   ]) assert.ok(record.includes(phrase), `CL-D70 record: ${phrase}`);
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D70').map((clause) => clause.id), ['CL-D70-map', 'CL-D70-record', 'CL-D70-tests']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D70').map((clause) => clause.id), ['CL-D70-map', 'CL-D70-map-composition', 'CL-D70-record', 'CL-D70-tests']);
 });

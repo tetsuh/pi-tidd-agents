@@ -252,7 +252,7 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
   assert.equal(readText('test/package.test.js').includes('helperBytes < 240000'), false, 'the superseded alarm must not survive');
 
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D73').map((clause) => clause.id).sort(), ['CL-D73-addendum', 'CL-D73-operations', 'CL-D73-record', 'CL-D73-tests', 'CL-D73-transport']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D73').map((clause) => clause.id).sort(), ['CL-D73-addendum', 'CL-D73-operations', 'CL-D73-operations-autofix', 'CL-D73-operations-builders', 'CL-D73-operations-review', 'CL-D73-operations-workspace', 'CL-D73-record', 'CL-D73-tests', 'CL-D73-transport']);
   const byId = Object.fromEntries(manifest.clauses.map((clause) => [clause.id, clause]));
   assert.equal(byId['CL-D73-transport'].section, '### Structured gate result transport (CL-D36)', 'the transport clause names the section its sentences live in');
   assert.equal(byId['CL-D73-addendum'].section, '### Exact identity and Luna publication phases', 'the addendum clause names the section its sentence lives in');

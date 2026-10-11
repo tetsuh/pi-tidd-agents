@@ -3,13 +3,51 @@
     {
       "id": "CL-D89-map",
       "marker": "CL-D89",
-      "title": "The map routes the writer's commit and push through the packaged operations",
+      "title": "The CLI declares commit_create and push_publish and their inputs",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
       "requires": [
-        "| The bounded batch's one normal commit (CL-D89) | `commit_create` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `message` |",
-        "| The bounded batch's one non-force push (CL-D89) | `push_publish` | `created` (data of `workspace_create`), `captured` (envelope of `operator_capture`), `parent` (the public head the batch built on: the captured head for the first batch, the run's last pushed head after; CL-D99) |"
+        "commit_create: { required: ['created', 'captured', 'message'], optional: [] },",
+        "push_publish: { required: ['created', 'captured', 'parent'], optional: [] },"
+      ]
+    },
+    {
+      "id": "CL-D89-map-composition",
+      "marker": "CL-D89",
+      "title": "created is workspace_create data and captured is the operator_capture envelope",
+      "files": [
+        "skills/closed-loop-pr/helpers/composition.js"
+      ],
+      "requires": [
+        "commit_create: Object.freeze({ created: 'data:workspace_create', captured: 'envelope:operator_capture' }),",
+        "push_publish: Object.freeze({ created: 'data:workspace_create', captured: 'envelope:operator_capture' }),"
+      ]
+    },
+    {
+      "id": "CL-D89-map-driver",
+      "marker": "CL-D89",
+      "title": "The batch commits and pushes through the packaged operations; parent is the captured head for the first batch and the run's last pushed head after",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "const commit = step('commit_create', { created: s.created, captured: s.captured, message: b.message }).commit;",
+        "const pushed = run.op('push_publish', { created: s.created, captured: s.captured, parent: b.parentHead }, { allowFail: true });",
+        "parentHead: t.headOid, preEdit: false",
+        "s.prevHead = s.target.headOid; s.target.headOid = b.commit;"
+      ]
+    },
+    {
+      "id": "CL-D89-map-publish",
+      "marker": "CL-D89",
+      "title": "The push checks the parent descends from the captured head with HEAD its sole child",
+      "files": [
+        "skills/closed-loop-pr/helpers/publish.js"
+      ],
+      "requires": [
+        "fail('guard_failed', 'the parent does not descend from the captured public head', phase",
+        "fail('guard_failed', 'HEAD is not a single commit on the head the batch built on', phase, { parents, parent: base });"
       ]
     },
     {

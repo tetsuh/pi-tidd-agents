@@ -1,5 +1,5 @@
 ## CL-D86 — The post-push revalidation is composed from the run's own snapshots
-**Clauses:** CL-D86-map, CL-D86-builder, CL-D86-cli, CL-D86-record, CL-D86-tests
+**Clauses:** CL-D86-map, CL-D86-map-builders, CL-D86-map-driver, CL-D86-map-record, CL-D86-builder, CL-D86-cli, CL-D86-record, CL-D86-tests
 
 *Decision ID:* CL-D86
 *Kind:* contract

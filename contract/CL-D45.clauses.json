@@ -25,14 +25,13 @@
     {
       "id": "CL-D45-map",
       "marker": "CL-D45",
-      "title": "The invocation map carries both reply operations",
+      "title": "The CLI declares marker_create and marker_reconcile and their inputs",
       "files": [
-        "skills/closed-loop-pr/references/helper-map.md"
+        "skills/closed-loop-pr/helpers/cli.js"
       ],
-      "section": "### Packaged helper invocation map (CL-D30, Issue #47)",
       "requires": [
-        "| `marker_create` | `binding`, `visibleBody` |",
-        "| `marker_reconcile` | `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` |"
+        "marker_create: { required: ['binding', 'visibleBody'], optional: [] },",
+        "marker_reconcile: { required: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'], optional: [] },"
       ]
     },
     {

@@ -1,5 +1,5 @@
 ## CL-D61 — The manifest requests are built and the required-evidence set is checked before any gate
-**Clauses:** CL-D61-map, CL-D61-shared, CL-D61-tests
+**Clauses:** CL-D61-map, CL-D61-map-builders, CL-D61-map-guards, CL-D61-map-autofix, CL-D61-map-review, CL-D61-shared, CL-D61-tests
 
 *Decision ID:* CL-D61
 *Kind:* contract

@@ -1,5 +1,5 @@
 ## CL-D42 — Evidence travels in one versioned envelope with labelled domains
-**Clauses:** CL-D42-autofix, CL-D42-helper, CL-D42-readme, CL-D42-tests
+**Clauses:** CL-D42-autofix, CL-D42-helper, CL-D42-helper-driver, CL-D42-readme, CL-D42-tests
 
 *Decision ID:* CL-D42
 *Kind:* contract

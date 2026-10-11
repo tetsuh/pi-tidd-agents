@@ -12,6 +12,7 @@
 //   node autofix.js batch       --run-dir DIR                 (the writer, after editing)
 //   node autofix.js writer-done --run-dir DIR --run-id ID     (after the writer run completes)
 //   node autofix.js status      --run-dir DIR
+// Call sites newly pinned since the helper map's pins moved here (CL-D112): CL-D61, CL-D62, CL-D68, CL-D72, CL-D73, CL-D74, CL-D81, CL-D84, CL-D86, CL-D88, CL-D89.
 
 const fs = require('node:fs');
 const path = require('node:path');

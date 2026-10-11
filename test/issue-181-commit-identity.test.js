@@ -439,9 +439,10 @@ test('Issue #181 the push names exactly one credential helper, gh, and no force'
 });
 
 test('Issue #181 the map, the addendum, and CL-D89 route the commit and push through the packaged operations', () => {
-  const map = readText('skills/closed-loop-pr/references/helper-map.md');
-  assert.match(map, /\| The bounded batch's one normal commit \(CL-D89\) \| `commit_create` \| `created` \(data of `workspace_create`\), `captured` \(envelope of `operator_capture`\), `message` \|/);
-  assert.match(map, /\| The bounded batch's one non-force push \(CL-D89\) \| `push_publish` \| `created` \(data of `workspace_create`\), `captured` \(envelope of `operator_capture`\), `parent` \(the public head the batch built on/);
+  // #249 B1 (CL-D112): the map's row is pinned where the rule lives, the packaged CLI's operation table and the code.
+  const composition = readText('skills/closed-loop-pr/helpers/composition.js');
+  assert.ok(composition.includes("commit_create: Object.freeze({ created: 'data:workspace_create', captured: 'envelope:operator_capture' }),"), 'the commit takes the workspace and the capture by declared shape');
+  assert.ok(composition.includes("push_publish: Object.freeze({ created: 'data:workspace_create', captured: 'envelope:operator_capture' }),"), 'the push takes the workspace and the capture by declared shape');
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.match(addendum, /packaged `commit_create`/);
   assert.match(addendum, /packaged `push_publish`/);
