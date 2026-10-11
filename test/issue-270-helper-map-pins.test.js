@@ -1,7 +1,7 @@
 'use strict';
 
-// Issue #270 (#249 B1, CL-D112): since CL-D111 no run reads `references/helper-map.md`, and the last pull request of
-// #249 deletes it. Before that, every clause pin and every rule-stating test read moves off the file to where the rule
+// Issue #270 (#249 B1, CL-D112): since CL-D111 no run reads `references/helper-map.md` as guidance (both drivers still hash
+// it into contractInput), and the last pull request of #249 deletes it. Before that, every clause pin and every rule-stating test read moves off the file to where the rule
 // lives now: the packaged CLI's operation table, the helper or driver code that enforces the rule, or the record's own
 // sentence. The file itself is unchanged, so the pull request is behaviour-neutral.
 const test = require('node:test');
@@ -25,6 +25,8 @@ test('Issue #270 the rule-stating tests read the code or the record, not the map
   for (const name of RULE_TESTS) {
     const text = readText(`test/${name}.test.js`);
     assert.equal(text.includes('references/helper-map.md'), false, `${name} still reads the map`);
+    // Pre-push sweep: readAutofixProcedure() joins autofix.md and the map, so a rule-stating test may not read through it either.
+    assert.equal(text.includes('readAutofixProcedure'), false, `${name} still reads the map through readAutofixProcedure()`);
     // Round 1 CONV-271-TEST-TITLES-001: a title names the surface the body now inspects, not the map.
     for (const title of text.match(/^test\('Issue #\d+ [^']*'/gm) || []) assert.doesNotMatch(title, /\b(helper )?map\b/, `${name}: ${title}`);
   }
