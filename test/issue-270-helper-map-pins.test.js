@@ -22,7 +22,12 @@ test('Issue #270 no clause pin names references/helper-map.md', () => {
 });
 
 test('Issue #270 the rule-stating tests read the code or the record, not the map; the structural reads stay', () => {
-  for (const name of RULE_TESTS) assert.equal(readText(`test/${name}.test.js`).includes('references/helper-map.md'), false, `${name} still reads the map`);
+  for (const name of RULE_TESTS) {
+    const text = readText(`test/${name}.test.js`);
+    assert.equal(text.includes('references/helper-map.md'), false, `${name} still reads the map`);
+    // Round 1 CONV-271-TEST-TITLES-001: a title names the surface the body now inspects, not the map.
+    for (const title of text.match(/^test\('Issue #\d+ [^']*'/gm) || []) assert.doesNotMatch(title, /\b(helper )?map\b/, `${name}: ${title}`);
+  }
   for (const name of STRUCTURAL_TESTS) assert.ok(readText(`test/${name}.test.js`).includes('references/helper-map.md'), `${name} is the deletion pull request's and still reads the map`);
   assert.ok(readText('test/helpers.js').includes("'skills/closed-loop-pr/references/helper-map.md',"), 'AUTHORITY_FILES still measures the map until the deletion');
 });
@@ -38,6 +43,8 @@ test('Issue #270 CL-D112 records the repoint and CL-D83 names it', () => {
   assert.match(record, /issues\/249#issuecomment-6105250786/);
   assert.match(record, /CL-D83-map/);
   assert.match(record, /retired/);
+  // Round 1 CONV-271-AC4-RECORD-001: the record distinguishes reading the map as guidance from hashing it into contractInput.
+  assert.match(record, /Since CL-D111 no run reads `references\/helper-map\.md` as guidance; both drivers still hash it into `contractInput` until the last pull request of #249 deletes it\./);
   const index = readText('CONTRACT.md');
   assert.ok(index.indexOf('contract/CL-D112.md') < index.indexOf('contract/CL-D111.md'), 'the index lists CL-D112 before CL-D111');
   assert.match(sectionOf(readContract(), '## CL-D83 — The packaged helper invocation map is its own reference'), /#249 later moved every pin off the map \(CL-D112\)/);
