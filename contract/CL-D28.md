@@ -7,4 +7,4 @@ Three consecutive reviews each returned four valid findings of one shape: a comp
 
 Historical rationale: the original review-only MVP capability was removed rather than the specification refined. The byte-exact machinery was expected to belong to #4 and #5, where code could enforce it. CL-D30 later reopened only exact PR `autofix`; CL-D31 later and separately adopted the owner-approved legacy Issue Skill/prompt exception while explicitly retaining the limitation that prose and fixtures cannot prove orchestration behavior.
 
-The current mode-scoped boundary is enforced by `AC-GRANT`, CL-D30, CL-D31, and the scoped/negative contract assertions in `test/closed-loop-regressions.test.js`.
+The current mode-scoped boundary is enforced by `AC-GRANT`, CL-D30, CL-D31, and the scoped/negative contract assertions in `test/closed-loop-regressions.test.js`. #249 later moved this record's pin off `references/review-only.md` to this record (CL-D113); the rule the file stated stands here: Drafting is not publishing.

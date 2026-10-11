@@ -1,5 +1,5 @@
 ## CL-D38 — Review-only tolerates the validation sandbox delta it created
-**Clauses:** CL-D38-definition, CL-D38-review-only
+**Clauses:** CL-D38-definition, CL-D38-review-only, CL-D38-review-only-freeze, CL-D38-review-only-record
 
 *Decision ID:* CL-D38
 *Kind:* contract

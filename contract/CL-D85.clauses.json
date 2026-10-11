@@ -43,16 +43,38 @@
     {
       "id": "CL-D85-status",
       "marker": "CL-D85",
-      "title": "The review-only status block carries the review misses and the non-blocking Minor",
+      "title": "The driver records a Minor whose correction changes no file and advances",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/phases.js"
       ],
       "requires": [
-        "review_misses: <counterexample class: the gate and invocation that did not raise it, one per line, or none>",
-        "A Minor whose correction changes no file of the head is recorded with its disposition and never blocks `MERGE_READY` (CL-D85).",
-        "When a gate raises a finding of the same counterexample class as one this run's ledger already carries for an earlier head of this pull request, record it in `review_misses` as a review miss of the gate and invocation that did not raise it (CL-D85)."
+        "CL-D85: a Minor whose correction changes no file of the head is recorded and advances.",
+        "return (x.severity === 'Minor' && (x.anchoring === 'reword' || x.anchoring === 'follow-up' || x.outOfScope === true))"
+      ]
+    },
+    {
+      "id": "CL-D85-status-review",
+      "marker": "CL-D85",
+      "title": "The review-only driver dispositions a recorded Minor under CL-D85",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
       ],
-      "section": "## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)"
+      "requires": [
+        "`${x.proposedDisposition} (recorded under CL-D85)`"
+      ]
+    },
+    {
+      "id": "CL-D85-status-record",
+      "marker": "CL-D85",
+      "title": "The record states the review miss and the driver's gap",
+      "files": [
+        "contract/CL-D85.md"
+      ],
+      "requires": [
+        "in review-only in the status block's `review_misses`, as a review miss of the gate and invocation that did not raise it",
+        "The packaged review-only driver does not record a review miss: its `review_misses` line is always `none`"
+      ],
+      "section": "## CL-D85 — Wording-only Minors do not stop a run"
     },
     {
       "id": "CL-D85-record",
@@ -102,16 +124,26 @@
     {
       "id": "CL-D85-order",
       "marker": "CL-D85",
-      "title": "The review-only gate order advances a qualifying result",
+      "title": "The review-only driver advances whenever no finding is open, whatever the verdict",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/review.js"
       ],
-      "section": "## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)",
       "requires": [
-        "A gate result whose only open findings are Minors recorded under CL-D85 advances as `MERGE` at every transition — convergence to Sol, Sol to Terra, and Terra to the final check — and is not a correction path; those findings stay recorded and dispositioned, and the head does not move for them.",
-        "Never start the Terra gate before the Sol gate returns `MERGE`, counting a result whose only open findings are Minors recorded under CL-D85 as `MERGE` (CL-D85).",
-        "unless its only open findings are Minors recorded under CL-D85"
+        "const open = findings.filter((x) => !isRecorded(x) && !settled(x));",
+        "if (next) return launch(run, next);"
       ]
+    },
+    {
+      "id": "CL-D85-order-record",
+      "marker": "CL-D85",
+      "title": "The record states the transition rule",
+      "files": [
+        "contract/CL-D85.md"
+      ],
+      "requires": [
+        "A gate result whose only open findings are Minors recorded under CL-D85 advances as `MERGE` at every transition — convergence to Sol, Sol to Terra, and Terra to the final check — and is not a correction path; those findings stay recorded and dispositioned, and the head does not move for them."
+      ],
+      "section": "## CL-D85 — Wording-only Minors do not stop a run"
     },
     {
       "id": "CL-D85-gates",

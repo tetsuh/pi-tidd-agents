@@ -20,15 +20,38 @@
     {
       "id": "CL-D38-review-only",
       "marker": "CL-D38",
-      "title": "Review-only permits only the delta its validation created",
+      "title": "Every boundary after validation stops BLOCKED on a tracked change, index change, ref movement, or unsafe root",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/run.js"
       ],
-      "section": "### Validation sandbox boundary (CL-D38)",
       "requires": [
-        "Every later boundary permits only that exact presence delta",
-        "any tracked change, index change, ref movement, unsafe root, or non-validation untracked path outside `RUNTIME_ROOTS` still stops the run as `BLOCKED`",
-        "grants no cleanup, publication, commit, push, or reply authority"
+        "the checkout is not clean:",
+        "return local === headOid ? dirtyCheckout(cwd) : `the checkout is at ${local}, not the public head ${headOid}`;",
+        "return `the runtime root ${root} is not a directory`;",
+        "sandbox delta) and compared at every later boundary"
+      ]
+    },
+    {
+      "id": "CL-D38-review-only-freeze",
+      "marker": "CL-D38",
+      "title": "The review-only driver freezes the validation delta once and compares it before every gate",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "s.ignoredDelta = ignoredInventory(checkout); run.save();",
+        "the checkout's ignored paths changed after validation:"
+      ]
+    },
+    {
+      "id": "CL-D38-review-only-record",
+      "marker": "CL-D38",
+      "title": "The freeze grants no authority",
+      "files": [
+        "contract/CL-D38.md"
+      ],
+      "requires": [
+        "It grants no cleanup, publication, commit, push, reply, or provider authority, changes no round budget, and reduces no review duty."
       ]
     }
   ]

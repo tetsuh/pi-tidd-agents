@@ -4,13 +4,12 @@
       "id": "CL-D18",
       "title": "External observation is reported, not enforced",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "contract/CL-D18.md"
       ],
       "requires": [
-        "Observation, reported only",
-        "must not busy-poll",
-        "not detected",
-        "WAITING_EXTERNAL_REVIEW"
+        "It has no timers and must not busy-poll.",
+        "A service with no reviews, comments or checks on the current head is *not detected*, never passed and never failed",
+        "what the run observed is reported and never waited for"
       ]
     }
   ]

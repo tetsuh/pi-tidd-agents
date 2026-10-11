@@ -1,5 +1,5 @@
 ## CL-D92 — The snapshot classifies CodeRabbit's review state
-**Clauses:** CL-D92-classify, CL-D92-prose, CL-D92-record, CL-D92-tests
+**Clauses:** CL-D92-classify, CL-D92-prose, CL-D92-readiness, CL-D92-record, CL-D92-tests
 
 *Decision ID:* CL-D92
 *Kind:* contract

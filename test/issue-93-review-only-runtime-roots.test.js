@@ -9,43 +9,46 @@
 // behavioral RED is claimed: the packaged helpers already tolerate runtime roots
 // (`operator.js` filters them out of `unexpectedUntrackedPaths`); the run-killing rule lived
 // in review-only prose alone, and prose is what changes.
+//
+// #249 B2 (CL-D113): since CL-D111 the review-only run is the packaged driver, so the carve-out is read from
+// `driver/run.js` and the record; the drift fixture compares the driver's root set with the helpers' and, until
+// its own pull request, with `references/autofix.md`.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const { readText, readContract, sectionOf } = require('./helpers');
 
-const REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
+const REVIEW_DRIVER = 'skills/closed-loop-pr/driver/run.js';
 const AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const ROOTS_LITERAL = '`RUNTIME_ROOTS := { ".pi", ".pi-subagents" }`';
+const DRIVER_ROOTS = "const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];";
 
-test('Issue #93 review-only names the runtime-root carve-out and keeps everything else closed', () => {
-  const text = readText(REVIEW_ONLY);
-  const section = sectionOf(text, '### Runtime roots (CL-D54)');
-  assert.ok(section, `${REVIEW_ONLY} must own a runtime-roots subsection`);
-  assert.ok(section.includes(ROOTS_LITERAL), 'the carve-out names the exact root set');
-  assert.match(section, /classify each independently and no-follow as absent or a real directory/);
-  assert.match(section, /read no contents, targets, sizes, timestamps, or hashes/);
-  assert.match(section, /tolerate pre-existing untracked paths beneath them/);
-  assert.match(section, /contribute nothing to any fingerprint, gate payload, draft, or evidence claim/);
-  assert.match(section, /never claims they were cleaned, preserved, or validated/);
-  assert.match(section, /untracked paths outside `RUNTIME_ROOTS` and the frozen `VALIDATION_SANDBOX_DELTA` still stop as `BLOCKED`/);
+test('Issue #93 the review-only driver names the runtime-root carve-out and keeps everything else closed', () => {
+  const text = readText(REVIEW_DRIVER);
+  assert.ok(text.includes(DRIVER_ROOTS), 'the carve-out names the exact root set');
+  assert.match(text, /A runtime root may hold untracked files only while it is absent or a real directory, judged without following a/);
+  assert.match(text, /if \(code === '\?\?' && underRoot\) continue;/, 'untracked paths beneath a root are tolerated');
+  assert.match(text, /return `the runtime root \$\{root\} is not a directory`;/, 'an unsafe root stops');
+  assert.match(text, /the checkout is not clean:/, 'everything else keeps failing closed');
+  const record = readText('contract/CL-D54.md');
+  assert.match(record, /their bytes enter no fingerprint, gate payload, draft, or evidence claim, and the run never claims they were cleaned, preserved, or validated/);
+  assert.match(record, /untracked paths outside `RUNTIME_ROOTS` and the frozen `VALIDATION_SANDBOX_DELTA` keep failing closed/);
 });
 
-test('Issue #93 the amended CL-D38 boundary sentence carries the qualification once', () => {
-  const text = readText(REVIEW_ONLY);
-  assert.match(text, /any tracked change, index change, ref movement, unsafe root, or non-validation untracked path outside `RUNTIME_ROOTS` still stops the run as `BLOCKED`/);
-  assert.doesNotMatch(text, /untracked path still stops the run/, 'the unqualified sentence must not survive beside its replacement');
+test('Issue #93 the review-only driver stops BLOCKED on a change outside the roots, after validation and before every gate', () => {
+  const review = readText('skills/closed-loop-pr/driver/review.js');
+  assert.match(review, /run\.stop\('BLOCKED', `validation changed the checkout: \$\{after\}`\)/);
+  assert.ok(review.includes("const checkout = checkoutProblem(s.checkout, t.headOid); if (checkout) run.stop('BLOCKED', checkout);"), 'revalidate stops before every gate');
+  assert.ok(review.includes("if (drift.length) run.stop('BLOCKED', `the checkout's ignored paths changed after validation:"), 'and on an ignored-path drift');
 });
 
-test('Issue #93 both mode references and the helpers agree on the root set', () => {
-  // The definition is deliberately stated in both mode references: each mode is read with the
-  // Skill alone, so neither can cite the other. Divergence is prevented here, mechanically.
-  for (const file of [REVIEW_ONLY, AUTOFIX]) {
-    assert.ok(readText(file).includes(ROOTS_LITERAL), `${file} must state the identical root set`);
-  }
+test('Issue #93 the driver, the autofix reference and the helpers agree on the root set', () => {
+  // The driver declares its own copy rather than importing the helpers'; divergence is prevented here, mechanically.
+  assert.ok(readText(REVIEW_DRIVER).includes(DRIVER_ROOTS), `${REVIEW_DRIVER} must state the identical root set`);
+  assert.ok(readText(AUTOFIX).includes(ROOTS_LITERAL), `${AUTOFIX} must state the identical root set`);
   const { RUNTIME_ROOTS } = require('../skills/closed-loop-pr/helpers/operator');
-  assert.deepEqual(RUNTIME_ROOTS, ['.pi', '.pi-subagents'], 'the packaged tolerance must cover the same roots the prose names');
+  assert.deepEqual(RUNTIME_ROOTS, ['.pi', '.pi-subagents'], 'the packaged tolerance must cover the same roots the driver names');
 });
 
 test('Issue #93 CL-D54 records the carve-out and what it amends', () => {
@@ -58,4 +61,5 @@ test('Issue #93 CL-D54 records the carve-out and what it amends', () => {
   assert.match(decision, /the harness blocked on its own task directories/);
   assert.match(decision, /no cleanup, deletion, or relocation authority/);
   assert.match(decision, /If the two mode references ever name different root sets/);
+  assert.match(decision, /#249 later moved this record's pins to `driver\/run\.js` \(CL-D113\)/);
 });

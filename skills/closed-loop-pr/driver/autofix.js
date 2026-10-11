@@ -127,7 +127,7 @@ function start(opts) {
 }
 
 // Before every gate and at final readiness: the target, the operator capture, the workspace, the body, and the issue
-// spec (review-only.md "Revalidate the target and its evidence before each gate"). The head-bound fingerprints are the
+// spec (CL-D27). The head-bound fingerprints are the
 // workspace's own, rebound after each push; on an unchanged head every one must match.
 function recheck(run) {
   const s = run.state, t = s.target;

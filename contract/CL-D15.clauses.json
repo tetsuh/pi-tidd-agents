@@ -4,11 +4,21 @@
       "id": "CL-D15",
       "title": "Scratch-file boundary",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
         "outside the repository"
+      ]
+    },
+    {
+      "id": "CL-D15-record",
+      "marker": "CL-D15",
+      "title": "The record states the boundary",
+      "files": [
+        "contract/CL-D15.md"
+      ],
+      "requires": [
+        "Working notes and drafts belong outside the repository."
       ]
     }
   ]

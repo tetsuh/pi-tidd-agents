@@ -4,16 +4,14 @@
       "id": "CL-D24",
       "title": "External observation is per-run and never carried forward",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "contract/CL-D24.md"
       ],
       "requires": [
-        "observation origin",
-        "before the first Sol invocation",
-        "not polling",
-        "External evidence is never carried across runs",
-        "provider-native finding identity",
-        "unknown, not complete",
-        "current-process snapshots"
+        "Before the first Sol invocation, take exactly one external-review snapshot for the current head; that snapshot is the observation origin.",
+        "It is not polling and does not delay internal review.",
+        "External evidence is not carried across runs.",
+        "An undeterminable state is reported as unknown rather than complete.",
+        "Findings the workflow raises itself do carry, since their identities are assigned here rather than by a provider."
       ]
     }
   ]

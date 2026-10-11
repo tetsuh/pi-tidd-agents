@@ -162,7 +162,7 @@ function roleLabel(role, reported, thinking) {
   return m ? `${role} ${m[1]}/${m[2]}:${level}` : `${role} unreported/${reported || 'unreported'}:${level}`;
 }
 // A checkout the review reads must hold exactly the head: no tracked, staged, or untracked change outside the runtime
-// roots (review-only.md, CL-D38/CL-D54). Ignored files, such as a validation delta, are not listed.
+// roots (CL-D38, CL-D54). Ignored files, such as a validation delta, are not listed.
 // A runtime root may hold untracked files only while it is absent or a real directory, judged without following a
 // link; a tracked or staged change under it is a change like any other (CONV-199-CLD54-RUNTIME-ROOT-FILTER).
 const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];
@@ -294,7 +294,7 @@ class Run {
   publish() {
     const s = this.state, t = s.target; if (!t) return;
     const unknown = 'not computed', fp = s.fingerprints || {}, observed = s.observedFrom || s.startedAt;
-    // The contracted block (review-only.md): gates are named sol and terra, the head is its OID, one finding per line.
+    // The contracted block (CL-D13): gates are named sol and terra, the head is its OID, one finding per line.
     const label = { adversarial: 'sol', safety: 'terra' };
     const findings = (s.findings || []).map((f) => `  ${quoted(f.findingId)}: ${quoted(f.disposition)}`);
     // Nothing bound for publication spells a local root (#221): the run directory, the package, the home (HOME's and

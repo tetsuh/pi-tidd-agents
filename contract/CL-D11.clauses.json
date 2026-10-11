@@ -17,15 +17,37 @@
     {
       "id": "CL-D11-review-only",
       "marker": "CL-D11",
-      "title": "Review-only retains per-gate three-round accounting",
-      "section": "### Review-only round deltas (CL-D11, CL-D12)",
+      "title": "The review-only driver counts every launch against the gate's three-round budget and stops at the cap",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/review.js"
       ],
       "requires": [
-        "A gate rerun caused by a fix consumes a round from that gate's budget.",
-        "At the limit, stop and report `ROUND_LIMIT_REACHED`",
-        "retry the invocation once, and if it fails again report `BLOCKED`"
+        "const ROUND_CAP = 3;",
+        "s.invocations[gate] = (s.invocations[gate] || 0) + 1;",
+        "run.stop('ROUND_LIMIT_REACHED', `${label(gate)} reached its ${ROUND_CAP}-round cap`"
+      ]
+    },
+    {
+      "id": "CL-D11-relaunch",
+      "marker": "CL-D11",
+      "title": "A missing or unparsable result is relaunched once, then BLOCKED",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "is relaunched once without spending a round",
+        "run.stop('BLOCKED', `gate_result_read refused${p.relaunched ? ' after one relaunch' : ''}: ${code} ${read.error?.message || ''}`.trim());"
+      ]
+    },
+    {
+      "id": "CL-D11-record",
+      "marker": "CL-D11",
+      "title": "The record states the fix-rerun rule",
+      "files": [
+        "contract/CL-D11.md"
+      ],
+      "requires": [
+        "A gate rerun caused by a fix consumes a round from that gate's budget"
       ]
     }
   ]

@@ -199,16 +199,16 @@ const SUPERSEDED = [
 ];
 
 test('Issue #41 publication authority remains review-only-owned and aggregate-only', () => {
-  const reviewOnly = readText(PR_REVIEW_ONLY);
+  // #249 B2 (CL-D113): the review-only driver drafts the artifacts at every stop, after the state is set, so drafting
+  // never changes the outcome; the operator runs the script.
+  const driver = readText('skills/closed-loop-pr/driver/run.js');
   const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
-  assert.match(reviewOnly, /Guarded owner publication artifacts \(CL-D33, Issue #41\)/);
-  assert.match(reviewOnly, /CL-D33 aggregate-summary publication is optional/);
-  assert.match(reviewOnly, /not a locally drafted correction candidate/);
-  assert.match(reviewOnly, /never blocks `MERGE_READY`/);
-  assert.match(reviewOnly, /does not create `WAITING_FOR_OWNER`/);
-  assert.match(reviewOnly, /only an outstanding readiness-relevant unpublished correction candidate has that effect/);
-  assert.match(reviewOnly, /Review-only never executes the script/);
+  assert.match(driver, /CL-D33 drafts exactly two artifacts/);
+  assert.match(driver, /The CL-D33 report: both paths, the body digest, the one command, and the head binding; the operator runs it\./);
+  assert.ok(driver.includes("Object.assign(this.state, { state, reason, pending: null });\n    this.save();\n    this.publish();"), 'the stop sets and saves the state, then drafts');
+  assert.match(readText(PR_SKILL), /Never run the publication script\./);
+  assert.match(readText('contract/CL-D33.md'), /review-only drafts the artifacts but never executes or posts/);
   assert.match(readText(PR_PUBLICATION_TEMPLATE), /aggregate-summary publication only|Issue #40 source-reply authority/);
   assert.match(readText(PR_PUBLICATION_TEMPLATE), /gh pr comment <full-pr-url> --body-file <review-comment\.md>/);
   // CL-D77: autofix drafts the same artifacts at every terminal outcome, in one sentence, and never executes them;
@@ -256,11 +256,11 @@ test('entry artifacts preserve the scoped CL-D30 boundary', () => {
 test('fixture: PR mode references own downstream obligations exclusively', () => {
   const reviewOnly = readText(PR_REVIEW_ONLY);
   const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
+  // #249 B2 (CL-D113): the review-only obligations are read where they live now: the records and the driver.
   const reviewOwned = [
-    'Review-only never edits any repository file or creates a working-tree candidate.',
-    'Review-only has no publication phase and no local commit/push window.',
-    'Review-only never commits, pushes, posts, replies, or mutates external state.',
-    'A missing or unparsable verdict is a tool-level failure: retry the invocation once',
+    ['contract/CL-D23.md', 'Review-only never edits the repository and has no formal post-fix working-tree candidate'],
+    ['contract/CL-D28.md', 'PR review-only still never commits, pushes, posts, replies, or changes external state'],
+    ['skills/closed-loop-pr/driver/phases.js', 'is relaunched once without spending a round'],
   ];
   const autofixOwned = [
     'Exact PR `autofix` submits only the published public-head OID',
@@ -268,7 +268,7 @@ test('fixture: PR mode references own downstream obligations exclusively', () =>
     'Exact PR `autofix` never resumes: a later command is a fresh run.',
     'Exact autofix malformed or unparsable verdict stops on first failure.',
   ];
-  for (const text of reviewOwned) assert.ok(reviewOnly.includes(text), `review-only must retain ${text}`);
+  for (const [file, text] of reviewOwned) assert.ok(readText(file).includes(text), `${file} must retain ${text}`);
   for (const text of autofixOwned) assert.ok(autofix.includes(text), `autofix must retain ${text}`);
   assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
   assert.doesNotMatch(autofix, /Review-only has no publication phase/);
@@ -597,7 +597,7 @@ test('Issue #23 contains self-contained invariant blocks and compacts only histo
   const contract = readContract();
   const issue = readText('skills/closed-loop-issue/SKILL.md');
   const pr = readText(PR_SKILL);
-  const review = readText(PR_REVIEW_ONLY);
+  const launch = readText('skills/closed-loop-pr/helpers/launch.js');
   const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const issueRoles = artifactSection(issue, '### Issue gate role-authority blocks (CL-D2)');
   const prRoles = artifactSection(pr, '### PR gate role-authority blocks (CL-D2)');
@@ -629,8 +629,9 @@ test('Issue #23 contains self-contained invariant blocks and compacts only histo
   assert.match(issue, /every CL-D32 post-decision rereview route/);
   assert.match(pr, /Every PR review-only Sol\/Terra invocation/);
   assert.match(pr, /every post-push Sol/);
-  assert.match(review, /shared Every-gate invariant payload block verbatim/);
-  assert.match(review, /Sol additionally composes the shared Sol-only adversarial invariant payload block verbatim/);
+  // #249 B2 (CL-D113): the review-only launch composer packages the Every-gate block for every gate and the Sol-only block for Sol.
+  assert.ok(launch.includes('const blocks = [packageBlock(EVERY_GATE)];'), 'every gate carries the Every-gate block');
+  assert.ok(launch.includes("if (gate === 'adversarial') { const sol = packageBlock(SOL_ONLY); blocks.push(sol); parts.push(sol.content); }"), 'Sol additionally carries the Sol-only block');
   assert.match(autofix, /shared `Every-gate invariant payload block` verbatim/);
   assert.match(autofix, /including every post-push Sol/);
   assert.doesNotMatch(autofix, /prior findings\/dispositions on re-invocation/);

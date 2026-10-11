@@ -55,7 +55,8 @@
         "skills/closed-loop-pr/driver/review.js"
       ],
       "requires": [
-        "const v = run.op('validation_run', { cwd: checkout, command, timeoutMs: 1800000 }, { allowFail: true });"
+        "const v = run.op('validation_run', { cwd: checkout, command, timeoutMs: 1800000 }, { allowFail: true });",
+        "if (v.ok === false && v.error?.code !== 'validation_failed') run.stop('BLOCKED', `harness_failed:"
       ]
     },
     {
@@ -125,18 +126,6 @@
         "validation_run takes an argv, never a shell, and runs only at a Git toplevel",
         "the map, the README, the recovery key, and the record name the packaged validation run",
         "required_evidence_set derives the set from the change and the authority files"
-      ]
-    },
-    {
-      "id": "CL-D72-route-review-only",
-      "marker": "CL-D72",
-      "title": "Review-only names the packaged validation run and the derived evidence set",
-      "files": [
-        "skills/closed-loop-pr/references/review-only.md"
-      ],
-      "requires": [
-        "Review-only's validation step runs each of the target's validation commands through packaged `validation_run`",
-        "The gate's required-evidence set is derived through packaged `required_evidence_set`, never assembled by hand (CL-D72)"
       ]
     },
     {

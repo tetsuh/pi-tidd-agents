@@ -1,5 +1,5 @@
 ## CL-D62 — A non-authoritative convergence stage runs before the adversarial gate
-**Clauses:** CL-D62-shared, CL-D62-issue, CL-D62-pr, CL-D62-autofix, CL-D62-autofix-flow, CL-D62-autofix-map, CL-D62-autofix-map-review, CL-D62-autofix-map-driver, CL-D62-autofix-map-schema, CL-D62-readme, CL-D62-tests
+**Clauses:** CL-D62-shared, CL-D62-issue, CL-D62-pr, CL-D62-pr-record, CL-D62-autofix, CL-D62-autofix-flow, CL-D62-autofix-map, CL-D62-autofix-map-review, CL-D62-autofix-map-driver, CL-D62-autofix-map-schema, CL-D62-readme, CL-D62-tests
 
 *Decision ID:* CL-D62
 *Kind:* contract

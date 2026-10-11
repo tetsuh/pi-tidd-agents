@@ -1,20 +1,15 @@
 {
   "clauses": [
     {
-      "id": "AC-REVIEW-ONLY-skill",
+      "id": "AC-REVIEW-ONLY-record",
       "marker": "AC-REVIEW-ONLY",
       "title": "Review-only prohibitions",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "contract/AC-REVIEW-ONLY.md"
       ],
       "requires": [
-        "Review-only is the default",
-        "do not edit any file in the repository",
-        "do not change git state",
-        "do not commit or push",
-        "do not post to GitHub",
-        "do not reply to review threads",
-        "do not mutate any external service"
+        "no file edits, no git-state changes, no commits or pushes, no posting to GitHub, no replies to review threads, and no external mutation",
+        "the packaged review-only driver names no writing operation"
       ]
     }
   ]

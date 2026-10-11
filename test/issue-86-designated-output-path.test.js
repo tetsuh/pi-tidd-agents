@@ -19,7 +19,7 @@ const { readText, readContract, sectionOf } = require('./helpers');
 
 const GATE_CONTRACT = readText('skills/closed-loop-shared/references/gate-contract.md');
 const RECORD = readContract();
-const PR_REVIEW_ONLY = readText('skills/closed-loop-pr/references/review-only.md');
+const REVIEW_DRIVER_PHASES = readText('skills/closed-loop-pr/driver/phases.js');
 const ISSUE_WORKFLOW = readText('skills/closed-loop-issue/SKILL.md');
 const PR_AUTOFIX = readText('skills/closed-loop-pr/references/autofix-addendum.md');
 
@@ -59,8 +59,9 @@ test('Issue #86 CL-D58 records the read path as an application of the no-informa
 });
 
 test('Issue #86 keeps validation-failure handling owned by each route', () => {
-  // Ordinary review-only retains its existing one retry for a missing/unparsable verdict.
-  assert.match(PR_REVIEW_ONLY, /A missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`/);
+  // Ordinary review-only retains its existing one retry for a missing/unparsable verdict (#249 B2, CL-D113: the driver).
+  assert.match(REVIEW_DRIVER_PHASES, /is relaunched once without spending a round/);
+  assert.match(REVIEW_DRIVER_PHASES, /run\.stop\('BLOCKED', `gate_result_read refused\$\{p\.relaunched \? ' after one relaunch' : ''\}/);
   // Ordinary Issue mode retains its CL-D31-scoped retry, while CL-D32 remains fail-stop.
   assert.match(ISSUE_WORKFLOW, /Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`/);
   assert.match(ISSUE_WORKFLOW, /Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes.*cannot use the ordinary missing-or-unparsable retry/s);

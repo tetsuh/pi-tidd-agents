@@ -1,5 +1,5 @@
 ## CL-D33 — Review-only drafts guarded owner-executed PR publication artifacts
-**Clauses:** CL-D33-boundary, CL-D33-artifacts, CL-D33-marker, CL-D33-guards, CL-D33-post, CL-D33-portability, CL-D33-status, CL-D33-packaging
+**Clauses:** CL-D33-boundary, CL-D33-boundary-template, CL-D33-boundary-record, CL-D33-artifacts, CL-D33-marker, CL-D33-guards, CL-D33-post, CL-D33-portability, CL-D33-status, CL-D33-packaging
 
 *Decision ID:* CL-D33
 *Kind:* contract

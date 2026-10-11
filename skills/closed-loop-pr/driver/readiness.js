@@ -3,7 +3,7 @@
 // CL-D93 (#196): the external half of review-only readiness, split from run.js so each driver file stays under its
 // alarm: the final policy over a snapshot, and what the run observed of external review.
 
-// Final policy from a snapshot on the head (review-only.md "Before declaring MERGE_READY"): check runs (skipped and
+// Final policy from a snapshot on the head (CL-D14, CL-D100): check runs (skipped and
 // neutral pass), each commit status context's latest state, branch protection's required checks, each human reviewer's
 // latest decisive review, and the review threads still unresolved, which are external findings the owner dispositions.
 // External review is best effort (CL-D100, #226): a finding that is present is answered, and nothing waits for one that

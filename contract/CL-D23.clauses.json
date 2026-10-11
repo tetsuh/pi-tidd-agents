@@ -4,14 +4,11 @@
       "id": "CL-D23",
       "title": "Review-only candidate evidence remains outside the repository",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "contract/CL-D23.md"
       ],
       "requires": [
-        "Review-only never edits any repository file",
-        "outside the repository",
-        "no post-fix formal gate consumes an uncommitted overlay"
-      ],
-      "section": "### Candidate evidence boundary (CL-D23, CL-D9)"
+        "Review-only never edits the repository and has no formal post-fix working-tree candidate; proposed patches and drafts stay outside the repository."
+      ]
     }
   ]
 }

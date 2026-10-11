@@ -20,7 +20,7 @@ const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
-const REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
+const REVIEW_DRIVER_PHASES = 'skills/closed-loop-pr/driver/phases.js';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
 const CLI = 'skills/closed-loop-pr/helpers/cli.js';
 const RECOVERY_HEADING = '### Bounded pre-writer recovery (CL-D39)';
@@ -189,12 +189,13 @@ test('Issue #34 no shared prose forks and no shared sentence gains a mode except
     assert.doesNotMatch(text, /CL-D39/, `${file} must not carry the mode-specific recovery decision`);
     assert.doesNotMatch(text, /exact autofix[^.]*recover/i, `${file} must not gain an autofix exception`);
   }
-  // The other two modes keep their own rule, untouched and unqualified.
-  for (const file of [REVIEW_ONLY, ISSUE_SKILL]) {
-    const text = readText(file);
-    assert.match(text, /retry the invocation once, and if it fails again report `BLOCKED`/, `${file} must keep its existing single retry`);
-    assert.doesNotMatch(text, /CL-D39/, `${file} must not be conditionalised by the autofix decision`);
-  }
+  // The other two modes keep their own rule, untouched and unqualified (#249 B2, CL-D113: review-only's is the driver's relaunch).
+  const issue = readText(ISSUE_SKILL);
+  assert.match(issue, /retry the invocation once, and if it fails again report `BLOCKED`/, `${ISSUE_SKILL} must keep its existing single retry`);
+  assert.doesNotMatch(issue, /CL-D39/, `${ISSUE_SKILL} must not be conditionalised by the autofix decision`);
+  const phases = readText(REVIEW_DRIVER_PHASES);
+  assert.match(phases, /is relaunched once without spending a round/, `${REVIEW_DRIVER_PHASES} must keep its single relaunch`);
+  assert.doesNotMatch(phases, /CL-D39/, `${REVIEW_DRIVER_PHASES} must not be conditionalised by the autofix decision`);
 });
 
 test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {

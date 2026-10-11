@@ -4,8 +4,7 @@
       "id": "CL-D13",
       "title": "Status block and resume",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
         "tidd-status",
@@ -27,18 +26,40 @@
     {
       "id": "CL-D13-pr",
       "marker": "CL-D13",
-      "title": "The PR status block carries resumable observation and publication state",
+      "title": "The driver renders the PR status block with the observation, the findings and the operator actions",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/run.js"
       ],
       "requires": [
-        "external_observation: head <sha> observed_from <timestamp>, this run only",
-        "findings: <internal finding id: disposition, one per line>",
-        "operator_actions:",
-        "review-only",
-        "fresh run"
+        "['```tidd-status'",
+        "`external_observation: head ${t.headOid} observed_from ${observed}, this run only`",
+        "findings.length ? `findings:\\n${findings.join('\\n')}` : 'findings: none'",
+        "`operator_actions: ${free(",
+        "`mode: ${s.mode}`"
+      ]
+    },
+    {
+      "id": "CL-D13-pr-resume",
+      "marker": "CL-D13",
+      "title": "The driver resumes from its run directory after recomputing every fingerprint; a pasted block is not read",
+      "files": [
+        "contract/CL-D13.md"
       ],
-      "section": "## Outcome and status block (PR review-only baseline; CL-D13, CL-D14)"
+      "requires": [
+        "The packaged review-only driver resumes only a `WAITING_EXTERNAL_REVIEW` stop, from its own run directory and after recomputing every fingerprint; every other stop is followed by a fresh run, and a pasted block is not read"
+      ]
+    },
+    {
+      "id": "CL-D13-pr-driver",
+      "marker": "CL-D13",
+      "title": "The review-only driver resumes only a WAITING_EXTERNAL_REVIEW stop and binds the mode",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "if (s.state !== 'WAITING_EXTERNAL_REVIEW') die(`a ${s.state} run is not resumable; start a fresh run`);",
+        "Object.assign(s, { mode: 'review-only', checkout,"
+      ]
     }
   ]
 }

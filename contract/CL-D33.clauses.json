@@ -3,21 +3,42 @@
     {
       "id": "CL-D33-boundary",
       "marker": "CL-D33",
-      "title": "Review-only drafts guarded owner publication artifacts",
+      "title": "The driver reads the template, replaces the six placeholders once, and drafts exactly two artifacts in a fresh directory the operator publishes",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/run.js"
       ],
       "requires": [
-        "read sibling `publish-review.sh` completely",
-        "copies it byte-for-byte",
-        "replaces all six exact ASCII placeholders once",
-        "exactly two UTF-8/LF artifacts",
-        "fresh external `mktemp` directory",
-        "The owner executing that command is the publication grant",
-        "Review-only never executes the script",
-        "publication_grant: review-only not-applicable"
+        "const template = fs.readFileSync(path.join(PACKAGE, 'skills', 'closed-loop-pr', 'references', 'publish-review.sh'), 'utf8');",
+        "const script = template.replaceAll('__PI_REVIEW_REPOSITORY__', t.repository).replaceAll('__PI_REVIEW_PR_NUMBER__', String(t.number)).replaceAll('__PI_REVIEW_HEAD__', t.headOid)",
+        ".replaceAll('__PI_REVIEW_PR_URL__', `https://github.com/${t.repository}/pull/${t.number}`).replaceAll('__PI_REVIEW_BODY_SHA256__', sha256(body)).replaceAll('__PI_REVIEW_MARKER__', marker);",
+        "CL-D33 drafts exactly two artifacts",
+        "s.publication = { comment: path.join(pub, 'review-comment.md'), script: path.join(pub, 'publish-review.sh') };",
+        "const pub = fs.mkdtempSync(path.join(this.dir, 'publish.'));",
+        "The CL-D33 report: both paths, the body digest, the one command, and the head binding; the operator runs it.",
+        "`publication_grant: ${s.grant || 'review-only not-applicable'}`"
+      ]
+    },
+    {
+      "id": "CL-D33-boundary-template",
+      "marker": "CL-D33",
+      "title": "The template says it is copied byte-for-byte with each placeholder replaced once",
+      "files": [
+        "skills/closed-loop-pr/references/publish-review.sh"
       ],
-      "section": "### Guarded owner publication artifacts (CL-D33, Issue #41)"
+      "requires": [
+        "template byte-for-byte and replace each exact ASCII placeholder below once in"
+      ]
+    },
+    {
+      "id": "CL-D33-boundary-record",
+      "marker": "CL-D33",
+      "title": "The owner executing the printed command is the publication grant",
+      "files": [
+        "contract/CL-D33.md"
+      ],
+      "requires": [
+        "review-only drafts the artifacts but never executes or posts; the owner executing the printed Bash command supplies the publication grant"
+      ]
     },
     {
       "id": "CL-D33-artifacts",
@@ -103,17 +124,15 @@
     {
       "id": "CL-D33-status",
       "marker": "CL-D33",
-      "title": "Operator status attribution",
+      "title": "The report names the exact command, the repository/PR/head binding, and the operator",
       "files": [
-        "skills/closed-loop-pr/references/review-only.md"
+        "skills/closed-loop-pr/driver/run.js"
       ],
       "requires": [
-        "exact command",
-        "repository/PR/head",
-        "changed head requires fresh review",
-        "operator"
-      ],
-      "section": "### Guarded owner publication artifacts (CL-D33, Issue #41)"
+        "To publish, the operator runs: bash",
+        "repository ${t.repository}, pull request #${t.number}, head ${t.headOid}",
+        "The comment is bound to that head; a changed head requires fresh review. It is posted under the operator's own GitHub account."
+      ]
     },
     {
       "id": "CL-D33-packaging",

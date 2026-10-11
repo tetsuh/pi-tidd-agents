@@ -183,19 +183,6 @@
       "section": "## Owner-gated Issue candidate publication (CL-D31)"
     },
     {
-      "id": "CL-D31-pr-boundary-pr",
-      "marker": "CL-D31",
-      "title": "Preserve PR review-only behavior",
-      "files": [
-        "skills/closed-loop-pr/references/review-only.md"
-      ],
-      "requires": [
-        "Issue workflow has no publication grant",
-        "PR review-only has no publication grant"
-      ],
-      "section": "## Publication boundary (CL-D28)"
-    },
-    {
       "id": "CL-D31-readme",
       "marker": "CL-D31",
       "title": "README documents bounded Issue publication",

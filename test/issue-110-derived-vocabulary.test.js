@@ -308,11 +308,18 @@ const MANIFEST = (() => {
       `${C} reviews the unchanged decision-containing candidate first (CL-D62)`,
       VOCAB.statusLines.rounds,
     ],
+    // #249 B2 (CL-D113): the review-only root is the packaged driver; its gate order, preliminary stop, convergence cap and
+    // per-gate rounds are pinned as code, the preliminary stop also as the record's sentence.
     'CL-D62-pr': [
-      `→ ${roleOf(gate.convergence)} stage (non-authoritative, CL-D62)`,
-      `a preliminary \`FIX BEFORE MERGE\` is reported through the disposition/draft path as \`WAITING_FOR_OWNER\` before ${S} runs, unless its only open findings are Minors recorded under CL-D85 (CL-D85)`,
-      `${cap(C)} rounds are accounted separately as \`${C} <used>/3\`, one per candidate identity and snapshot fingerprint`,
-      VOCAB.statusLines.rounds,
+      `const GATES = ['${C}', '${gate.adversarial}', '${gate.safety}'];`,
+      'const open = findings.filter((x) => !isRecorded(x) && !settled(x));',
+      "run.stop('WAITING_FOR_OWNER', `${label(gate)} returned ${envelope.verdict} with open finding(s): ${open.map((x) => x.findingId).join(', ')}`)",
+      `if (open.length && gate === '${C}' && p.invocation >= ROUND_CAP) {`,
+      '`${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`',
+    ],
+    'CL-D62-pr-record': [
+      `Review-only stops at \`WAITING_FOR_OWNER\` on a preliminary \`FIX BEFORE MERGE\` before ${S} runs.`,
+      `a result whose only open findings are Minors recorded under CL-D85 advances to ${S} instead of stopping`,
     ],
     'CL-D62-autofix': [
       `The CL-D62 ${C} stage runs once per candidate identity and snapshot fingerprint before each ${S} invocation, is accounted separately as \`${C} <used>/5\` outside the 15 counted gate invocations`,
