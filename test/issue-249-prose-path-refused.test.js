@@ -89,6 +89,15 @@ test('Issue #249 a review-only diff that is not UTF-8 stops BLOCKED and ends on 
   // The driver's own status line is the last line; nothing sends the pull request anywhere after it.
   const last = JSON.parse(r.stdout.trim().split('\n').pop());
   assert.deepEqual([last.state, last.reason], ['BLOCKED', s.reason]);
+  // Round 2 CONV-269-AC2-ARTIFACT: "with its artifacts drafted" means both publication artifacts exist on the FINISHED lines.
+  const comment = r.stdout.match(/^FINISHED comment=(\S+)$/m)[1], script = r.stdout.match(/^PUBLISH=(\S+)$/m)[1];
+  const body = fs.readFileSync(comment, 'utf8');
+  assert.match(body, /^# Review state: BLOCKED$/m);
+  assert.match(body, /<!-- pi-tidd-agents:review-publication:v1 /, 'the comment carries the publication marker');
+  assert.equal(review.crypto.createHash('sha256').update(body).digest('hex'), r.stdout.match(/^body sha256 ([0-9a-f]{64})$/m)[1], 'the printed digest is the comment file');
+  const sh = fs.readFileSync(script, 'utf8');
+  assert.match(sh, /^#!/);
+  assert.doesNotMatch(sh, /__PI_REVIEW_[A-Z_]+__/, 'the script has no template placeholder left');
 });
 
 // The driver carries no send-back, and no text in it names a prose path.
@@ -128,6 +137,10 @@ test('Issue #249 no instruction anywhere in the Skill routes a pull request to a
   const skill = readText(SKILL);
   assert.doesNotMatch(skill, /^- [^\n]*mode: read `references\//m);
   assert.doesNotMatch(skill, /load the authoritative continuation|Read exactly one mode reference|Follow the selected reference/);
+  // Round 2 CONV-269-AC3-FILE-COVERAGE: AC3 names README.md and agents/*.md whole, not one README section.
+  const routing = /PROSE_PATH|prose path|mode reference|references\/(review-only|autofix|autofix-addendum|helper-map)\.md|by hand|hand[- ]review|hand-composed round/i;
+  assert.doesNotMatch(readText('README.md'), routing, 'README.md');
+  for (const agent of fs.readdirSync(review.repoPath('agents')).filter((f) => f.endsWith('.md'))) assert.doesNotMatch(readText(`agents/${agent}`), routing, agent);
   const dispatch = sectionOf(skill, '## Mode dispatch (CL-D19)');
   assert.ok(dispatch, 'the Mode dispatch block is still the final block until #249 deletes it');
   assert.match(dispatch, /^Since CL-D111 no pull request takes this path: every run goes through the driver \(Driver dispatch above\), and you read no mode reference\. The block stays as specification until #249 deletes it with the mode references\./m);
@@ -155,6 +168,13 @@ test('Issue #249 CL-D111 records the refusal and the superseded records name it'
     ['CL-D19', '## CL-D19 — Division of responsibility between prompts, Skills, and mode references'],
     ['CL-D93', '## CL-D93 — A packaged driver sequences the review; the parent only makes the calls it prints'],
     ['CL-D8', '## CL-D8 — Targets outside the current repository'],
+    ['CL-D9', '## CL-D9 — Evidence-specific fingerprints'],
   ]) assert.match(sectionOf(readContract(), heading), /#249 later/, id);
+  // Round 2 CONV-269-AC4-D9-PIN: CL-D9's note is pinned like the other four.
+  assert.match(sectionOf(readContract(), '## CL-D9 — Evidence-specific fingerprints'), /#249 later refused the foreign review-only path \(CL-D111\): the packaged driver computes the pull-request fingerprints from the local checkout, and no run collects them from the GitHub API alone\./);
+  const forward = JSON.parse(readText('contract/CL-D111.clauses.json')).clauses.find((c) => c.id === 'CL-D111-forward');
+  assert.deepEqual(forward.files, ['contract/CL-D8.md', 'contract/CL-D9.md', 'contract/CL-D19.md', 'contract/CL-D93.md', 'contract/CL-D104.md']);
+  const d9 = JSON.parse(readText('contract/CL-D111.clauses.json')).clauses.find((c) => c.id === 'CL-D111-forward-d9');
+  assert.deepEqual([d9.files, d9.requires], [['contract/CL-D9.md'], ['#249 later refused the foreign review-only path (CL-D111): the packaged driver computes the pull-request fingerprints from the local checkout, and no run collects them from the GitHub API alone.']]);
   assert.match(sectionOf(readContract(), '## CL-D8 — Targets outside the current repository'), /#249 later refused a foreign pull request in both PR modes; the Issue workflow's rule is unchanged/);
 });
