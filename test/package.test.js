@@ -376,8 +376,15 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
   assert.match(autofix, /The exact `autofix` token additionally selects the CL-D30 addendum in `references\/autofix-addendum\.md`; read it only then, after this reference \(CL-D50\)\./);
   const addendumStage = readText(PR_AUTOFIX_ADDENDUM);
   assert.match(addendumStage, /^## Exact PR `autofix` addendum \(CL-D30\)/);
-  assert.match(addendumStage, /Exact PR `autofix` has no uncommitted candidate and may report readiness only from the CL-D30 post-reply final snapshot; its optional aggregate-summary draft never blocks readiness\./);
-  assert.match(addendumStage, /Exact PR `autofix` never resumes: a later command is a fresh run\./);
+  // #249 B4a (CL-D115): the readiness and resume boundary is read in CL-D30 and the driver; the summary draft is the
+  // owner's to post, outside the run.
+  const d30 = readText('contract/CL-D30.md');
+  assert.match(d30, /The exact public head OID is the candidate identity\./);
+  assert.match(d30, /aggregate summaries remain owner-approved actions outside the run/);
+  assert.match(d30, /a later command is a fresh run, never resume\./);
+  const autofixDriver = readText('skills/closed-loop-pr/driver/autofix.js');
+  assert.ok(autofixDriver.includes("if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }"), 'readiness is reported only from a final snapshot unchanged since the gates');
+  assert.ok(autofixDriver.includes("else die('usage: autofix.js start|result|pre-edit|batch|writer-done|status');"), 'the autofix driver has no resume command');
   assert.doesNotMatch(reviewOnly, /references\/autofix\.md/);
   assert.doesNotMatch(autofix, /references\/review-only\.md/);
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(reviewOnly) < PR_SKILL_PRE_SPLIT_BYTES, 'review-only disclosure must be smaller than the pre-split PR Skill');
@@ -393,8 +400,10 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
   const autofixExclusive = [
     ['contract/CL-D23.md', 'Exact PR `autofix` uses only the published public-head OID'],
     ['contract/AC-GRANT.md', 'the exact PR `autofix` token itself supplies the run-scoped grant'],
-    [PR_AUTOFIX_ADDENDUM, 'Exact PR `autofix` never resumes: a later command is a fresh run.'],
-    [PR_AUTOFIX_ADDENDUM, 'Exact autofix malformed or unparsable verdict stops on first failure.'],
+    // #249 B4a (CL-D115): the addendum's two exclusive obligations are read in CL-D30 and the driver.
+    ['contract/CL-D30.md', 'a later command is a fresh run, never resume.'],
+    ['contract/CL-D30.md', 'Any identity movement, ambiguity, failed guard, malformed verdict/record'],
+    ['skills/closed-loop-pr/driver/phases.js', "run.stop('BLOCKED', `gate_result_read refused${p.relaunched ? ' after one relaunch' : ''}:"],
   ];
   for (const [file, text] of [...reviewOnlyExclusive, ...autofixExclusive]) assert.ok(readText(file).includes(text), `${file} must own: ${text}`);
   assert.doesNotMatch(autofix, /Review-only never edits any repository file/);

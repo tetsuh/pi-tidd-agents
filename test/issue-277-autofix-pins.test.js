@@ -26,7 +26,7 @@ const MIXED_TESTS = {
     gone: ['for (const text of autofixExclusive) assert.ok(autofixStage.includes(text)'],
   },
   'pr-operational-cleanliness': {
-    keep: ['const PR_AUTOFIX = readAutofixProcedure();', 'assert.equal(definitionCount(SKILL, name), 1, `${name} must be defined exactly once in the PR Skill`);', "assert.ok((SKILL.match(/`REPLY_EXCEPTION`/g) || []).length >= 5, 'every provider-mutation boundary must reference REPLY_EXCEPTION');", "assert.equal((SKILL.match(definition) || []).length, 1, 'PR Skill must define RUNTIME_ROOTS exactly once');"],
+    keep: ['const PR_AUTOFIX = readAutofixProcedure();', 'assert.equal(definitionCount(SKILL, name), 1, `${name} must be defined exactly once in the PR Skill`);', "assert.equal((SKILL.match(definition) || []).length, 1, 'PR Skill must define RUNTIME_ROOTS exactly once');"],
     gone: ["section(SKILL, '### Isolated exact-autofix invariants (CL-D10, CL-D30)')", "section(SKILL, '### Worktree precondition (CL-D10)')"],
   },
   'issue-34-bounded-recovery': {
