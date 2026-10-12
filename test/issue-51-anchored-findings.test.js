@@ -100,9 +100,8 @@ test('Issue #51 exact autofix declares its threat model and normalizes new block
   assert.match(findings, /Before assigning a new `blockerKey`, the parent normalizes the finding against the settled ledger by counterexample class/);
   assert.match(findings, /same helper or clause, same invariant, different input/);
   assert.match(findings, /reopen of the settled key requiring materially new evidence, never as a new key \(CL-D34\)/);
-  // The 15/5/third-observation breakers are unchanged.
-  assert.match(findings, /at most 15 counted gate invocations and 5 successful correction pushes/);
-  assert.match(findings, /third observation of one unresolved `blockerKey × breakerOwner`/);
+  // #249 B4a (CL-D115): the 15/5/third-observation limits are CL-D30's, read in the driver (CL-D30-circuit); the breaker
+  // owner is CL-D115's first divergence.
 });
 
 test('Issue #51 leaves review-only, Issue, and agent files without a threat model of their own', () => {
