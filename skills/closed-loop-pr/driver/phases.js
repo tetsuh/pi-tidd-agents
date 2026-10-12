@@ -103,7 +103,7 @@ function isRecorded(x) {
 }
 // The pending gate's result: a running gate prints WAIT and changes nothing; an unreadable one is relaunched once.
 // Returns the read data, or undefined after a relaunch. Exact autofix narrows the relaunch to CL-D51's key: its own
-// codes, a budget of its own, and a recheck before the launch is printed again (autofix.md).
+// codes, a budget of its own, and a recheck before the launch is printed again.
 function readGate(run, runId, self, { codes = RELAUNCHABLE, may = (p) => !p.relaunched, before = () => {} } = {}) {
   const p = run.state.pending;
   const read = run.op('gate_result_read', { runId: runId || die('--run-id is required'), expectationPath: p.expectationPath }, { allowFail: true });

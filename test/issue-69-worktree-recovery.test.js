@@ -73,7 +73,6 @@ function makeStale(repo, workspace, args = ['--detach']) {
   return record;
 }
 
-const AUTOFIX = (readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
 const CONTRACT = readContract();
 const README = readText('README.md');
 
@@ -86,14 +85,17 @@ const README = readText('README.md');
 // RED output is not claimed as repository-preserved or runtime-compliance evidence.
 
 test('Issue #69 authority forbids broad prune advice and scopes exact external recovery', () => {
-  for (const source of [AUTOFIX, CONTRACT, README]) {
+  // #249 B3 (CL-D114): the rule is read in the contract and the README; the autofix reference is no longer pinned.
+  for (const source of [CONTRACT, README]) {
     assert.match(source, /missing path.*does not prove.*stale.*registration/is);
     assert.match(source, /never recommend.*git worktree prune/is);
     assert.match(source, /non-force.*git worktree remove.*exact/is);
   }
-  assert.match(AUTOFIX, /new owner action outside the failed run/i);
-  assert.match(AUTOFIX, /unverifiable.*no mutation command/i);
+  assert.match(CONTRACT, /new owner action outside the failed run/i);
+  assert.match(CONTRACT, /unverifiable.*no mutation command/i);
   assert.match(CONTRACT, /CL-D40/);
+  // The packaged driver drafts no such removal, a gap CL-D40 records and does not close.
+  assert.match(CONTRACT, /The packaged autofix driver drafts no `git worktree remove <exact-path>`/);
 });
 
 test('Issue #69 unrelated missing registrations cannot break a fresh linked workspace', async () => {

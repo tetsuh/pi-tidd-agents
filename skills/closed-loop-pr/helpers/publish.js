@@ -1,6 +1,6 @@
 'use strict';
 
-// Issue #181 (CL-D89): the bounded batch's one normal commit and one non-force push, as packaged operations the writer
+// Issue #181 (CL-D89, CL-D25): the bounded batch's one normal commit and one non-force push, as packaged operations the writer
 // invokes. Both run in the workspace the run created, under the same isolated Git configuration as every other Git
 // command, plus exactly what that isolation removes and the operation needs: the commit gets the operator identity
 // `operator_capture` recorded at preflight, and the push gets one named credential helper, `gh auth git-credential`.

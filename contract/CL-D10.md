@@ -1,5 +1,5 @@
 ## CL-D10 — Worktree precondition for autofix
-**Clauses:** CL-D10, CL-D10-pi-contract
+**Clauses:** CL-D10, CL-D10-driver, CL-D10-pi-contract
 
 Exact PR `autofix` first verifies `OPERATOR_CHECKOUT@H`: target/path, local `HEAD` and PR branch ref at public `H`, clean tracked/index state, no unexpected non-ignored untracked paths, and an opaque sorted ignored inventory explicitly enumerated as NUL-delimited normalized checkout-relative lexical paths plus no-follow kind. Absolute, empty, dot/dot-dot, unreadable, replaced, renamed, ambiguous, or unstable re-enumeration fails closed. Porcelain alone is insufficient; contents, targets, sizes, timestamps, and hashes are never read. safe no-follow classification of every enumerated `RUNTIME_ROOTS` member is required; each root is absent or a real directory, excluded from opaque inventory, and governed by existing independent rules. Staged deletion never cures a forbidden parent path; future additions require a recorded contract decision naming the producing tool, default configuration, and affected version range.
 

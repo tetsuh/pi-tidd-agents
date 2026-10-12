@@ -17,11 +17,14 @@ const fs = require('node:fs');
 
 const { readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 
-test('Issue #115 the writer iterates on focused validation before the guard and receives pinned literals verbatim', () => {
-  const writer = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### The writer (CL-D3)');
-  assert.ok(writer, 'the writer section must exist');
-  assert.match(writer, /During the edit step, before `BEFORE_VALIDATION`, the writer runs the focused validation commands itself and proceeds to the guard only when they pass, using commands that leave no untracked artifact behind; the guarded focused validation stays the single terminal check, so the edit step is where the writer iterates\./);
-  assert.match(writer, /When a correction targets a literal that a fixture or the clause manifest pins, the parent's instruction carries that literal verbatim from its source rather than describing it \(CL-D64\)\./);
+test('Issue #115 the guarded validation stays the single terminal check and the writer receives pinned literals verbatim', () => {
+  // #249 B3 (CL-D114): the rule is read in its record and the packaged writer task. On the driver path the writer does
+  // not run the validation itself (CL-D64-forward-d96), so the prose path's iteration sentence is retired.
+  const record = readText('contract/CL-D64.md');
+  assert.match(record, /the guarded focused validation stays the single terminal check/);
+  assert.match(record, /on the packaged driver path \(CL-D96\) the writer does not run the validation commands itself/);
+  assert.match(record, /receives that literal verbatim from its source/);
+  assert.match(readText('skills/closed-loop-pr/driver/writer.js'), /Copy any literal a correction pins verbatim\./);
   // The addendum is untouched: it sits inside its own byte guard and owns the guard sequence.
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.doesNotMatch(addendum, /the edit step is where the writer iterates/);

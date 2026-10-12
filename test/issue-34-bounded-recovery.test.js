@@ -16,79 +16,31 @@ const { spawnSync } = require('node:child_process');
 
 const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas, repoPath, readManifest } = require('./helpers');
 
-const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const CL_D39 = 'contract/CL-D39.md';
+const AUTOFIX_DRIVER = 'skills/closed-loop-pr/driver/autofix.js';
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
 const REVIEW_DRIVER_PHASES = 'skills/closed-loop-pr/driver/phases.js';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
 const CLI = 'skills/closed-loop-pr/helpers/cli.js';
-const RECOVERY_HEADING = '### Bounded pre-writer recovery (CL-D39)';
 
 
 test('Issue #34 the recovery is bounded to the pre-writer region', () => {
-  const section = sectionOf((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
-  assert.ok(section, `${PR_AUTOFIX} must own the bounded recovery rule`);
-  assert.match(section, /One recovery is permitted for either a deterministic local tooling failure under the original CL-D39 rows or the CL-D51 pure gate transport failure with zero designated output bytes/);
-  assert.match(section, /no Luna task, commit, push, or reply exists/);
-  // DEC-PR65-CLD39-WORKSPACE-MUTATION-001: workspace creation is authorized Git administration
-  // that AUTOFIX_WORKSPACE@H presupposes, so the guard exempts exactly those setup effects.
-  assert.match(section, /namely `workspace_create`'s external run root, linked-worktree registration or clone, and receipt/);
-  assert.match(section, /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`/);
-  // The record carries the same enumeration, so neither side can drift alone (pre-push review of 77c8362).
-  assert.match(readContract(), /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`/);
-  assert.match(section, /no correction, publication, provider, target, or operator mutation exists/);
-  assert.match(section, /`OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H` are freshly re-proved/);
-  // CLEAN@H was retired by Issue #42 and is not a live invariant; it must not return.
-  assert.doesNotMatch(section, /CLEAN@H/, 'the recovery must bind to live invariants only');
-  assert.match(section, /the budget is exactly one per key/);
-  // The key vocabulary is grounded in the CLI operation names and the file's own phase model.
-  assert.match(section, /The operation part is the packaged CLI operation that failed, so each `fingerprint_\*` operation is its own key/);
-  assert.match(section, /The phase part is `preflight`, `gate_launch`, `gate_result`, or `normalize` before any edit, and the guard or step name from Luna's batch sequence after/);
-  assert.match(section, /a replacement failure is the second failure of that key and is terminal/);
-  assert.match(section, /Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts/);
-
-  // The mapping must be closed over every Issue #34 failure, each with a canonical key, a
-  // prevalidated replacement, an outcome, and explicit evidence handling.
-  assert.match(section, /one canonical `operation@phase` key/);
-  assert.match(section, /The replacement retains the key/);
-  assert.match(section, /preserves evidence already proved unchanged and invalidates only the failed operation's own output/);
-
-  const rows = section.split('\n')
-    .filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
-    .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()));
-  // Five rows cover Issue #34's own failures; CL-D51 (Issue #82) adds the zero-output gate
-  // transport key as a sixth, under its own owner decision.
-  assert.equal(rows.length, 6, `the mapping must cover the five Issue #34 failures plus CL-D51, found ${rows.length}`);
-  for (const row of rows) assert.equal(row.length, 5, `each row needs failure, key, replacement, outcome, evidence: ${row.join(' | ')}`);
-  const byKey = new Map(rows.map((row) => [row[1], row]));
-  assert.deepEqual([...byKey.keys()].sort(), [
-    '`envelope_read@normalize`', '`fingerprint_<op>@normalize`', '`gate_transport@gate_launch`',
-    '`manifest_compare@AFTER_STAGING`', '`report_verify@normalize`', '`validation_run@focused_validation`',
-  ], 'every failure needs its own canonical key');
-  // Both post-writer failures stay terminal with no replacement: the manifest assertion, and
-  // the harness error, which in the shipped phase model only occurs inside Luna's focused
-  // validation or a gate child.
-  const terminalKeys = ['`manifest_compare@AFTER_STAGING`', '`validation_run@focused_validation`'];
-  for (const key of terminalKeys) {
-    const row = byKey.get(key);
-    assert.equal(row[2], 'none', `${key} has no prevalidated replacement`);
-    assert.equal(row[3], 'terminal', `${key} must be terminal`);
-  }
-  // SOL-65-RECOVERY-SPEC: the report replacement is selected by the envelope's own
-  // `operation` field, which every packaged envelope carries, so it is deterministic.
-  assert.match(byKey.get('`report_verify@normalize`')[2], /the operation named in the report envelope's own `operation` field, read directly as `envelope_read`/);
-  for (const [key, row] of byKey) {
-    if (terminalKeys.includes(key)) continue;
-    assert.equal(row[3], 'recoverable', `${key} should be recoverable`);
-    assert.notEqual(row[2], 'none', `${key} needs a concrete prevalidated replacement`);
-    assert.ok(row[4].length > 0, `${key} must state its evidence handling`);
-  }
-  // Every key not listed is terminal, swept by the file's own phase tokens.
-  assert.match(section, /Every key not listed is terminal/);
-  for (const token of ['`preflight` and `gate_launch`', '`gate_result`', '`normalize`', 'from the first Luna task onward']) {
-    assert.ok(section.includes(token), `the terminal sweep must name ${token}`);
-  }
+  // #249 B3 (CL-D114): the rule is read in its record and in the driver that applies it. The base reference's recovery
+  // table is retired with the prose path: the packaged driver recovers only CL-D51's key, once per run and never after
+  // the writer, and stops every other refusal, a narrowing CL-D39 records and does not close.
+  const record = readText(CL_D39);
+  assert.match(record, /One recovery is permitted per operation and phase for a deterministic local parsing, rendering, schema-access, or report-verification failure/);
+  assert.match(record, /no Luna task, commit, push, or reply exists/);
+  assert.match(record, /process-isolation root `pi-tidd-pr-helper-\*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`/);
+  assert.match(record, /one canonical `operation@phase` key that its replacement retains, so a replacement failure is the second failure of that key and is terminal/);
+  assert.match(record, /invalidating only the failed operation's own output/);
+  assert.match(record, /grants no resume, no second writer, no repeated provider mutation/);
+  assert.match(record, /The packaged autofix driver recovers only CL-D51's key, with the output CL-D107 adds, once per run and never after the writer launch; a running gate waits, and every other helper refusal stops `BLOCKED`/);
+  const driver = readText(AUTOFIX_DRIVER);
+  assert.ok(driver.includes("codes: new Set(['designated_output_absent', 'designated_output_empty', 'result_names_no_run']), may: () => !s.relaunched && !s.writerLaunched,"), 'the driver relaunches only its CL-D51 codes, once per run, never after the writer');
+  assert.match(driver, /CL-D51's key \(CL-D39\): only an absent or empty output/);
 });
 
 // DEC-PR65-CLD39-PROCESS-ISOLATION-002: the exemption is pinned against what the helper
@@ -98,8 +50,8 @@ test('Issue #34 the recovery is bounded to the pre-writer region', () => {
 // home/helper-extra changes the tree and fails here even though no declared name changed.
 const PROCESS_HELPER = 'skills/closed-loop-pr/helpers/process.js';
 function exemptedIsolationNames() {
-  const section = sectionOf((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
-  const clause = section.match(/process-isolation root `([^`]+)\*` with its ((?:`[^`]+`(?:, and | and |, )?)+)/);
+  // #249 B3 (CL-D114): the exemption is parsed from the record, which states it verbatim.
+  const clause = readText(CL_D39).match(/process-isolation root `([^`]+)\*` with its ((?:`[^`]+`(?:, and | and |, )?)+)/);
   assert.ok(clause, 'the exemption must name the isolation root prefix and its writes');
   return { prefix: clause[1], names: [...clause[2].matchAll(/`([^`]+)`/g)].map((m) => m[1]).sort() };
 }
@@ -201,7 +153,7 @@ test('Issue #34 no shared prose forks and no shared sentence gains a mode except
 test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   const section = sectionOf(readContract(), '## CL-D39 — Exact autofix gains one bounded pre-writer recovery');
   assert.ok(section, 'CL-D39 decision is missing');
-  assert.match(section, /^\*\*Clauses:\*\* CL-D39-stop, CL-D39-recovery, CL-D39-baseline$/m);
+  assert.match(section, /^\*\*Clauses:\*\* CL-D39-stop, CL-D39-recovery, CL-D39-driver, CL-D39-baseline$/m);
   assert.match(section, /^\*Decision ID:\* CL-D39$/m);
   assert.match(section, /tetsuh\/pi-tidd-agents#34/);
   assert.match(section, /Option B for exact PR `autofix`/);
@@ -228,7 +180,7 @@ test('Issue #34 CL-D39 records the recovery and the no-fork basis', () => {
   const manifest = readManifest();
   assert.deepEqual(
     manifest.clauses.filter((clause) => clause.marker === 'CL-D39').map((clause) => clause.id).sort(),
-    ['CL-D39-baseline', 'CL-D39-recovery', 'CL-D39-stop'],
+    ['CL-D39-baseline', 'CL-D39-driver', 'CL-D39-recovery', 'CL-D39-stop'],
   );
 });
 
@@ -246,151 +198,7 @@ test('Issue #34 the partial-narrowing evidence in the record still matches the c
   assert.match((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/);
 });
 
-// Executable decision model. Review-driven regression: the CL-D39 rule expressed as code so the
-// prose is checked for decidability, not only for presence. Outcomes per key are parsed from
-// the shipped mapping so prose drift fails here; the eight guards and the per-key budget are
-// the rule's own conditions. This models the parent's decision; it is not a packaged helper.
-// `noMutationAttempted` means no mutation beyond the enumerated workspace_create setup effects.
-const GUARDS = ['noMutationAttempted', 'noLunaTask', 'operatorUnchanged', 'workspaceVerified', 'identityUnchanged', 'fingerprintsUnchanged', 'deterministicLocal', 'replacementPrevalidated'];
-const CL_D39_GUARDS = GUARDS.filter((guard) => guard !== 'deterministicLocal');
-const allGuardsTrue = () => Object.fromEntries(GUARDS.map((guard) => [guard, true]));
-function mappingOutcomes() {
-  const section = sectionOf((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), RECOVERY_HEADING);
-  const rows = section.split('\n').filter((line) => line.startsWith('|') && !/^\|\s*-+/.test(line) && !/\| Failure \|/.test(line))
-    .map((line) => line.split('|').slice(1, -1).map((cell) => cell.trim()));
-  // `fingerprint_<op>` expands only to the fingerprint operations the packaged CLI actually
-  // exposes. An unrestricted wildcard let an invented operation reach recovery; the contract
-  // says the operation part is the packaged CLI operation that failed, so bind it to the table.
-  const fingerprintOps = Object.keys(cliSchemas()).filter((name) => name.startsWith('fingerprint_'));
-  assert.ok(fingerprintOps.length > 0, 'the CLI must expose fingerprint operations');
-  const expand = (key) => key.replace(/`/g, '').replace('fingerprint_<op>', `(?:${fingerprintOps.join('|')})`);
-  return rows.map(([, key, , outcome]) => ({ pattern: new RegExp('^' + expand(key) + '$'), outcome }));
-}
-// Setup effects are modelled explicitly so the exemption is decidable, not implied.
-const SETUP_EFFECTS = ['externalRunRoot', 'linkedWorktreeOrClone', 'receipt', 'isolationRoot', 'isolationHome', 'isolationHooks', 'isolationGlobalGitconfig', 'isolationSystemGitconfig'];
-function mutationGuard(events) {
-  // true when every attempted mutation is an authorized setup effect
-  return events.every((event) => SETUP_EFFECTS.includes(event));
-}
-function decide(key, guards, ledger) {
-  // An operation the packaged CLI does not expose cannot carry a recoverable key at all.
-  const [operation] = key.split('@');
-  const knownOperation = Object.hasOwn(cliSchemas(), operation) || ['envelope_read', 'report_verify', 'validation_harness', 'manifest_compare', 'gate_transport'].includes(operation);
-  if (!knownOperation) return 'terminal';
-  const row = mappingOutcomes().find((entry) => entry.pattern.test(key));
-  if (!row || row.outcome !== 'recoverable') return 'terminal';
-  // CL-D51 admits only a pure transport failure with no designated output bytes. Any byte,
-  // including malformed output, is evidence that keeps the failure terminal.
-  if (key === FAILURE_KEYS.gateTransport && guards.designatedOutputBytes !== 0) return 'terminal';
-  // The original CL-D39 local rows require deterministicLocal. CL-D51 is an explicitly
-  // disjunctive pure transport recovery and therefore keeps every inherited safety guard
-  // while deliberately not requiring the local-failure classification.
-  const requiredGuards = key === FAILURE_KEYS.gateTransport ? CL_D39_GUARDS : GUARDS;
-  if (requiredGuards.some((guard) => guards[guard] !== true)) return 'terminal';
-  const used = ledger.get(key) || 0;
-  if (used >= 1) return 'terminal';
-  ledger.set(key, used + 1);
-  return 'recover';
-}
-
-const FAILURE_KEYS = {
-  envelope: 'envelope_read@normalize',
-  report: 'report_verify@normalize',
-  fingerprintBase: 'fingerprint_pr_base@normalize',
-  fingerprintTree: 'fingerprint_pr_tree@normalize',
-  harness: 'validation_run@focused_validation',
-  manifest: 'manifest_compare@AFTER_STAGING',
-  gateTransport: 'gate_transport@gate_launch',
-};
-
-test('Issue #34 decision model: permitted and forbidden siblings for every mapped failure', () => {
-  const cases = [
-    ['envelope read, all guards, first time', FAILURE_KEYS.envelope, {}, 'recover'],
-    ['report verify, all guards, first time', FAILURE_KEYS.report, {}, 'recover'],
-    ['fingerprint pr_base, all guards, first time', FAILURE_KEYS.fingerprintBase, {}, 'recover'],
-    ['harness failure is post-writer', FAILURE_KEYS.harness, {}, 'terminal'],
-    ['manifest assertion is post-writer', FAILURE_KEYS.manifest, {}, 'terminal'],
-    ['unlisted key: gate result malformed verdict', 'gate_result_validate@gate_result', {}, 'terminal'],
-    ['unlisted key: writability at preflight', 'writability@preflight', {}, 'terminal'],
-  ];
-  for (const [name, key, override, expected] of cases) {
-    assert.equal(decide(key, { ...allGuardsTrue(), ...override }, new Map()), expected, name);
-  }
-});
-
-test('Issue #34 decision model: each guard independently false is terminal', () => {
-  for (const guard of GUARDS) {
-    for (const key of [FAILURE_KEYS.envelope, FAILURE_KEYS.report, FAILURE_KEYS.fingerprintBase]) {
-      const guards = { ...allGuardsTrue(), [guard]: false };
-      assert.equal(decide(key, guards, new Map()), 'terminal', `${key} with ${guard}=false must be terminal`);
-    }
-  }
-});
-
-test('Issue #34 decision model: per-key budget is isolated and a second failure of the same key is terminal', () => {
-  const ledger = new Map();
-  assert.equal(decide(FAILURE_KEYS.fingerprintBase, allGuardsTrue(), ledger), 'recover');
-  // replacement failure = second failure of the same key
-  assert.equal(decide(FAILURE_KEYS.fingerprintBase, allGuardsTrue(), ledger), 'terminal', 'replacement failure must be terminal');
-  // a different fingerprint operation is a different key and keeps its own budget
-  assert.equal(decide(FAILURE_KEYS.fingerprintTree, allGuardsTrue(), ledger), 'recover', 'budget is per key, not per family');
-  assert.equal(decide(FAILURE_KEYS.envelope, allGuardsTrue(), ledger), 'recover');
-  assert.equal(decide(FAILURE_KEYS.envelope, allGuardsTrue(), ledger), 'terminal');
-  // the budget is never refreshed by a different key succeeding
-  assert.equal(decide(FAILURE_KEYS.fingerprintBase, allGuardsTrue(), ledger), 'terminal');
-});
-
-test('Issue #34 decision model: an invented fingerprint operation is terminal and consumes no budget', () => {
-  const ledger = new Map();
-  for (const key of ['fingerprint_not_packaged@normalize', 'fingerprint_@normalize', 'fingerprint_pr_base_extra@normalize']) {
-    assert.equal(decide(key, allGuardsTrue(), ledger), 'terminal', `${key} names no packaged operation and must be terminal`);
-  }
-  assert.equal(ledger.size, 0, 'an unknown operation must not consume budget');
-  // and every real fingerprint operation still reaches recovery once
-  for (const operation of Object.keys(cliSchemas()).filter((name) => name.startsWith('fingerprint_'))) {
-    assert.equal(decide(`${operation}@normalize`, allGuardsTrue(), new Map()), 'recover', `${operation} is a packaged operation and must be recoverable`);
-  }
-});
-
-test('Issue #34 decision model: workspace setup effects do not block recovery but any other mutation does', () => {
-  // post-workspace: the workspace exists, so its authorized setup effects have happened
-  assert.equal(mutationGuard(['externalRunRoot', 'linkedWorktreeOrClone', 'receipt']), true);
-  assert.equal(mutationGuard(['isolationRoot', 'isolationHome', 'isolationHooks', 'isolationGlobalGitconfig', 'isolationSystemGitconfig']), true, 'process-isolation writes precede every helper Git call and are exempt');
-  assert.equal(decide(FAILURE_KEYS.envelope, { ...allGuardsTrue(), noMutationAttempted: mutationGuard(SETUP_EFFECTS), workspaceVerified: true }, new Map()), 'recover',
-    'a freshly verified workspace with only setup effects must still allow recovery');
-  for (const mutation of ['commit', 'push', 'reply', 'providerMutation', 'targetMutation', 'operatorMutation', 'correctionEdit']) {
-    const guards = { ...allGuardsTrue(), noMutationAttempted: mutationGuard([...SETUP_EFFECTS, mutation]) };
-    assert.equal(decide(FAILURE_KEYS.envelope, guards, new Map()), 'terminal', `${mutation} must keep recovery unreachable`);
-  }
-});
-
-test('Issue #34 decision model: a budget entry does not change a terminal row into a recoverable one', () => {
-  const ledger = new Map();
-  assert.equal(decide(FAILURE_KEYS.manifest, allGuardsTrue(), ledger), 'terminal');
-  assert.equal(ledger.size, 0, 'terminal outcomes must not consume budget');
-});
-
-test('Issue #82 decision model: the first zero-output gate transport failure relaunches once', () => {
-  const ledger = new Map();
-  assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes: 0 }, ledger), 'recover');
-  assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes: 0 }, ledger), 'terminal', 'the one-relaunch budget is per run');
-});
-
-test('Issue #82 decision model: pure zero-output transport recovery is independent of deterministic-local classification', () => {
-  const guards = { ...allGuardsTrue(), deterministicLocal: false, designatedOutputBytes: 0 };
-  assert.equal(decide(FAILURE_KEYS.gateTransport, guards, new Map()), 'recover');
-});
-
-test('Issue #82 decision model: any output byte is terminal, including malformed output', () => {
-  for (const designatedOutputBytes of [1, 2, '0', 'malformed']) {
-    assert.equal(decide(FAILURE_KEYS.gateTransport, { ...allGuardsTrue(), designatedOutputBytes }, new Map()), 'terminal', `output ${String(designatedOutputBytes)} must stay terminal`);
-  }
-  assert.equal(decide(FAILURE_KEYS.gateTransport, allGuardsTrue(), new Map()), 'terminal', 'missing output measurement must not imply zero bytes');
-});
-
-test('Issue #82 decision model: every inherited guard failure keeps zero-output relaunch terminal', () => {
-  for (const guard of CL_D39_GUARDS) {
-    const guards = { ...allGuardsTrue(), designatedOutputBytes: 0, [guard]: false };
-    assert.equal(decide(FAILURE_KEYS.gateTransport, guards, new Map()), 'terminal', `${guard}=false must be terminal`);
-  }
-});
+// #249 B3 (CL-D114) retired the executable decision model that stood here, the Issue #82 zero-output cases with it: it
+// parsed the base reference's CL-D39 table into a model of the parent's decision, which the packaged driver does not
+// make. The driver's one relaunch is tested by behaviour in test/issue-196-autofix-driver-5, -6 and -7 and
+// test/issue-254-placeholder-relaunch.test.js, and test/issue-82-zero-output-relaunch.test.js pins its record.

@@ -41,7 +41,7 @@ function end(run, state, reason) {
   const s = run.state;
   if (s.captured && !run.ended) {
     run.ended = true;
-    // A failed terminal recheck is an operator change (autofix.md), so the stop is BLOCKED and the workspace kept.
+    // A failed terminal recheck is an operator change (CL-D10, CL-D30), so the stop is BLOCKED and the workspace kept.
     const recheck = revalidate(run, { allowFail: true });
     if (!recheck.ok && state !== 'BLOCKED') { reason = `operator_changed at the terminal recheck: ${recheck.error?.code || recheck.data?.code} (the run was stopping ${state}: ${reason})`; state = 'BLOCKED'; }
     let kept = state === 'BLOCKED' && s.created ? s.created.root : null;
@@ -187,7 +187,7 @@ function result(opts) {
   const run = openRun(opts), s = run.state, p = s.pending;
   if (!p || p.kind !== 'gate') die('no gate is pending in this run');
   guard(run);
-  // CL-D51's key (autofix.md): only an absent or empty output, or one that names no run (CL-D107), once per run, never
+  // CL-D51's key (CL-D39): only an absent or empty output, or one that names no run (CL-D107), once per run, never
   // after a writer, freshly rechecked.
   const read = readGate(run, opts['run-id'], SELF, { codes: new Set(['designated_output_absent', 'designated_output_empty', 'result_names_no_run']), may: () => !s.relaunched && !s.writerLaunched, before: () => { s.relaunched = true; recheck(run); } });
   if (!read) return undefined;

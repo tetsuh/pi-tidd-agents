@@ -1,0 +1,77 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D114-record",
+      "marker": "CL-D114",
+      "title": "CL-D114 records where the autofix reference's pins went",
+      "files": [
+        "contract/CL-D114.md"
+      ],
+      "section": "## CL-D114 — The clause pins of the autofix reference move to the code and the records",
+      "requires": [
+        "issues/249#issuecomment-6105250786",
+        "Option A, as the corrected order already states",
+        "No alarm is raised",
+        "CL-D107-autofix",
+        "CL-D81-autofix",
+        "CL-D72-route-autofix and CL-D72-map",
+        "CL-D40-autofix",
+        "CL-D50-base and CL-D83-autofix",
+        "Five sentences were about the document or the prose path and are retired",
+        "it and the decision models built from it in the tests of Issues #34, #35 and #38 are retired with the prose path",
+        "The file is byte-identical and `driver/autofix.js` reads it into `contractInput` as before."
+      ]
+    },
+    {
+      "id": "CL-D114-gaps",
+      "marker": "CL-D114",
+      "title": "Each gap and the divergence is recorded in its own record, not closed",
+      "files": [
+        "contract/AC-AUTOFIX.md",
+        "contract/CL-D39.md",
+        "contract/CL-D40.md",
+        "contract/CL-D51.md",
+        "contract/CL-D66.md"
+      ],
+      "requires": [
+        "recorded and not closed (#249, CL-D114)"
+      ]
+    },
+    {
+      "id": "CL-D114-cap",
+      "marker": "CL-D114",
+      "title": "AC-GRANT states the run-wide push cap the driver enforces",
+      "files": [
+        "contract/AC-GRANT.md"
+      ],
+      "requires": [
+        "The run-wide cap is five successful correction pushes, which the packaged autofix driver enforces as `CAP.pushes` (#249, CL-D114)."
+      ]
+    },
+    {
+      "id": "CL-D114-forward-d54",
+      "marker": "CL-D114",
+      "title": "CL-D54's drift fixture no longer reads the autofix reference",
+      "files": [
+        "contract/CL-D54.md"
+      ],
+      "requires": [
+        "CL-D114 then dropped `references/autofix.md` from that comparison."
+      ]
+    },
+    {
+      "id": "CL-D114-tests",
+      "marker": "CL-D114",
+      "title": "The #277 tests pin the repoint",
+      "files": [
+        "test/issue-277-autofix-pins.test.js"
+      ],
+      "requires": [
+        "Issue #277 no clause pin names references/autofix.md, and the retired clauses are gone",
+        "Issue #277 the rule-stating tests read the code or the record; the mixed files keep only their structural reads; the structural reads stay",
+        "Issue #277 the file is byte-identical, autofix.js still reads it into contractInput, and the byte alarms are unchanged",
+        "Issue #277 CL-D114 records the repoint, the retired clauses and sentences, the gaps and the divergence"
+      ]
+    }
+  ]
+}

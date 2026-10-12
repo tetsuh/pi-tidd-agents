@@ -14,22 +14,16 @@
     },
     {
       "id": "AC-GRANT",
-      "title": "Run-scoped bounded publication grant",
+      "title": "Run-scoped bounded publication grant, capped at five pushes",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "contract/AC-GRANT.md"
       ],
       "requires": [
-        "Only the exact PR `autofix` mode token supplies a run-scoped publication grant",
-        "For each validated correction batch against one reviewed public head/gate result",
-        "The run-wide cap is five successful correction pushes",
-        "never authorizes",
-        "merge",
-        "force-push",
-        "history rewrite",
-        "source-finding replies",
-        "aggregate summary posting"
-      ],
-      "section": "## Publication (AC-GRANT, CL-D28, CL-D30)"
+        "the exact PR `autofix` token itself supplies the run-scoped grant only for CL-D30's bounded one-normal-commit/non-force-push correction batch per reviewed public head and `REPLY_EXCEPTION`",
+        "Neither grant authorizes merge, force-push, amend, rebase, history rewrite",
+        "aggregate-summary posting",
+        "The run-wide cap is five successful correction pushes"
+      ]
     }
   ]
 }

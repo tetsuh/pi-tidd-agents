@@ -163,11 +163,10 @@ test('Issue #169 nothing still says the parent supplies the heads', () => {
 // the claim CL-D86 removed everywhere else. One sentence, pinned in two files and in the manifest.
 test('Issue #169 the post-push invariant names the derivation, wherever it is stated', () => {
   const DERIVED = 'through the heads `build_operator_revalidate` derives from the run\'s own post-push snapshots (CL-D79, CL-D86)';
-  for (const file of ['skills/closed-loop-pr/references/autofix.md', 'CONTRACT.md']) {
-    const text = file === 'CONTRACT.md' ? readContract() : readText(file);
-    assert.ok(text.includes(DERIVED), `${file} states the derived chain`);
-    assert.equal(text.includes('through the heads the parent names as its own pushes'), false, `${file} keeps no superseded statement of it`);
-  }
+  // #249 B3 (CL-D114): the contract states it; the autofix reference's copy is no longer pinned.
+  const text = readContract();
+  assert.ok(text.includes(DERIVED), 'CONTRACT.md states the derived chain');
+  assert.equal(text.includes('through the heads the parent names as its own pushes'), false, 'CONTRACT.md keeps no superseded statement of it');
   const manifest = readManifest();
   const pinned = manifest.clauses.find((clause) => clause.id === 'CL-D79-definition');
   assert.ok(pinned.requires.every((sentence) => sentence.includes(DERIVED) || !sentence.includes('WORKSPACE_POST_PUSH')),

@@ -15,13 +15,12 @@
     {
       "id": "CL-D66-writer",
       "marker": "CL-D66",
-      "title": "The exact-autofix writer writes checks against declared lists exactly the first time",
+      "title": "The record states the writer exactness rule",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "contract/CL-D66.md"
       ],
-      "section": "### The writer (CL-D3)",
       "requires": [
-        "A check the writer adds or corrects against a declared list or block is written as a complete parse of the surface and an exact ordered comparison with the derived expectation, never as a presence, substring, or subsequence test (CL-D66)."
+        "complete parse of the surface and an exact ordered comparison with the derived expectation, never as a presence, substring, or subsequence test"
       ]
     },
     {
@@ -50,7 +49,7 @@
         "test/issue-119-exactness-class.test.js"
       ],
       "requires": [
-        "the adversarial gate names every same-class rigor gap in one result and the writer writes exact checks",
+        "the adversarial gate names every same-class rigor gap in one result and the record states the writer rule",
         "CL-D66 records the placement, the declined alternatives, and the boundary"
       ]
     },

@@ -1,5 +1,5 @@
 ## CL-D49 — A successful cleanup result is the terminal workspace evidence
-**Clauses:** CL-D49-autofix, CL-D49-tests
+**Clauses:** CL-D49-autofix, CL-D49-autofix-record, CL-D49-tests
 
 *Decision ID:* CL-D49
 *Kind:* fail-closed terminal-evidence boundary

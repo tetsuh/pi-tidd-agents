@@ -16,7 +16,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, sectionOf, cliSchemas } = require('./helpers');
+const { readAutofixProcedure, readText, cliSchemas } = require('./helpers');
 const protocol = require('../skills/closed-loop-pr/helpers/protocol');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 const fingerprints = require('../skills/closed-loop-pr/helpers/fingerprints');
@@ -24,7 +24,10 @@ const snapshot = require('../skills/closed-loop-pr/helpers/snapshot');
 const paths = require('../skills/closed-loop-pr/helpers/paths');
 const { sanitizedEnv, gitArgs } = require('../skills/closed-loop-pr/helpers/process');
 
-const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
+const AUTOFIX_DRIVER = 'skills/closed-loop-pr/driver/autofix.js';
+// The packaged autofix driver's relaunch set: the only recovery it takes (CL-D51, CL-D107), and whatever set it names.
+const RELAUNCH = /codes: new Set\(\['designated_output_absent', 'designated_output_empty', 'result_names_no_run'\]\)/;
+const RELAUNCH_SET = /codes: new Set\((\[[^\]]*\])\)/;
 const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const ok = () => ({ ok: true });
 const fail = (phase, invariant, code) => ({ ok: false, phase, invariant, code });
@@ -44,17 +47,6 @@ const envelope = (over = {}) => ({
 });
 const expectation = () => ({ correlation: correlation(), workflow: 'pr', assignedFindings: [], requiredEvidence: [{ source: attestation().source, kind: 'file', identity: SHA('f') }] });
 const pull = (over = {}) => ({ number: 7, state: 'open', draft: false, base: { sha: OID('a'), ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: OID('b'), ref: 'b', repo: { full_name: 'o/r' } }, ...over });
-
-// Recovery outcome for a key, read from the shipped CL-D39 mapping (never restated here).
-function mappedOutcome(key) {
-  const section = sectionOf((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), '### Bounded pre-writer recovery (CL-D39)');
-  const rows = section.split('\n').filter((l) => l.startsWith('|') && !/^\|\s*-+/.test(l) && !/\| Failure \|/.test(l))
-    .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()));
-  const row = rows.find(([, k]) => new RegExp('^' + k.replace(/`/g, '').replace('fingerprint_<op>', 'fingerprint_[a-z_]+') + '$').test(key));
-  // A missing row is distinct evidence, never silently 'terminal': the harness must be able
-  // to tell "the mapping says terminal" from "the mapping no longer says anything".
-  return row ? { found: true, outcome: row[3] } : { found: false, outcome: null };
-}
 
 // Behavioural: what git actually stores for a commit message given via -F.
 // The fixture never spreads process.env into Git: inherited GIT_DIR, GIT_WORK_TREE,
@@ -124,11 +116,17 @@ const INCIDENTS = [
   {
     name: '3 missing dynamic-import in a test probe',
     phase: 'focused_validation', invariant: 'CL-D39 mapping: validation_harness is terminal',
-    positive: () => { const m = mappedOutcome('envelope_read@normalize'); return m.found && m.outcome === 'recoverable' ? ok() : fail('normalize', 'CL-D39', m.found ? 'unexpected' : 'row_missing'); },
+    // #249 B3 (CL-D114): the mapping is read in the packaged driver, which relaunches only CL-D51's codes and ends the
+    // batch on a harness failure; the base reference's table, and the row-presence check that parsed it, are retired.
+    // The positive is now the sibling's precondition, that the relaunch set is where the driver states it: the table's
+    // recoverable `envelope_read@normalize` row has no driver counterpart, a gap CL-D39 records. The phase, invariant
+    // and code labels are the incident's own and are kept.
+    positive: () => (RELAUNCH.test(readText(AUTOFIX_DRIVER)) ? ok() : fail('normalize', 'CL-D39', 'row_missing')),
     sibling: () => {
-      const m = mappedOutcome('validation_run@focused_validation');
-      if (!m.found) return ok(); // a missing row must NOT look like a terminal sibling; the test below fails it
-      return m.outcome === 'terminal' ? fail('focused_validation', 'CL-D39 mapping: validation_harness is terminal', 'terminal') : ok();
+      const driver = readText(AUTOFIX_DRIVER);
+      const relaunched = RELAUNCH_SET.exec(driver)?.[1] || '';
+      return driver.includes("? 'harness_failed' : 'validation_failed'}: ") && !relaunched.includes('harness')
+        ? fail('focused_validation', 'CL-D39 mapping: validation_harness is terminal', 'terminal') : ok();
     },
     siblingCode: 'terminal',
   },
@@ -325,13 +323,6 @@ test('Issue #35 fixtures carry an explicit schema version and unknown versions a
   assert.equal(fixture.schemaVersion, protocol.VERSION);
   assert.equal(protocol.isResult({ version: 2, ok: true, operation: 'snapshot', data: {} }), false);
   assert.equal(gateResult.validateGateResult(envelope({ schemaVersion: 3 }), expectation()).error.code, 'unknown_version');
-});
-
-test('Issue #35 a CL-D39 row that disappears is reported as missing, not as terminal', () => {
-  const present = mappedOutcome('validation_run@focused_validation');
-  assert.deepEqual(present, { found: true, outcome: 'terminal' });
-  const absent = mappedOutcome('no_such_operation@normalize');
-  assert.deepEqual(absent, { found: false, outcome: null }, 'an absent row must be distinguishable from a terminal one');
 });
 
 test('Issue #35 the commit-message fixture cannot be redirected into another repository or run a hook', () => {

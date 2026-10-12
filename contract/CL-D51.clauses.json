@@ -3,16 +3,36 @@
     {
       "id": "CL-D51-mapping",
       "marker": "CL-D51",
-      "title": "The recovery mapping carries the zero-output relaunch and its bounds",
+      "title": "The autofix driver relaunches only its own codes, before any counter moves",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/driver/autofix.js"
       ],
-      "section": "### Bounded pre-writer recovery (CL-D39)",
       "requires": [
-        "| gate transport failure with zero designated output bytes | `gate_transport@gate_launch` | one relaunch of the same prevalidated invocation | recoverable | no output existed; nothing is preserved or invalidated |",
-        "except the CL-D51 zero-output transport key",
-        "any designated output byte, however malformed, keeps the failure terminal",
-        "at most one relaunch per run, consuming no counter",
+        "codes: new Set(['designated_output_absent', 'designated_output_empty', 'result_names_no_run'])",
+        "if (gate === 'convergence') s.counters.conv += 1; else s.counters.gates += 1;"
+      ]
+    },
+    {
+      "id": "CL-D51-phases",
+      "marker": "CL-D51",
+      "title": "A failed gate that left no designated output reads as absent output",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "const as = code === 'step_incomplete' && d?.stepStatus === 'failed' && !fs.existsSync(d.structuredOutputPath || '') && !timedOut() ? 'designated_output_absent'"
+      ]
+    },
+    {
+      "id": "CL-D51-record",
+      "marker": "CL-D51",
+      "title": "The record states the one relaunch",
+      "files": [
+        "contract/CL-D51.md"
+      ],
+      "requires": [
+        "may be relaunched exactly once per run as `gate_transport@gate_launch`, consuming no counter",
+        "however malformed, keeps the failure terminal",
         "after any mutation, Luna task, or reply the key is terminal exactly as before"
       ]
     },
@@ -24,7 +44,7 @@
         "test/issue-82-zero-output-relaunch.test.js"
       ],
       "requires": [
-        "the recovery mapping gains the zero-output relaunch row and its carve-out",
+        "the driver relaunches a zero-output gate once, and the record states the line and its divergence",
         "the stop rule names both exceptions",
         "CL-D51 records the widening under CL-D39"
       ]

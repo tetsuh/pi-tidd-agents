@@ -383,22 +383,20 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(reviewOnly) < PR_SKILL_PRE_SPLIT_BYTES, 'review-only disclosure must be smaller than the pre-split PR Skill');
   assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(autofix) < PR_SKILL_PRE_SPLIT_BYTES, 'autofix disclosure must be smaller than the pre-split PR Skill');
 
-  const addendumStage2 = () => readText(PR_AUTOFIX_ADDENDUM);
   // #249 B2 (CL-D113): the review-only obligations are read where they live now: the records and the driver.
   const reviewOnlyExclusive = [
     ['contract/CL-D23.md', 'Review-only never edits the repository and has no formal post-fix working-tree candidate'],
     ['contract/CL-D28.md', 'PR review-only still never commits, pushes, posts, replies, or changes external state'],
     ['skills/closed-loop-pr/driver/phases.js', 'is relaunched once without spending a round'],
   ];
+  // #249 B3 (CL-D114): the autofix obligations the base reference stated are read in their records.
   const autofixExclusive = [
-    'Exact PR `autofix` submits only the published public-head OID',
-    'Only the exact PR `autofix` mode token supplies a run-scoped publication grant',
-    'Exact PR `autofix` never resumes: a later command is a fresh run.',
-    'Exact autofix malformed or unparsable verdict stops on first failure.',
+    ['contract/CL-D23.md', 'Exact PR `autofix` uses only the published public-head OID'],
+    ['contract/AC-GRANT.md', 'the exact PR `autofix` token itself supplies the run-scoped grant'],
+    [PR_AUTOFIX_ADDENDUM, 'Exact PR `autofix` never resumes: a later command is a fresh run.'],
+    [PR_AUTOFIX_ADDENDUM, 'Exact autofix malformed or unparsable verdict stops on first failure.'],
   ];
-  for (const [file, text] of reviewOnlyExclusive) assert.ok(readText(file).includes(text), `${file} must own: ${text}`);
-  const autofixStage = `${autofix}\n${addendumStage2()}`;
-  for (const text of autofixExclusive) assert.ok(autofixStage.includes(text), `autofix stage must own: ${text}`);
+  for (const [file, text] of [...reviewOnlyExclusive, ...autofixExclusive]) assert.ok(readText(file).includes(text), `${file} must own: ${text}`);
   assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
   assert.doesNotMatch(autofix, /Review-only has no publication phase/);
   assert.doesNotMatch(autofix, /Review-only never commits, pushes, posts, replies/);

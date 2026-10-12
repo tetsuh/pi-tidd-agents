@@ -3,23 +3,34 @@
     {
       "id": "CL-D42-autofix",
       "marker": "CL-D42",
-      "title": "Exact autofix verifies one versioned labelled evidence envelope",
+      "title": "The evidence check reads the version first, labels every fingerprint, and rejects a moved, incomplete or mismatched capture",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/helpers/evidence.js"
       ],
-      "section": "### Versioned evidence envelope (CL-D42)",
       "requires": [
-        "`schemaVersion`",
-        "an unknown or absent version fails closed before any field is read",
-        "each `fingerprint_*` operation emits its own labelled record and envelope assembly carries it unchanged",
-        "every fingerprint travels as `{ domain, encoding, value }`",
-        "a record whose `domain` differs from the field holding it is rejected",
-        "`raw_bytes`, `normalized_text`, and `canonical_json` are distinct byte domains",
-        "moved capture bracket",
-        "incomplete pagination",
-        "a value retyped by hand into a well-formed record is not detectable here",
-        "`evidence_verify` is read-only and repeatable",
-        "every identity field or fingerprint value differing from the expected target"
+        "const ENVELOPE_KEYS = ['brackets', 'captureIdentity', 'completeness', 'fingerprints', 'schemaVersion'];",
+        "if (envelope.schemaVersion !== VERSION) fail('unsupported_schema_version',",
+        "const RECORD_KEYS = ['domain', 'encoding', 'value'];",
+        "if (record.domain !== field) fail('domain_mismatch',",
+        "const SHAPES = Object.freeze({ git_oid: OID, raw_bytes: DIGEST, normalized_text: DIGEST, canonical_json: DIGEST });",
+        "fail('bracket_identity_moved'",
+        "fail('evidence_incomplete'",
+        "fail('identity_mismatch'",
+        "fail('fingerprint_mismatch'",
+        "const { createResult, createError, keysExactly } = require('./protocol');"
+      ]
+    },
+    {
+      "id": "CL-D42-autofix-record",
+      "marker": "CL-D42",
+      "title": "The record states the version rule, the residual limit, and that the check is read-only",
+      "files": [
+        "contract/CL-D42.md"
+      ],
+      "requires": [
+        "An unknown or absent version fails closed before any field is read.",
+        "a value retyped by hand into a well-formed record stays undetectable here",
+        "read-only and repeatable"
       ]
     },
     {

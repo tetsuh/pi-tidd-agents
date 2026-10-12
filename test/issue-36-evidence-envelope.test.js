@@ -89,20 +89,24 @@ function cli(request) {
 }
 
 test('Issue #36 authority records the envelope, the verifier, and the closed CL-D39 hole', () => {
-  const section = sectionOf(AUTOFIX, '### Versioned evidence envelope (CL-D42)');
-  assert.ok(section, 'autofix must own a CL-D42 evidence-envelope section');
-  assert.match(section, /`schemaVersion`/);
-  assert.match(section, /an unknown or absent version fails closed before any field is read/);
-  assert.match(section, /every fingerprint travels as `\{ domain, encoding, value \}`/);
-  assert.match(section, /a record whose `domain` differs from the field holding it is rejected/);
-  assert.match(section, /`raw_bytes`, `normalized_text`, and `canonical_json` are distinct byte domains/);
-  assert.match(section, /`evidence_verify` is read-only and repeatable/);
-  assert.match(section, /every identity field or fingerprint value differing from the expected target/);
-  assert.match(section, /moved capture bracket/);
-  assert.match(section, /incomplete pagination/);
+  // #249 B3 (CL-D114): the envelope rule is read in the packaged verifier, which reads the version before any other
+  // field and labels every fingerprint, and in its record, which states the residual and that the check is read-only.
+  const verifier = readText('skills/closed-loop-pr/helpers/evidence.js');
+  for (const literal of [
+    "const ENVELOPE_KEYS = ['brackets', 'captureIdentity', 'completeness', 'fingerprints', 'schemaVersion'];",
+    "if (envelope.schemaVersion !== VERSION) fail('unsupported_schema_version',",
+    "const RECORD_KEYS = ['domain', 'encoding', 'value'];",
+    "if (record.domain !== field) fail('domain_mismatch',",
+    'const SHAPES = Object.freeze({ git_oid: OID, raw_bytes: DIGEST, normalized_text: DIGEST, canonical_json: DIGEST });',
+    "fail('bracket_identity_moved'", "fail('evidence_incomplete'", "fail('identity_mismatch'", "fail('fingerprint_mismatch'",
+    "const { createResult, createError, keysExactly } = require('./protocol');",
+  ]) assert.ok(verifier.includes(literal), `the verifier holds ${literal}`);
+  const record = readText('contract/CL-D42.md');
+  assert.match(record, /An unknown or absent version fails closed before any field is read\./);
   // The residual must be stated rather than implied: labels defeat a moved record, not a
   // hand-written value.
-  assert.match(section, /a value retyped by hand into a well-formed record is not detectable here/);
+  assert.match(record, /a value retyped by hand into a well-formed record stays undetectable here/);
+  assert.match(record, /Packaged `evidence_verify` is read-only and repeatable\./);
 
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.match(map, /\| `evidence_verify` \| `envelope`, `expected` \|/);

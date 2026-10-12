@@ -11,8 +11,8 @@
 // in review-only prose alone, and prose is what changes.
 //
 // #249 B2 (CL-D113): since CL-D111 the review-only run is the packaged driver, so the carve-out is read from
-// `driver/run.js` and the record; the drift fixture compares the driver's root set with the helpers' and, until
-// its own pull request, with `references/autofix.md`.
+// `driver/run.js` and the record; the drift fixture compares the driver's root set with the helpers' (#249 B3,
+// CL-D114, dropped the autofix reference from it).
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -20,8 +20,6 @@ const assert = require('node:assert/strict');
 const { readText, readContract, sectionOf } = require('./helpers');
 
 const REVIEW_DRIVER = 'skills/closed-loop-pr/driver/run.js';
-const AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
-const ROOTS_LITERAL = '`RUNTIME_ROOTS := { ".pi", ".pi-subagents" }`';
 const DRIVER_ROOTS = "const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];";
 
 test('Issue #93 the review-only driver names the runtime-root carve-out and keeps everything else closed', () => {
@@ -43,10 +41,10 @@ test('Issue #93 the review-only driver stops BLOCKED on a change outside the roo
   assert.ok(review.includes("if (drift.length) run.stop('BLOCKED', `the checkout's ignored paths changed after validation:"), 'and on an ignored-path drift');
 });
 
-test('Issue #93 the driver, the autofix reference and the helpers agree on the root set', () => {
+test('Issue #93 the driver and the helpers agree on the root set', () => {
   // The driver declares its own copy rather than importing the helpers'; divergence is prevented here, mechanically.
+  // #249 B3 (CL-D114) dropped the autofix reference from the comparison.
   assert.ok(readText(REVIEW_DRIVER).includes(DRIVER_ROOTS), `${REVIEW_DRIVER} must state the identical root set`);
-  assert.ok(readText(AUTOFIX).includes(ROOTS_LITERAL), `${AUTOFIX} must state the identical root set`);
   const { RUNTIME_ROOTS } = require('../skills/closed-loop-pr/helpers/operator');
   assert.deepEqual(RUNTIME_ROOTS, ['.pi', '.pi-subagents'], 'the packaged tolerance must cover the same roots the driver names');
 });

@@ -16,18 +16,13 @@
       "id": "AC-AUTOFIX",
       "title": "Autofix token grants only bounded CL-D30 actions",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "contract/AC-AUTOFIX.md"
       ],
       "requires": [
-        "The exact PR `autofix` token itself selects and approves only the bounded CL-D30 actions",
-        "one normal commit",
-        "one non-force push",
-        "confirmed source-finding replies",
-        "Everything else remains forbidden",
-        "does not authorize merge",
+        "The exact PR token itself is the run-scoped approval only for the smallest CL-D30 correction batch per reviewed public head: one normal commit, one non-force push, and `REPLY_EXCEPTION`.",
+        "It does not authorize merge, force-push, amend, rebase, history rewriting",
         "aggregate-summary posting"
-      ],
-      "section": "## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)"
+      ]
     }
   ]
 }

@@ -225,13 +225,16 @@ test('Issue #41 publication authority remains review-only-owned and aggregate-on
 
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  assert.match(skill, /This addendum is selected only when.*exactly `autofix`/s);
+  const addendum = readText(PR_AUTOFIX_ADDENDUM);
+  assert.match(addendum, /This addendum is selected only when.*exactly `autofix`/s);
   assert.doesNotMatch(skill, /Review-only retains the preceding/);
-  assert.match(skill, /one bounded normal commit/);
-  assert.match(skill, /one non-force push/);
-  assert.match(skill, /five successful correction pushes/);
-  assert.match(skill, /one bounded batch for the currently reviewed public head\/gate result/);
-  assert.match(skill, /parent is the only GitHub comment actor/);
+  // #249 B3 (CL-D114): the base reference's batch and cap are read in the grant records and the driver.
+  assert.match(readText('contract/AC-AUTOFIX.md'), /one normal commit, one non-force push/);
+  assert.match(readText('contract/AC-GRANT.md'), /The run-wide cap is five successful correction pushes/);
+  assert.match(readText('skills/closed-loop-pr/driver/autofix.js'), /const CAP = \{ gates: 15, conv: 5, pushes: 5, noProgress: 3 \};/);
+  assert.match(addendum, /one non-force push/);
+  assert.match(addendum, /one bounded batch for the currently reviewed public head\/gate result/);
+  assert.match(addendum, /parent is the only GitHub comment actor/);
   assert.doesNotMatch(skill, /valid pasted resume status|dirty candidate tree/);
   assert.doesNotMatch(skill, /This MVP never posts|This MVP does not commit|Draft it; never post it/);
   assert.doesNotMatch(skill, /any drafted operator action is still outstanding.*MERGE_READY/s);
@@ -262,14 +265,14 @@ test('fixture: PR mode references own downstream obligations exclusively', () =>
     ['contract/CL-D28.md', 'PR review-only still never commits, pushes, posts, replies, or changes external state'],
     ['skills/closed-loop-pr/driver/phases.js', 'is relaunched once without spending a round'],
   ];
+  // #249 B3 (CL-D114): the autofix obligations the base reference stated are read in their records.
   const autofixOwned = [
-    'Exact PR `autofix` submits only the published public-head OID',
-    'Only the exact PR `autofix` mode token supplies a run-scoped publication grant',
-    'Exact PR `autofix` never resumes: a later command is a fresh run.',
-    'Exact autofix malformed or unparsable verdict stops on first failure.',
+    ['contract/CL-D23.md', 'Exact PR `autofix` uses only the published public-head OID'],
+    ['contract/AC-GRANT.md', 'the exact PR `autofix` token itself supplies the run-scoped grant'],
+    [PR_AUTOFIX_ADDENDUM, 'Exact PR `autofix` never resumes: a later command is a fresh run.'],
+    [PR_AUTOFIX_ADDENDUM, 'Exact autofix malformed or unparsable verdict stops on first failure.'],
   ];
-  for (const [file, text] of reviewOwned) assert.ok(readText(file).includes(text), `${file} must retain ${text}`);
-  for (const text of autofixOwned) assert.ok(autofix.includes(text), `autofix must retain ${text}`);
+  for (const [file, text] of [...reviewOwned, ...autofixOwned]) assert.ok(readText(file).includes(text), `${file} must retain ${text}`);
   assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
   assert.doesNotMatch(autofix, /Review-only has no publication phase/);
   assert.doesNotMatch(autofix, /Review-only never commits, pushes, posts, replies/);
@@ -294,16 +297,11 @@ test('provider mutation exceptions remain scoped in PR Skills', () => {
   const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
   const skill = readPrMode(PR_AUTOFIX);
   const language = artifactSection(shared, '## Language Profile (CL-D16)');
-  const autofix = artifactSection(skill, '## Autofix (AC-AUTOFIX, CL-D3, CL-D4, CL-D10)');
-  const publication = artifactSection(skill, '## Publication (AC-GRANT, CL-D28, CL-D30)');
   const replies = artifactSection(skill, '### Source-finding replies and final readiness');
   assert.ok(language, 'shared Language Profile section must exist for provider-mutation protection');
   assert.doesNotMatch(language, /`REPLY_EXCEPTION`/, 'shared Language Profile must not acquire PR-mode mutation authority');
-  for (const [name, section] of [['Autofix', autofix], ['Publication', publication]]) {
-    assert.ok(section, `${name} section must exist for provider-mutation protection`);
-    assert.match(section, /`REPLY_EXCEPTION`/);
-    assert.doesNotMatch(section, /(?:neither mode|does not authorize|never authorizes)[^.]*provider(?:-specific| mutation|[- ]side)[^.]*\./s, `${name} restores an unqualified provider-mutation prohibition`);
-  }
+  // #249 B3 (CL-D114): the grant sections are read in their records, AC-AUTOFIX and AC-GRANT, which the test above
+  // already scopes to the exact provider-mutation exceptions.
   assert.equal((skill.match(/^- `REPLY_EXCEPTION` :=/gm) || []).length, 1);
   assert.ok(replies, 'Source-finding replies section must exist for provider-mutation protection');
   assert.match(replies, /Replies never approve, request rereview, resolve threads, or invoke bot commands; provider mutation is exactly `REPLY_EXCEPTION`\./);
@@ -337,22 +335,21 @@ test('no superseded rule survives beside its replacement', () => {
 
 test('exact-autofix Luna ownership is protected within its authored sections', () => {
   const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  const writer = artifactSection(skill, '### The writer (CL-D3)');
   const addendum = artifactSection(skill, '## Exact PR `autofix` addendum (CL-D30)');
   const exactOwner = artifactSection(skill, '### Exact owner and safety boundary (CL-D30)');
   const contract = artifactSection(readContract(), '## CL-D3 — Writer selection');
   const readmeAutofix = artifactSection(readText('README.md'), '### Autofix');
-  for (const [name, section] of [['Skill writer', writer], ['Skill addendum', addendum], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
+  for (const [name, section] of [['Skill addendum', addendum], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
     assert.ok(section, `${name} section must exist for scoped protection`);
   }
-  assert.match(writer, /For exact `\/tidd-pr \.\.\. autofix`, `tidd-autofix-worker` is mandatory/);
-  assert.match(writer, /sole correction writer and publisher/);
+  // #249 B3 (CL-D114): the writer's mandate is read in the packaged launch and in CL-D3 below.
+  assert.match(readText('skills/closed-loop-pr/helpers/launch.js'), /const WRITER_LAUNCH = Object\.freeze\(\{ agent: 'tidd-autofix-worker',/);
   assert.match(exactOwner, /exact-autofix writer is not replaceable/);
   assert.match(exactOwner, /always `tidd-autofix-worker`/);
   assert.match(exactOwner, /ends there and has no resume/);
   assert.match(contract, /For exact PR `autofix`, `tidd-autofix-worker` is the mandatory and sole correction writer\/publisher/);
   assert.match(readmeAutofix, /`tidd-autofix-worker` is always the mandatory sole writer\/publisher/);
-  for (const [name, section] of [['Skill writer', writer], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
+  for (const [name, section] of [['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
     assert.doesNotMatch(section, /default writer|default autofix writer|`tidd-autofix-worker` by default|Choosing a different worker requires an explicit owner instruction|Selecting an alternate worker requires an explicit owner instruction/i, `${name} restores replaceable exact-autofix wording`);
   }
 });
@@ -547,15 +544,13 @@ test('fixture: all 24 Issue #10 acceptance scenarios execute against the referen
 test('artifact assertions cover exact autofix safety records and remain non-authoritative', () => {
   const skill = readPrMode(PR_AUTOFIX);
   for (const required of [
-    '`OPERATOR_CHECKOUT@H` :=', '`AUTOFIX_WORKSPACE@H` :=', '`WORKSPACE_POST_COMMIT(C, P)` :=', '`WORKSPACE_POST_PUSH(C, O)` :=', '`OPERATOR_CHECKOUT_UNCHANGED@O` :=', '`REPLY_EXCEPTION` :=',
-    'no unexpected non-ignored untracked paths', 'C` has sole parent/current public `P`',
-    'tracked/index/unstaged state match exactly', 'public head remains `P`',
+    'public head remains `P`',
     'Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result',
     'A reply marker is bound to source identity', 'exact reply body/digest', 'exact public head',
     'required app/source identity', 'older-head thread', 'top-level status, praise, duplicate summary',
     'shared CL-D1 exact verdict vocabulary', 'CL-D2 invocation-payload duties', 'CL-D29 adversarial duties',
     'fresh independent Sol/Terra roles', 'review-evidence snapshot fingerprint',
-    'head branch to be verified writable by a normal actor-authorized non-force push', 'The parent Luna payload contains',
+    'The parent Luna payload contains',
     'run-local staged manifest is complete and immutable', 'parent `P`, staged tree OID',
     'every allowed path/status/mode and staged blob identity', 'index exactly equal to the immutable manifest',
     'source kind, source ID, source URL', 'preflight every planned destination and source',
@@ -572,9 +567,18 @@ test('artifact assertions cover exact autofix safety records and remain non-auth
     'The draft is not workflow state', 'declining or not posting it never blocks readiness',
     'Before any exact-autofix edit', 'security/risk', 'always stops at `WAITING_FOR_OWNER(reason=owner_decision_required)`',
     'A security or risk finding cannot be delegated', 'The run ends at that boundary with no resume',
-    'branch-protection or ruleset bypass', 'normal actor-authorized non-force push without',
-    'missing, rejected, ambiguous, unavailable, or bypass-dependent result fails closed',
   ]) assert.ok(skill.includes(required), `missing exact safety artifact: ${required}`);
+  // #249 B3 (CL-D114): the base reference's definitions are read in the contract, and its writability precondition in
+  // the driver and the helper that enforce it.
+  const contract = readContract();
+  for (const required of [
+    '`OPERATOR_CHECKOUT@H` :=', '`AUTOFIX_WORKSPACE@H` :=', '`WORKSPACE_POST_COMMIT(C, P)` :=', '`WORKSPACE_POST_PUSH(C, O)` :=', '`OPERATOR_CHECKOUT_UNCHANGED@O` :=', '`REPLY_EXCEPTION` :=',
+    'no unexpected non-ignored untracked paths', 'sole-parent workspace `C`, current public `P`, and exact manifest/tree/blob/state identity',
+  ]) assert.ok(contract.includes(required), `missing exact safety record: ${required}`);
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("if (pull.state !== 'open' || pull.draft) end(run, 'BLOCKED',"), 'exact autofix starts only on an open, non-draft pull request');
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("run.op('writability', { owner, repo, branchRef: `refs/heads/${target.headBranch}`, cwd: checkout,"), 'and only after the writability preflight');
+  const writability = readText('skills/closed-loop-pr/helpers/writability.js');
+  for (const refusal of ["code: 'bypass_dependency'", "code: 'ambiguous_rulesets'", "code: 'branch_protection_unknown'", "'normal non-force writability was not established'"]) assert.ok(writability.includes(refusal), `writability refuses: ${refusal}`);
   assert.doesNotMatch(skill, /before gate invocation 15|at five successful pushes/);
   assert.doesNotMatch(skill, /immediately before push[^.]*local `HEAD` is public parent `P`/s);
   // CONV-182-COMMIT-MESSAGE-DOC-001: the packaged commit reads the message on stdin (CL-D89).

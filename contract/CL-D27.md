@@ -1,5 +1,5 @@
 ## CL-D27 — Target stability during a run
-**Clauses:** CL-D27
+**Clauses:** CL-D27, CL-D27-record
 
 The target identity is re-resolved before every gate invocation and must be unchanged; anything else stops the run without mutation, and nothing is cleaned or switched to make the check pass.
 

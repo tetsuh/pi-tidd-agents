@@ -570,10 +570,9 @@ test('record: Issue #42 pre-implementation RED is hash-bound and narrowly classi
 test('artifact: Issue #42 isolated-workspace contract is present and single-checkout CLEAN wording is retired', () => {
   const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
   const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
-  const invariants = section(SKILL, '### Isolated exact-autofix invariants (CL-D10, CL-D30)');
-  const preflight = section(SKILL, '### Worktree precondition (CL-D10)');
   const phases = section(SKILL, '### Exact identity and Luna publication phases');
-  for (const text of [CONTRACT, PR_AUTOFIX]) {
+  // #249 B3 (CL-D114): the base reference's invariants and preflight are read in the contract and the driver.
+  for (const text of [CONTRACT]) {
     assert.match(text, /OPERATOR_CHECKOUT@H/);
     assert.match(text, /AUTOFIX_WORKSPACE@H/);
     assert.match(text, /OPERATOR_CHECKOUT_UNCHANGED@O/);
@@ -583,16 +582,17 @@ test('artifact: Issue #42 isolated-workspace contract is present and single-chec
     assert.match(text, /explicitly enumerate(?:d)? ignored|ignored.*explicitly enumerate|enumerat(?:e|ed).*ignored/i);
     assert.match(text, /(?:without (?:reading|following).*contents|never (?:read|follow).*contents|reads? no contents|contents.*never read)/i);
   }
-  assert.match(invariants, /WORKSPACE_POST_COMMIT|POST_COMMIT.*workspace/i);
-  assert.match(invariants, /linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads `build_operator_revalidate` derives from the run's own post-push snapshots \(CL-D79, CL-D86\), clone operator stays `O`/);
-  for (const text of [CONTRACT, PR_AUTOFIX, README]) assert.match(text, /remote-tracking[^.\n]*(?:ref `C`|`O -> C`|chain from `O` to `C`)/);
+  assert.match(d30, /WORKSPACE_POST_COMMIT|POST_COMMIT.*workspace/i);
+  assert.match(d30, /linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads `build_operator_revalidate` derives from the run's own post-push snapshots \(CL-D79, CL-D86\), clone operator stays `O`/);
+  for (const text of [CONTRACT, README]) assert.match(text, /remote-tracking[^.\n]*(?:ref `C`|`O -> C`|chain from `O` to `C`)/);
   assert.match(PR_AUTOFIX, /After public\/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality/);
   assert.match(CONTRACT, /Only linked after public\/workspace verification may `operator_revalidate` receive `postPushHead: C`/);
   assert.match(README, /only then may `operator_revalidate` receive `postPushHead: C`/);
   assert.doesNotMatch(CONTRACT, /neither mode mutates[^.\n]*remote-tracking state/i);
-  assert.match(preflight, /outside the repository|isolated workspace/i);
+  assert.match(d10, /It then creates and verifies external `AUTOFIX_WORKSPACE@H`/);
+  assert.match(readText('skills/closed-loop-pr/driver/autofix.js'), /const made = run\.op\('workspace_create', \{ cwd: checkout, head: target\.headOid,/);
   assert.match(phases, /workspace cwd|workspace path|AUTOFIX_WORKSPACE@H/i);
-  assert.doesNotMatch(preflight, /branch must already be checked out and satisfy `CLEAN@H`/);
+  assert.doesNotMatch(d10, /branch must already be checked out and satisfy `CLEAN@H`/);
   assert.match(d30, /(?:unexpected )?non-ignored untracked.*block(?:ed|s)?/i);
 });
 
@@ -766,12 +766,11 @@ test('fixture: Issue #42 workspace transitions are deterministic and fail closed
 test('artifact: Issue #17 sections define scoped operational cleanliness', () => {
   const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
   const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
-  const invariants = section(SKILL, '### Isolated exact-autofix invariants (CL-D10, CL-D30)');
-  const preflight = section(SKILL, '### Worktree precondition (CL-D10)');
   const phases = section(SKILL, '### Exact identity and Luna publication phases');
   const boundaries = section(SKILL, '### Public-head loop and evidence');
   const replies = section(SKILL, '### Source-finding replies and final readiness');
-  for (const text of [d30, invariants]) {
+  // #249 B3 (CL-D114): the base reference's invariants and preflight are read in the contract.
+  for (const text of [d30]) {
     assert.match(text, /RUNTIME_ROOTS|runtime-root/);
     assert.match(text, /real (?:repository-root )?\.pi directory|real directory|real directory or verified clone/);
     assert.match(text, /without following links|not follow|no-follow/);
@@ -779,7 +778,6 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
     assert.match(text, /HEAD.*index|index.*HEAD/si);
   }
   assert.match(d10, /`OPERATOR_CHECKOUT@H`/);
-  assert.match(preflight, /`OPERATOR_CHECKOUT@H`/);
   assert.match(boundaries, /`OPERATOR_CHECKOUT@H`/);
   assert.match(boundaries, /`WORKSPACE_POST_COMMIT\(C, P\)`/);
   assert.match(phases, /`AUTOFIX_WORKSPACE@P`/);
@@ -792,7 +790,7 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
   assert.match(replies, /only truthful runtime-content statement permitted.*excluded from candidate\/evidence identity.*reclassified.*without following links/is);
   const repliesWithoutRequiredDenial = replies.replace(requiredDenial, '');
   assert.doesNotMatch(repliesWithoutRequiredDenial, /runtime (?:bytes|contents|state) (?:were|was) (?:cleaned|preserved|validated|committed|published)/i);
-  for (const text of [preflight, boundaries, phases, replies]) {
+  for (const text of [boundaries, phases, replies]) {
     assert.doesNotMatch(text, /untracked baseline clean/i);
     assert.doesNotMatch(text, /untracked state(?: to be)? fully clean/i);
     assert.doesNotMatch(text, /all three local dimensions.*completely clean/i);
@@ -814,8 +812,8 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
   assert.match(README, /artifactDir: "session".*artifactDir: "temp".*do \*\*not\*\* guarantee.*\.pi-subagents/is);
   assert.match(README, /AFTER_COMMIT.*BEFORE_PUSH.*independently reclassify/si);
   assert.match(d30, /AFTER_COMMIT.*BEFORE_PUSH.*independently require.*reclassif/si);
-  for (const text of [d10, d30, invariants, README]) assert.match(text, /RUNTIME_ROOTS/);
-  for (const text of [d30, invariants, README]) {
+  for (const text of [d10, d30, README]) assert.match(text, /RUNTIME_ROOTS/);
+  for (const text of [d30, README]) {
     assert.match(text, /\.pi.*\.pi-subagents/si);
     assert.match(text, /enumerat|exact.*set|independently/si);
   }
@@ -840,7 +838,6 @@ test('artifact: Issue #17 stale cleanliness prose is rejected section-by-section
 test('artifact: Issue #20 names each invariant once and references it at every phase', () => {
   const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
   const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
-  const preflight = section(SKILL, '### Worktree precondition (CL-D10)');
   const boundaries = section(SKILL, '### Public-head loop and evidence');
   const phases = section(SKILL, '### Exact identity and Luna publication phases');
   const replies = section(SKILL, '### Source-finding replies and final readiness');
@@ -855,7 +852,8 @@ test('artifact: Issue #20 names each invariant once and references it at every p
     assert.equal(definitionCount(SKILL, name), 1, `${name} must be defined exactly once in the PR Skill`);
   }
   assert.match(d10, /`OPERATOR_CHECKOUT@H`/);
-  assert.match(preflight, /`OPERATOR_CHECKOUT@H`/);
+  // #249 B3 (CL-D114): the preflight capture is read in the driver, which takes it before any gate.
+  assert.match(readText('skills/closed-loop-pr/driver/autofix.js'), /s\.captured = run\.op\('operator_capture', \{ cwd: checkout, identity \}\);/);
   assert.match(boundaries, /`OPERATOR_CHECKOUT@H`/);
   assert.match(boundaries, /`WORKSPACE_POST_COMMIT\(C, P\)`/);
   for (const guard of ['BEFORE_VALIDATION', 'AFTER_VALIDATION', 'BEFORE_STAGING', 'AFTER_STAGING', 'BEFORE_COMMIT']) {
@@ -894,7 +892,9 @@ test('artifact: RUNTIME_ROOTS is the documented exact set and classifies roots i
   assert.equal((CONTRACT.match(definition) || []).length, 1, 'CONTRACT.md must define RUNTIME_ROOTS exactly once');
   assert.equal((SKILL.match(definition) || []).length, 1, 'PR Skill must define RUNTIME_ROOTS exactly once');
   assert.doesNotMatch(PROMPT, /RUNTIME_ROOTS\s*:=/, 'thin prompt must not define RUNTIME_ROOTS');
-  for (const text of [CONTRACT, SKILL, README]) {
+  // #249 B3 (CL-D114): the set the base reference stated is read in the helpers that enforce it.
+  assert.deepEqual(require('../skills/closed-loop-pr/helpers/operator.js').RUNTIME_ROOTS, RUNTIME_ROOTS);
+  for (const text of [CONTRACT, README]) {
     assert.match(text, /RUNTIME_ROOTS/);
     assert.match(text, /\{ "\.pi", "\.pi-subagents" \}/);
     assert.doesNotMatch(text, /\.pi\*/);
@@ -1050,7 +1050,7 @@ test('fixture: Issue #28 acceptance vectors 01–15 cover their declared root sc
       assert.notEqual(fresh.runId, ended.runId); assert.equal(fresh.status, 'fresh'); assert.equal(fresh.priorStateAccepted, false); assert.equal(fresh.acceptedState, null);
     } else if (id === '15') { // The exact set equals the guarded set; additions require a recorded decision.
       assert.match(CONTRACT, /RUNTIME_ROOTS.*\{ "\.pi", "\.pi-subagents" \}/s);
-      assert.match(SKILL, /RUNTIME_ROOTS.*\{ "\.pi", "\.pi-subagents" \}/s);
+      assert.deepEqual(require('../skills/closed-loop-pr/helpers/operator.js').RUNTIME_ROOTS, ['.pi', '.pi-subagents']);
       assert.match(SKILL, /every member of `RUNTIME_ROOTS`/);
       assert.match(CONTRACT, /future additions require a recorded contract decision naming the producing tool, default configuration, and affected version range/);
     }

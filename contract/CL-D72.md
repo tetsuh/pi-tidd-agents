@@ -1,5 +1,5 @@
 ## CL-D72 — The focused validation is packaged and the alarm is reset for it
-**Clauses:** CL-D72-map, CL-D72-map-moved, CL-D72-map-validation, CL-D72-map-guards, CL-D72-map-review, CL-D72-map-autofix, CL-D72-map-phases, CL-D72-route-shared, CL-D72-route-autofix, CL-D72-record, CL-D72-tests
+**Clauses:** CL-D72-map-moved, CL-D72-map-validation, CL-D72-map-guards, CL-D72-map-review, CL-D72-map-autofix, CL-D72-map-phases, CL-D72-route-shared, CL-D72-record, CL-D72-tests
 
 *Decision ID:* CL-D72
 *Kind:* contract

@@ -14,25 +14,8 @@
         "non-force `git worktree remove <exact-path>`",
         "prunable/locked/registration evidence",
         "unverifiable identity yields no mutation command",
-        "The exact external removal is never executed by the workflow"
-      ]
-    },
-    {
-      "id": "CL-D40-autofix",
-      "marker": "CL-D40",
-      "title": "Exact autofix reports bounded worktree recovery evidence",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "section": "### Missing worktree registration reporting (CL-D40)",
-      "requires": [
-        "A missing path does not prove a stale worktree registration",
-        "ignore unrelated missing registrations",
-        "must never recommend `git worktree prune`",
-        "non-force `git worktree remove <exact-path>`",
-        "unlocked state",
-        "new owner action outside the failed run",
-        "Unverifiable identity yields no mutation command"
+        "The exact external removal is never executed by the workflow",
+        "new owner action outside the failed run"
       ]
     },
     {
