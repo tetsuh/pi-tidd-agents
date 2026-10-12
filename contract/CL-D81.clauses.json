@@ -1,17 +1,6 @@
 {
   "clauses": [
     {
-      "id": "CL-D81-autofix",
-      "marker": "CL-D81",
-      "title": "The map and the writer section state that the writer launch is built, not typed",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "requires": [
-        "Its launch request is built by `build_writer_launch` and passed to the subagent tool unchanged: the parent supplies the created workspace and the task, the builder the rest (CL-D81)."
-      ]
-    },
-    {
       "id": "CL-D81-autofix-map",
       "marker": "CL-D81",
       "title": "The CLI declares build_writer_launch and its inputs",

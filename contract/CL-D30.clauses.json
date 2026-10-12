@@ -131,27 +131,36 @@
     {
       "id": "CL-D30-language-boundary",
       "marker": "CL-D30",
-      "title": "Posting boundary is mode-scoped and provider-safe",
-      "section": "### Language Profile (CL-D16)",
+      "title": "REPLY_EXCEPTION is the sole provider exception",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "contract/CL-D30.md"
       ],
       "requires": [
-        "Exact PR `autofix` permits only `REPLY_EXCEPTION` (defined below); all other provider, external, and review-service mutations remain forbidden."
+        "`REPLY_EXCEPTION` := the sole provider exception."
       ]
     },
     {
       "id": "CL-D30-precondition",
       "marker": "CL-D30",
-      "title": "Exact autofix starts only at clean published head",
-      "section": "### Worktree precondition (CL-D10)",
+      "title": "The operator capture and the workspace precede every gate, and a command with no pending gate is refused",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/driver/autofix.js"
       ],
       "requires": [
-        "Before the first gate or mutation, the operator runs `gh pr checkout` when needed",
-        "It captures `OPERATOR_CHECKOUT@H` and creates/verifies `AUTOFIX_WORKSPACE@H` outside the repository before any gate",
-        "No resume"
+        "s.captured = run.op('operator_capture', { cwd: checkout, identity });",
+        "const made = run.op('workspace_create', { cwd: checkout, head: target.headOid,",
+        "if (!p || p.kind !== 'gate') die('no gate is pending in this run');"
+      ]
+    },
+    {
+      "id": "CL-D30-fresh-run",
+      "marker": "CL-D30",
+      "title": "A later command is a fresh run, never a resume",
+      "files": [
+        "contract/CL-D30.md"
+      ],
+      "requires": [
+        "a later command is a fresh run, never resume"
       ]
     },
     {
@@ -192,18 +201,27 @@
     {
       "id": "CL-D30-preconditions",
       "marker": "CL-D30",
-      "title": "Exact autofix preconditions include lifecycle and non-force writability",
-      "section": "### Worktree precondition (CL-D10)",
+      "title": "Exact autofix starts only on an open, non-draft pull request whose branch is writable",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/driver/autofix.js"
       ],
       "requires": [
-        "target PR is open and non-draft",
-        "head branch to be verified writable by a normal actor-authorized non-force push without branch-protection or ruleset bypass",
-        "Writability result must be unambiguous",
-        "fails closed before review or mutation",
-        "A branch is not writable when success depends on the actor's bypass permission",
-        "missing, rejected, ambiguous, unavailable, or bypass-dependent result fails closed"
+        "if (pull.state !== 'open' || pull.draft) end(run, 'BLOCKED',",
+        "run.op('writability', { owner, repo, branchRef: `refs/heads/${target.headBranch}`, cwd: checkout,"
+      ]
+    },
+    {
+      "id": "CL-D30-writability",
+      "marker": "CL-D30",
+      "title": "Writability is normal, non-force and bypass-free; anything else refuses",
+      "files": [
+        "skills/closed-loop-pr/helpers/writability.js"
+      ],
+      "requires": [
+        "if (ruleset.bypass_actors.length) return { ok: false, code: 'bypass_dependency', ruleset: ruleset.name };",
+        "return { ok: false, code: 'ambiguous_rulesets' };",
+        "if (!protection || typeof protection !== 'object') return { ok: false, code: 'branch_protection_unknown' };",
+        "'normal non-force writability was not established'"
       ]
     },
     {
@@ -481,7 +499,6 @@
       "title": "Issue #42 isolated workspace and opaque ignored inventory",
       "files": [
         "CONTRACT.md",
-        "skills/closed-loop-pr/references/autofix.md",
         "README.md"
       ],
       "requires": [

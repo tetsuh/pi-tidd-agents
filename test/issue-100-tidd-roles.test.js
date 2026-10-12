@@ -63,9 +63,11 @@ test('Issue #100 skills and prompts name roles, never model-derived agents', () 
   assert.match(issue, /`tidd-adversarial-reviewer` and `tidd-drift-reviewer`/);
   const pr = sectionOf(readText('skills/closed-loop-pr/SKILL.md'), '## Preflight (CL-D22, CL-D5)');
   assert.match(pr, /`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally for autofix mode, `tidd-autofix-worker`/);
-  const writer = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### The writer (CL-D3)');
-  assert.match(writer, /`tidd-autofix-worker` is mandatory/);
-  assert.match(writer, /The package ships no other worker/);
+  // #249 B3 (CL-D114): the writer's mandate is read where it lives now, the packaged launch and its record, and the
+  // package's agents directory is the proof that it ships no other worker.
+  assert.match(readText('skills/closed-loop-pr/helpers/launch.js'), /const WRITER_LAUNCH = Object\.freeze\(\{ agent: 'tidd-autofix-worker',/);
+  assert.match(readText('contract/CL-D3.md'), /`tidd-autofix-worker` is the mandatory and sole correction writer\/publisher/);
+  assert.deepEqual(fs.readdirSync(repoPath('agents')).filter((name) => /worker/.test(name)), ['tidd-autofix-worker.md']);
 });
 
 test('Issue #100 the shared resolution section separates role from deployment and fails closed on capability', () => {

@@ -1,5 +1,5 @@
 ## CL-D30 — Exact PR autofix publishes one bounded correction per public head
-**Clauses:** CL-D30-loop, CL-D30-publication, CL-D30-circuit, CL-D30-replies, CL-D30-clean-boundaries, CL-D30-readme-mode, CL-D30-mode-safety, CL-D30-language-boundary, CL-D30-precondition, CL-D30-readiness, CL-D30-gate-correlation, CL-D30-preconditions, CL-D30-luna-authorization, CL-D30-manifest, CL-D30-source-schema, CL-D30-snapshot-routing, CL-D30-reply-safety, CL-D30-summary-safety, CL-D30-breaker-boundaries, CL-D30-pi-contract, CL-D30-pi-boundaries, CL-D30-pi-publication, CL-D30-pi-replies, CL-D30-pi-readme, CL-D30-pi-fixtures, CL-D30-pi-packaging, CL-D30-isolated-workspace
+**Clauses:** CL-D30-loop, CL-D30-publication, CL-D30-circuit, CL-D30-replies, CL-D30-clean-boundaries, CL-D30-readme-mode, CL-D30-mode-safety, CL-D30-language-boundary, CL-D30-precondition, CL-D30-fresh-run, CL-D30-readiness, CL-D30-gate-correlation, CL-D30-preconditions, CL-D30-writability, CL-D30-luna-authorization, CL-D30-manifest, CL-D30-source-schema, CL-D30-snapshot-routing, CL-D30-reply-safety, CL-D30-summary-safety, CL-D30-breaker-boundaries, CL-D30-pi-contract, CL-D30-pi-boundaries, CL-D30-pi-publication, CL-D30-pi-replies, CL-D30-pi-readme, CL-D30-pi-fixtures, CL-D30-pi-packaging, CL-D30-isolated-workspace
 
 *Decision ID:* CL-D30
 *Kind:* contract

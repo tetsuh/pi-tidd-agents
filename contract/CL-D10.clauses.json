@@ -4,11 +4,24 @@
       "id": "CL-D10",
       "title": "Worktree precondition for autofix",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "contract/CL-D10.md"
       ],
       "requires": [
-        "gh pr checkout",
-        "Never switch, stash, reset, clean, delete, or discard operator work"
+        "local `HEAD` and PR branch ref at public `H`",
+        "neither mode mutates operator/shared config, branch refs, or index",
+        "All gates, correction, validation, manifest, commit, push, and post-push actions use workspace cwd."
+      ]
+    },
+    {
+      "id": "CL-D10-driver",
+      "marker": "CL-D10",
+      "title": "A failed terminal operator recheck stops the run BLOCKED",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "const recheck = revalidate(run, { allowFail: true });",
+        "operator_changed at the terminal recheck"
       ]
     },
     {

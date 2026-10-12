@@ -5,7 +5,6 @@
       "marker": "CL-D79",
       "title": "The post-push state is defined for every push, not only the first",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md",
         "contract/CL-D30.md"
       ],
       "requires": [

@@ -3,16 +3,25 @@
     {
       "id": "CL-D49-autofix",
       "marker": "CL-D49",
-      "title": "Exact autofix names the cleanup result terminal",
+      "title": "A successful cleanup result is the terminal workspace evidence",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/helpers/workspace.js"
       ],
-      "section": "### Isolated exact-autofix invariants (CL-D10, CL-D30)",
       "requires": [
-        "a successful cleanup result — from `workspace_cleanup_created` or `workspace_cleanup` — is the terminal workspace evidence",
+        "return createResult('workspace_cleanup', { removed: true, path: actual.path, terminalHead: actual.head, terminalTree: actual.tree, id: receipt.id, retainedRoot });"
+      ]
+    },
+    {
+      "id": "CL-D49-autofix-record",
+      "marker": "CL-D49",
+      "title": "The record states what follows a removal",
+      "files": [
+        "contract/CL-D49.md"
+      ],
+      "requires": [
         "no `workspace_*` operation may target the removed path afterwards",
         "the terminal recheck after removal is operator-side only",
-        "a post-removal verification failure is a caller error, never evidence about the target"
+        "caller error, never evidence about the target"
       ]
     },
     {

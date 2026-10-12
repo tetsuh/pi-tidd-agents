@@ -14,20 +14,28 @@
     {
       "id": "CL-D39-recovery",
       "marker": "CL-D39",
-      "title": "Exact autofix owns one bounded pre-writer recovery",
+      "title": "Bounded pre-writer recovery",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "contract/CL-D39.md"
       ],
-      "section": "### Bounded pre-writer recovery (CL-D39)",
       "requires": [
-        "One recovery is permitted for either a deterministic local tooling failure under the original CL-D39 rows or the CL-D51 pure gate transport failure with zero designated output bytes",
-        "process-isolation root `pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`",
+        "One recovery is permitted per operation and phase",
+        "pi-tidd-pr-helper-*` with its `home`, `hooks`, `global.gitconfig`, `system.gitconfig`, and `git-stderr`",
         "no Luna task, commit, push, or reply exists",
-        "the budget is exactly one per key",
-        "one canonical `operation@phase` key",
-        "The replacement retains the key",
-        "invalidates only the failed operation's own output",
-        "Recovery never launches a second writer, repeats a provider mutation, or re-enters a phase after Luna starts"
+        "one canonical `operation@phase` key that its replacement retains",
+        "invalidating only the failed operation's own output",
+        "grants no resume, no second writer, no repeated provider mutation"
+      ]
+    },
+    {
+      "id": "CL-D39-driver",
+      "marker": "CL-D39",
+      "title": "The autofix driver relaunches at most once per run and never after the writer",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "may: () => !s.relaunched && !s.writerLaunched"
       ]
     },
     {

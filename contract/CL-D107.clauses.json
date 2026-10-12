@@ -80,21 +80,6 @@
       ]
     },
     {
-      "id": "CL-D107-autofix",
-      "marker": "CL-D107",
-      "title": "autofix.md names the added output",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "requires": [
-        "CL-D107 adds one output to this key: a designated output whose correlation names no run takes the same relaunch, within the same budget.",
-        "or a designated output whose correlation names no run (CL-D107), and only when all hold",
-        "or a designated output whose correlation names no run (CL-D107); the failed operation",
-        "keeps the failure terminal, save the one output CL-D107 names below;",
-        "correlation mismatch other than CL-D107's, and stale target at `gate_result`"
-      ]
-    },
-    {
       "id": "CL-D107-addendum",
       "marker": "CL-D107",
       "title": "The autofix addendum's stop sentences name the added output",

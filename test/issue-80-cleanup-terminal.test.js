@@ -15,17 +15,17 @@ const assert = require('node:assert/strict');
 
 const { readText, readContract, sectionOf } = require('./helpers');
 
-const AUTOFIX = readText('skills/closed-loop-pr/references/autofix.md');
-
 test('Issue #80 the cleanup result is named terminal and post-removal workspace calls are forbidden', () => {
-  const invariants = sectionOf(AUTOFIX, '### Isolated exact-autofix invariants (CL-D10, CL-D30)');
-  assert.ok(invariants, 'the invariants section must exist');
-  assert.match(invariants, /a successful cleanup result — from `workspace_cleanup_created` or `workspace_cleanup` — is the terminal workspace evidence/);
-  assert.match(invariants, /no `workspace_\*` operation may target the removed path afterwards/);
-  assert.match(invariants, /the terminal recheck after removal is operator-side only/);
+  // #249 B3 (CL-D114): the rule is read in its record and in the driver, whose last workspace operation of a stop is
+  // the cleanup; the base reference's invariants section is no longer pinned.
+  const record = readText('contract/CL-D49.md');
+  assert.match(record, /A successful `workspace_cleanup` result is the terminal workspace evidence/);
+  assert.match(record, /no `workspace_\*` operation may target the removed path afterwards/);
+  assert.match(record, /the terminal recheck after removal is operator-side only/);
   // The failure mode this closes must be named, so a later reader cannot rediscover it by
   // repeating it: a post-removal verification failure is the caller's error, not the target's.
-  assert.match(invariants, /a post-removal verification failure is a caller error, never evidence about the target/);
+  assert.match(record, /A post-removal verification failure is a caller error, never evidence about the target/);
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("const c = run.op('workspace_cleanup_created', { created: s.created }, { allowFail: true });"), 'the driver ends a stop with the cleanup');
 
   const decision = sectionOf(readContract(), '## CL-D49 — A successful cleanup result is the terminal workspace evidence');
   assert.ok(decision, 'CONTRACT.md must record CL-D49');

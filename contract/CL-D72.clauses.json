@@ -1,17 +1,6 @@
 {
   "clauses": [
     {
-      "id": "CL-D72-map",
-      "marker": "CL-D72",
-      "title": "The invocation map offers the packaged validation run and names the recovery key",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "requires": [
-        "| validation harness could not run (`validation_run` reports `harness_failed`) | `validation_run@focused_validation` | none | terminal | post-writer; all evidence stands |"
-      ]
-    },
-    {
       "id": "CL-D72-map-moved",
       "marker": "CL-D72",
       "title": "The CLI declares validation_run and required_evidence_set and their inputs",
@@ -67,7 +56,8 @@
         "skills/closed-loop-pr/driver/autofix.js"
       ],
       "requires": [
-        "const v = run.op('validation_run', { cwd: ws, command, timeoutMs: 1800000 }, { allowFail: true });"
+        "const v = run.op('validation_run', { cwd: ws, command, timeoutMs: 1800000 }, { allowFail: true });",
+        "batchFail(run, 'validation_run', `${v.ok === false && v.error?.code !== 'validation_failed' ? 'harness_failed' : 'validation_failed'}: "
       ]
     },
     {
@@ -138,17 +128,6 @@
       "section": "### Structured gate result transport (CL-D36)",
       "requires": [
         "On the PR root, the set itself is derived through packaged `required_evidence_set` from the paths the change touches, the authority files at the head, and the identities the parent holds (CL-D72)"
-      ]
-    },
-    {
-      "id": "CL-D72-route-autofix",
-      "marker": "CL-D72",
-      "title": "Exact autofix names the packaged validation run at the guarded step",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "requires": [
-        "The guarded focused validation runs through packaged `validation_run` (CL-D72)."
       ]
     }
   ]

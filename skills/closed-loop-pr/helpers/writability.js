@@ -55,6 +55,7 @@ function selectorMatches(selector, repository) {
   if (keys[0] === 'repository_id') return repositoryIdMatches(selector.repository_id, repository.id);
   return null;
 }
+// CL-D30: the head branch is writable only by a normal non-force push that needs no bypass; anything unknown refuses.
 function evaluateRulesets(payload, branch, defaultBranch) {
   if (!payload || !Array.isArray(payload.rulesets) || typeof branch !== 'string' || !branch.startsWith('refs/heads/')) return { ok: false, code: 'ambiguous_rulesets' };
   const repository = payload.repository;

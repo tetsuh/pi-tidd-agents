@@ -111,3 +111,19 @@ test('Issue #254 exact autofix rechecks the target before it relaunches a result
   assert.equal(af.state(t.runDir).state, 'BLOCKED');
   assert.doesNotMatch(af.state(t.runDir).reason, /correlation_mismatch/, 'the recheck, not the read, stopped the run');
 });
+
+// The same recheck covers the operator checkout and the run's workspace, which the retired CL-D39 decision models of
+// Issues #34 and #38 stated (#249 B3, CL-D114): either one changed while the gate ran refuses the relaunch.
+test('Issue #254 exact autofix refuses the relaunch when the operator checkout or the workspace changed', () => {
+  for (const where of ['checkout', 'workspace']) {
+    const t = af.setup();
+    assert.equal(af.drive(t.start, t.env).status, 0);
+    const dir = where === 'checkout' ? t.target.checkout : af.state(t.runDir).workspace;
+    fs.writeFileSync(path.join(dir, 'stray.txt'), 'changed while the gate ran\n');
+    const r = af.drive(['result', '--run-dir', t.runDir, '--run-id', placeholderGate(t.runDir, t.runs, none)], t.env);
+    assert.notEqual(r.status, 0, `${where}: ${r.stdout}`);
+    assert.equal(af.nextRequest(r.stdout), null, `a relaunch after the ${where} changed: ${r.stdout}`);
+    assert.equal(af.state(t.runDir).state, 'BLOCKED', where);
+    assert.doesNotMatch(af.state(t.runDir).reason, /correlation_mismatch/, `${where}: the recheck, not the read, stopped the run`);
+  }
+});

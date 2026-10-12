@@ -17,13 +17,16 @@ const fs = require('node:fs');
 
 const { readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 
-test('Issue #119 the adversarial gate names every same-class rigor gap in one result and the writer writes exact checks', () => {
+test('Issue #119 the adversarial gate names every same-class rigor gap in one result and the record states the writer rule', () => {
   const sol = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)');
   assert.ok(sol, 'the Sol-only block must exist');
   assert.match(sol, /When a finding rejects the rigor of a check — a presence, substring, or subsequence test where the criterion calls for an exact comparison — name every check of the same class across the target in that one result, so the correction is made once \(CL-D66\)\./);
-  const writer = sectionOf(readText('skills/closed-loop-pr/references/autofix.md'), '### The writer (CL-D3)');
-  assert.ok(writer, 'the writer section must exist');
-  assert.match(writer, /A check the writer adds or corrects against a declared list or block is written as a complete parse of the surface and an exact ordered comparison with the derived expectation, never as a presence, substring, or subsequence test \(CL-D66\)\./);
+  // #249 B3 (CL-D114): the writer rule is read in its record. The packaged writer task does not carry it, a gap CL-D66
+  // records and does not close; the negative fails when the task gains it, so the record changes with it.
+  const record = readText('contract/CL-D66.md');
+  assert.match(record, /a check the writer adds or corrects against a declared list or block is written as a complete parse of the surface and an exact ordered comparison with the derived expectation, never as a presence, substring, or subsequence test/);
+  assert.match(record, /The packaged writer task \(`driver\/writer\.js`\) does not carry the writer sentence/);
+  assert.doesNotMatch(readText('skills/closed-loop-pr/driver/writer.js'), /exact ordered comparison/);
   // The addendum is untouched: it sits inside its own byte guard.
   const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
   assert.doesNotMatch(addendum, /CL-D66/);

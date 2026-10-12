@@ -30,15 +30,35 @@
     {
       "id": "CL-D25-commit",
       "marker": "CL-D25",
-      "title": "A normal commit under the publication grant follows the project convention",
+      "title": "The driver's commit message: a Conventional Commits subject with the issue number, and the test provenance",
       "files": [
-        "skills/closed-loop-pr/references/autofix.md"
+        "skills/closed-loop-pr/driver/writer.js"
       ],
       "requires": [
-        "Conventional Commits subject",
-        "issue-number reference",
-        "test provenance",
-        "git commit -F"
+        "return `fix: ${open.map((e) => e.findingId).join(', ')} (#${s.issueNumber})\\n\\n",
+        "Test provenance: "
+      ]
+    },
+    {
+      "id": "CL-D25-commit-publish",
+      "marker": "CL-D25",
+      "title": "The commit takes its message on standard input",
+      "files": [
+        "skills/closed-loop-pr/helpers/publish.js"
+      ],
+      "requires": [
+        "'commit', '--no-verify', '-F', '-', '--cleanup=whitespace'"
+      ]
+    },
+    {
+      "id": "CL-D25-commit-record",
+      "marker": "CL-D25",
+      "title": "The record states what a normal commit is",
+      "files": [
+        "contract/CL-D25.md"
+      ],
+      "requires": [
+        "A normal commit follows Conventional Commits, carries the issue number, and states test provenance in its body when covered behaviour changes."
       ]
     }
   ]

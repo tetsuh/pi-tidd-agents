@@ -36,7 +36,7 @@
       "requires": [
         "the review-only driver names the runtime-root carve-out and keeps everything else closed",
         "the review-only driver stops BLOCKED on a change outside the roots, after validation and before every gate",
-        "the driver, the autofix reference and the helpers agree on the root set",
+        "the driver and the helpers agree on the root set",
         "CL-D54 records the carve-out and what it amends"
       ]
     }

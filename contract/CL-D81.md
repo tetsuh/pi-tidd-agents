@@ -1,5 +1,5 @@
 ## CL-D81 — The exact-autofix writer launch is composed by a packaged builder
-**Clauses:** CL-D81-autofix, CL-D81-autofix-map, CL-D81-autofix-map-launch, CL-D81-autofix-map-composition, CL-D81-autofix-map-driver, CL-D81-readme, CL-D81-record, CL-D81-tests
+**Clauses:** CL-D81-autofix-map, CL-D81-autofix-map-launch, CL-D81-autofix-map-composition, CL-D81-autofix-map-driver, CL-D81-readme, CL-D81-record, CL-D81-tests
 
 *Decision ID:* CL-D81
 *Kind:* contract

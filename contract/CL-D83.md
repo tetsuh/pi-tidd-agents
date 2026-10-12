@@ -1,5 +1,5 @@
 ## CL-D83 — The packaged helper invocation map is its own reference
-**Clauses:** CL-D83-autofix, CL-D83-record, CL-D83-tests
+**Clauses:** CL-D83-record, CL-D83-tests
 
 *Decision ID:* CL-D83
 *Kind:* contract

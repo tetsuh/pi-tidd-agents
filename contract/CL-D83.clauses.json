@@ -1,17 +1,6 @@
 {
   "clauses": [
     {
-      "id": "CL-D83-autofix",
-      "marker": "CL-D83",
-      "title": "The exact-autofix reference points at the map once",
-      "files": [
-        "skills/closed-loop-pr/references/autofix.md"
-      ],
-      "requires": [
-        "The packaged helper invocation map and the CL-D44 input shapes are in `references/helper-map.md`; read it with this reference (CL-D83)."
-      ]
-    },
-    {
       "id": "CL-D83-record",
       "marker": "CL-D83",
       "title": "CL-D83 records the split and its limits",
@@ -34,9 +23,9 @@
       ],
       "requires": [
         "Issue #164 the map and the declared shapes live in one file of their own",
-        "Issue #164 the autofix reference points at it once and carries the table no longer",
+        "Issue #164 the autofix reference carries the table no longer",
         "Issue #164 the move frees the budget it was taken for",
-        "Issue #164 every clause pinned to a moved sentence names the file it moved to",
+        "Issue #164 no clause pins a moved sentence to either file any more",
         "Issue #164 CL-D83 records the split and what it did not change"
       ]
     }

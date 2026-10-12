@@ -82,9 +82,9 @@ test('artifact: Issue 13 safety boundaries are explicit and PR behavior stays se
     'Sol-before-Terra', 'snapshot-C', 'Do not retry',
   ]) assert.ok(skill.includes(required), `Issue Skill missing safety contract: ${required}`);
   const pr = `${readText('skills/closed-loop-pr/SKILL.md')}\n${(readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'))}`;
-  assert.match(pr, /CL-D31 exception/);
-  assert.match(pr, /does not originate from `\/tidd-pr`/);
-  assert.match(pr, /tidd-autofix-worker/);
+  // #249 B3 (CL-D114): the PR side's statement that the Issue grant is CL-D31's alone is read in AC-GRANT.
+  assert.match(readText('contract/AC-GRANT.md'), /Separately, CL-D31 supplies a same-session Issue grant only for its exact preview, optional body PATCH, and one ledger POST\./);
+  assert.match(readText('skills/closed-loop-pr/SKILL.md'), /tidd-autofix-worker/);
   assert.doesNotMatch(pr, /Issue PATCH.*POST.*CL-D30/s);
 });
 

@@ -1,5 +1,5 @@
 ## CL-D50 — The CL-D30 addendum is a third disclosure stage
-**Clauses:** CL-D50-base, CL-D50-tests
+**Clauses:** CL-D50-tests
 
 *Decision ID:* CL-D50
 *Kind:* contract

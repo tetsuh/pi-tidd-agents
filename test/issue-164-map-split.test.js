@@ -49,9 +49,9 @@ test('Issue #164 the moved rule text is the moved rule text, byte for byte', () 
   assert.equal(crypto.createHash('sha256').update(moved).digest('hex'), MOVED_RULE_TEXT_SHA256, 'and byte for byte the same');
 });
 
-test('Issue #164 the autofix reference points at it once and carries the table no longer', () => {
+test('Issue #164 the autofix reference carries the table no longer', () => {
+  // #249 B3 (CL-D114) retired the pointer sentence's pin with CL-D83-autofix: it pointed from one prose file to another.
   const autofix = readText(AUTOFIX);
-  assert.ok(autofix.includes('The packaged helper invocation map and the CL-D44 input shapes are in `references/helper-map.md`; read it with this reference (CL-D83).'), 'one pointer');
   assert.equal(autofix.includes('| Phase | Operation | Required data |'), false, 'the table is not in two places');
   assert.equal(autofix.includes('### Cross-operation input shapes (CL-D44)'), false, 'nor is the shapes section');
 });
@@ -64,18 +64,11 @@ test('Issue #164 the move frees the budget it was taken for', () => {
   // test/issue-73-authority-budget.test.js (ADV-165-CEILING-002).
 });
 
-test('Issue #164 every clause pinned to a moved sentence names the file it moved to', () => {
-  const manifest = readManifest();
-  const map = readText(MAP);
-  const autofix = readText(AUTOFIX);
-  for (const clause of manifest.clauses) {
-    for (const file of clause.files) {
-      if (file !== AUTOFIX && file !== MAP) continue;
-      const text = file === MAP ? map : autofix;
-      for (const required of clause.requires) {
-        assert.ok(text.includes(required), `${clause.id} requires text that is not in ${file}: ${JSON.stringify(required.slice(0, 60))}`);
-      }
-    }
+test('Issue #164 no clause pins a moved sentence to either file any more', () => {
+  // #249 B1 and B3 (CL-D112, CL-D114) moved every pin off both files, so the per-clause search this test ran would pass
+  // over nothing; what it guarded now holds by construction, and the test says so.
+  for (const clause of readManifest().clauses) {
+    for (const file of [AUTOFIX, MAP]) assert.equal(clause.files.includes(file), false, `${clause.id} pins ${file}`);
   }
 });
 

@@ -30,7 +30,7 @@ const originHead = (t) => git(t.target.root, ['--git-dir', t.target.origin, 'rev
 const result = (t, options) => drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, options)], t.env);
 function thread(id, resolved) { return { id, isResolved: resolved, isOutdated: false, path: 'a.js', line: 1, originalLine: 1, comments: { totalCount: 1, nodes: [{ id: `c${id}`, databaseId: 1, url: 'u', body: 'please change this', createdAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z', author: { login: 'coderabbitai', __typename: 'Bot' } }], pageInfo: { endCursor: null, hasNextPage: false } } }; }
 
-// The pre-push adversarial review of PR-B: exact autofix keeps CL-D51's relaunch key (autofix.md), the async writer is
+// The pre-push adversarial review of PR-B: exact autofix keeps CL-D51's relaunch key, the async writer is
 // read before its batch is judged, and a failed terminal operator recheck is a BLOCKED stop.
 // The runner's id for the writer of the current batch: a UUID, one per push, as the runner gives each run its own.
 const writerId = (t) => `00000000-0000-4000-8000-${String(state(t.runDir).counters.pushes + 1).padStart(12, '0')}`;
