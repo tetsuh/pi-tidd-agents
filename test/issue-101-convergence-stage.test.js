@@ -223,7 +223,7 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   assert.match(readme, /\| Preliminary convergence review inside the closed loop \(non-authoritative\) \| `tidd-convergence-reviewer` \|/);
   assert.match(readme, /`tidd-convergence-reviewer` \(CL-D62\) is the non-authoritative preliminary reviewer that runs before the adversarial gate/);
   assert.match(readme, /ships with the `gpt-6-luna` default/);
-  assert.match(readme, /In exact autofix its default reviews the writer's own patch, which is model-level self-review; independent patch review is tracked in #102/);
+  assert.match(readme, /In exact autofix its default reviews the writer's own patch, which is model-level self-review; the owner kept that default in #274, with Sol and Terra as the independent gates\./);
   assert.match(readme, /Disable the agent through pi-subagents configuration to skip the stage/);
   assert.match(readme, /runs before the adversarial gate on both roots, once per candidate identity and snapshot fingerprint, with its own round budget/);
   // Included agents and Model overrides inventories name the fifth role.
@@ -259,6 +259,9 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(record, /`convergence` identity under CL-D60/);
   assert.match(record, /3 per run on the Issue root and PR review-only and 5 on exact autofix/);
   assert.match(record, /issues\/101#issuecomment-5549173659/);
+  // #279: #102 closed into #274, where the owner kept the default.
+  assert.match(record, /a known limit recorded in the README; the owner kept it when #274 asked whether convergence should run a model other than the writer's \(https:\/\/github\.com\/tetsuh\/pi-tidd-agents\/issues\/274#issuecomment-6114907037\)\./);
+  assert.match(record, /whether the convergence model differs from the writer's was decided in #274, not by this decision\./);
   assert.match(record, /keyed by public head and snapshot fingerprint/);
   assert.doesNotMatch(record, /per candidate identity(?! and snapshot fingerprint)/, 'the record carries no candidate-only wording');
   assert.match(record, /the CL-D32 post-decision route runs convergence on the unchanged decision-containing candidate before Sol/);

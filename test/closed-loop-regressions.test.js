@@ -196,6 +196,8 @@ const SUPERSEDED = [
       ...contractFiles(),
     ], pattern: /traces to no acceptance criterion/i,
     reason: 'CL-D34 anchors findings to an acceptance criterion, contract clause, or fail-stop invariant, not to a criterion alone' },
+  { files: ['README.md', 'contract/CL-D3.md', 'contract/CL-D62.md', 'contract/CL-D87.md'], pattern: /#102\b/,
+    reason: '#102 closed into #274, where the owner kept the convergence default (#279)' },
 ];
 
 test('Issue #41 publication authority remains review-only-owned and aggregate-only', () => {
