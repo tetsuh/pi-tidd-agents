@@ -32,7 +32,7 @@ test('Issue #174 every agent definition ships the decided model at high', () => 
 test('Issue #174 every live surface names the shipped defaults', () => {
   const readme = readText('README.md');
   assert.ok(readme.includes('CL-D87 later placed the Sol and Terra roles on one model, so that diversity now separates the gates from the writer rather than from each other; the independent context, system-prompt, and failure boundaries remain.'), 'README explains the CL-D87 model-family consequence');
-  assert.ok(readme.includes('`terra-worker` was excluded because its model also graded the Terra gate; CL-D87 later moved the Terra roles to `gpt-6-sol` and the writer to `gpt-6-luna`, and no formal gate runs on the writer\'s model, so the self-grading exclusion still holds. The non-authoritative convergence stage does run it, the model-level self-review #102 tracks.'), 'README qualifies the terra-worker exclusion under CL-D87');
+  assert.ok(readme.includes('`terra-worker` was excluded because its model also graded the Terra gate; CL-D87 later moved the Terra roles to `gpt-6-sol` and the writer to `gpt-6-luna`, and no formal gate runs on the writer\'s model, so the self-grading exclusion still holds. The non-authoritative convergence stage does run it, the model-level self-review the owner kept in #274.'), 'README qualifies the terra-worker exclusion under CL-D87');
   assert.ok(!readme.includes('`terra-worker` is excluded because its model also grades the Terra gate'), 'README no longer states the pre-CL-D87 exclusion in the present tense');
   for (const [agent, model] of Object.entries(SHIPPED)) {
     assert.match(readme, new RegExp(`\\| \`${agent}\` \\| \`${model.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\` \\|`), `README role row for ${agent}`);
@@ -67,11 +67,11 @@ test('Issue #174 CL-D87 records the choice and what it changes about model famil
   assert.match(record, /the adversarial and safety gates run in fresh context, while the Issue drift gate keeps the forked context CL-D59 gives it on purpose/);
   assert.doesNotMatch(record, /independent in the sense the addendum states — fresh context/);
   // ADV-178-CONVERGENCE-WRITER-MODEL: convergence runs the writer's model, so the claim is about the formal gates only.
-  assert.match(record, /The writer stays on a model no formal gate runs, so CL-D3's self-grading exclusion still holds; the non-authoritative convergence stage does run it, the model-level self-review #102 tracks\./);
+  assert.match(record, /The writer stays on a model no formal gate runs, so CL-D3's self-grading exclusion still holds; the non-authoritative convergence stage does run it, the model-level self-review the owner kept in #274\./);
   for (const [name, text] of [['README.md', readText('README.md')], ['CONTRACT.md', readContract()]]) {
     assert.doesNotMatch(text, /no gate runs on the writer's model|a model no gate runs/, `${name} states the writer-model claim for formal gates only`);
   }
-  assert.match(sectionOf(readContract(), '## CL-D3 — Writer selection'), /CL-D87 later moved the Terra roles to `gpt-6-sol` and the writer to `gpt-6-luna`; no formal gate runs on the writer's model, so the self-grading exclusion still holds\. The non-authoritative convergence stage does run it, the model-level self-review #102 tracks\./);
+  assert.match(sectionOf(readContract(), '## CL-D3 — Writer selection'), /CL-D87 later moved the Terra roles to `gpt-6-sol` and the writer to `gpt-6-luna`; no formal gate runs on the writer's model, so the self-grading exclusion still holds\. The non-authoritative convergence stage does run it, the model-level self-review the owner kept in #274\./);
   assert.match(sectionOf(readContract(), '## CL-D29 — Sol attempts adversarial falsification of absolute claims'), /CL-D87 later placed the Sol and Terra roles on one model/);
   assert.match(sectionOf(readContract(), '## CL-D62 — A non-authoritative convergence stage runs before the adversarial gate') || readContract(), /CL-D87 later moved the shipped convergence default to `gpt-6-luna`/);
 });

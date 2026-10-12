@@ -345,7 +345,7 @@ const MANIFEST = (() => {
     'CL-D62-autofix-map-schema': ['`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots.'],
     'CL-D62-readme': [
       `${convergenceRole} (CL-D62) is the non-authoritative preliminary reviewer that runs before the ${gate.adversarial} gate`,
-      'independent patch review is tracked in #102',
+      'the owner kept that default in #274',
       `The ${C} reviewer uses fresh context and is never readiness authority.`,
       `Every successful push invalidates prior approvals and ${VOCAB.restart}.`,
       `A disabled ${convergenceRole} is not a preflight failure: its stage is skipped and the status block reports \`${C}: disabled\`.`,
