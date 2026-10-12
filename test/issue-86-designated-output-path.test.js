@@ -21,7 +21,7 @@ const GATE_CONTRACT = readText('skills/closed-loop-shared/references/gate-contra
 const RECORD = readContract();
 const REVIEW_DRIVER_PHASES = readText('skills/closed-loop-pr/driver/phases.js');
 const ISSUE_WORKFLOW = readText('skills/closed-loop-issue/SKILL.md');
-const PR_AUTOFIX = readText('skills/closed-loop-pr/references/autofix-addendum.md');
+const AUTOFIX_DRIVER = readText('skills/closed-loop-pr/driver/autofix.js');
 
 test('Issue #86 the transport section names the designated output and its read path', () => {
   const section = sectionOf(GATE_CONTRACT, '### Structured gate result transport (CL-D36)');
@@ -65,6 +65,8 @@ test('Issue #86 keeps validation-failure handling owned by each route', () => {
   // Ordinary Issue mode retains its CL-D31-scoped retry, while CL-D32 remains fail-stop.
   assert.match(ISSUE_WORKFLOW, /Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`/);
   assert.match(ISSUE_WORKFLOW, /Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes.*cannot use the ordinary missing-or-unparsable retry/s);
-  // Exact autofix remains terminal on its first malformed result.
-  assert.match(PR_AUTOFIX, /Exact autofix stops on the first malformed, unparsable, stale, missing, or mismatched result without retry/);
+  // Exact autofix remains terminal on its first malformed result (#249 B4a, CL-D115: the driver and CL-D30): only the
+  // designated output's absence relaunches, once.
+  assert.ok(AUTOFIX_DRIVER.includes("codes: new Set(['designated_output_absent', 'designated_output_empty', 'result_names_no_run']), may: () => !s.relaunched && !s.writerLaunched"));
+  assert.match(sectionOf(RECORD, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head'), /Any identity movement, ambiguity, failed guard, malformed verdict\/record, validation or publication failure, owner decision, interruption, or limit ends the run/);
 });

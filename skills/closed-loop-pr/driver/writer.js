@@ -21,7 +21,7 @@ function writerMessage(s, open) {
   return `fix: ${open.map((e) => e.findingId).join(', ')} (#${s.issueNumber})\n\n${open.map((e) => `- ${e.findingId}: ${String(e.record.correction).replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')}\n\n`
     + `Test provenance: ${[...s.validationCommands, ['git', 'diff', '--check', 'HEAD']].map((c) => c.join(' ')).join('; ')} passed in the run-owned workspace before this commit.\n`;
 }
-// The writer's task: the guarded steps it runs itself, the paths it may edit, and the corrections as the gate gave them.
+// The writer's task: the guarded steps it runs itself, the paths it may edit, and the corrections as the gate gave them (CL-D30).
 function writerTask(s, open, paths, self, runDir) {
   const t = s.target;
   return [

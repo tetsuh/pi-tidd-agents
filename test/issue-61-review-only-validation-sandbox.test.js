@@ -56,7 +56,8 @@ test('Issue #61 review-only permits only the validation delta and keeps every ot
 test('Issue #61 exact autofix keeps its phase usage and stops redefining the delta', () => {
   const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   assert.match(text, /`VALIDATION_SANDBOX_DELTA`/, 'autofix must still name the delta at its phases');
-  assert.match(text, /AFTER_VALIDATION/);
+  // #249 B4a (CL-D115): the phase guard is read in the driver's batch chain.
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("step('overlay_compare', { cwd: ws, overlay }); // AFTER_VALIDATION"));
   // The general definition moved to the root; the mode reference keeps only its phase rules.
   assert.doesNotMatch(text, /Validation-created ignored caches are frozen run-owned sandbox state/, 'the definition must not remain duplicated in the mode reference');
 });

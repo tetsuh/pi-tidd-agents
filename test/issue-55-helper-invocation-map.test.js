@@ -92,11 +92,8 @@ test('Issue #55 clean-only workspace verification is not mapped to a guard that 
   assert.ok(mapRows(section).some((row) => backticked(row.operation).includes('workspace_verify') && /before any edit/.test(row.phase)));
 });
 
-// The contract enumerates its own pre-push boundaries. Parsing that enumeration instead of
-// restating it here is what stops the map from drifting: three review rounds of this PR
-// found the map naming a subset of them, so the list is derived, never hand-maintained.
-// Comparison is by exact token, never substring: `phase.includes('reply')` would otherwise
-// be satisfied by `post-reply` alone.
+// A map phase cell is split into boundary tokens. Comparison is by exact token, never substring:
+// `phase.includes('reply')` would otherwise be satisfied by `post-reply` alone.
 const LEADING = /^(?:and\s+)?(?:immediately\s+)?(?:before|at|after|in)?\s*(?:each|every|the first|any)?\s*/i;
 function enumerationTokens(text) {
   return new Set(text.split(/,|\band\b|\u2014|--/)
@@ -104,26 +101,8 @@ function enumerationTokens(text) {
     .filter(Boolean));
 }
 
-function prePushBoundaries() {
-  const sentence = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)).match(/Every pre-push boundary[\u2014-]([^\u2014]+)[\u2014-]requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H`/);
-  assert.ok(sentence, 'could not locate the pre-push boundary enumeration in the contract');
-  // The map cites the snapshot boundary by its short name, as the contract does elsewhere.
-  const terms = new Set([...enumerationTokens(sentence[1])].map((term) => term.replace(/^post-reply snapshot$/, 'post-reply')));
-  assert.ok(terms.size >= 6, `expected at least six pre-push boundaries, parsed ${terms.size}`);
-  return terms;
-}
-
-test('Issue #55 both pre-push invariants are mapped at every boundary the contract enumerates', () => {
-  const section = mapSection();
-  for (const operation of ['workspace_verify', 'operator_revalidate']) {
-    const rows = mapRows(section).filter((row) => backticked(row.operation).includes(operation) && !backticked(row.data).includes('transition'));
-    assert.ok(rows.length > 0, `no non-transition row maps ${operation}`);
-    const named = enumerationTokens(rows.map((row) => row.phase).join(', '));
-    for (const boundary of prePushBoundaries()) {
-      assert.ok(named.has(boundary), `${operation} phase cell omits the ${boundary} pre-push boundary; parsed tokens: ${[...named].join(' | ')}`);
-    }
-  }
-});
+// #249 B4a (CL-D115): the check of the map's rows against the addendum's pre-push boundary enumeration compared two
+// prose files and is retired; CL-D30-clean-boundaries pins the rechecks the driver runs before every gate and the writer.
 
 test('Issue #55 snapshot refresh is mapped at every boundary the contract requires', () => {
   const rows = mapRows(mapSection()).filter((row) => backticked(row.operation).includes('snapshot'));

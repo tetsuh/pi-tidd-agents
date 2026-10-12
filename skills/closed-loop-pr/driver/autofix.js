@@ -270,7 +270,7 @@ function batch(opts) {
   const step = (operation, payload) => { const r = run.op(operation, payload, { allowFail: true }); if (!r.ok || r.data?.ok === false) batchFail(run, operation, `${r.error?.code || r.data?.code} ${r.error?.message || ''}`.trim()); return r.data; };
   // The writer may not change ignored paths; only what validation adds below is adopted (CONV-208-IGNORED-WRITER-DRIFT).
   const drift = ignoredDrift(s.ignoredDelta || [], ws); if (drift) batchFail(run, 'ignored_drift', `the writer changed ignored paths: ${drift}`);
-  const overlay = step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths });
+  const overlay = step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths }); // BEFORE_VALIDATION
   for (const command of [...s.validationCommands, ['git', 'diff', '--check', 'HEAD']]) {
     const v = run.op('validation_run', { cwd: ws, command, timeoutMs: 1800000 }, { allowFail: true });
     if (v.data?.outcome !== 'passed') batchFail(run, 'validation_run', `${v.ok === false && v.error?.code !== 'validation_failed' ? 'harness_failed' : 'validation_failed'}: ${command.join(' ')}`);

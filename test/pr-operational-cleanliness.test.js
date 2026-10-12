@@ -570,7 +570,6 @@ test('record: Issue #42 pre-implementation RED is hash-bound and narrowly classi
 test('artifact: Issue #42 isolated-workspace contract is present and single-checkout CLEAN wording is retired', () => {
   const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
   const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
-  const phases = section(SKILL, '### Exact identity and Luna publication phases');
   // #249 B3 (CL-D114): the base reference's invariants and preflight are read in the contract and the driver.
   for (const text of [CONTRACT]) {
     assert.match(text, /OPERATOR_CHECKOUT@H/);
@@ -591,7 +590,8 @@ test('artifact: Issue #42 isolated-workspace contract is present and single-chec
   assert.doesNotMatch(CONTRACT, /neither mode mutates[^.\n]*remote-tracking state/i);
   assert.match(d10, /It then creates and verifies external `AUTOFIX_WORKSPACE@H`/);
   assert.match(readText('skills/closed-loop-pr/driver/autofix.js'), /const made = run\.op\('workspace_create', \{ cwd: checkout, head: target\.headOid,/);
-  assert.match(phases, /workspace cwd|workspace path|AUTOFIX_WORKSPACE@H/i);
+  // #249 B4a (CL-D115): the writer's batch is guarded in the workspace, read in the driver.
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("const r = run.op('guard_before_edit', { cwd: s.workspace, expected: s.created,"), 'the batch runs in the workspace');
   assert.doesNotMatch(d10, /branch must already be checked out and satisfy `CLEAN@H`/);
   assert.match(d30, /(?:unexpected )?non-ignored untracked.*block(?:ed|s)?/i);
 });
@@ -766,9 +766,10 @@ test('fixture: Issue #42 workspace transitions are deterministic and fail closed
 test('artifact: Issue #17 sections define scoped operational cleanliness', () => {
   const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
   const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
-  const phases = section(SKILL, '### Exact identity and Luna publication phases');
-  const boundaries = section(SKILL, '### Public-head loop and evidence');
-  const replies = section(SKILL, '### Source-finding replies and final readiness');
+  // #249 B4a (CL-D115): the addendum's phase, boundary and reply sections are read where the rules live now: the driver's
+  // guarded chain and rechecks, and CL-D30's named invariants. Its reply section has no implementation: the driver posts
+  // no reply (AC-AUTOFIX, CL-D114).
+  const driver = readText('skills/closed-loop-pr/driver/autofix.js');
   // #249 B3 (CL-D114): the base reference's invariants and preflight are read in the contract.
   for (const text of [d30]) {
     assert.match(text, /RUNTIME_ROOTS|runtime-root/);
@@ -778,35 +779,29 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
     assert.match(text, /HEAD.*index|index.*HEAD/si);
   }
   assert.match(d10, /`OPERATOR_CHECKOUT@H`/);
-  assert.match(boundaries, /`OPERATOR_CHECKOUT@H`/);
-  assert.match(boundaries, /`WORKSPACE_POST_COMMIT\(C, P\)`/);
-  assert.match(phases, /`AUTOFIX_WORKSPACE@P`/);
-  assert.match(phases, /`WORKSPACE_POST_COMMIT\(C, P\)`/);
-  assert.match(replies, /`OPERATOR_CHECKOUT_UNCHANGED@O`/);
-  assert.match(replies, /`REPLY_EXCEPTION`/);
-  assert.match(replies, /safe untracked runtime-root bytes and contents are excluded from every gate payload, candidate draft, finding\/validation evidence, Luna correction scope, disposition claim, source reply, and aggregate-summary claim/i);
+  for (const name of ['OPERATOR_CHECKOUT@H', 'WORKSPACE_POST_COMMIT(C, P)', 'OPERATOR_CHECKOUT_UNCHANGED@O', 'REPLY_EXCEPTION']) assert.ok(d30.includes(`\`${name}\` :=`), `CL-D30 defines ${name}`);
+  assert.match(d30, /Runtime bytes are never claimed cleaned, preserved, validated, committed, or published\./);
   const requiredDenial = /the workflow must not claim those runtime bytes were cleaned, preserved, validated, committed, or published\./i;
-  assert.match(replies, requiredDenial);
-  assert.match(replies, /only truthful runtime-content statement permitted.*excluded from candidate\/evidence identity.*reclassified.*without following links/is);
-  const repliesWithoutRequiredDenial = replies.replace(requiredDenial, '');
-  assert.doesNotMatch(repliesWithoutRequiredDenial, /runtime (?:bytes|contents|state) (?:were|was) (?:cleaned|preserved|validated|committed|published)/i);
-  for (const text of [boundaries, phases, replies]) {
-    assert.doesNotMatch(text, /untracked baseline clean/i);
-    assert.doesNotMatch(text, /untracked state(?: to be)? fully clean/i);
-    assert.doesNotMatch(text, /all three local dimensions.*completely clean/i);
+  assert.doesNotMatch(SKILL.replace(requiredDenial, ''), /runtime (?:bytes|contents|state) (?:were|was) (?:cleaned|preserved|validated|committed|published)/i);
+  assert.doesNotMatch(SKILL, /untracked baseline clean/i);
+  assert.doesNotMatch(SKILL, /untracked state(?: to be)? fully clean/i);
+  assert.doesNotMatch(SKILL, /all three local dimensions.*completely clean/i);
+  assert.doesNotMatch(SKILL, /At every exact-autofix boundary.*ordinary operational cleanliness/si);
+  // Every gate and the writer launch recheck the target, the operator and the workspace; after a push the workspace and
+  // the operator are verified again with the pushed head.
+  assert.ok(driver.includes('// Before every gate and at final readiness: the target, the operator capture, the workspace, the body, and the issue'));
+  assert.ok(driver.includes('const evidence = recheck(run);'));
+  assert.ok(driver.includes('function launchWriter(run, open) {\n  recheck(run);'));
+  assert.ok(driver.includes("const built = run.op('build_operator_revalidate', { captured: s.captured, cwd: s.checkout, ...(s.pushes.length ? { pushes: s.pushes } : {}) }, opts);"));
+  // The seven named guards run in the batch chain, in order, and the last two check the commit against its parent.
+  let at = driver.indexOf("const r = run.op('guard_before_edit', { cwd: s.workspace,");
+  assert.ok(at > 0, 'the writer is guarded before its first edit');
+  for (const guard of ['// BEFORE_VALIDATION', '// AFTER_VALIDATION', '// BEFORE_STAGING', '// AFTER_STAGING', '// BEFORE_COMMIT', '// AFTER_COMMIT, BEFORE_PUSH']) {
+    const next = driver.indexOf(guard, at);
+    assert.ok(next > at, `${guard} follows the guard before it`);
+    at = next;
   }
-  assert.doesNotMatch(boundaries, /At every exact-autofix boundary.*ordinary operational cleanliness/si);
-  assert.match(boundaries, /Every pre-push boundary/);
-  assert.match(boundaries, /immediately after a push require `WORKSPACE_POST_PUSH\(C, O\)`/);
-  assert.match(boundaries, /Correction-overlay and staged-manifest boundaries use the named condition deltas/);
-  assert.match(phases, /BEFORE_VALIDATION.*immediately before focused validation/si);
-  assert.match(phases, /AFTER_VALIDATION.*requires `AUTOFIX_WORKSPACE@P`/si);
-  assert.match(phases, /BEFORE_STAGING.*requires `AUTOFIX_WORKSPACE@P`/si);
-  assert.match(phases, /AFTER_STAGING.*immediately after staging/si);
-  assert.match(phases, /BEFORE_COMMIT.*immediately before commit/si);
-  assert.match(phases, /AFTER_COMMIT.*POST_COMMIT\(C, P\)/si);
-  assert.match(phases, /BEFORE_PUSH.*POST_COMMIT\(C, P\)/si);
-  assert.match(phases, /distinct post-commit\/pre-push guard/);
+  assert.ok(driver.includes("step('workspace_verify', step('build_workspace_verify', { created: s.created, transition: { from: b.parentHead, to: commit } }).request.data); // AFTER_COMMIT, BEFORE_PUSH"));
   assert.match(d30, /raw.*effective diff|raw.*diff/si);
   assert.match(README, /RUNTIME_ROOTS.*\.pi.*\.pi-subagents/si);
   assert.match(README, /artifactDir: "session".*artifactDir: "temp".*do \*\*not\*\* guarantee.*\.pi-subagents/is);
@@ -817,9 +812,8 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
     assert.match(text, /\.pi.*\.pi-subagents/si);
     assert.match(text, /enumerat|exact.*set|independently/si);
   }
-  assert.match(phases, /safe untracked runtime(?:-root)? churn.*may change.*descendant create.*content change.*rename.*removal/si);
-  assert.match(phases, /every `RUNTIME_ROOTS` member without following links/i);
-  assert.match(phases, /Every other state must remain unchanged/);
+  assert.match(README, /safe untracked churn is separately reclassified/);
+  assert.match(d30, /every root is classified independently without following links/);
 });
 
 test('artifact: Issue #17 stale cleanliness prose is rejected section-by-section', () => {
@@ -838,9 +832,9 @@ test('artifact: Issue #17 stale cleanliness prose is rejected section-by-section
 test('artifact: Issue #20 names each invariant once and references it at every phase', () => {
   const d10 = section(CONTRACT, '## CL-D10 — Worktree precondition for autofix');
   const d30 = section(CONTRACT, '## CL-D30 — Exact PR autofix publishes one bounded correction per public head');
-  const boundaries = section(SKILL, '### Public-head loop and evidence');
-  const phases = section(SKILL, '### Exact identity and Luna publication phases');
-  const replies = section(SKILL, '### Source-finding replies and final readiness');
+  // #249 B4a (CL-D115): the addendum's phase rules are read in the driver's guarded chain and the workspace helper.
+  const driver = readText('skills/closed-loop-pr/driver/autofix.js');
+  const workspace = readText('skills/closed-loop-pr/helpers/workspace.js');
   const addendum = SKILL.slice(SKILL.indexOf('## Exact PR `autofix` addendum (CL-D30)'));
   const definitionCount = (text, name) => {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -854,23 +848,27 @@ test('artifact: Issue #20 names each invariant once and references it at every p
   assert.match(d10, /`OPERATOR_CHECKOUT@H`/);
   // #249 B3 (CL-D114): the preflight capture is read in the driver, which takes it before any gate.
   assert.match(readText('skills/closed-loop-pr/driver/autofix.js'), /s\.captured = run\.op\('operator_capture', \{ cwd: checkout, identity \}\);/);
-  assert.match(boundaries, /`OPERATOR_CHECKOUT@H`/);
-  assert.match(boundaries, /`WORKSPACE_POST_COMMIT\(C, P\)`/);
-  for (const guard of ['BEFORE_VALIDATION', 'AFTER_VALIDATION', 'BEFORE_STAGING', 'AFTER_STAGING', 'BEFORE_COMMIT']) {
-    const pattern = new RegExp('`' + guard + '`[^\\n]*`AUTOFIX_WORKSPACE@P`|`' + guard + '`[\\s\\S]{0,320}`AUTOFIX_WORKSPACE@P`');
-    assert.match(phases, pattern, `${guard} must name CLEAN@P and state only its delta`);
-  }
-  for (const guard of ['AFTER_COMMIT', 'BEFORE_PUSH']) {
-    const guardLine = phases.split('\n').find((line) => line.startsWith(`- \`${guard}\``));
-    assert.ok(guardLine, `${guard} guard must exist`);
-    assert.match(guardLine, /local `HEAD=C` while remote\/public head remains `P`/, `${guard} must independently state its local/public head delta`);
-    assert.match(guardLine, /`WORKSPACE_POST_COMMIT\(C, P\)`/, `${guard} must independently name WORKSPACE_POST_COMMIT(C, P)`);
-  }
-  assert.match(phases, /every runtime-root path.*fails closed regardless of its mode, stage, intent-to-add, or add\/modify\/rename\/delete\/conflict status/si);
-  assert.doesNotMatch(phases, /every staged mode\/stage\/intent\/add\/modify\/rename\/delete\/conflict, fails closed/i);
-  assert.match(replies, /`REPLY_EXCEPTION`/);
-  assert.ok((SKILL.match(/`REPLY_EXCEPTION`/g) || []).length >= 5, 'every provider-mutation boundary must reference REPLY_EXCEPTION');
-  assert.equal((SKILL.match(/all three local dimensions remain independently guarded/gi) || []).length, 1);
+  assert.match(d30, /`OPERATOR_CHECKOUT@H` :=/);
+  assert.match(d30, /`WORKSPACE_POST_COMMIT\(C, P\)` :=/);
+  // Each guard of the batch chain is one packaged step on the workspace, between the writer's edit and the commit.
+  for (const line of [
+    "const overlay = step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths }); // BEFORE_VALIDATION",
+    "step('overlay_compare', { cwd: ws, overlay }); // AFTER_VALIDATION",
+    "step('overlay_compare', { cwd: ws, overlay }); // BEFORE_STAGING",
+    "const manifest = step('manifest_compare', step('build_manifest_capture', { overlay, cwd: ws }).request.data); // AFTER_STAGING",
+    "step('manifest_compare', step('build_manifest_compare', { captured: manifest, cwd: ws }).request.data); // BEFORE_COMMIT",
+  ]) assert.ok(driver.includes(line), `the batch chain runs: ${line}`);
+  // AFTER_COMMIT and BEFORE_PUSH each verify the workspace at the commit against its parent, and the public head must
+  // still be the parent immediately before the push.
+  assert.ok(driver.includes("for (let i = 0; i < 2; i += 1) step('workspace_verify', step('build_workspace_verify', { created: s.created, transition: { from: b.parentHead, to: commit } }).request.data); // AFTER_COMMIT, BEFORE_PUSH"));
+  assert.ok(driver.includes('const moved = targetMoved({ ...s.target, headOid: b.parentHead }, pull);'));
+  assert.match(d30, /Runtime-root entries in candidate\/public `HEAD` or index fail closed\./);
+  assert.ok(workspace.includes("workspaceStateError('runtime_root_tracked', 'runtime root is present in HEAD or index');"));
+  assert.doesNotMatch(SKILL, /every staged mode\/stage\/intent\/add\/modify\/rename\/delete\/conflict, fails closed/i);
+  // The driver mutates no provider state, so no boundary of its path references the reply exception (AC-AUTOFIX, CL-D114).
+  assert.match(readText('contract/AC-AUTOFIX.md'), /The packaged autofix driver posts no source-finding reply and no summary, so `REPLY_EXCEPTION` is not exercised on that path/);
+  // The three local dimensions are checked separately: untracked paths, runtime roots, and tracked and index state.
+  for (const code of ["'unexpected_untracked'", "'unsafe_runtime_root'", "'runtime_root_tracked'", "'workspace_not_clean'"]) assert.ok(workspace.includes(`workspaceStateError(${code},`), `workspace_verify refuses ${code}`);
   // CL-D43 raised this from the 25,022-byte pre-refactor baseline to 28,000, CL-D74 to 29,000, and
   // CL-D85 to 32,000: it measured 29,776 bytes at f71077f, leaving 2,224 asserted at that raise.
   // Revision-qualified, not a running total.
@@ -1051,7 +1049,9 @@ test('fixture: Issue #28 acceptance vectors 01–15 cover their declared root sc
     } else if (id === '15') { // The exact set equals the guarded set; additions require a recorded decision.
       assert.match(CONTRACT, /RUNTIME_ROOTS.*\{ "\.pi", "\.pi-subagents" \}/s);
       assert.deepEqual(require('../skills/closed-loop-pr/helpers/operator.js').RUNTIME_ROOTS, ['.pi', '.pi-subagents']);
-      assert.match(SKILL, /every member of `RUNTIME_ROOTS`/);
+      // #249 B4a (CL-D115): every member is classified, read in CL-D30 and the driver's own set.
+      assert.match(readText('contract/CL-D30.md'), /every root is classified independently without following links/);
+      assert.ok(readText('skills/closed-loop-pr/driver/run.js').includes("const RUNTIME_ROOTS = ['.pi', '.pi-subagents'];"));
       assert.match(CONTRACT, /future additions require a recorded contract decision naming the producing tool, default configuration, and affected version range/);
     }
   }

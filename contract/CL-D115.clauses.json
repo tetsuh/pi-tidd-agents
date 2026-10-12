@@ -1,0 +1,53 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D115-record",
+      "marker": "CL-D115",
+      "title": "CL-D115 records where CL-D30's pins of the autofix addendum went",
+      "files": [
+        "contract/CL-D115.md"
+      ],
+      "section": "## CL-D115 — CL-D30's clause pins of the autofix addendum move to the code and the record",
+      "requires": [
+        "issues/249#issuecomment-6118446239",
+        "No alarm is raised",
+        "the one guard label its batch chain lacked, `// BEFORE_VALIDATION`",
+        "CL-D30-publication-commit",
+        "CL-D30-breaker-boundaries",
+        "CL-D30-pi-boundaries",
+        "CL-D30-pi-replies",
+        "CL-D30-readiness",
+        "CL-D30-replies, CL-D30-reply-safety and CL-D30-summary-safety",
+        "its \"destination language\" wording was the prose path's and is retired with it",
+        "no test replaces them, because the driver posts neither a reply nor a summary",
+        "The other nineteen clauses that name the file are B4b's (#249).",
+        "The file is byte-identical and `driver/autofix.js` reads it into `contractInput` as before."
+      ]
+    },
+    {
+      "id": "CL-D115-gaps",
+      "marker": "CL-D115",
+      "title": "CL-D30 states the five divergences, recorded and not closed",
+      "files": [
+        "contract/CL-D30.md"
+      ],
+      "requires": [
+        "recorded and not closed (#249, CL-D115)"
+      ]
+    },
+    {
+      "id": "CL-D115-tests",
+      "marker": "CL-D115",
+      "title": "The #284 tests pin the repoint",
+      "files": [
+        "test/issue-284-addendum-d30-pins.test.js"
+      ],
+      "requires": [
+        "Issue #284 no CL-D30 clause pins references/autofix-addendum.md, every CL-D30 pin matches, and the retired clauses are gone",
+        "Issue #284 the rule-stating tests read the code or the record; the mixed files keep only their structural reads; the structural reads stay",
+        "Issue #284 CL-D115 records the repoint, the retired clauses and the five divergences, and CL-D30 states them",
+        "Issue #284 the addendum is byte-identical, autofix.js still reads it into contractInput, and the byte alarms are unchanged"
+      ]
+    }
+  ]
+}

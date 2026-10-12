@@ -227,16 +227,16 @@ test('Issue #41 publication authority remains review-only-owned and aggregate-on
 
 test('entry artifacts preserve the scoped CL-D30 boundary', () => {
   const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  const addendum = readText(PR_AUTOFIX_ADDENDUM);
-  assert.match(addendum, /This addendum is selected only when.*exactly `autofix`/s);
+  // #249 B4a (CL-D115): the mode is selected by the final token in the Skill, and the batch is read in the driver.
+  assert.match(readText(PR_SKILL), /the final token is exactly `autofix`, \*\*case-sensitive\*\* → autofix mode;/);
   assert.doesNotMatch(skill, /Review-only retains the preceding/);
   // #249 B3 (CL-D114): the base reference's batch and cap are read in the grant records and the driver.
   assert.match(readText('contract/AC-AUTOFIX.md'), /one normal commit, one non-force push/);
   assert.match(readText('contract/AC-GRANT.md'), /The run-wide cap is five successful correction pushes/);
   assert.match(readText('skills/closed-loop-pr/driver/autofix.js'), /const CAP = \{ gates: 15, conv: 5, pushes: 5, noProgress: 3 \};/);
-  assert.match(addendum, /one non-force push/);
-  assert.match(addendum, /one bounded batch for the currently reviewed public head\/gate result/);
-  assert.match(addendum, /parent is the only GitHub comment actor/);
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes('grant: `autofix run ${path.basename(runDir)}: one commit and one non-force push per batch, at most ${CAP.pushes} pushes` });'), 'one bounded batch per gate result');
+  // The driver posts no comment at all, a gap AC-AUTOFIX records (CL-D114).
+  assert.match(readText('contract/AC-AUTOFIX.md'), /The packaged autofix driver posts no source-finding reply and no summary, so `REPLY_EXCEPTION` is not exercised on that path/);
   assert.doesNotMatch(skill, /valid pasted resume status|dirty candidate tree/);
   assert.doesNotMatch(skill, /This MVP never posts|This MVP does not commit|Draft it; never post it/);
   assert.doesNotMatch(skill, /any drafted operator action is still outstanding.*MERGE_READY/s);
@@ -271,8 +271,11 @@ test('fixture: PR mode references own downstream obligations exclusively', () =>
   const autofixOwned = [
     ['contract/CL-D23.md', 'Exact PR `autofix` uses only the published public-head OID'],
     ['contract/AC-GRANT.md', 'the exact PR `autofix` token itself supplies the run-scoped grant'],
-    [PR_AUTOFIX_ADDENDUM, 'Exact PR `autofix` never resumes: a later command is a fresh run.'],
-    [PR_AUTOFIX_ADDENDUM, 'Exact autofix malformed or unparsable verdict stops on first failure.'],
+    // #249 B4a (CL-D115): the addendum's two exclusive obligations are read in CL-D30 and the driver.
+    ['contract/CL-D30.md', 'a later command is a fresh run, never resume.'],
+    ['skills/closed-loop-pr/driver/autofix.js', "else die('usage: autofix.js start|result|pre-edit|batch|writer-done|status');"],
+    ['contract/CL-D30.md', 'Any identity movement, ambiguity, failed guard, malformed verdict/record'],
+    ['skills/closed-loop-pr/driver/phases.js', "run.stop('BLOCKED', `gate_result_read refused${p.relaunched ? ' after one relaunch' : ''}:"],
   ];
   for (const [file, text] of [...reviewOwned, ...autofixOwned]) assert.ok(readText(file).includes(text), `${file} must retain ${text}`);
   assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
@@ -299,15 +302,15 @@ test('provider mutation exceptions remain scoped in PR Skills', () => {
   const shared = readText('skills/closed-loop-shared/references/gate-contract.md');
   const skill = readPrMode(PR_AUTOFIX);
   const language = artifactSection(shared, '## Language Profile (CL-D16)');
-  const replies = artifactSection(skill, '### Source-finding replies and final readiness');
   assert.ok(language, 'shared Language Profile section must exist for provider-mutation protection');
   assert.doesNotMatch(language, /`REPLY_EXCEPTION`/, 'shared Language Profile must not acquire PR-mode mutation authority');
   // #249 B3 (CL-D114): the grant sections are read in their records, AC-AUTOFIX and AC-GRANT, which the test above
   // already scopes to the exact provider-mutation exceptions.
   assert.equal((skill.match(/^- `REPLY_EXCEPTION` :=/gm) || []).length, 1);
-  assert.ok(replies, 'Source-finding replies section must exist for provider-mutation protection');
-  assert.match(replies, /Replies never approve, request rereview, resolve threads, or invoke bot commands; provider mutation is exactly `REPLY_EXCEPTION`\./);
-  assert.doesNotMatch(replies, /Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state\./);
+  // #249 B4a (CL-D115): the addendum's reply section is retired with the prose path; the driver posts no reply, a gap
+  // AC-AUTOFIX records (CL-D114), and CL-D30 keeps the one exception.
+  assert.ok(readText('contract/CL-D30.md').includes('`REPLY_EXCEPTION` := the sole provider exception.'));
+  assert.doesNotMatch(skill, /Replies never approve, request rereview, resolve threads, invoke bot commands, or mutate provider state\./);
   const prompt = readText('prompts/tidd-pr.md');
   assert.doesNotMatch(prompt, /REPLY_EXCEPTION|Issue mutation|provider mutation/);
 });
@@ -338,20 +341,19 @@ test('no superseded rule survives beside its replacement', () => {
 test('exact-autofix Luna ownership is protected within its authored sections', () => {
   const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
   const addendum = artifactSection(skill, '## Exact PR `autofix` addendum (CL-D30)');
-  const exactOwner = artifactSection(skill, '### Exact owner and safety boundary (CL-D30)');
   const contract = artifactSection(readContract(), '## CL-D3 — Writer selection');
   const readmeAutofix = artifactSection(readText('README.md'), '### Autofix');
-  for (const [name, section] of [['Skill addendum', addendum], ['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
+  for (const [name, section] of [['Skill addendum', addendum], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
     assert.ok(section, `${name} section must exist for scoped protection`);
   }
   // #249 B3 (CL-D114): the writer's mandate is read in the packaged launch and in CL-D3 below.
   assert.match(readText('skills/closed-loop-pr/helpers/launch.js'), /const WRITER_LAUNCH = Object\.freeze\(\{ agent: 'tidd-autofix-worker',/);
-  assert.match(exactOwner, /exact-autofix writer is not replaceable/);
-  assert.match(exactOwner, /always `tidd-autofix-worker`/);
-  assert.match(exactOwner, /ends there and has no resume/);
+  // #249 B4a (CL-D115): the addendum's owner boundary is read in CL-D3 and CL-D30.
+  assert.match(readText('contract/CL-D3.md'), /does not make the exact-autofix writer replaceable/);
+  assert.match(readText('contract/CL-D30.md'), /A request for another worker stops before mutation and ends the exact-autofix run with no resume\./);
   assert.match(contract, /For exact PR `autofix`, `tidd-autofix-worker` is the mandatory and sole correction writer\/publisher/);
   assert.match(readmeAutofix, /`tidd-autofix-worker` is always the mandatory sole writer\/publisher/);
-  for (const [name, section] of [['Skill exact owner boundary', exactOwner], ['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
+  for (const [name, section] of [['CONTRACT CL-D3', contract], ['README Autofix', readmeAutofix]]) {
     assert.doesNotMatch(section, /default writer|default autofix writer|`tidd-autofix-worker` by default|Choosing a different worker requires an explicit owner instruction|Selecting an alternate worker requires an explicit owner instruction/i, `${name} restores replaceable exact-autofix wording`);
   }
 });
@@ -533,7 +535,7 @@ const SCENARIOS = [
   ['19 confirmation records enforce exact one-to-one tuples and multiple assigned findings', () => { const base = { findingId: 'f', blockerKey: 'b', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'e' }; const both = { findingId: 'f', blockerKey: 'b', headOid: 'H', confirmationGate: 'both', proposedDisposition: 'fixed' }; const correct = [base, { ...base, gate: 'terra' }]; assert.equal(confirmation(both, correct), true); assert.equal(confirmation(both, [base]), false); assert.equal(confirmation(both, [base, { ...base, blockerKey: 'wrong', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, headOid: 'OLD', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, proposedDisposition: 'deferred', gate: 'terra' }]), false); assert.equal(confirmation(both, [base, { ...base, gate: 'terra' }, { ...base, gate: 'sol' }]), false); const solOnly = { findingId: 's', blockerKey: 'bs', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'fixed' }; const solRecord = { findingId: 's', blockerKey: 'bs', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 's' }; assert.equal(confirmation(solOnly, [solRecord, { ...solRecord, gate: 'terra' }]), false); assert.equal(confirmationRecordsValid([{ ...base, gate: 'bad' }]), false); assert.equal(confirmationRecordsValid([{ ...base, proposedDisposition: 'bad' }]), false); assert.equal(confirmationRecordsValid([{ ...base, blockerKey: undefined }]), false); assert.equal(confirmationRecordsValid([base, base]), false); const other = { findingId: 'g', blockerKey: 'bg', gate: 'sol', headOid: 'H', proposedDisposition: 'fixed', confirmation: 'confirmed', evidence: 'g' }; const assigned = { findingId: 'g', blockerKey: 'bg', headOid: 'H', confirmationGate: 'sol', proposedDisposition: 'fixed' }; assert.equal(confirmation(assigned, [other, ...correct], [assigned, both]), true); assert.equal(confirmation(assigned, [other], [assigned, both]), false); }],
   ['20 blockerKey x breakerOwner deduplicates within result but counts separate results', () => { const history = noProgressHistory([{ resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'terra' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'sol-1', blockerKey: 'owned', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-1', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }, { resultId: 'shared-2', blockerKey: 'shared', breakerOwner: 'shared', gate: 'terra' }, { resultId: 'shared-3', blockerKey: 'shared', breakerOwner: 'shared', gate: 'sol' }]); assert.equal(history.get('owned:sol'), 1); assert.equal(history.get('shared:shared'), 3); assert.equal(breaker('final', { observations: history.get('shared:shared') }), 'ROUND_LIMIT_REACHED:no_progress'); assert.equal(noProgressObservation([{ blockerKey: 'shared' }, { blockerKey: 'shared' }]), 1); }],
   ['21 concurrent local dirtiness/staged race and post-commit checkout mismatch fail without cleanup/retry', () => { const results = [publicationPhase({ phase: 'gate', fullyClean: false }), publicationPhase({ phase: 'reply', fullyClean: false }), publicationPhase({ phase: 'edit', fullyClean: false }), publicationPhase({ phase: 'commit', indexMatchesManifest: false }), publicationPhase({ phase: 'commit', indexTree: 'raced' }), publicationPhase({ phase: 'push', checkoutHead: 'P' })]; assert.deepEqual(results, ['BLOCKED:gate_guard', 'BLOCKED:reply_guard', 'BLOCKED:edit_guard', 'BLOCKED:commit_guard', 'BLOCKED:commit_guard', 'BLOCKED:push_guard']); assert.equal(publicationPhase({ phase: 'push', localHead: 'C', checkoutHead: 'C' }), 'push'); assert.deepEqual(results.map(blockedEffects), results.map(() => ({ commit: 0, push: 0, cleanup: 0, retry: 0 }))); }],
-  ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { const skill = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM)); assert.match(skill, /final raw argument token is exactly `autofix`/); assert.doesNotMatch(readText(PR_REVIEW_ONLY), /Exact PR `autofix`/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
+  ['22 mode-gated supersession preserves Issue and review-only artifacts', () => { assert.match(readText(PR_SKILL), /the final token is exactly `autofix`, \*\*case-sensitive\*\* → autofix mode;/); assert.doesNotMatch(readText(PR_REVIEW_ONLY), /Exact PR `autofix`/); assert.doesNotMatch(readText('skills/closed-loop-issue/SKILL.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); assert.doesNotMatch(readText('prompts/tidd-issue.md'), /CL-D30|LUNA_CORRECT_VALIDATE_COMMIT_PUSH/); }],
   ['23 convergence precedes Sol and no exact-autofix route returns directly to Sol (CL-D62)', () => { assert.equal(gateSuccess('convergence', 'P').next, 'sol'); assert.equal(gateSuccess('sol', 'P').next, 'terra', 'Sol-before-Terra is unchanged'); assert.equal(evidenceRoute('before-terra', false), 'terra'); for (const stale of [publishedCorrection().restart, finalClassification({ newActionableEvidence: true }), evidenceRoute('before-terra', true), evidenceRoute('final-before-replies', true), evidenceRoute('final-after-replies', true)]) assert.notEqual(stale, 'sol', 'stale direct-to-Sol transition'); }],
   ['24 convergence observations count toward the no-progress breaker across gates (CL-D62)', () => { const mixed = noProgressHistory([{ resultId: 'conv-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'conv-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'sol-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'sol' }, { resultId: 'conv-2', blockerKey: 'k', breakerOwner: 'sol', gate: 'convergence' }, { resultId: 'conv-2', blockerKey: 't', breakerOwner: 'terra', gate: 'convergence' }]); assert.equal(mixed.get('k:sol'), 3, 'one observation per convergence result, counted beside the Sol result'); assert.equal(mixed.get('t:terra'), 1, 'a Terra-owned blocker observed by convergence counts too'); assert.equal(breaker('successor', { observations: mixed.get('k:sol') }), 'ROUND_LIMIT_REACHED:no_progress', 'the third mixed observation stops the run'); assert.equal(noProgressHistory([{ resultId: 'terra-1', blockerKey: 'k', breakerOwner: 'sol', gate: 'terra' }]).get('k:sol'), undefined, 'a Terra result still does not count a Sol-owned blocker'); }],
 ];
@@ -545,31 +547,34 @@ test('fixture: all 24 Issue #10 acceptance scenarios execute against the referen
 
 test('artifact assertions cover exact autofix safety records and remain non-authoritative', () => {
   const skill = readPrMode(PR_AUTOFIX);
-  for (const required of [
-    'public head remains `P`',
-    'Deduplicate `blockerKey × breakerOwner` values within each completed owner-gate result',
-    'A reply marker is bound to source identity', 'exact reply body/digest', 'exact public head',
-    'required app/source identity', 'older-head thread', 'top-level status, praise, duplicate summary',
-    'shared CL-D1 exact verdict vocabulary', 'CL-D2 invocation-payload duties', 'CL-D29 adversarial duties',
-    'fresh independent Sol/Terra roles', 'review-evidence snapshot fingerprint',
-    'The parent Luna payload contains',
-    'run-local staged manifest is complete and immutable', 'parent `P`, staged tree OID',
-    'every allowed path/status/mode and staged blob identity', 'index exactly equal to the immutable manifest',
-    'source kind, source ID, source URL', 'preflight every planned destination and source',
-    'Order the batch deterministically by source identity', 'destination language', 'any movement expires approval',
-    'Luna repeats `AUTOFIX_WORKSPACE@P` immediately before its first edit',
-    '`AFTER_COMMIT` immediately after commit', '`BEFORE_PUSH` immediately before push independently repeats `WORKSPACE_POST_COMMIT(C, P)`',
-    'After verifying public head `C`, require `AUTOFIX_WORKSPACE@C` and `WORKSPACE_POST_PUSH(C, O)`',
-    'All three local dimensions remain independently guarded', 'tracked worktree, index, and untracked state outside `RUNTIME_ROOTS`',
-    'pre-existing tracked unstaged edit is rejected', 'through packaged `message_verify`',
-    'stored bytes/content exactly', 'expected approved message',
-    'unexpected worktree or index mutation', 'regardless of path authorization', 'Cleanup failure is fail-closed',
-    'never claims that the whole PR is ready unless final readiness has independently been reached',
-    'parent must create and report the proposed aggregate final-summary body/draft',
-    'The draft is not workflow state', 'declining or not posting it never blocks readiness',
-    'Before any exact-autofix edit', 'security/risk', 'always stops at `WAITING_FOR_OWNER(reason=owner_decision_required)`',
-    'A security or risk finding cannot be delegated', 'The run ends at that boundary with no resume',
-  ]) assert.ok(skill.includes(required), `missing exact safety artifact: ${required}`);
+  // #249 B4a (CL-D115): the addendum's safety rules are read in the driver, the helpers and the records that carry them.
+  // Its reply and summary-approval sentences retire with the prose path, since the driver posts neither (AC-AUTOFIX,
+  // CL-D114); its breaker-owner and finding-domain sentences retire with CL-D30's divergences; and of its evidence-intake
+  // sentences the app identity is read in readiness.js, readiness taking external findings as CL-D93 states.
+  const driver = 'skills/closed-loop-pr/driver/autofix.js';
+  for (const [file, required] of [
+    [PR_SKILL, 'source kind, source ID, source URL'],
+    [driver, "const r = run.op('guard_before_edit', { cwd: s.workspace, expected: s.created, authorizedPaths: s.batch.authorizedPaths,"],
+    [driver, "const overlay = step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths }); // BEFORE_VALIDATION"],
+    [driver, "const manifest = step('manifest_compare', step('build_manifest_capture', { overlay, cwd: ws }).request.data); // AFTER_STAGING"],
+    [driver, "step('manifest_compare', step('build_manifest_compare', { captured: manifest, cwd: ws }).request.data); // BEFORE_COMMIT"],
+    [driver, "batchFail(run, 'overlay_manifest_equality', 'the staged manifest is not the frozen overlay');"],
+    [driver, "transition: { from: b.parentHead, to: commit } }).request.data); // AFTER_COMMIT, BEFORE_PUSH"],
+    [driver, 'const moved = targetMoved({ ...s.target, headOid: b.parentHead }, pull);'],
+    [driver, "if (snap.after.head !== b.commit) end(run, 'BLOCKED', `push_outcome_unknown: public head ${snap.after.head}, pushed ${b.commit}`);"],
+    [driver, "step('message_verify', { cwd: ws, expected: b.message });"],
+    [driver, 'reason = `workspace_cleanup refused: ${c.error?.code || c.data?.code} (the run was stopping ${state}: ${reason})`;'],
+    [driver, "lifecycle: 'open', draft: false, gate, invocation, contractInput: s.contractInput, snapshotFingerprint: fp.snapshot };"],
+    [driver, "if (envelope.verdict === 'NEEDS DECISION' || decisions.length || findings.some((x) => x.proposedDisposition === 'needs-owner-decision')) { s.pendingDecisions = decisions;"],
+    [driver, "s.nextAction = 'the owner records the decision, then a fresh run';"],
+    ['skills/closed-loop-pr/driver/writer.js', "'Corrections (each finding exactly as the gate reported it):',"],
+    ['skills/closed-loop-pr/driver/writer.js', "'   Never run git add, git commit, git push, or any other Git write yourself. Never touch the operator checkout.',"],
+    ['skills/closed-loop-pr/helpers/launch.js', 'const blocks = [packageBlock(EVERY_GATE)];'],
+    ['skills/closed-loop-pr/helpers/workspace.js', "workspaceStateError('workspace_not_clean', 'workspace tracked or index state is not clean');"],
+    ['skills/closed-loop-pr/driver/readiness.js', "// A requirement pinned to an app (protection `app_id`; -1 or none accepts any source) is"],
+    ['contract/CL-D30.md', 'aggregate summaries remain owner-approved actions outside the run'],
+    ['contract/CL-D30.md', 'The packaged autofix driver departs from the exact-autofix rules in five places, each recorded and not closed (#249, CL-D115)'],
+  ]) assert.ok(readText(file).includes(required), `${file} is missing exact safety artifact: ${required}`);
   // #249 B3 (CL-D114): the base reference's definitions are read in the contract, and its writability precondition in
   // the driver and the helper that enforce it.
   const contract = readContract();
@@ -583,9 +588,11 @@ test('artifact assertions cover exact autofix safety records and remain non-auth
   for (const refusal of ["code: 'bypass_dependency'", "code: 'ambiguous_rulesets'", "code: 'branch_protection_unknown'", "'normal non-force writability was not established'"]) assert.ok(writability.includes(refusal), `writability refuses: ${refusal}`);
   assert.doesNotMatch(skill, /before gate invocation 15|at five successful pushes/);
   assert.doesNotMatch(skill, /immediately before push[^.]*local `HEAD` is public parent `P`/s);
-  // CONV-182-COMMIT-MESSAGE-DOC-001: the packaged commit reads the message on stdin (CL-D89).
-  assert.match(skill, /on stdin via `git commit -F - --cleanup=whitespace`/);
-  assert.match(skill, /no literal `\\\\n`/);
+  // CONV-182-COMMIT-MESSAGE-DOC-001: the packaged commit reads the message on stdin (CL-D89); #249 B4a (CL-D115) reads it
+  // in the helper that runs it.
+  const publish = readText('skills/closed-loop-pr/helpers/publish.js');
+  assert.ok(publish.includes("'commit', '--no-verify', '-F', '-', '--cleanup=whitespace'"));
+  assert.ok(publish.includes('The message goes on stdin as real bytes, so no literal `\\n` can reach it.'));
 });
 
 test('shared baseline disposition and decision records remain protected in both workflow authority graphs', () => {
@@ -638,8 +645,6 @@ test('Issue #23 contains self-contained invariant blocks and compacts only histo
   // #249 B2 (CL-D113): the review-only launch composer packages the Every-gate block for every gate and the Sol-only block for Sol.
   assert.ok(launch.includes('const blocks = [packageBlock(EVERY_GATE)];'), 'every gate carries the Every-gate block');
   assert.ok(launch.includes("if (gate === 'adversarial') { const sol = packageBlock(SOL_ONLY); blocks.push(sol); parts.push(sol.content); }"), 'Sol additionally carries the Sol-only block');
-  assert.match(autofix, /shared `Every-gate invariant payload block` verbatim/);
-  assert.match(autofix, /including every post-push Sol/);
   assert.doesNotMatch(autofix, /prior findings\/dispositions on re-invocation/);
   assert.doesNotMatch(autofix, /Every payload restates .*prior findings/);
   assert.doesNotMatch(contract, /on a re-invocation\) the prior rounds' findings with their dispositions/);
