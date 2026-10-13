@@ -10,7 +10,7 @@ const { test, assert, fs, path, readText, git } = review;
 const { sectionOf, readContract } = require('./helpers');
 
 const SKILL = 'skills/closed-loop-pr/SKILL.md';
-const DRIVER_FILES = ['phases.js', 'review.js', 'autofix.js', 'run.js', 'readiness.js', 'paths.js', 'writer.js'];
+const DRIVER_FILES = ['phases.js', 'review.js', 'autofix.js', 'run.js', 'readiness.js', 'paths.js', 'writer.js', 'message.js'];
 const driver = (file) => readText(`skills/closed-loop-pr/driver/${file}`);
 
 // A head in another repository is refused before any run directory, on the driver's error output, with no token line.

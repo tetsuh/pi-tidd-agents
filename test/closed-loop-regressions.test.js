@@ -273,7 +273,7 @@ test('fixture: PR mode references own downstream obligations exclusively', () =>
     ['contract/AC-GRANT.md', 'the exact PR `autofix` token itself supplies the run-scoped grant'],
     // #249 B4a (CL-D115): the addendum's two exclusive obligations are read in CL-D30 and the driver.
     ['contract/CL-D30.md', 'a later command is a fresh run, never resume.'],
-    ['skills/closed-loop-pr/driver/autofix.js', "else die('usage: autofix.js start|result|pre-edit|batch|writer-done|status');"],
+    ['skills/closed-loop-pr/driver/autofix.js', "else die('usage: autofix.js start|result|message|pre-edit|batch|writer-done|status');"],
     ['contract/CL-D30.md', 'Any identity movement, ambiguity, failed guard, malformed verdict/record'],
     ['skills/closed-loop-pr/driver/phases.js', "run.stop('BLOCKED', `gate_result_read refused${p.relaunched ? ' after one relaunch' : ''}:"],
   ];

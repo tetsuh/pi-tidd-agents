@@ -97,7 +97,7 @@ test('Issue #277 the file is byte-identical, autofix.js still reads it into cont
   assert.ok(driver.includes("const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-pr/references/autofix.md', 'skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/helper-map.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];"), 'autofix.js still reads the file into contractInput');
   assert.equal(readText('skills/closed-loop-pr/driver/review.js').includes('references/autofix.md'), false, 'review.js never read the file');
   const alarms = readText('test/issue-196-review-driver-4.test.js');
-  assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 110000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised for the repoint');
+  assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised for the repoint (#281 later raised the aggregate, CL-D116)');
   // No new marker comment goes into the measured authority set.
   for (const file of ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-shared/references/gate-contract.md']) assert.equal(readText(file).includes('CL-D114'), false, `${file} gains no marker`);
   // The driver comments that cited the file by name cite the record instead, so the deletion leaves no dangling pointer.
