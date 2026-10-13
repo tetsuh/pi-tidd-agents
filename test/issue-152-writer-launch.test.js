@@ -281,6 +281,12 @@ test('Issue #152 the receiver schema is run, not merely read', { skip: receiverS
   assert.deepEqual(answer.acceptanceErrors, [], 'the acceptance validator alone accepts it too');
   assert.equal(answer.schema.valid, false, JSON.stringify(answer.schema));
   assert.deepEqual(answer.schema.paths, ['/async', '/checkpointBeforeDeadlineMs', '/context', '/outputMode', '/timeoutMs'], JSON.stringify(answer.schema.errors));
+  // CONV-288-AC2-ALL-BAD-REQUEST: one request with every emitted value wrong at once is refused at each of them.
+  const request = build({}).data.request, { FlatParams, Value } = await receiver();
+  const allWrong = Object.fromEntries(Object.keys(request).map((key) => [key, RECEIVER_WRONG[key]]));
+  assert.equal(Value.Check(FlatParams, allWrong), false, 'the flat schema refuses the all-wrong request');
+  // `Value.Errors` stops listing after a few errors, so each value is run through the schema's own field schema instead.
+  assert.deepEqual(Object.keys(allWrong).filter((key) => Value.Check(FlatParams.properties[key], allWrong[key])), [], 'and its field schemas refuse every value in it');
 });
 
 test('Issue #152 the receiver refuses what the parent composed by hand', { skip: receiverSkip }, async () => {
