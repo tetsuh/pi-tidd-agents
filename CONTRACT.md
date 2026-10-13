@@ -78,6 +78,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D78.md](contract/CL-D78.md) — A run reports the run roots it retained
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
+- [contract/CL-D116.md](contract/CL-D116.md) — The parent writes the autofix correction subject; the driver checks it against the commit convention
 - [contract/CL-D115.md](contract/CL-D115.md) — CL-D30's clause pins of the autofix addendum move to the code and the record
 - [contract/CL-D114.md](contract/CL-D114.md) — The clause pins of the autofix reference move to the code and the records
 - [contract/CL-D113.md](contract/CL-D113.md) — The clause pins of the review-only reference move to the code and the records

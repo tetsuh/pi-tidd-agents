@@ -146,7 +146,7 @@ test('Issue #284 the addendum is byte-identical, autofix.js still reads it into 
   const driver = readText('skills/closed-loop-pr/driver/autofix.js');
   assert.ok(driver.includes("const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-pr/references/autofix.md', 'skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/helper-map.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];"), 'autofix.js still reads the file into contractInput');
   const alarms = readText('test/issue-196-review-driver-4.test.js');
-  assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 110000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised for the repoint');
+  assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised for the repoint (#281 later raised the aggregate, CL-D116)');
   // The two code edits are comments: the guard label on the step that already ran first, and the writer's marker.
   assert.ok(driver.includes("  const overlay = step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths }); // BEFORE_VALIDATION\n"));
   assert.ok(readText('skills/closed-loop-pr/driver/writer.js').includes("// The writer's task: the guarded steps it runs itself, the paths it may edit, and the corrections as the gate gave them (CL-D30).\n"));

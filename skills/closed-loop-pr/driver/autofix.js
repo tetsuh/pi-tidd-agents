@@ -8,6 +8,7 @@
 //
 //   node autofix.js start       --pr N [--repo owner/name] [--issue N] [--checkout DIR] [--run-dir DIR] [--convergence disabled] [--language-profile P] [--validate JSON]
 //   node autofix.js result      --run-dir DIR --run-id ID     (after a gate run completes)
+//   node autofix.js message     --run-dir DIR --subject S     (the parent's commit subject, CL-D116)
 //   node autofix.js pre-edit    --run-dir DIR                 (the writer, before editing)
 //   node autofix.js batch       --run-dir DIR                 (the writer, after editing)
 //   node autofix.js writer-done --run-dir DIR --run-id ID     (after the writer run completes)
@@ -23,6 +24,7 @@ const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
 const { authorizedPaths } = require('./paths');
 const { writerFinished, writerMessage, writerTask, retain } = require('./writer');
+const { readConvention, askSubject, takeSubject } = require('./message');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const CAP = { gates: 15, conv: 5, pushes: 5, noProgress: 3 };
@@ -104,6 +106,9 @@ function start(opts) {
   // #209: the writer commits and pushes, so exact autofix never runs without validation commands.
   if (!validation.commands.length) end(run, 'BLOCKED', `no validation commands configured: add .tidd.json at the base or ${OPERATOR_CONFIG.replace('<owner>/<repo>', repository)}, or pass --validate`);
   s.validationCommands = validation.commands;
+  const conv = readConvention(validation, () => validationCommands(checkout, target.baseOid, { repository, operator: true }));
+  if (conv.problem) end(run, 'BLOCKED', conv.problem);
+  Object.assign(s, { convention: conv.convention, conventionSource: conv.source });
   // Preflight: the operator capture (identity and commit identity), writability, and the run-owned workspace.
   const identity = { repository, prNumber: number, lifecycle: 'open', baseOid: target.baseOid, publicHead: target.headOid, headRepository: target.headRepository, headBranch: target.headBranch,
     originFetch: git(checkout, ['remote', 'get-url', 'origin']).trim(), originPush: git(checkout, ['remote', 'get-url', '--push', 'origin']).trim() };
@@ -226,7 +231,8 @@ function result(opts) {
   if (!open.length) { const next = GATES[GATES.indexOf(gate) + 1]; if (!next && s.ledger.some((e) => e.status === 'confirmed')) return arm(run, 'adversarial'); return next ? arm(run, next) : finish(run); }
   if (gate === 'convergence' && s.counters.conv >= CAP.conv) return arm(run, 'adversarial');
   if (s.counters.pushes >= CAP.pushes) end(run, 'ROUND_LIMIT_REACHED', 'push_limit');
-  return launchWriter(run, open);
+  authorized(run, open);
+  return askSubject(run, open, SELF);
 }
 
 // authorizedPaths (driver/paths.js); a finding set naming no tracked path is the owner's.
@@ -235,12 +241,12 @@ function authorized(run, open) {
   if (!paths) end(run, 'WAITING_FOR_OWNER', `owner_decision_required: no finding names a tracked path (${open.map((e) => e.findingId).join(', ')})`);
   return paths;
 }
-function launchWriter(run, open) {
+function launchWriter(run, open, subject) {
   recheck(run);
   // ...and before any mutation (CONV-208-SNAPSHOT-STALE-WRITER).
   if (collectSnapshotEvidence(run, run.state.workspace).fresh) { run.state.invalidated = 'every gate verdict: the external snapshot changed before the writer'; return arm(run, restartAt(run.state)); }
   const s = run.state, t = s.target, paths = authorized(run, open), ids = open.map((e) => e.findingId);
-  const message = writerMessage(s, open), task = writerTask(s, open, paths, SELF, run.dir);
+  const message = writerMessage(s, open, subject), task = writerTask(s, open, paths, SELF, run.dir);
   s.batch = { findings: ids, authorizedPaths: paths, message, parentHead: t.headOid, preEdit: false, done: false, launchedAt: Date.now() };
   s.writerLaunched = true;
   const built = data(run.op('build_writer_launch', { created: s.created, task }));
@@ -346,11 +352,12 @@ try {
   const command = opts._[0];
   if (command === 'start') start(opts);
   else if (command === 'result') result(opts);
+  else if (command === 'message') takeSubject(opts, { openRun, end, launchWriter, self: SELF });
   else if (command === 'pre-edit') preEdit(opts);
   else if (command === 'batch') batch(opts);
   else if (command === 'writer-done') writerDone(opts);
   else if (command === 'status') process.stdout.write(`${JSON.stringify(Run.open(opts).state, null, 2)}\n`);
-  else die('usage: autofix.js start|result|pre-edit|batch|writer-done|status');
+  else die('usage: autofix.js start|result|message|pre-edit|batch|writer-done|status');
 } catch (error) {
   // A run with a directory ends through its guard, with a token and a status block; before that, a plain failure.
   if (process.listenerCount('uncaughtException')) throw error;

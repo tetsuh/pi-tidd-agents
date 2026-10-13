@@ -17,7 +17,16 @@ const { repoPath, readText } = require('./helpers');
 const { temp, git, makeTarget, fakeGh, setFixture, readFixture, fakeGate, driverEnv, nextRequest } = require('./driver-fixtures');
 
 const DRIVER = repoPath('skills/closed-loop-pr/driver/autofix.js');
-function drive(args, env, cwd) { return spawnSync(process.execPath, [DRIVER, ...args], { encoding: 'utf8', env, cwd, timeout: 300000 }); }
+function driveRaw(args, env, cwd) { return spawnSync(process.execPath, [DRIVER, ...args], { encoding: 'utf8', env, cwd, timeout: 300000 }); }
+// The parent answers a MESSAGE with a subject that fits the default convention (CL-D116, #281), so a gate result
+// that finds a correctable finding still reaches the writer launch; driveRaw stops at the MESSAGE.
+const SUBJECT = 'fix: apply the gate corrections';
+function drive(args, env, cwd) {
+  const r = driveRaw(args, env, cwd), dir = args[args.indexOf('--run-dir') + 1];
+  if (!/^MESSAGE: /m.test(r.stdout) || args[0] === 'message') return r;
+  const m = driveRaw(['message', '--run-dir', dir, '--subject', SUBJECT], env, cwd);
+  return { ...m, stdout: r.stdout + m.stdout, stderr: r.stderr + m.stderr };
+}
 function setup(options) {
   const target = makeTarget(options), bin = fakeGh(target), runs = temp('i196-runs-'), runDir = path.join(temp('i196-run-'), 'run');
   return { target, bin, env: driverEnv(bin, runs), runs, runDir, start: ['start', '--pr', '7', '--repo', 'o/r', '--checkout', target.checkout, '--run-dir', runDir] };
@@ -55,4 +64,4 @@ function writerBatch(t, content) {
 // step is driven; the step itself is the driver's own code.
 const setCounters = (t, patch) => { const file = path.join(t.runDir, 'state.json'), s = state(t.runDir); Object.assign(s.counters, patch); fs.writeFileSync(file, JSON.stringify(s)); };
 
-module.exports = { test, assert, fs, path, spawnSync, repoPath, readText, temp, git, makeTarget, fakeGh, setFixture, readFixture, fakeGate, driverEnv, nextRequest, DRIVER, drive, setup, state, originHead, result, thread, writerId, writerStatus, writerDone, outputPath, writerBatch, setCounters };
+module.exports = { test, assert, fs, path, spawnSync, repoPath, readText, temp, git, makeTarget, fakeGh, setFixture, readFixture, fakeGate, driverEnv, nextRequest, DRIVER, drive, driveRaw, SUBJECT, setup, state, originHead, result, thread, writerId, writerStatus, writerDone, outputPath, writerBatch, setCounters };

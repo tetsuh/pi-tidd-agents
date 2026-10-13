@@ -30,13 +30,13 @@
     {
       "id": "CL-D25-commit",
       "marker": "CL-D25",
-      "title": "The driver's commit message: a Conventional Commits subject with the issue number, and the test provenance",
+      "title": "The driver's commit message: the parent's checked subject with the issue number, and the test provenance as a bullet",
       "files": [
         "skills/closed-loop-pr/driver/writer.js"
       ],
       "requires": [
-        "return `fix: ${open.map((e) => e.findingId).join(', ')} (#${s.issueNumber})\\n\\n",
-        "Test provenance: "
+        "return `${subject} (#${s.issueNumber})\\n\\n${bullets(open)}\\n`",
+        "- Validation before this commit, in the run-owned workspace: "
       ]
     },
     {

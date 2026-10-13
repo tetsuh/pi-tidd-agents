@@ -119,7 +119,7 @@ test('Issue #196 writer.js composes the writer task and the commit message from 
   const { writerTask, writerMessage } = require('../skills/closed-loop-pr/driver/writer');
   const s = { issueNumber: 5, workspace: '/w', validationCommands: [['node', '--test']], target: { repository: 'o/r', number: 7, headBranch: 'f', headOid: 'a'.repeat(40) } };
   const open = [{ findingId: 'CONV-7-X1', record: { severity: 'Major', gate: 'convergence', evidence: 'e', impact: 'i', correction: 'change  a.js' } }];
-  assert.equal(writerMessage(s, open), 'fix: CONV-7-X1 (#5)\n\n- CONV-7-X1: change a.js\n\nTest provenance: node --test; git diff --check HEAD passed in the run-owned workspace before this commit.\n');
+  assert.equal(writerMessage(s, open, 'fix(core): change the module'), 'fix(core): change the module (#5)\n\n- CONV-7-X1: change a.js\n- Validation before this commit, in the run-owned workspace: node --test; git diff --check HEAD\n');
   const task = writerTask(s, open, ['a.js'], '/pkg/autofix.js', '/run');
   assert.match(task, /1\. Run: node \/pkg\/autofix\.js pre-edit --run-dir \/run/);
   assert.match(task, /\n   - a\.js\n/);

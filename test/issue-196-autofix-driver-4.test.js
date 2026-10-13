@@ -20,11 +20,11 @@ test('Issue #196 the autofix driver refuses a run directory inside a work tree a
   assert.deepEqual(s.resolved, ['convergence', 'adversarial', 'safety'].map((g) => `tidd-${g}-reviewer fake/fake:unreported`));
 });
 
-test('Issue #196 the writer commit message carries test provenance (CL-D25)', () => {
+test('Issue #196 the writer commit message carries test provenance as a bullet (CL-D25, CL-D116)', () => {
   const t = setup();
   assert.equal(drive(t.start, t.env).status, 0);
   result(t, { fresh: true });
-  assert.match(state(t.runDir).batch.message, /^Test provenance: /m);
+  assert.match(state(t.runDir).batch.message, /^- Validation before this commit, in the run-owned workspace: node -e process\.exit\(0\); git diff --check HEAD$/m);
 });
 
 test('Issue #196 the writer batch refuses an empty edit before any commit or push', () => {

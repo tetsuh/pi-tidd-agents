@@ -24,7 +24,7 @@ test('Issue #196 the packaged autofix driver corrects a finding through the writ
   assert.match(b.stdout, /^BATCH_OK [0-9a-f]{40}$/m, b.stderr + b.stdout);
   const pushed = originHead(t);
   assert.notEqual(pushed, t.target.head, 'the public head moved');
-  assert.equal(git(t.target.root, ['--git-dir', t.target.origin, 'log', '-1', '--format=%an <%ae>|%s', pushed]), 'Operator <operator@example.com>|fix: CONV-7-X1 (#5)');
+  assert.equal(git(t.target.root, ['--git-dir', t.target.origin, 'log', '-1', '--format=%an <%ae>|%s', pushed]), 'Operator <operator@example.com>|fix: apply the gate corrections (#5)');
   r = writerDone(t);
   assert.equal(r.status, 0, r.stderr + r.stdout);
   for (const gate of ['convergence', 'adversarial', 'safety']) {

@@ -791,7 +791,7 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
   // the operator are verified again with the pushed head.
   assert.ok(driver.includes('// Before every gate and at final readiness: the target, the operator capture, the workspace, the body, and the issue'));
   assert.ok(driver.includes('const evidence = recheck(run);'));
-  assert.ok(driver.includes('function launchWriter(run, open) {\n  recheck(run);'));
+  assert.ok(driver.includes('function launchWriter(run, open, subject) {\n  recheck(run);'));
   assert.ok(driver.includes("const built = run.op('build_operator_revalidate', { captured: s.captured, cwd: s.checkout, ...(s.pushes.length ? { pushes: s.pushes } : {}) }, opts);"));
   // The seven named guards run in the batch chain, in order, and the last two check the commit against its parent.
   let at = driver.indexOf("const r = run.op('guard_before_edit', { cwd: s.workspace,");
