@@ -454,6 +454,10 @@ function piPackageRoot(pathEnv, prefixes) {
 // `PI_TIDD_NO_PI_TYPEBOX` turns the fallback off, so a fixture can still present a receiver that cannot be driven. An
 // answer is cached per receiver and option set. The hook covers ES module imports, which is how the receiver loads
 // typebox; Node's CommonJS resolver does not honour a changed parent, so a CommonJS `require` is not redirected.
+// One wrong value for each field the gate and writer launch builders emit (#287): the receiver's flat schema must refuse
+// each on its own, so a field that loses its type there fails a test. A key a builder starts emitting needs a row here.
+const RECEIVER_WRONG = Object.freeze({ agent: 42, task: 42, cwd: 42, context: 'bogus', async: 'yes', outputMode: 'nope', acceptance: 'bogus', timeoutMs: '3600000', checkpointBeforeDeadlineMs: -5 });
+
 function receiverTypebox(receiver, options = {}) {
   const off = Boolean(process.env.PI_TIDD_NO_PI_TYPEBOX);
   const pathEnv = options.pathEnv ?? (off ? '' : process.env.PATH);
@@ -489,4 +493,4 @@ function receiverTypebox(receiver, options = {}) {
 }
 
 module.exports = {
-  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox };
+  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox, RECEIVER_WRONG };

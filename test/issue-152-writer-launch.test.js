@@ -16,7 +16,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, receiverTypebox } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, receiverTypebox, RECEIVER_WRONG } = require('./helpers');
 
 const CREATED = Object.freeze({
   kind: 'linked',
@@ -225,7 +225,11 @@ async function receiver() {
     try {
       typebox = await import(pathToFileURL(createRequire(path.join(typeboxSource.root, 'package.json')).resolve('typebox/value')).href);
     } catch (error) { return unusable('cannot resolve its own typebox', error); }
-    const api = { SubagentParams: schemas.SubagentParams, normalize: execution.normalizePublicSubagentExecution, validateAcceptanceInput: acceptance.validateAcceptanceInput, Value: typebox.Value };
+    // pi-subagents 0.77.0 split the tool schema (#287): `SubagentParams` keeps a dozen top-level fields and an untyped
+    // `options`, `SubagentFlatParams` declares every field with its type, and a tool call passes through
+    // `flattenSubagentToolOptions`, which keeps top-level fields as given. Before 0.77.0 the one schema did both.
+    const flattened = schemas.SubagentFlatParams ? await load('src/extension/subagent-options.js') : { flattenSubagentToolOptions: (params) => params };
+    const api = { SubagentParams: schemas.SubagentParams, FlatParams: schemas.SubagentFlatParams ?? schemas.SubagentParams, flatten: flattened.flattenSubagentToolOptions, normalize: execution.normalizePublicSubagentExecution, validateAcceptanceInput: acceptance.validateAcceptanceInput, Value: typebox.Value };
     // A dynamic import yields a namespace, so a renamed export is `undefined` rather than a link error.
     for (const [name, value] of Object.entries(api)) if (value === undefined) unusable(`exports no ${name}`);
     receiverApi = api;
@@ -235,11 +239,15 @@ async function receiver() {
 
 // What the installed pi-subagents says about one launch request, from its own schema and validators.
 async function askReceiver(request) {
-  const { SubagentParams, normalize, validateAcceptanceInput, Value } = await receiver();
+  const { SubagentParams, FlatParams, flatten, normalize, validateAcceptanceInput, Value } = await receiver();
   const normalized = normalize(request);
   return {
-    declared: Object.keys(SubagentParams.properties ?? {}),
-    schema: { valid: Value.Check(SubagentParams, request), errors: [...Value.Errors(SubagentParams, request)].map((error) => error.message) },
+    // The names and types come from the flat schema; the tool schema and the tool path are what a tool call meets first.
+    declared: Object.keys(FlatParams.properties ?? {}),
+    schema: { valid: Value.Check(FlatParams, request), errors: [...Value.Errors(FlatParams, request)].map((error) => error.message), paths: [...new Set([...Value.Errors(FlatParams, request)].map((error) => error.instancePath ?? error.path))].sort() },
+    // Each emitted field set to a wrong value on its own: the keys the flat schema still accepts that way (#287).
+    untyped: Object.keys(request).filter((key) => !Object.hasOwn(RECEIVER_WRONG, key) || Value.Check(FlatParams, { ...request, [key]: RECEIVER_WRONG[key] })),
+    tool: { valid: Value.Check(SubagentParams, request), passed: flatten(request) },
     normalized: normalized.ok === false ? { ok: false, error: normalized.error } : { ok: true, params: normalized.params },
     acceptanceErrors: validateAcceptanceInput(request.acceptance),
   };
@@ -253,6 +261,9 @@ test('Issue #152 the receiver accepts the built request, and its schema declares
   assert.ok(answer.declared.includes('agent') && answer.declared.includes('task') && answer.declared.includes('cwd'), 'the receiver schema was loaded, not guessed');
   for (const key of Object.keys(request)) assert.equal(answer.declared.includes(key), true, `the receiver declares ${key}`);
   assert.deepEqual([answer.schema.valid, answer.schema.errors], [true, []], 'the receiver schema validates the built request');
+  assert.equal(answer.tool.valid, true, 'the tool schema accepts the built request');
+  assert.deepEqual(answer.tool.passed, request, 'the tool path passes the built request on unchanged (#287)');
+  assert.deepEqual(answer.untyped, [], 'the flat schema types every field the builder emits');
   assert.equal(answer.normalized.ok, true, `the receiver normalizes the built request without an error: ${answer.normalized.error}`);
   assert.deepEqual(answer.acceptanceErrors, [], 'the receiver validates the built acceptance without an error');
   // What the receiver makes of the request is what the builder emitted, plus the `output` default it injects itself.
@@ -261,7 +272,7 @@ test('Issue #152 the receiver accepts the built request, and its schema declares
 
 test('Issue #152 the receiver schema is run, not merely read', { skip: receiverSkip }, async () => {
   requireReceiverSources();
-  // `SubagentParams` declares no `additionalProperties: false`, and `normalizePublicSubagentExecution` type-checks
+  // The flat schema (`SubagentParams` before 0.77.0, #287) declares no `additionalProperties: false`, and `normalizePublicSubagentExecution` type-checks
   // only a few fields, so reading the declared names alone would accept a request with every value wrong
   // (ADV-152-RECEIVER-SCHEMA-NOT-DRIVEN). The schema itself is what refuses this one.
   const wrong = { ...build({}).data.request, context: 'bogus', async: 'yes', outputMode: 'nope', timeoutMs: '3600000', checkpointBeforeDeadlineMs: -5 };
@@ -269,7 +280,7 @@ test('Issue #152 the receiver schema is run, not merely read', { skip: receiverS
   assert.equal(answer.normalized.ok, true, 'the normalizer alone accepts it, which is why the schema is run');
   assert.deepEqual(answer.acceptanceErrors, [], 'the acceptance validator alone accepts it too');
   assert.equal(answer.schema.valid, false, JSON.stringify(answer.schema));
-  assert.equal(answer.schema.errors.length, 5, JSON.stringify(answer.schema.errors));
+  assert.deepEqual(answer.schema.paths, ['/async', '/checkpointBeforeDeadlineMs', '/context', '/outputMode', '/timeoutMs'], JSON.stringify(answer.schema.errors));
 });
 
 test('Issue #152 the receiver refuses what the parent composed by hand', { skip: receiverSkip }, async () => {

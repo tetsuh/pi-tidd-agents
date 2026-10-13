@@ -17,7 +17,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, readContract, repoPath, cliSchemas, receiverTypebox } = require('./helpers');
+const { readText, readContract, repoPath, cliSchemas, receiverTypebox, RECEIVER_WRONG } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64);
@@ -257,25 +257,41 @@ test('Issue #159 the receiver accepts the cwd the gate launch now carries', { sk
   const [schemas, execution] = [await load(RECEIVER_MODULES[0]), await load(RECEIVER_MODULES[1])];
   const typebox = await import(pathToFileURL(createRequire(path.join(typeboxSource.root, 'package.json')).resolve('typebox/value')).href);
   assert.ok(schemas.SubagentParams && execution.normalizePublicSubagentExecution && typebox.Value, 'the receiver exports the surfaces this case drives');
+  // pi-subagents 0.77.0 split the tool schema (#287): the flat schema declares and types every field, and a tool call
+  // passes through `flattenSubagentToolOptions` first. Before 0.77.0 `SubagentParams` was both.
+  const flat = schemas.SubagentFlatParams ?? schemas.SubagentParams;
+  let flatten = (params) => params;
+  if (schemas.SubagentFlatParams) {
+    try { flatten = (await load('src/extension/subagent-options.js')).flattenSubagentToolOptions; } catch (error) { assert.fail(`pi-subagents ${installed ?? 'with no readable package.json'} cannot load src/extension/subagent-options.js: ${error.message}; the contracted minimum is 0.70.0 (CL-D25)`); }
+  }
 
   await new Promise((resolve) => { withExpectationFile('adversarial', (data) => {
     const built = helpers.buildGateLaunch({ ...data, created: CREATED });
     assert.equal(built.ok, true, JSON.stringify(built.error));
     const request = built.data.request;
     // `cwd` is a declared parameter of the receiver, and the schema accepts the built request with it.
-    assert.ok(Object.hasOwn(schemas.SubagentParams.properties ?? {}, 'cwd'), 'the receiver declares cwd');
-    assert.equal(typebox.Value.Check(schemas.SubagentParams, request), true, JSON.stringify([...typebox.Value.Errors(schemas.SubagentParams, request)].map((error) => error.message)));
+    assert.ok(Object.hasOwn(flat.properties ?? {}, 'cwd'), 'the receiver declares cwd');
+    assert.equal(typebox.Value.Check(flat, request), true, JSON.stringify([...typebox.Value.Errors(flat, request)].map((error) => error.message)));
+    assert.equal(typebox.Value.Check(schemas.SubagentParams, request), true, 'the tool schema accepts the built gate launch');
+    assert.deepEqual(flatten(request), request, 'the tool path passes it on unchanged (#287)');
+    // Every field the gate launch emits is declared and typed, and the receiver keeps each as built (#287).
+    for (const key of Object.keys(request)) {
+      assert.ok(Object.hasOwn(flat.properties ?? {}, key), `the receiver declares ${key}`);
+      assert.ok(Object.hasOwn(RECEIVER_WRONG, key), `${key} has a wrong value to try`);
+      assert.equal(typebox.Value.Check(flat, { ...request, [key]: RECEIVER_WRONG[key] }), false, `the receiver types ${key}`);
+    }
     const normalized = execution.normalizePublicSubagentExecution(request);
     assert.notEqual(normalized.ok, false, `the receiver refused the built gate launch: ${normalized.error}`);
     assert.equal(normalized.params.cwd, CREATED.path, 'and keeps the workspace the builder named');
     // CL-D94 (#202): the receiver declares and keeps the gate bound the builder emits.
-    assert.ok(Object.hasOwn(schemas.SubagentParams.properties ?? {}, 'timeoutMs'), 'the receiver declares timeoutMs');
+    assert.ok(Object.hasOwn(flat.properties ?? {}, 'timeoutMs'), 'the receiver declares timeoutMs');
     assert.equal(normalized.params.timeoutMs, 3600000, 'and keeps the gate bound');
-    assert.equal(typebox.Value.Check(schemas.SubagentParams, { ...request, timeoutMs: '3600000' }), false, 'the receiver types timeoutMs');
-    // The schema is run, not read: `SubagentParams` declares no `additionalProperties: false`, so the assertion above
+    assert.deepEqual(normalized.params, { ...request, output: true }, 'the receiver keeps every field as built, adding only its output default');
+    assert.equal(typebox.Value.Check(flat, { ...request, timeoutMs: '3600000' }), false, 'the receiver types timeoutMs');
+    // The schema is run, not read: the flat schema declares no `additionalProperties: false`, so the assertion above
     // discriminates only against a value the schema types. A `cwd` of the wrong type is such a value, and the
     // receiver refuses it — which is why the builder must never emit one (ADV159B-SCHEMA-ASSERTION-WEAK).
-    assert.equal(typebox.Value.Check(schemas.SubagentParams, { ...request, cwd: 42 }), false, 'the receiver types cwd');
+    assert.equal(typebox.Value.Check(flat, { ...request, cwd: 42 }), false, 'the receiver types cwd');
     const refused = helpers.buildGateLaunch({ ...data, created: { ...CREATED, path: 42 } });
     assert.deepEqual([refused.ok, refused.error?.code, refused.error?.phase], [false, 'input_shape_mismatch', 'build'], JSON.stringify(refused));
     resolve();
