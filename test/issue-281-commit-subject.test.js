@@ -145,6 +145,15 @@ test('Issue #281 subjectProblem accepts the conventions in use and checks nothin
   assert.equal(bullets([{ findingId: 'A-1', record: { correction: ' a\n\tb ' } }]), '- A-1: a b');
 });
 
+// CONV-286-VAL-1: a validation argv may hold a line separator; its bullet is folded like a correction's, so the body
+// stays bullets only.
+test('Issue #281 a multiline validation argument stays inside its bullet', () => {
+  const { writerMessage } = require('../skills/closed-loop-pr/driver/writer');
+  const s = { issueNumber: 5, validationCommands: [['node', '-e', 'pass\nnot a bullet\u2028x']] };
+  const body = writerMessage(s, [{ findingId: 'A-1', record: { correction: 'c' } }], 'fix: x').split('\n\n')[1].trim().split(/[\n\r\v\f\u0085\u2028\u2029]/);
+  assert.deepEqual(body, ['- A-1: c', '- Validation before this commit, in the run-owned workspace: node -e pass not a bullet x; git diff --check HEAD']);
+});
+
 test('Issue #281 the Skill, the records and the raised alarm', () => {
   const skill = readText('skills/closed-loop-pr/SKILL.md');
   assert.match(skill, /When a line begins `MESSAGE:` instead, write the one subject line it asks for/);
