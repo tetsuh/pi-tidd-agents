@@ -1,0 +1,57 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D116-record",
+      "marker": "CL-D116",
+      "title": "CL-D116 records the parent's subject, the convention and its check",
+      "files": [
+        "contract/CL-D116.md"
+      ],
+      "section": "## CL-D116 — The parent writes the autofix correction subject; the driver checks it against the commit convention",
+      "requires": [
+        "issues/281#issuecomment-6127207592",
+        "issues/281#issuecomment-6146666131",
+        "the third refusal stops `BLOCKED` with `commit_subject_refused`, before any writer launch or commit",
+        "Imperative mood is the gates' to judge; nothing else is checked.",
+        "The aggregate driver alarm rises from 110,000 to 120,000 bytes"
+      ]
+    },
+    {
+      "id": "CL-D116-driver",
+      "marker": "CL-D116",
+      "title": "The driver asks for the subject, checks it, and stops at the third refusal",
+      "files": [
+        "skills/closed-loop-pr/driver/message.js"
+      ],
+      "requires": [
+        "if (r.problem && !('config' in r)) return { problem: r.problem };",
+        "const own = validation.config?.commit !== undefined || validation.source === 'operator configuration', r = own ? validation : operator()",
+        "if (ids.some((id) => m[3].includes(id))) return 'the summary describes the change, not a finding id';",
+        "if (p.refused + 1 >= 3) end(run, 'BLOCKED', `commit_subject_refused: ${why}`);"
+      ]
+    },
+    {
+      "id": "CL-D116-writer",
+      "marker": "CL-D116",
+      "title": "Each correction bullet is folded to one line",
+      "files": [
+        "skills/closed-loop-pr/driver/writer.js"
+      ],
+      "requires": [
+        "const line = (x) => String(x).split(/[\\s\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]+/u).join(' ').trim();"
+      ]
+    },
+    {
+      "id": "CL-D116-skill",
+      "marker": "CL-D116",
+      "title": "The parent writes only the subject a MESSAGE line asks for",
+      "files": [
+        "skills/closed-loop-pr/SKILL.md"
+      ],
+      "requires": [
+        "When a line begins `MESSAGE:` instead, write the one subject line it asks for from the corrections listed under it",
+        "you write only the subject, never the body or the issue number"
+      ]
+    }
+  ]
+}

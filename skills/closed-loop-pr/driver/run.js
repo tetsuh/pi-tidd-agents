@@ -62,7 +62,7 @@ function operatorConfig(repository, env = process.env) {
   const base = env.XDG_CONFIG_HOME && path.isAbsolute(env.XDG_CONFIG_HOME) ? env.XDG_CONFIG_HOME : `${os.homedir() || '.'}/.config`;
   return `${base}/tidd/${repository}.json`;
 }
-function validationCommands(cwd, baseOid, { validate, repository } = {}) {
+function validationCommands(cwd, baseOid, { validate, repository, operator } = {}) {
   // One strict reader for every file source (CONV-211-X1): bounded, BOM-free well-formed UTF-8 bytes, then JSON.
   const parse = (input, where, list) => {
     let text = input;
@@ -75,11 +75,11 @@ function validationCommands(cwd, baseOid, { validate, repository } = {}) {
     try { config = JSON.parse(text); } catch { return { problem: `${where} is not JSON` }; }
     const commands = list ? config : config?.validate;
     const ok = Array.isArray(commands) && commands.length > 0 && commands.every((c) => Array.isArray(c) && c.length > 0 && c.every((a) => typeof a === 'string' && a.length > 0));
-    return ok ? { commands } : { problem: `${where} must carry ${list ? '' : 'validate: '}a nonempty list of nonempty argv lists` };
+    return { ...(ok ? { commands } : { problem: `${where} must carry ${list ? '' : 'validate: '}a nonempty list of nonempty argv lists` }), config };
   };
   try { git(cwd, ['cat-file', '-e', `${baseOid}^{commit}`]); } catch { return { problem: `the base commit ${baseOid} is not available to read .tidd.json from`, source: 'none' }; }
   let present = true; try { git(cwd, ['cat-file', '-e', `${baseOid}:.tidd.json`]); } catch { present = false; }
-  if (present) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer'), '.tidd.json at the base commit'), source: 'base .tidd.json' };
+  if (present && !operator) return { ...parse(git(cwd, ['show', `${baseOid}:.tidd.json`], 'buffer'), '.tidd.json at the base commit'), source: 'base .tidd.json' };
   // Node decodes argv lossily, so a replacement character means bytes that were not UTF-8 (pre-push sweep).
   if (validate !== undefined) return String(validate).includes('\uFFFD') ? { problem: '--validate carries a replacement character: its bytes were not UTF-8', source: '--validate' } : { ...parse(String(validate), '--validate', true), source: '--validate' };
   const file = operatorConfig(repository);

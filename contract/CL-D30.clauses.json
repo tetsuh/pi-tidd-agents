@@ -9,7 +9,7 @@
       ],
       "requires": [
         "s.invalidated = `every gate verdict before ${b.commit.slice(0, 12)}`;",
-        "return launchWriter(run, open);",
+        "return askSubject(run, open, SELF);",
         "return built.ok ? run.op('operator_revalidate', built.data.request.data, opts) : built;",
         "  run.op('workspace_verify', built.request.data);",
         "// AFTER_COMMIT, BEFORE_PUSH"
@@ -67,7 +67,7 @@
       "requires": [
         "// A failed terminal recheck is an operator change (CL-D10, CL-D30), so the stop is BLOCKED and the workspace kept.",
         "const evidence = recheck(run);",
-        "function launchWriter(run, open) {\n  recheck(run);"
+        "function launchWriter(run, open, subject) {\n  recheck(run);"
       ]
     },
     {
