@@ -16,14 +16,14 @@ function writerFinished(runsRoot, id, s) {
     && !s.resolved.includes(`tidd-autofix-worker run ${id}`) && TERMINAL.includes(status.state) && (status.steps || []).at(-1)?.agent === 'tidd-autofix-worker';
 }
 
-// One line per correction, folded so no gate text starts a line another reader takes as a dispatch line (#224, CL-D116).
+// One line per correction and for the validation, folded so no gate or configured text starts a line another reader takes as a dispatch line (#224, CL-D116).
 const line = (x) => String(x).split(/[\s\p{Cc}\p{Cf}\p{Zl}\p{Zp}]+/u).join(' ').trim();
 const bullets = (open) => open.map((e) => `- ${e.findingId}: ${line(e.record.correction).slice(0, 300)}`).join('\n');
 // The approved commit message: the parent's checked subject and the issue number, one bullet per correction, and one
 // naming the validation the batch runs (CL-D25, CL-D116).
 function writerMessage(s, open, subject) {
   return `${subject} (#${s.issueNumber})\n\n${bullets(open)}\n`
-    + `- Validation before this commit, in the run-owned workspace: ${[...s.validationCommands, ['git', 'diff', '--check', 'HEAD']].map((c) => c.join(' ')).join('; ')}\n`;
+    + `- Validation before this commit, in the run-owned workspace: ${line([...s.validationCommands, ['git', 'diff', '--check', 'HEAD']].map((c) => c.join(' ')).join('; '))}\n`;
 }
 // The writer's task: the guarded steps it runs itself, the paths it may edit, and the corrections as the gate gave them (CL-D30).
 function writerTask(s, open, paths, self, runDir) {
