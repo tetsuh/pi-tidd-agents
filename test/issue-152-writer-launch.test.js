@@ -16,7 +16,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, receiverTypebox, RECEIVER_WRONG } = require('./helpers');
+const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, receiverTypebox, RECEIVER_WRONG, toolPathChanges } = require('./helpers');
 
 const CREATED = Object.freeze({
   kind: 'linked',
@@ -240,14 +240,15 @@ async function receiver() {
 // What the installed pi-subagents says about one launch request, from its own schema and validators.
 async function askReceiver(request) {
   const { SubagentParams, FlatParams, flatten, normalize, validateAcceptanceInput, Value } = await receiver();
-  const normalized = normalize(request);
+  // The tool path runs first, and what it passes on is what the receiver normalizes (ADV-288-TOOL-PATH-SELF-COMPARISON).
+  const tool = toolPathChanges(flatten, request), normalized = normalize(tool.passed);
   return {
     // The names and types come from the flat schema; the tool schema and the tool path are what a tool call meets first.
     declared: Object.keys(FlatParams.properties ?? {}),
     schema: { valid: Value.Check(FlatParams, request), errors: [...Value.Errors(FlatParams, request)].map((error) => error.message), paths: [...new Set([...Value.Errors(FlatParams, request)].map((error) => error.instancePath ?? error.path))].sort() },
     // Each emitted field set to a wrong value on its own: the keys the flat schema still accepts that way (#287).
     untyped: Object.keys(request).filter((key) => !Object.hasOwn(RECEIVER_WRONG, key) || Value.Check(FlatParams, { ...request, [key]: RECEIVER_WRONG[key] })),
-    tool: { valid: Value.Check(SubagentParams, request), passed: flatten(request) },
+    tool: { valid: Value.Check(SubagentParams, request), unchanged: tool.unchanged },
     normalized: normalized.ok === false ? { ok: false, error: normalized.error } : { ok: true, params: normalized.params },
     acceptanceErrors: validateAcceptanceInput(request.acceptance),
   };
@@ -262,7 +263,7 @@ test('Issue #152 the receiver accepts the built request, and its schema declares
   for (const key of Object.keys(request)) assert.equal(answer.declared.includes(key), true, `the receiver declares ${key}`);
   assert.deepEqual([answer.schema.valid, answer.schema.errors], [true, []], 'the receiver schema validates the built request');
   assert.equal(answer.tool.valid, true, 'the tool schema accepts the built request');
-  assert.deepEqual(answer.tool.passed, request, 'the tool path passes the built request on unchanged (#287)');
+  assert.equal(answer.tool.unchanged, true, 'the tool path passes the built request on unchanged, in place or as a copy (#287)');
   assert.deepEqual(answer.untyped, [], 'the flat schema types every field the builder emits');
   assert.equal(answer.normalized.ok, true, `the receiver normalizes the built request without an error: ${answer.normalized.error}`);
   assert.deepEqual(answer.acceptanceErrors, [], 'the receiver validates the built acceptance without an error');

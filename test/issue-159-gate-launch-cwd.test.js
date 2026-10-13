@@ -17,7 +17,7 @@ const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, readContract, repoPath, cliSchemas, receiverTypebox, RECEIVER_WRONG } = require('./helpers');
+const { readText, readContract, repoPath, cliSchemas, receiverTypebox, RECEIVER_WRONG, toolPathChanges } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64);
@@ -273,14 +273,15 @@ test('Issue #159 the receiver accepts the cwd the gate launch now carries', { sk
     assert.ok(Object.hasOwn(flat.properties ?? {}, 'cwd'), 'the receiver declares cwd');
     assert.equal(typebox.Value.Check(flat, request), true, JSON.stringify([...typebox.Value.Errors(flat, request)].map((error) => error.message)));
     assert.equal(typebox.Value.Check(schemas.SubagentParams, request), true, 'the tool schema accepts the built gate launch');
-    assert.deepEqual(flatten(request), request, 'the tool path passes it on unchanged (#287)');
+    const tool = toolPathChanges(flatten, request);
+    assert.equal(tool.unchanged, true, 'the tool path passes it on unchanged, in place or as a copy (#287)');
     // Every field the gate launch emits is declared and typed, and the receiver keeps each as built (#287).
     for (const key of Object.keys(request)) {
       assert.ok(Object.hasOwn(flat.properties ?? {}, key), `the receiver declares ${key}`);
       assert.ok(Object.hasOwn(RECEIVER_WRONG, key), `${key} has a wrong value to try`);
       assert.equal(typebox.Value.Check(flat, { ...request, [key]: RECEIVER_WRONG[key] }), false, `the receiver types ${key}`);
     }
-    const normalized = execution.normalizePublicSubagentExecution(request);
+    const normalized = execution.normalizePublicSubagentExecution(tool.passed);
     assert.notEqual(normalized.ok, false, `the receiver refused the built gate launch: ${normalized.error}`);
     assert.equal(normalized.params.cwd, CREATED.path, 'and keeps the workspace the builder named');
     // CL-D94 (#202): the receiver declares and keeps the gate bound the builder emits.

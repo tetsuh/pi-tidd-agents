@@ -6,7 +6,7 @@
 // reads the names and types from the flat schema and checks the tool path; CL-D81 and CL-D25 say so.
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { readText } = require('./helpers');
+const { readText, toolPathChanges } = require('./helpers');
 
 test('Issue #287 the receiver regression reads the flat schema and drives the tool path', () => {
   for (const file of ['test/issue-152-writer-launch.test.js', 'test/issue-159-gate-launch-cwd.test.js']) {
@@ -21,4 +21,20 @@ test('Issue #287 CL-D81 names the schema the regression runs, and CL-D25 records
   const d25 = readText('contract/CL-D25.md');
   assert.match(d25, /pi-subagents 0\.78\.0 is validated \(#287\)\./);
   assert.match(d25, /so its schema no longer types the `context`, `outputMode`, `acceptance`, `timeoutMs` and `checkpointBeforeDeadlineMs` the builders emit at the top level; the receiver's flat schema still types each of them, the builders' own tests hold their values/);
+});
+
+test('Issue #287 the tool-path check sees a receiver that changes the launch in place or on a copy', () => {
+  const request = Object.freeze({ agent: 'tidd-safety-reviewer', task: 't', context: 'fresh', async: true, outputMode: 'inline', acceptance: false });
+  const changes = {
+    'removes in place': (params) => { delete params.context; return params; },
+    'replaces in place': (params) => { params.async = false; return params; },
+    'adds in place': (params) => { params.output = true; return params; },
+    'adds on a copy': (params) => ({ ...params, output: true }),
+  };
+  for (const [name, flatten] of Object.entries(changes)) {
+    // The self-comparison this replaces passed every in-place change (ADV-288-TOOL-PATH-SELF-COMPARISON).
+    if (name.endsWith('in place')) { const same = structuredClone(request); assert.deepEqual(flatten(same), same, `${name}: the old check passed`); }
+    assert.equal(toolPathChanges(flatten, request).unchanged, false, name);
+  }
+  for (const flatten of [(params) => params, (params) => ({ ...params })]) assert.equal(toolPathChanges(flatten, request).unchanged, true);
 });

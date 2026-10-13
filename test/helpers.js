@@ -458,6 +458,14 @@ function piPackageRoot(pathEnv, prefixes) {
 // each on its own, so a field that loses its type there fails a test. A key a builder starts emitting needs a row here.
 const RECEIVER_WRONG = Object.freeze({ agent: 42, task: 42, cwd: 42, context: 'bogus', async: 'yes', outputMode: 'nope', acceptance: 'bogus', timeoutMs: '3600000', checkpointBeforeDeadlineMs: -5 });
 
+// What a receiver's tool path does to a built launch (#287): it runs on a copy, and what it returns and the copy
+// afterwards are both compared with a snapshot taken before, so a change made in place is seen as well as one made on a
+// new object (ADV-288-TOOL-PATH-SELF-COMPARISON).
+function toolPathChanges(flatten, request) {
+  const before = structuredClone(request), input = structuredClone(request), passed = flatten(input);
+  return { passed, unchanged: require('node:util').isDeepStrictEqual(passed, before) && require('node:util').isDeepStrictEqual(input, before) };
+}
+
 function receiverTypebox(receiver, options = {}) {
   const off = Boolean(process.env.PI_TIDD_NO_PI_TYPEBOX);
   const pathEnv = options.pathEnv ?? (off ? '' : process.env.PATH);
@@ -493,4 +501,4 @@ function receiverTypebox(receiver, options = {}) {
 }
 
 module.exports = {
-  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox, RECEIVER_WRONG };
+  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox, RECEIVER_WRONG, toolPathChanges };
