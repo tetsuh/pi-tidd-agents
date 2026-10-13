@@ -69,7 +69,7 @@
         "`build_writer_launch` takes `created` — data of `workspace_create`, declared as a CL-D44 cross-operation field — and the `task` the parent decides",
         "`agent: \"tidd-autofix-worker\"`, a role name and never a model, `task`, `cwd` at the created workspace",
         "The built request goes to the subagent tool unchanged, as `build_gate_launch`'s does; nothing outside the builder may add a field to it, and no check enforces that, so it is stated where the parent reads it.",
-        "the `SubagentParams` schema, run over the document and not only read for the names it declares",
+        "the receiver's flat parameter schema (`SubagentParams`, and from 0.77.0 `SubagentFlatParams`, #287), run over the document and not only read for the names it declares",
         "Changing a field the builder emits, accepting another input from the parent, or dropping the receiver-side check requires a new owner decision"
       ]
     },
