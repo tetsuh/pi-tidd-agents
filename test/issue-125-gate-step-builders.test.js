@@ -252,10 +252,10 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
   assert.equal(readText('test/package.test.js').includes('helperBytes < 240000'), false, 'the superseded alarm must not survive');
 
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D73').map((clause) => clause.id).sort(), ['CL-D73-addendum', 'CL-D73-operations', 'CL-D73-operations-autofix', 'CL-D73-operations-builders', 'CL-D73-operations-review', 'CL-D73-operations-workspace', 'CL-D73-record', 'CL-D73-tests', 'CL-D73-transport']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D73').map((clause) => clause.id).sort(), ['CL-D73-operations', 'CL-D73-operations-autofix', 'CL-D73-operations-builders', 'CL-D73-operations-review', 'CL-D73-operations-workspace', 'CL-D73-record', 'CL-D73-tests', 'CL-D73-transport']);
   const byId = Object.fromEntries(manifest.clauses.map((clause) => [clause.id, clause]));
   assert.equal(byId['CL-D73-transport'].section, '### Structured gate result transport (CL-D36)', 'the transport clause names the section its sentences live in');
-  assert.equal(byId['CL-D73-addendum'].section, '### Exact identity and Luna publication phases', 'the addendum clause names the section its sentence lives in');
+  assert.equal(byId['CL-D73-addendum'], undefined, 'the addendum clause is retired: the driver call sites hold its rule (#249 B4b, CL-D117)');
   assert.ok(fs.existsSync(repoPath('test/issue-125-gate-step-builders.test.js')));
 });
 
@@ -393,14 +393,16 @@ test('Issue #125 workspace_cleanup removes only the workspace the request names'
 
 const TRANSPORT_READ = "That read also accepts the expectation file `build_gate_launch` has already verified and returns the envelope validated by `gate_result_validate`'s own code, with that code's own refusals except that its `invalid_request`, always the expectation's, is reported as the file's fault, in the same result, so the parent carries no document from one operation into the next (CL-D73).";
 const TRANSPORT_TUPLES = "built by packaged `build_gate_assignments` from the validated result's findings, the settled ledger's keys, and the reopens the parent states, so the parent states which blocker a finding reopens and transcribes no tuple (CL-D73)";
-const ADDENDUM = "It governs the gate step's requests too: packaged `gate_result_read`, given its expectation file, validates the result, packaged `build_gate_assignments` builds the assigned tuples, and packaged `workspace_cleanup` takes the workspace path (CL-D73).";
 
-test('Issue #125 the transport section and the addendum name the packaged compositions', () => {
+test('Issue #125 the transport section and the drivers name the packaged compositions', () => {
   const transport = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '### Structured gate result transport (CL-D36)');
   assert.ok(transport, 'the transport section exists');
   assert.ok(transport.includes(TRANSPORT_READ), 'the transport section states what the packaged read returns');
   assert.ok(transport.includes(TRANSPORT_TUPLES), 'the transport section states who builds the tuples');
-  // The addendum states it beside the rule it extends, not in a section of its own.
-  const phases = sectionOf(readText('skills/closed-loop-pr/references/autofix-addendum.md'), '### Exact identity and Luna publication phases');
-  assert.ok(phases.includes(ADDENDUM), 'the addendum names all three operations and their package-owned usage');
+  // #249 B4b (CL-D117): the drivers' call sites compose each request from the package; the cleanup is CL-D84's
+  // composition from the created workspace.
+  assert.ok(readText('skills/closed-loop-pr/driver/phases.js').includes("const read = run.op('gate_result_read', { runId: runId || die('--run-id is required'), expectationPath: p.expectationPath }, { allowFail: true });"), 'the read takes the expectation file');
+  const driver = readText('skills/closed-loop-pr/driver/autofix.js');
+  assert.ok(driver.includes("data(run.op('build_gate_assignments', { findings: fresh, settledKeys: s.ledger.filter((e) => e.status === 'settled')"), 'the package builds the assigned tuples');
+  assert.ok(driver.includes("const c = run.op('workspace_cleanup_created', { created: s.created }, { allowFail: true });"), 'the package composes the cleanup');
 });

@@ -1,5 +1,5 @@
 ## CL-D78 — A run reports the run roots it retained
-**Clauses:** CL-D78-addendum, CL-D78-record, CL-D78-tests
+**Clauses:** CL-D78-driver, CL-D78-record, CL-D78-tests
 
 *Decision ID:* CL-D78
 *Kind:* contract

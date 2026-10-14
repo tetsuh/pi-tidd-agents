@@ -29,7 +29,7 @@
         "version 1 stays accepted verbatim for one release, with no cross-mapping in either direction",
         "the packaged expectation builder ships version 2 only",
         "the composition table accepts both envelope versions and the reply marker parses both gate vocabularies",
-        "the shared contract, the addendum, the README, and CL-D60 record the version 2 identities",
+        "the shared contract, the gate-result helper, the README, and CL-D60 record the version 2 identities",
         "CL-D60 raises the authority ceiling once, with the headroom property asserted at the raise"
       ]
     }

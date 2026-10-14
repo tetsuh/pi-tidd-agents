@@ -16,8 +16,6 @@ const assert = require('node:assert/strict');
 
 const { readText, readContract, sectionOf } = require('./helpers');
 
-const ADDENDUM = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-
 test('Issue #82 the driver relaunches a zero-output gate once, and the record states the line and its divergence', () => {
   // #249 B3 (CL-D114): the relaunch is read in the driver and its record; the base reference's mapping row and its
   // eligibility sentence are retired with the prose path.
@@ -34,13 +32,12 @@ test('Issue #82 the driver relaunches a zero-output gate once, and the record st
 });
 
 test('Issue #82 the stop rule names both exceptions', () => {
-  const text = ADDENDUM;
-  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above, the CL-D51 zero-output relaunch, and the CL-D86 recomposition after a push\./);
-  // Review-driven (PR #94 round 3): the addendum's own absolute stop sentences must carry the
-  // same carve-out, or they contradict the relaunch they sit beside. Only the zero-byte case
-  // is admitted; every output byte and every other correlation defect stops exactly as before.
-  assert.match(ADDENDUM, /except that a missing result whose designated output holds zero bytes may first take the single CL-D51 relaunch; any output byte, however malformed, stops as before/);
-  assert.match(ADDENDUM, /except that correlation entirely absent because the CL-D51 pure zero-output gate transport failure produced no bytes permits that single relaunch first/);
+  // #249 B4b (CL-D117): the stop and its exceptions are read in the records and the driver. CL-D39 states the stop with the
+  // one relaunch the driver keeps; CL-D51 admits only the zero-byte case and keeps every output byte terminal; the
+  // driver's correlation check names a run that never ran (CL-D107).
+  assert.match(readText('contract/CL-D39.md'), /a running gate waits, and every other helper refusal stops `BLOCKED`/);
+  assert.match(readText('contract/CL-D51.md'), /Any designated output byte, however malformed, keeps the failure terminal/);
+  assert.ok(readText('skills/closed-loop-pr/driver/phases.js').includes(": code === 'correlation_mismatch' && noRun() ? 'result_names_no_run' : code;"), 'a correlation that names no run is the one other relaunch key');
 });
 
 test('Issue #82 CL-D51 records the widening under CL-D39\'s own conditions', () => {

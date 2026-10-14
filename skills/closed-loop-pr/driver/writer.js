@@ -45,7 +45,7 @@ function writerTask(s, open, paths, self, runDir) {
   ].join('\n');
 }
 
-// This run's unremoved workspace roots and their count, after any earlier operator action (ADV-208-RETAINED-ROOT-REPORT).
+// This run's unremoved workspace roots and their count, after any earlier operator action (ADV-208-RETAINED-ROOT-REPORT, CL-D78).
 function retain(s, root) {
   if (root && !(s.retained ||= []).includes(root)) s.retained.push(root);
   if (!s.retained?.length) return;

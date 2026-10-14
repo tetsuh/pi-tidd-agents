@@ -117,9 +117,12 @@ test('Issue #34 writes outside the temp parent are the CL-D37 boundary\'s job, a
   assert.match(readContract(), /^## CL-D37 — /m, 'CL-D37 must be a recorded decision');
 });
 
-test('Issue #34 the stop rule keeps its wording and names its exceptions', () => {
+test('Issue #34 the stop is CL-D39\'s sentence, the recomposition gap is recorded, and the recovery still precedes the stop in the file', () => {
   const text = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  assert.match(text, /Tool\/startup\/API\/timeout\/stale-target\/malformed-output\/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above, the CL-D51 zero-output relaunch, and the CL-D86 recomposition after a push\./);
+  // #249 B4b (CL-D117): the stop is CL-D39's sentence, which names the one exception the driver keeps; the CL-D39 recovery
+  // and the CL-D86 recomposition it does not take are recorded gaps (CL-D114, CL-D112).
+  assert.match(readText('contract/CL-D39.md'), /a running gate waits, and every other helper refusal stops `BLOCKED`/);
+  assert.match(readText('contract/CL-D112.md'), /The autofix driver does not recompose a refused post-push revalidation \(CL-D86\); that gap is recorded here, not closed\./);
   // The invocation-map sentence must not contradict the recovery it now defers to.
   assert.match(text, /no retry beyond the CL-D39 recovery defined above/);
   // The recovery section really is above the stop rule.

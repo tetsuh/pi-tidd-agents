@@ -11,15 +11,14 @@ const assert = require('node:assert/strict');
 
 const { readText } = require('./helpers');
 
-const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
-
-test('Issue #38 the action order states where recovery sits and that safety precedes it', () => {
-  const text = readText(PR_AUTOFIX_ADDENDUM);
-  const order = text.match(/Apply this deterministic action order[^\n]*/);
-  assert.ok(order, 'the deterministic action order clause must exist');
-  assert.match(order[0], /The CL-D39 recovery is evaluated only after target movement, lifecycle, identity, and fingerprint checks and gate correlation and result validation have passed/);
-  assert.match(order[0], /and before any owner decision, final policy, or reply step/);
-  // Already-reached limits come first: recovering into a run that must stop is pointless.
-  assert.match(order[0], /an already-reached gate, push, or no-progress limit and any safety or identity failure take precedence over recovery eligibility/);
-  assert.match(order[0], /a recovery consumes no counter/);
+// #249 B4b (CL-D117): the base reference's action order placed a recovery the driver does not take (CL-D114); what
+// stays is the order the driver keeps in `result`: the run's guard, then the gate-result read with its one relaunch, then
+// the counter, and the gate and push limits before any launch.
+test('Issue #38 the driver guards the run before it reads a gate result, and counts the result only after the read', () => {
+  const driver = readText('skills/closed-loop-pr/driver/autofix.js');
+  const result = driver.slice(driver.indexOf('function result(opts) {'));
+  const guard = result.indexOf('  guard(run);'), read = result.indexOf("const read = readGate(run, opts['run-id'], SELF,"), count = result.indexOf("if (gate === 'convergence') s.counters.conv += 1; else s.counters.gates += 1;");
+  assert.ok(guard > 0 && guard < read && read < count, 'guard, read, then count');
+  assert.ok(result.indexOf('  if (!read) return undefined;') > read && result.indexOf('  if (!read) return undefined;') < count, 'a relaunched read returns before the counter, consuming none');
+  assert.ok(driver.includes("if (gate !== 'convergence' && s.counters.gates >= CAP.gates) end(run, 'ROUND_LIMIT_REACHED', 'gate_limit');"), 'a reached gate limit stops before any launch');
 });

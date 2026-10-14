@@ -111,12 +111,9 @@ test('Issue #193 both roots read the classification instead of raw suites', () =
   assert.match(readiness, /pol\.externalReview/);
   assert.match(readText('skills/closed-loop-pr/helpers/snapshot.js'), /an empty check suite \(zero runs\) carries no provider state/);
   assert.match(readiness, /An external review provider's state \(CL-D92\) is reported as observed, never waited for\./);
-  for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md']) {
-    const text = readText(file);
-    assert.match(text, /policies\.externalReview/, file);
-    assert.match(text, /empty check suite/i, file);
-    assert.match(text, /`unknown` is not complete/, file);
-  }
+  // #249 B4b (CL-D117): the autofix root reaches the same classification through the shared final policy.
+  assert.ok(readText('skills/closed-loop-pr/driver/phases.js').includes('const s = run.state, r = readiness(snapshot, s.target.headOid);'), 'the final policy reads readiness.js');
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("finalPolicy(run, snapshot, 'wait for the checks on this head, then a fresh run');"), 'the autofix driver takes that final policy');
   assert.match(readContract(), /^## CL-D92 — /m);
 });
 

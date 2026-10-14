@@ -43,21 +43,6 @@
       ]
     },
     {
-      "id": "CL-D100-autofix-prose",
-      "marker": "CL-D100",
-      "title": "Exact autofix states the best-effort rule",
-      "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
-      ],
-      "requires": [
-        "failed checks or `CHANGES_REQUESTED` is `BLOCKED`.",
-        "A policy the workflow does not evaluate (ruleset, protection setting, approval, `blocked` state) is named in `operator_actions`",
-        "a provider's state or own unrequired check, even `unknown`, is reported; neither waits or fails (CL-D100)",
-        "A protection that cannot be read is settled by `mergeable_state`.",
-        "final policy failed is `BLOCKED`"
-      ]
-    },
-    {
       "id": "CL-D100-driver",
       "marker": "CL-D100",
       "title": "Readiness separates what waits from what a human confirms and what was observed",
@@ -69,7 +54,10 @@
         "if (state === 'blocked') confirm.push(",
         "c.app?.slug === REVIEW_APP && !required(c.name, c.app.id)",
         "context === 'CodeRabbit' && st.creator?.login === 'coderabbitai[bot]' && !required(context)",
-        "external review is not waited for"
+        "external review is not waited for",
+        "else if (FAILED_CONCLUSIONS.has(c.conclusion)) failed.push(`check ${c.name} ${c.conclusion}`);",
+        "else if (st.state === 'failure' || st.state === 'error') failed.push(`status ${context} ${st.state}`);",
+        "for (const [login, r] of decisive) if (r.state === 'CHANGES_REQUESTED') failed.push(`changes requested by ${login}`);"
       ]
     },
     {
@@ -80,7 +68,8 @@
         "skills/closed-loop-pr/driver/phases.js"
       ],
       "requires": [
-        "`before merging, a human confirms: ${r.confirm.join('; ')}`"
+        "`before merging, a human confirms: ${r.confirm.join('; ')}`",
+        "if (r.failed.length) { s.nextAction = 'the author addresses the failure, then a fresh run'; run.stop('BLOCKED', `final policy failed: ${r.failed.join('; ')}`); }"
       ]
     },
     {

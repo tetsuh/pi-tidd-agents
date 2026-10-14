@@ -213,14 +213,15 @@ test('Issue #41 publication authority remains review-only-owned and aggregate-on
   assert.match(readText('contract/CL-D33.md'), /review-only drafts the artifacts but never executes or posts/);
   assert.match(readText(PR_PUBLICATION_TEMPLATE), /aggregate-summary publication only|Issue #40 source-reply authority/);
   assert.match(readText(PR_PUBLICATION_TEMPLATE), /gh pr comment <full-pr-url> --body-file <review-comment\.md>/);
-  // CL-D77: autofix drafts the same artifacts at every terminal outcome, in one sentence, and never executes them;
-  // executing the script stays the owner's grant.
-  const drafting = autofix.split(/(?<=\.)\s+/).filter((sentence) => /publish-review\.sh|review-publication:v1/.test(sentence));
-  assert.equal(drafting.length, 1, drafting.join('\n'));
-  assert.match(drafting[0], /^When the repository, PR, and public head are resolved and unambiguous, /);
-  assert.match(drafting[0], /never executes it; otherwise it reports `not_drafted\(<reason>\)` \(CL-D77\)\.$/);
-  // Nothing inside that sentence may run the script either (ADV pre-push review of 18ad483).
-  assert.doesNotMatch(drafting[0], /\b(?:runs|executes|invokes|calls) (?!it;)/);
+  // CL-D77: autofix drafts the same artifacts at every stop, through the same run.js stop, and never executes them;
+  // executing the script stays the owner's grant. #249 B4b (CL-D117): read in the driver and the record, with the two
+  // places the driver departs from the record.
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes('Run.prototype.stop.call(run, state, reason);'), 'every autofix stop drafts through the shared stop');
+  const d77 = readText('contract/CL-D77.md');
+  assert.match(d77, /Every terminal outcome still ends with the summary draft/);
+  assert.match(d77, /the owner executing the generated script remains the one owner-approved comment action/);
+  assert.match(d77, /it drafts the artifacts at every stop once its target is bound, bound to the head the run last verified/);
+  assert.match(d77, /and it never reports `not_drafted\(<reason>\)`, a target it cannot bind leaving no run/);
   assert.doesNotMatch(autofix, /review-publication:v1/);
   assert.doesNotMatch(shared, /publish-review\.sh|review-publication:v1/);
 });

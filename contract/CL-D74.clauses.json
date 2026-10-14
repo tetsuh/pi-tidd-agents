@@ -23,18 +23,6 @@
       ]
     },
     {
-      "id": "CL-D74-addendum",
-      "marker": "CL-D74",
-      "title": "The bounded batch names the operation where it named the format",
-      "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
-      ],
-      "section": "### Exact identity and Luna publication phases",
-      "requires": [
-        "verify the stored bytes/content exactly against the expected approved message through packaged `message_verify`"
-      ]
-    },
-    {
       "id": "CL-D74-record",
       "marker": "CL-D74",
       "title": "CL-D74 records the packaged check and the boundary it reviews",

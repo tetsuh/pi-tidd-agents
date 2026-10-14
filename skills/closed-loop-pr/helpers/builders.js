@@ -128,8 +128,8 @@ function buildWorkspaceCleanup(data) {
   });
 }
 
-// CL-D73: the parent still decides which fresh finding reopens which settled blocker — the normalization rule in
-// autofix-addendum.md is its judgment — and states that judgment as data. The assembly is the package's: a fresh
+// CL-D73: the parent still decides which fresh finding reopens which settled blocker — the counterexample-class
+// normalization CL-D34 states is its judgment — and states that judgment as data. The assembly is the package's: a fresh
 // finding keys itself, an explicit reopen carries the settled key, and a reopen the ledger does not hold is refused
 // (#125 run 2 sent a tuple with no key at all).
 function buildGateAssignments(data) {

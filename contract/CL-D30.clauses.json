@@ -360,7 +360,8 @@
         "every root is absent or a real directory",
         "Runtime-root entries in candidate/public `HEAD` or index fail closed.",
         "recovery, compensation, force, prune, recursive deletion, clean, clone deletion, and operator mutation are forbidden",
-        "The packaged autofix driver departs from the exact-autofix rules in five places, each recorded and not closed (#249, CL-D115)"
+        "The packaged autofix driver departs from the exact-autofix rules in five places, each recorded and not closed (#249, CL-D115)",
+        "After the push the packaged driver takes up to six snapshots five seconds apart for the public head to show the commit before it stops `push_outcome_unknown`"
       ]
     }
   ]

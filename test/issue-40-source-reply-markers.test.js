@@ -18,7 +18,7 @@ const { spawnSync } = require('node:child_process');
 const helpers = require('../skills/closed-loop-pr/helpers');
 const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
-const AUTOFIX = `${readAutofixProcedure()}\n${readText('skills/closed-loop-pr/references/autofix-addendum.md')}`;
+const AUTOFIX = readAutofixProcedure();
 const CONTRACT = readContract();
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
@@ -68,20 +68,20 @@ function cli(operation, data) {
 }
 
 test('Issue #40 authority defines the marker grammar, the four outcomes, and the terminal policy', () => {
-  const section = sectionOf(AUTOFIX, '### Source-reply markers and reconciliation (CL-D45)');
-  assert.ok(section, 'autofix must own a CL-D45 marker section');
-  assert.match(section, /`pi-tidd-agents:source-reply:v1`/);
-  assert.match(section, /`visibleSha256` covers the canonical visible reply body alone — LF-normalized, LF-terminated UTF-8 bytes that exclude the marker line — so no marker field enters its own digest/);
-  assert.match(section, /`reply_confirmed_published`, `reply_confirmed_absent`, `reply_ambiguous`, and `reply_conflict`/);
-  assert.match(section, /exactly one of the four/);
-  assert.match(section, /Only an exact one-marker, one-body match on complete evidence from the expected workflow author classifies as published/);
-  assert.match(section, /incomplete pagination or missing refetched evidence is ambiguous, never absent/);
-  assert.match(section, /contradictory evidence — a duplicate, altered, wrong-head, wrong-source, or foreign-author marker, or a changed or deleted source — is a conflict/);
-  assert.match(section, /Reconciliation is read-only and repeatable, judges only refetched evidence, and performs no request/);
-  assert.match(section, /Every reconciliation outcome, including `reply_confirmed_absent`, is terminal for the run: no second POST exists under this decision/);
-  assert.match(section, /a fresh owner-authorized run remains the only continuation/);
-  assert.match(section, /never resolves threads, approves, requests rereview, invokes bots, edits or deletes comments, or posts an aggregate summary/);
-  assert.match(section, /Per-source outcomes stay ordered by source identity, and no batch outcome claims whole-PR readiness/);
+  // #249 B4b (CL-D117): the grammar and the classification are read in the packaged helper, the terminal policy in the
+  // record. The per-source reply batch was the prose path's and retires with it; the driver posts no reply (CL-D114).
+  const reply = readText('skills/closed-loop-pr/helpers/reply.js');
+  for (const literal of ["const MARKER_STEM = '<!-- pi-tidd-agents:source-reply:v1';", 'const marker = serializeMarker(binding, visibleSha256);',
+    "function canonicalDigestible(body) { const visible = canonicalVisible(body); return visible.endsWith('\\n') ? visible : `${visible}\\n`; }",
+    "return { classification: 'reply_confirmed_published', reason: 'exact_match', commentId: String(exact.id) };", "return { classification: 'reply_confirmed_absent', reason: 'no_matching_marker' };",
+    "function ambiguous(reason) { return { classification: 'reply_ambiguous', reason }; }", "function conflict(reason) { return { classification: 'reply_conflict', reason }; }",
+    "if (exactCount > 1) return conflict('duplicate_markers');", "if (paginationComplete !== true) return ambiguous('pagination_incomplete');", "if (!Array.isArray(comments)) return ambiguous('destination_evidence_missing');",
+    "return conflict('wrong_source');", "return conflict('foreign_author_marker');", "return conflict('conflicting_marker_for_source');"]) assert.ok(reply.includes(literal), `reply.js: ${literal}`);
+  const record = readText('contract/CL-D45.md');
+  assert.match(record, /classifies supplied refetched evidence as exactly one of/);
+  assert.match(record, /Every outcome is terminal for the run; no second POST exists under this decision/);
+  assert.match(record, /a fresh owner-authorized run remains the only continuation/);
+  assert.match(record, /Reconciliation grants no mutation, retry, resume, thread-resolution, approval, or summary authority/);
 
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.match(map, /\| `marker_create` \| `binding`, `visibleBody` \|/);

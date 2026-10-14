@@ -5,11 +5,13 @@
       "marker": "CL-D39",
       "title": "Every tooling failure stays terminal",
       "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
+        "contract/CL-D39.md"
       ],
       "requires": [
-        "Tool/startup/API/timeout/stale-target/malformed-output/correlation failures are not verdicts, consume no counter, are not retried, and stop, except for the CL-D39 recovery defined above, the CL-D51 zero-output relaunch, and the CL-D86 recomposition after a push."
-      ]
+        "a running gate waits, and every other helper refusal stops `BLOCKED`",
+        "a recovery consumes no counter, exactly as a tool failure does not consume a round"
+      ],
+      "section": "## CL-D39 — Exact autofix gains one bounded pre-writer recovery"
     },
     {
       "id": "CL-D39-recovery",

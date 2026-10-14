@@ -58,7 +58,8 @@ const MIXED_TESTS = {
 };
 // The structural reads (existence, headings, the split, duplication guards, authority measurement, derived vocabulary
 // surfaces, contractInput) stay for the deletion.
-const STRUCTURAL_TESTS = ['issue-87-addendum-split', 'issue-73-authority-budget', 'issue-61-review-only-validation-sandbox', 'issue-51-anchored-findings', 'issue-110-derived-vocabulary'];
+// #249 B4b (CL-D117) moved issue-51's remaining reads to CL-D34 and the builder.
+const STRUCTURAL_TESTS = ['issue-87-addendum-split', 'issue-73-authority-budget', 'issue-61-review-only-validation-sandbox', 'issue-110-derived-vocabulary'];
 const RETIRED = ['CL-D107-autofix', 'CL-D81-autofix', 'CL-D72-route-autofix', 'CL-D72-map', 'CL-D40-autofix', 'CL-D50-base', 'CL-D83-autofix'];
 const GAP_RECORDS = ['contract/AC-AUTOFIX.md', 'contract/CL-D39.md', 'contract/CL-D40.md', 'contract/CL-D51.md', 'contract/CL-D66.md'];
 

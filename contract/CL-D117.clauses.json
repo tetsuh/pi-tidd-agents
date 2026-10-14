@@ -1,0 +1,49 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D117-record",
+      "marker": "CL-D117",
+      "title": "CL-D117 records where the remaining pins of the autofix addendum went",
+      "files": [
+        "contract/CL-D117.md"
+      ],
+      "section": "## CL-D117 — The remaining clause pins of the autofix addendum move to the code and the records",
+      "requires": [
+        "issues/249#issuecomment-6118446239",
+        "No alarm is raised and the code changes are comments",
+        "CL-D73-addendum, CL-D74-addendum, CL-D77-addendum, CL-D85-misses, CL-D85-routing, CL-D92-prose, CL-D100-autofix-prose and CL-D107-addendum",
+        "`test/issue-289-addendum-rest-pins.test.js` names every test file that still names the file",
+        "The file is byte-identical and `driver/autofix.js` reads it into `contractInput` as before."
+      ]
+    },
+    {
+      "id": "CL-D117-gaps",
+      "marker": "CL-D117",
+      "title": "Each record states its gap or divergence, recorded and not closed",
+      "files": [
+        "contract/CL-D34.md",
+        "contract/CL-D77.md",
+        "contract/CL-D85.md",
+        "contract/CL-D86.md",
+        "contract/CL-D30.md"
+      ],
+      "requires": [
+        "recorded and not closed (#249, CL-D117)"
+      ]
+    },
+    {
+      "id": "CL-D117-tests",
+      "marker": "CL-D117",
+      "title": "The #289 tests pin the repoint",
+      "files": [
+        "test/issue-289-addendum-rest-pins.test.js"
+      ],
+      "requires": [
+        "Issue #289 no clause names references/autofix-addendum.md, the repointed pins match, and the retired clauses are gone",
+        "Issue #289 the rule-stating tests read the code or the record, the mixed files keep only their structural reads, and every reader is listed",
+        "Issue #289 CL-D117 records the repoint and the six gaps, and each record states its own",
+        "Issue #289 the addendum is byte-identical, contractInput is unchanged, and the code changes are comments"
+      ]
+    }
+  ]
+}

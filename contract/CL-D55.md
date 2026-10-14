@@ -1,5 +1,5 @@
 ## CL-D55 — A guard failure must name its failed subcheck
-**Clauses:** CL-D55-addendum, CL-D55-tests
+**Clauses:** CL-D55-guards, CL-D55-record, CL-D55-tests
 
 *Decision ID:* CL-D55
 *Kind:* contract
