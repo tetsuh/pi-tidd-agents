@@ -195,27 +195,31 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
   assert.match(readText('contract/CL-D62.md'), /Review-only stops at `WAITING_FOR_OWNER` on a preliminary `FIX BEFORE MERGE` before Sol runs\./);
   // CL-D85 (Issue #153) qualifies the prerequisite; the order itself is unchanged.
   assert.match(readText('contract/AC-GATES.md'), /The Terra gate never starts before the Sol gate returns `MERGE`\. In a pull-request run, a Sol result whose only open findings are Minors recorded under CL-D85 counts as `MERGE` for that prerequisite \(CL-D85\)\./);
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.match(addendum, /The CL-D62 convergence stage runs once per candidate identity and snapshot fingerprint before each Sol invocation, is accounted separately as `convergence <used>\/5` outside the 15 counted gate invocations, and at its cap hands the candidate to Sol with open convergence findings assigned/);
-  assert.match(addendum, /the final summary reports `resolved:` with each role's provider, model, and thinking level/);
-  assert.match(addendum, /the convergence stage's payload and result are bound the same way \(CL-D62\)/);
-  assert.match(addendum, /a convergence result that observes an assigned blocker unresolved counts toward that key's history whatever its `breakerOwner`, at most one observation per result, while convergence stays outside the 15 counted invocations \(CL-D62\)/);
-  assert.doesNotMatch(addendum, /Sol-owned blockers count only in Sol results/);
-  assert.match(addendum, /^Before every convergence, Sol, or Terra invocation, immediately before the first reply/m, 'the snapshot the convergence key depends on is refreshed before convergence too');
-  // ADV-109-EXACT-AUTOFIX-MAP-OMITS-CONVERGENCE: the canonical flow starts at convergence and every
-  // correction or same-head evidence route returns there; the helper map rows cover convergence.
-  assert.match(addendum, /^CONVERGENCE: MERGE -> SOL; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; CAP -> SOL \(open findings assigned\); DECISION\/FAILURE -> STOP$/m);
-  assert.match(addendum, /^SOL:   MERGE -> TERRA; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; DECISION\/FAILURE\/LIMIT -> STOP$/m);
-  assert.match(addendum, /^TERRA: MERGE -> FINAL_CHECK; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; DECISION\/FAILURE\/LIMIT -> STOP$/m);
-  assert.match(addendum, /^FINAL_CHECK: new actionable evidence -> CONVERGENCE; missing\/pending\/failed policy -> STOP; stable evidence -> replies -> MERGE_READY$/m);
-  assert.match(addendum, /Convergence runs first, then Sol, and Terra starts only after Sol returns `MERGE` for the exact current public head/);
-  assert.doesNotMatch(addendum, /LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> SOL;|new actionable evidence -> SOL;/, 'no route may return directly to Sol');
+  // #249 B4b (CL-D117): the exact-autofix stage, its accounting, its counting and its flow are read in the driver. The
+  // final check's reply step was the prose path's (CL-D114); the driver posts no reply.
+  const driver = readText('skills/closed-loop-pr/driver/autofix.js');
+  for (const literal of [
+    // accounted apart from the 15 counted invocations, handing over to Sol at its cap
+    "function rounds(s) { return `${s.convergenceDisabled ? 'convergence disabled' : `convergence ${s.counters.conv}/${CAP.conv}`}, gates ${s.counters.gates}/${CAP.gates}, pushes ${s.counters.pushes}/${CAP.pushes}`; }",
+    "if (gate === 'convergence' && s.counters.conv >= CAP.conv) return arm(run, 'adversarial');",
+    // each role resolved with its model and thinking level; the convergence payload bound like the others
+    'roleLabel(ROLE[gate], ((status.steps || []).at(-1) || {}).model, ((status.steps || []).at(-1) || {}).thinking)',
+    'headBranch: t.headBranch, headOid: t.headOid, lifecycle: \'open\', draft: false, gate, invocation,',
+    // a convergence result that reports an assigned blocker unresolved counts toward its history, as any gate's does
+    "entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x; entry.status = 'open';",
+    // the snapshot is refreshed before every gate, convergence included, and new evidence restarts the sequence
+    'if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s)))',
+    // the flow: convergence first, then Sol, Terra only once nothing is open; every restart returns to convergence within its cap
+    "const GATES = ['convergence', 'adversarial', 'safety'];",
+    "if (!open.length) { const next = GATES[GATES.indexOf(gate) + 1]; if (!next && s.ledger.some((e) => e.status === 'confirmed')) return arm(run, 'adversarial'); return next ? arm(run, next) : finish(run); }",
+    "if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }",
+    "function restartAt(s) { return s.counters.conv < CAP.conv && !s.convergenceDisabled ? 'convergence' : 'adversarial'; }",
+  ]) assert.ok(driver.includes(literal), `the driver: ${literal}`);
   const autofix = readAutofixProcedure();
   assert.match(autofix, /\| Snapshot refresh — before each convergence\/Sol\/Terra invocation, before the first reply, each reply batch, final classification, post-reply, summary mutation \| `snapshot` \|/);
   assert.match(autofix, /\| Every convergence, Sol, or Terra result, before it is read as a verdict \(CL-D36, CL-D62\) \| `gate_result_validate` \|/);
   assert.doesNotMatch(autofix, /before each Sol\/Terra invocation|Every Sol or Terra result/, 'no helper boundary may name only Sol and Terra');
-  assert.match(addendum, /New evidence on the same public head also reruns the convergence stage before Sol, keyed by head and snapshot fingerprint within its cap of five \(CL-D62, DEC-109-CONV-SNAPSHOT-001\)/);
-  assert.match(addendum, /gate \(`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1\)/);
+  assert.ok(readText('skills/closed-loop-pr/helpers/gate-result.js').includes("const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety', 'convergence'] };"), 'convergence is a version 2 gate');
 });
 
 test('Issue #101 the README documents the role, its default, the self-review caveat, and the design rule', () => {

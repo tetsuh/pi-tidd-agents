@@ -11,8 +11,6 @@ const { readText, readContract, sectionOf, readManifest } = require('./helpers')
 
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
-const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
-const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
 const AGENT_FILES = ['agents/tidd-adversarial-reviewer.md', 'agents/tidd-safety-reviewer.md', 'agents/tidd-autofix-worker.md', 'agents/tidd-drift-reviewer.md'];
@@ -80,10 +78,11 @@ test('Issue #51 records reference defines exactly three anchoring classes and ke
   assert.match(dispositions, /A finding that names no acceptance criterion, contract clause, or fail-stop invariant is an out-of-scope improvement rather than a blocker/);
 });
 
-test('Issue #51 exact autofix declares its threat model and normalizes new blocker keys against the settled ledger', () => {
-  const autofix = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  const model = sectionOf(autofix, '### Exact-autofix threat model (CL-D34)');
-  assert.ok(model, 'threat-model section is missing from the exact-autofix reference');
+test('Issue #51 CL-D34 declares the exact-autofix threat model and the normalization, and records what the driver does not apply', () => {
+  // #249 B4b (CL-D117): the threat model and the normalization are CL-D34's own sentences; the driver path states no
+  // reopen, a gap recorded there, and the builder refuses a fresh finding that names a settled key.
+  const model = sectionOf(readContract(), '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model');
+  assert.ok(model, 'CL-D34 is missing');
   assert.match(model, /assumes these operator conditions cooperative unless an Issue acceptance criterion names one/);
   for (const condition of [
     /`TMPDIR`\/`TEMP`\/`TMP` and any supplied `runRoot` resolve outside the operator checkout/,
@@ -93,13 +92,13 @@ test('Issue #51 exact autofix declares its threat model and normalizes new block
     /does not run another writer against the same checkout or workspace/,
   ]) assert.match(model, condition);
   assert.match(model, /Helpers that detect a violated assumption still fail closed/);
-  assert.match(model, /`follow-up` finding under AC-ANCHOR \(CL-D34\)/);
-  assert.match(model, /when a criterion, clause, or invariant names that condition it is `criterion-anchored` instead/);
-  assert.match(model, /A claim only in PR-body prose is `reword`/);
-  const findings = sectionOf(autofix, '### Findings, no-progress, and deterministic status');
-  assert.match(findings, /Before assigning a new `blockerKey`, the parent normalizes the finding against the settled ledger by counterexample class/);
-  assert.match(findings, /same helper or clause, same invariant, different input/);
-  assert.match(findings, /reopen of the settled key requiring materially new evidence, never as a new key \(CL-D34\)/);
+  assert.match(model, /\(#283\): recorded and not closed \(#249, CL-D117\)/);
+  assert.match(model, /same helper or clause, same invariant, different input/);
+  assert.match(model, /so no fresh finding is mapped to a settled key by counterexample class/);
+  assert.ok(readText('skills/closed-loop-pr/helpers/builders.js').includes('is a settled blocker key; state the reopen in reopens'), 'a fresh finding that names a settled key is refused');
+  const driver = readText('skills/closed-loop-pr/driver/autofix.js');
+  assert.ok(driver.includes("data(run.op('build_gate_assignments', { findings: fresh, settledKeys: s.ledger.filter((e) => e.status === 'settled')"), 'the driver builds the assignments');
+  assert.equal(driver.includes('reopens'), false, 'the driver states no reopen, the gap CL-D34 records');
   // #249 B4a (CL-D115): the 15/5/third-observation limits are CL-D30's, read in the driver (CL-D30-circuit); the breaker
   // owner is CL-D115's first divergence.
 });
@@ -191,7 +190,7 @@ test('Issue #51 CONTRACT.md records CL-D34 with its clauses, the raised authorit
   const contract = readContract();
   const section = sectionOf(contract, '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model');
   assert.ok(section, 'CL-D34 decision is missing');
-  assert.match(section, /^\*\*Clauses:\*\* CL-D34-anchor, CL-D34-payload, CL-D34-classes, CL-D34-threat-model, CL-D34-normalization, CL-D34-readme, CL-D34-baseline$/m);
+  assert.match(section, /^\*\*Clauses:\*\* CL-D34-anchor, CL-D34-payload, CL-D34-classes, CL-D34-threat-model, CL-D34-normalization, CL-D34-normalization-builder, CL-D34-readme, CL-D34-baseline$/m);
   assert.match(section, /^\*Decision ID:\* CL-D34$/m);
   assert.match(section, /^\*Kind:\* contract$/m);
   assert.match(section, /tetsuh\/pi-tidd-agents#51/);
@@ -200,7 +199,7 @@ test('Issue #51 CONTRACT.md records CL-D34 with its clauses, the raised authorit
   assert.match(section, /99,182/);
   const manifest = readManifest();
   const ids = manifest.clauses.filter((clause) => clause.marker === 'CL-D34').map((clause) => clause.id).sort();
-  assert.deepEqual(ids, ['CL-D34-anchor', 'CL-D34-baseline', 'CL-D34-classes', 'CL-D34-normalization', 'CL-D34-payload', 'CL-D34-readme', 'CL-D34-threat-model']);
+  assert.deepEqual(ids, ['CL-D34-anchor', 'CL-D34-baseline', 'CL-D34-classes', 'CL-D34-normalization', 'CL-D34-normalization-builder', 'CL-D34-payload', 'CL-D34-readme', 'CL-D34-threat-model']);
   const cl29 = sectionOf(contract, '## CL-D29 — Sol attempts adversarial falsification of absolute claims');
   assert.match(cl29, /CL-D34 bounds the severity and disposition of the findings this procedure produces/);
   assert.match(readText('README.md'), /Under CL-D34, every blocking Sol finding is anchored to an acceptance criterion, contract clause, or fail-stop invariant/);

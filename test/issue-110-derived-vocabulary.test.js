@@ -181,8 +181,10 @@ function gateOrderGaps(read) {
   expect(legacy, 'the Issue legacy sequence line exists');
   exact((legacy ?? '').match(ROLE_TOKEN) || [], VOCAB.gateOrder.issue.map(roleOf), 'Issue legacy sequence stage roles');
   exact(merges(legacy ?? ''), authoritative('issue').map(display), 'Issue legacy sequence MERGE steps');
-  const flow = read('skills/closed-loop-pr/references/autofix-addendum.md');
-  exact([...flow.matchAll(/^([A-Z_]+): /gm)].map((match) => match[1]), [...VOCAB.gateOrder.pr.map((gate) => display(gate).toUpperCase()), 'FINAL_CHECK'], 'exact-autofix flow labels');
+  // #249 B4b (CL-D117): the exact-autofix order is the driver's own gate list.
+  const driverOrder = /^const GATES = \[(.*)\];$/m.exec(read('skills/closed-loop-pr/driver/autofix.js'));
+  expect(driverOrder, 'the autofix driver declares its gate order');
+  exact(driverOrder ? driverOrder[1].split(', ').map((name) => name.replace(/'/g, '')) : [], VOCAB.gateOrder.pr, 'exact-autofix driver gate order');
   const shared = section(read('skills/closed-loop-shared/references/gate-contract.md'), '## Convergence stage (CL-D62)', 'shared convergence section');
   expect(shared.includes(`Issue \`${VOCAB.gateOrder.issue.join(' → ')}\`, PR \`${VOCAB.gateOrder.pr.join(' → ')}\``), 'shared order sentence derives from the source');
   return gaps;
@@ -201,7 +203,7 @@ function statusGaps(read) {
     if (block === null) continue;
     exact(block.split('\n').filter((line) => /^(?:active_gate|rounds|resolved):/.test(line)), STATUS_LINES(root), `${file} tidd-status lines`, ' ‖ ');
   }
-  for (const file of ['README.md', 'skills/closed-loop-issue/SKILL.md', 'skills/closed-loop-pr/references/autofix-addendum.md']) expect(read(file).includes(VOCAB.restart), `${file} uses the declared restart phrase`);
+  for (const file of ['README.md', 'skills/closed-loop-issue/SKILL.md']) expect(read(file).includes(VOCAB.restart), `${file} uses the declared restart phrase`);
   return gaps;
 }
 
@@ -284,7 +286,7 @@ const MANIFEST = (() => {
       'version 1 stays accepted verbatim for one release, with no cross-mapping in either direction',
       'the packaged expectation builder ships version 2 only',
       'the composition table accepts both envelope versions and the reply marker parses both gate vocabularies',
-      'the shared contract, the addendum, the README, and CL-D60 record the version 2 identities',
+      'the shared contract, the gate-result helper, the README, and CL-D60 record the version 2 identities',
       'CL-D60 raises the authority ceiling once, with the headroom property asserted at the raise',
     ],
     'CL-D62-shared': [
@@ -321,15 +323,17 @@ const MANIFEST = (() => {
       `Review-only stops at \`WAITING_FOR_OWNER\` on a preliminary \`FIX BEFORE MERGE\` before ${S} runs.`,
       `a result whose only open findings are Minors recorded under CL-D85 advances to ${S} instead of stopping`,
     ],
+    // #249 B4b (CL-D117): the exact-autofix stage and flow are pinned in the driver, gate names derived.
     'CL-D62-autofix': [
-      `The CL-D62 ${C} stage runs once per candidate identity and snapshot fingerprint before each ${S} invocation, is accounted separately as \`${C} <used>/5\` outside the 15 counted gate invocations`,
-      `gate (\`${gate.adversarial}\`, \`${gate.safety}\`, or \`${gate.convergence}\`; \`${v1[0]}\` or \`${v1[1]}\` under schema version 1)`,
-      `a ${C} result that observes an assigned blocker unresolved counts toward that key's history`,
+      "function rounds(s) { return `${s.convergenceDisabled ? '" + gate.convergence + " disabled' : `" + gate.convergence + " ${s.counters.conv}/${CAP.conv}`}, gates ${s.counters.gates}/${CAP.gates}, pushes ${s.counters.pushes}/${CAP.pushes}`; }",
+      "function restartAt(s) { return s.counters.conv < CAP.conv && !s.convergenceDisabled ? '" + gate.convergence + "' : '" + gate.adversarial + "'; }",
+      "entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x; entry.status = 'open';",
     ],
     'CL-D62-autofix-flow': [
-      `${up(C)}: MERGE -> ${up(S)}; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> ${up(C)}; CAP -> ${up(S)} (open findings assigned); DECISION/FAILURE -> STOP`,
-      `FINAL_CHECK: new actionable evidence -> ${up(C)}`,
-      `${cap(C)} runs first, then ${S}, and ${T} starts only after ${S} returns \`MERGE\` for the exact current public head (CL-D62)`,
+      `const GATES = [${quoted(VOCAB.gateOrder.pr)}];`,
+      "if (gate === '" + gate.convergence + "' && s.counters.conv >= CAP.conv) return arm(run, '" + gate.adversarial + "');",
+      "if (!open.length) { const next = GATES[GATES.indexOf(gate) + 1]; if (!next && s.ledger.some((e) => e.status === 'confirmed')) return arm(run, '" + gate.adversarial + "'); return next ? arm(run, next) : finish(run); }",
+      "if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }",
     ],
     'CL-D62-autofix-map': [
       `before each ${prD.join('/')} invocation`,
@@ -342,7 +346,7 @@ const MANIFEST = (() => {
       'owner; the validated envelope is the confirmation authority (gate-contract.md).',
     ],
     'CL-D62-autofix-map-driver': ['if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s)))'],
-    'CL-D62-autofix-map-schema': ['`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots.'],
+    'CL-D62-autofix-map-schema': ['`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots.', `const GATES = { 1: [${quoted(v1)}], 2: [${quoted(VOCAB.gateIdentities)}] };`],
     'CL-D62-readme': [
       `${convergenceRole} (CL-D62) is the non-authoritative preliminary reviewer that runs before the ${gate.adversarial} gate`,
       'the owner kept that default in #274',

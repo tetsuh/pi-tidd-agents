@@ -300,16 +300,17 @@ test('Issue #159 the receiver accepts the cwd the gate launch now carries', { sk
 });
 
 test('Issue #159 the procedure states where each mode runs its gates', () => {
-  // The map gains the input; the addendum's own cwd sentence, true only now, names how a gate child gets there. The
-  // two authority files sit at their ceilings, so the statement is carried where it already belonged.
+  // The map gains the input; the driver names how a gate child gets there.
   // #249 B1 (CL-D112): the map's row is pinned where the rule lives, the packaged CLI's operation table and the code.
   assert.ok(readText('skills/closed-loop-pr/helpers/cli.js').includes("build_gate_launch: { required: ['expectation', 'expectationPath', 'volatile'], optional: ['created'] },"), 'the CLI declares the launch and its inputs');
   assert.ok(readText('skills/closed-loop-pr/helpers/composition.js').includes("build_gate_launch: Object.freeze({ expectation: 'data:build_gate_expectation', created: 'data:workspace_create' }),"), 'expectation and created carry declared shapes');
   const launch = readText('skills/closed-loop-pr/helpers/launch.js');
   assert.ok(launch.includes("fail('invalid_request', 'an autofix gate runs in the run-owned workspace; pass the workspace_create data as created');"), 'created is required in autofix');
   assert.ok(launch.includes("fail('invalid_request', 'a review-only gate reviews the operator checkout; it takes no workspace');"), 'created is refused in review-only');
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.ok(addendum.includes('uses exact workspace cwd/identity, gate children via `created` (CL-D82)'), 'the addendum names how a gate child reaches the workspace');
+  // #249 B4b (CL-D117): the autofix driver gives each gate child the workspace it created, a linked one only.
+  const driver = readText('skills/closed-loop-pr/driver/autofix.js');
+  assert.ok(driver.includes("const built = data(run.op('build_gate_launch', { expectation, expectationPath, volatile, created: s.created }));"), 'the driver passes created to every gate launch');
+  assert.ok(driver.includes('allowCloneFallback: false }, { allowFail: true }); // gates enter only a linked workspace (CL-D82)'), 'and creates only a linked workspace');
   const record = readContract();
   assert.ok(record.includes('## CL-D82 — The gate launch names the workspace its child runs in'), 'CL-D82 must exist');
 });

@@ -136,10 +136,11 @@ test('Issue #169 the cap counts what the builder will emit, not what the input c
 });
 
 test('Issue #169 the retry is stated where the no-retry rule is stated', () => {
-  // #249 B1 (CL-D112): the map's "no retry beyond ... defined above" pointer is retired; the addendum and the record state the rule.
+  // #249 B1 (CL-D112): the map's "no retry beyond ... defined above" pointer is retired; the record states the rule.
   assert.match(sectionOf(readContract(), '## CL-D86 — The post-push revalidation is composed from the run\'s own snapshots'), /A refused post-push revalidation is recomposed once from a freshly taken post-push snapshot and retried; a second refusal stops the run, and neither attempt consumes a gate or push counter\./);
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.match(addendum, /the CL-D39 recovery defined above, the CL-D51 zero-output relaunch, and the CL-D86 recomposition after a push/);
+  // #249 B4b (CL-D117): the driver does not take that retry; CL-D112 and CL-D86 record the gap.
+  assert.match(readText('contract/CL-D112.md'), /The autofix driver does not recompose a refused post-push revalidation \(CL-D86\); that gap is recorded here, not closed\./);
+  assert.match(readText('contract/CL-D86.md'), /The packaged autofix driver does not recompose a refused post-push revalidation: the first refusal, after the push or at the recheck before a later gate or the writer, stops the run `BLOCKED`/);
 });
 
 test('Issue #169 nothing still says the parent supplies the heads', () => {

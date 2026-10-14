@@ -23,9 +23,8 @@ test('Issue #153 rule 1: a Minor that changes no file of the head is recorded, n
   // The sentence itself is pinned by 'rule 1 is bounded to the pull-request root and states both disjuncts'.
   assert.match(classes, /is recorded with its anchoring class and its disposition and does not stop the run, and readiness may be reported with such Minors recorded\./);
   assert.match(classes, /A finding that corrects a false safety claim changes what the contract promises, so it is not wording only and keeps its severity \(CL-D85\)\./);
-  const readiness = sectionOf(readText(ADDENDUM), '### Source-finding replies and final readiness');
-  assert.ok(readiness, 'the readiness section must exist');
-  assert.match(readiness, /every finding has final disposition, a Minor whose correction changes no file of the head counting as dispositioned once recorded \(CL-D85\)/);
+  // #249 B4b (CL-D117): the autofix driver settles such a Minor once recorded.
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, summary });"), 'a recorded Minor settles');
 });
 
 test('Issue #153 rule 2: the chronology leaves the pull-request body', () => {
@@ -41,9 +40,8 @@ test('Issue #153 rule 2: the chronology leaves the pull-request body', () => {
 });
 
 test('Issue #153 rule 3: a repeat of a settled class is recorded as the earlier round\'s miss', () => {
-  const findings = sectionOf(readText(ADDENDUM), '### Findings, no-progress, and deterministic status');
-  assert.ok(findings, 'the findings section must exist');
-  assert.match(findings, /When a gate raises a finding of the same counterexample class as one the settled ledger already carries for an earlier head of this pull request, the run also records it/);
+  // #249 B4b (CL-D117): the rule is CL-D85's sentence; neither driver records the miss, a gap the record states.
+  assert.match(readText('contract/CL-D85.md'), /When a gate raises a finding of the same counterexample class as one the settled ledger already carries for an earlier head of the same pull request, the run also records it/);
   // #249 B2 (CL-D113): the review-only driver records such a Minor and advances.
   assert.match(readText('skills/closed-loop-pr/driver/phases.js'), /CL-D85: a Minor whose correction changes no file of the head is recorded and advances\./);
 });
@@ -63,7 +61,7 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
   assert.match(sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts') || '', /CL-D85/);
   const manifest = readManifest();
   assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D85').map((clause) => clause.id).sort(),
-    ['CL-D85-classes', 'CL-D85-gates', 'CL-D85-misses', 'CL-D85-order', 'CL-D85-order-record', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-routing', 'CL-D85-status', 'CL-D85-status-record', 'CL-D85-status-review', 'CL-D85-tests']);
+    ['CL-D85-classes', 'CL-D85-gates', 'CL-D85-order', 'CL-D85-order-record', 'CL-D85-readiness', 'CL-D85-record', 'CL-D85-status', 'CL-D85-status-record', 'CL-D85-status-review', 'CL-D85-tests']);
   assert.ok(fs.existsSync(repoPath('test/issue-153-wording-only-minors.test.js')));
 });
 
@@ -102,8 +100,10 @@ test('Issue #153 rule 1 is bounded to the pull-request root and states both disj
 });
 
 test('Issue #153 readiness is reachable when the only open findings are recorded Minors', () => {
-  const readiness = sectionOf(readText('skills/closed-loop-pr/references/autofix-addendum.md'), '### Source-finding replies and final readiness');
-  assert.match(readiness, /Sol and Terra both returned `MERGE` for the same exact head, counting a gate result whose only open findings are Minors recorded under CL-D85 as `MERGE` for that conjunct/);
+  // #249 B4b (CL-D117): the autofix driver advances when no finding is open, a recorded Minor being settled.
+  const autofix = readText('skills/closed-loop-pr/driver/autofix.js');
+  assert.ok(autofix.includes("const open = s.ledger.filter((e) => e.status === 'open');"), 'only an open finding holds the run');
+  assert.ok(autofix.includes("if (!open.length) { const next = GATES[GATES.indexOf(gate) + 1];"), 'and with none open the next gate runs');
   // #249 B2 (CL-D113): a recorded Minor is not an open finding, so the gates advance past it; at final readiness the
   // driver reruns the gates on a fresh snapshot and fails on changes requested.
   const review = readText('skills/closed-loop-pr/driver/review.js');
@@ -113,9 +113,8 @@ test('Issue #153 readiness is reachable when the only open findings are recorded
 });
 
 test('Issue #153 rule 3 is stated where the artifact that carries it exists', () => {
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.match(addendum, /the run also records it in its terminal report as a review miss of the gate and invocation that did not raise it \(CL-D85\)\./);
-  assert.equal(addendum.includes('records it in the status block as a review miss'), false, 'exact autofix emits no status block');
+  // #249 B4b (CL-D117): the autofix driver records no miss either, and the record says so.
+  assert.match(readText('contract/CL-D85.md'), /The packaged autofix driver records none either: its terminal report names no review miss and its status block's `review_misses` line is always `none`, recorded and not closed \(#249, CL-D117\)\./);
   // #249 B2 (CL-D113): the review-only driver renders the line but records no miss; the record states the rule and the gap.
   const record = readText('contract/CL-D85.md');
   assert.match(record, /in review-only in the status block's `review_misses`, as a review miss of the gate and invocation that did not raise it/);
@@ -164,9 +163,9 @@ const ADVANCE = "A gate result whose only open findings are Minors recorded unde
 
 test('Issue #153 a qualifying gate result advances at every transition, in both modes', () => {
   // #249 B2 (CL-D113): the review-only carrier is the record; the driver advances whenever no finding is open.
-  for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md', 'contract/CL-D85.md']) {
-    assert.ok(readText(file).includes(ADVANCE), `${file} states the transition rule`);
-  }
+  // #249 B4b (CL-D117): the record states the rule; the autofix driver advances whenever no finding is open.
+  assert.ok(readText('contract/CL-D85.md').includes(ADVANCE), 'CL-D85 states the transition rule');
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("return next ? arm(run, next) : finish(run); }"), 'the autofix driver advances');
   const review = readText('skills/closed-loop-pr/driver/review.js');
   assert.ok(review.includes('const open = findings.filter((x) => !isRecorded(x) && !settled(x));'), 'a recorded Minor is not open');
   assert.match(review, /if \(next\) return launch\(run, next\);/);

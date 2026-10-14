@@ -21,7 +21,6 @@ const { execFileSync, spawnSync } = require('node:child_process');
 const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
 const AUTOFIX = readAutofixProcedure();
-const ADDENDUM = readText('skills/closed-loop-pr/references/autofix-addendum.md');
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
 function cli(operation, data) {
@@ -60,7 +59,7 @@ function guardRepository() {
   return { root, bare, head: git(root, ['rev-parse', 'HEAD']), tree: git(root, ['rev-parse', 'HEAD^{tree}']) };
 }
 
-test('Issue #96 the map offers the guard family and the addendum requires it', () => {
+test('Issue #96 the map offers the guard family and the driver requires it', () => {
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   assert.ok(map, 'the invocation map must exist');
   for (const declaration of [
@@ -72,7 +71,8 @@ test('Issue #96 the map offers the guard family and the addendum requires it', (
   ]) assert.ok(map.includes(declaration), `map must declare ${declaration}`);
   assert.match(map, /authorized paths are a maximum set: the overlay must stay inside them and must not be empty, but no authorized path is required to change/);
   assert.match(map, /compares the index against the immutable staged manifest, never against only the authorized changed files, so an entry the parent commit already carries cannot be misclassified/);
-  assert.match(ADDENDUM, /Luna obtains every guard observation in this batch sequence from the packaged guard operations and never substitutes a local re-derivation for one \(CL-D57\)/);
+  // #249 B4b (CL-D117): every batch guard runs through the driver's one packaged-operation step, never a local re-derivation.
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("const step = (operation, payload) => { const r = run.op(operation, payload, { allowFail: true }); if (!r.ok || r.data?.ok === false) batchFail(run, operation,"), 'the batch takes each guard observation from a packaged operation');
 });
 
 test('Issue #96 the CLI exposes exactly the four guard operations', () => {

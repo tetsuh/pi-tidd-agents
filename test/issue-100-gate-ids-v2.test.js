@@ -160,7 +160,7 @@ test('Issue #100 the composition table accepts both envelope versions and the re
   assert.equal(bad.error.code, 'invalid_reply_binding');
 });
 
-test('Issue #100 the shared contract, the addendum, the README, and CL-D60 record the version 2 identities', () => {
+test('Issue #100 the shared contract, the gate-result helper, the README, and CL-D60 record the version 2 identities', () => {
   const transport = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '### Structured gate result transport (CL-D36)');
   assert.ok(transport);
   assert.match(transport, /Gate identities \(CL-D60\): under envelope schema version 2 the gate is `adversarial` \(the Sol gate on both roots\), `decision-drift` \(the Terra gate on the Issue root\), or `safety` \(the Terra gate on the PR root\)/);
@@ -169,9 +169,8 @@ test('Issue #100 the shared contract, the addendum, the README, and CL-D60 recor
   assert.match(transport, /Version 1 \(`sol`, `terra`, `SOL-`, `TERRA-`\) remains accepted for one release by an explicit version branch with no cross-mapping between versions/);
   assert.match(transport, /the packaged expectation builder ships version 2 only/);
   assert.match(transport, /a publication marker names its gates in the vocabulary of the envelope it was written from, and both vocabularies parse for that release/);
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.match(addendum, /gate \(`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1\)/);
-  assert.doesNotMatch(addendum, /gate \(`sol` or `terra`\)/);
+  // #249 B4b (CL-D117): the identities each schema version accepts are read where the gate-result helper declares them.
+  assert.ok(readText('skills/closed-loop-pr/helpers/gate-result.js').includes("const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety', 'convergence'] };"), 'version 1 and version 2 gate identities');
   const readme = readText('README.md');
   assert.match(readme, /structured envelope \(schema version 2\) are `adversarial`, `decision-drift`, and `safety`/);
   assert.match(readme, /Sol and Terra remain the gate nicknames in prose/);
