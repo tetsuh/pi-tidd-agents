@@ -40,7 +40,8 @@ test('Issue #55 the exact-autofix reference carries a packaged helper invocation
   assert.match(section, /one JSON v1 request on stdin/i);
   assert.match(section, /one JSON v1 envelope on stdout/i);
   assert.match(section, /`ok:false`[^.]*stops the run at that phase with its `code` and `phase`/);
-  assert.match(section, /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/);
+  // #249 C1 (CL-D118): the no-shell instruction retires with the prose path; the parent composes no helper request.
+  assert.match(readText('skills/closed-loop-pr/SKILL.md'), /you read no mode reference, compose no helper request, and judge no finding/);
 });
 
 test('Issue #55 the map and the CLI schema table agree in both directions', () => {

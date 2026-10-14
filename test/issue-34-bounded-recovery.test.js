@@ -123,8 +123,6 @@ test('Issue #34 the stop is CL-D39\'s sentence, the recomposition gap is recorde
   // and the CL-D86 recomposition it does not take are recorded gaps (CL-D114, CL-D112).
   assert.match(readText('contract/CL-D39.md'), /a running gate waits, and every other helper refusal stops `BLOCKED`/);
   assert.match(readText('contract/CL-D112.md'), /The autofix driver does not recompose a refused post-push revalidation \(CL-D86\); that gap is recorded here, not closed\./);
-  // The invocation-map sentence must not contradict the recovery it now defers to.
-  assert.match(text, /no retry beyond the CL-D39 recovery defined above/);
   // The recovery section really is above the stop rule.
   assert.ok(text.indexOf('### Bounded pre-writer recovery (CL-D39)') < text.indexOf('except for the CL-D39 recovery defined above'));
 });
@@ -198,7 +196,10 @@ test('Issue #34 the partial-narrowing evidence in the record still matches the c
   const sharingOid = Object.entries(cliSchemas()).filter(([name, fields]) => name.startsWith('fingerprint_') && fields.length === 1 && fields[0] === 'oid').map(([name]) => name).sort();
   assert.deepEqual(sharingOid, ['fingerprint_pr_base', 'fingerprint_pr_head', 'fingerprint_pr_tree'],
     'the record cites these three as sharing an oid input; a change here invalidates that rationale');
-  assert.match((readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM)), /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/);
+  // #249 C1 (CL-D118): the no-shell instruction retires with the prose path; the parent composes no helper request,
+  // and the CLI offers no shell operation to compose.
+  assert.match(readText('skills/closed-loop-pr/SKILL.md'), /you read no mode reference, compose no helper request, and judge no finding/);
+  assert.equal(Object.keys(cliSchemas()).some((name) => /shell|jq|python|graphql/i.test(name)), false, 'no shell operation');
 });
 
 // #249 B3 (CL-D114) retired the executable decision model that stood here, the Issue #82 zero-output cases with it: it

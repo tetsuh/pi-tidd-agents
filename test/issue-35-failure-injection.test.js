@@ -16,7 +16,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, cliSchemas } = require('./helpers');
+const { readText, cliSchemas } = require('./helpers');
 const protocol = require('../skills/closed-loop-pr/helpers/protocol');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 const fingerprints = require('../skills/closed-loop-pr/helpers/fingerprints');
@@ -28,7 +28,6 @@ const AUTOFIX_DRIVER = 'skills/closed-loop-pr/driver/autofix.js';
 // The packaged autofix driver's relaunch set: the only recovery it takes (CL-D51, CL-D107), and whatever set it names.
 const RELAUNCH = /codes: new Set\(\['designated_output_absent', 'designated_output_empty', 'result_names_no_run'\]\)/;
 const RELAUNCH_SET = /codes: new Set\((\[[^\]]*\])\)/;
-const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const ok = () => ({ ok: true });
 const fail = (phase, invariant, code) => ({ ok: false, phase, invariant, code });
 
@@ -102,15 +101,13 @@ const INCIDENTS = [
   },
   {
     name: '2 malformed generated shell before execution',
-    phase: 'normalize', invariant: 'CL-D30 invocation map: no run-time shell, jq, Python, or GraphQL',
+    phase: 'normalize', invariant: 'CL-D104 dispatch: the parent composes no helper request and the CLI offers no shell',
     // Structurally removed: there is no generated shell to syntax-check. The positive case is
     // that every mapped operation is a packaged CLI operation; the sibling is a row naming an
     // operation the CLI does not expose, which the map regression rejects.
-    positive: () => {
-      const text = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-      return /Do not regenerate this logic as run-time shell, `jq`, Python, or GraphQL/.test(text) ? ok() : fail('normalize', 'CL-D30 invocation map', 'shell_generation_permitted');
-    },
-    sibling: () => Object.hasOwn(cliSchemas(), 'run_shell') ? ok() : fail('normalize', 'CL-D30 invocation map: no run-time shell, jq, Python, or GraphQL', 'no_such_operation'),
+    // #249 C1 (CL-D118): the map's no-shell instruction retires with the prose path; the parent composes no helper request.
+    positive: () => /you read no mode reference, compose no helper request, and judge no finding/.test(readText('skills/closed-loop-pr/SKILL.md')) ? ok() : fail('normalize', 'CL-D104 dispatch', 'shell_generation_permitted'),
+    sibling: () => Object.hasOwn(cliSchemas(), 'run_shell') ? ok() : fail('normalize', 'CL-D104 dispatch: the parent composes no helper request and the CLI offers no shell', 'no_such_operation'),
     siblingCode: 'no_such_operation',
   },
   {
