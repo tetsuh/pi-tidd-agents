@@ -80,19 +80,6 @@
       ]
     },
     {
-      "id": "CL-D107-addendum",
-      "marker": "CL-D107",
-      "title": "The autofix addendum's stop sentences name the added output",
-      "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
-      ],
-      "requires": [
-        "stops as before, save the one CL-D107 names: a designated output whose correlation names no run takes that same relaunch.",
-        "permits that single relaunch first, as does a designated output whose correlation names no run (CL-D107).",
-        "The CL-D51 relaunch also takes a designated output whose correlation names no run (CL-D107)."
-      ]
-    },
-    {
       "id": "CL-D107-forward-d96",
       "marker": "CL-D107",
       "title": "CL-D96 names the added output",

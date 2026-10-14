@@ -35,14 +35,15 @@
       ]
     },
     {
-      "id": "CL-D82-addendum",
+      "id": "CL-D82-driver",
       "marker": "CL-D82",
-      "title": "The addendum names how a gate child reaches the workspace cwd",
+      "title": "The autofix driver gives each gate child the workspace it created",
       "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
+        "skills/closed-loop-pr/driver/autofix.js"
       ],
       "requires": [
-        "uses exact workspace cwd/identity, gate children via `created` (CL-D82)"
+        "allowCloneFallback: false }, { allowFail: true }); // gates enter only a linked workspace (CL-D82)",
+        "const built = data(run.op('build_gate_launch', { expectation, expectationPath, volatile, created: s.created }));"
       ]
     },
     {

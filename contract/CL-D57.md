@@ -1,5 +1,5 @@
 ## CL-D57 — The batch-sequence guards are packaged and the alarm is reset for them
-**Clauses:** CL-D57-map, CL-D57-map-record, CL-D57-addendum, CL-D57-tests
+**Clauses:** CL-D57-map, CL-D57-map-record, CL-D57-driver, CL-D57-tests
 
 *Decision ID:* CL-D57
 *Kind:* contract

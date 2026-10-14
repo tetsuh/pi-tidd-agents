@@ -1,5 +1,5 @@
 ## CL-D45 — Source replies carry deterministic markers and reconcile read-only
-**Clauses:** CL-D45-autofix, CL-D45-map, CL-D45-readme, CL-D45-tests
+**Clauses:** CL-D45-autofix, CL-D45-record, CL-D45-map, CL-D45-readme, CL-D45-tests
 
 *Decision ID:* CL-D45
 *Kind:* fail-closed reply idempotency and reconciliation boundary

@@ -3,23 +3,39 @@
     {
       "id": "CL-D45-autofix",
       "marker": "CL-D45",
-      "title": "Exact autofix binds replies with deterministic markers and reconciles read-only",
+      "title": "The packaged reply helper binds the marker after the digest and classifies refetched evidence four ways",
       "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
+        "skills/closed-loop-pr/helpers/reply.js"
       ],
-      "section": "### Source-reply markers and reconciliation (CL-D45)",
       "requires": [
-        "`pi-tidd-agents:source-reply:v1`",
-        "so no marker field enters its own digest",
-        "LF-normalized, LF-terminated UTF-8 bytes that exclude the marker line",
-        "`reply_confirmed_published`, `reply_confirmed_absent`, `reply_ambiguous`, and `reply_conflict`",
-        "Only an exact one-marker, one-body match on complete evidence from the expected workflow author classifies as published",
-        "incomplete pagination or missing refetched evidence is ambiguous, never absent",
-        "wrong-head, wrong-source, or foreign-author marker",
-        "is terminal for the run: no second POST exists under this decision",
+        "const MARKER_STEM = '<!-- pi-tidd-agents:source-reply:v1';",
+        "const marker = serializeMarker(binding, visibleSha256);",
+        "function canonicalDigestible(body) { const visible = canonicalVisible(body); return visible.endsWith('\\n') ? visible : `${visible}\\n`; }",
+        "function conflict(reason) { return { classification: 'reply_conflict', reason }; }",
+        "function ambiguous(reason) { return { classification: 'reply_ambiguous', reason }; }",
+        "return { classification: 'reply_confirmed_absent', reason: 'no_matching_marker' };",
+        "return { classification: 'reply_confirmed_published', reason: 'exact_match', commentId: String(exact.id) };",
+        "if (exactCount > 1) return conflict('duplicate_markers');",
+        "if (paginationComplete !== true) return ambiguous('pagination_incomplete');",
+        "if (!Array.isArray(comments)) return ambiguous('destination_evidence_missing');",
+        "return conflict('foreign_author_marker');",
+        "return conflict('conflicting_marker_for_source');",
+        "return conflict('wrong_source');",
+        "if (currentHead !== binding.head) return conflict('current_head_moved');"
+      ]
+    },
+    {
+      "id": "CL-D45-record",
+      "marker": "CL-D45",
+      "title": "Every reconciliation outcome is terminal and grants no mutation",
+      "files": [
+        "contract/CL-D45.md"
+      ],
+      "section": "## CL-D45 — Source replies carry deterministic markers and reconcile read-only",
+      "requires": [
+        "Every outcome is terminal for the run; no second POST exists under this decision",
         "a fresh owner-authorized run remains the only continuation",
-        "never resolves threads, approves, requests rereview, invokes bots, edits or deletes comments, or posts an aggregate summary",
-        "Per-source outcomes stay ordered by source identity, and no batch outcome claims whole-PR readiness"
+        "Reconciliation grants no mutation, retry, resume, thread-resolution, approval, or summary authority"
       ]
     },
     {

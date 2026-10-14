@@ -273,7 +273,7 @@ function batchFail(run, step, reason) {
 function batch(opts) {
   const run = openRun(opts), s = run.state, b = s.batch, ws = s.workspace;
   if (s.pending?.kind !== 'writer' || !b || !b.preEdit || b.done || b.failed) die('no writer batch is ready for its guarded chain');
-  const step = (operation, payload) => { const r = run.op(operation, payload, { allowFail: true }); if (!r.ok || r.data?.ok === false) batchFail(run, operation, `${r.error?.code || r.data?.code} ${r.error?.message || ''}`.trim()); return r.data; };
+  const step = (operation, payload) => { const r = run.op(operation, payload, { allowFail: true }); if (!r.ok || r.data?.ok === false) batchFail(run, operation, `${r.error?.code || r.data?.code} ${r.error?.message || ''}`.trim()); return r.data; }; // CL-D57
   // The writer may not change ignored paths; only what validation adds below is adopted (CONV-208-IGNORED-WRITER-DRIFT).
   const drift = ignoredDrift(s.ignoredDelta || [], ws); if (drift) batchFail(run, 'ignored_drift', `the writer changed ignored paths: ${drift}`);
   const overlay = step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths }); // BEFORE_VALIDATION

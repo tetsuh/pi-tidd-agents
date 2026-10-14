@@ -68,27 +68,28 @@
     {
       "id": "CL-D62-autofix",
       "marker": "CL-D62",
-      "title": "Exact autofix runs convergence before each Sol invocation outside the counted budget",
+      "title": "The autofix driver accounts convergence apart from the counted gates and counts its observations",
       "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
+        "skills/closed-loop-pr/driver/autofix.js"
       ],
       "requires": [
-        "The CL-D62 convergence stage runs once per candidate identity and snapshot fingerprint before each Sol invocation, is accounted separately as `convergence <used>/5` outside the 15 counted gate invocations",
-        "gate (`adversarial`, `safety`, or `convergence`; `sol` or `terra` under schema version 1)",
-        "a convergence result that observes an assigned blocker unresolved counts toward that key's history"
+        "function rounds(s) { return `${s.convergenceDisabled ? 'convergence disabled' : `convergence ${s.counters.conv}/${CAP.conv}`}, gates ${s.counters.gates}/${CAP.gates}, pushes ${s.counters.pushes}/${CAP.pushes}`; }",
+        "function restartAt(s) { return s.counters.conv < CAP.conv && !s.convergenceDisabled ? 'convergence' : 'adversarial'; }",
+        "entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x; entry.status = 'open';"
       ]
     },
     {
       "id": "CL-D62-autofix-flow",
       "marker": "CL-D62",
-      "title": "The exact-autofix canonical flow starts at convergence and returns there",
+      "title": "The autofix driver starts at convergence, hands a capped convergence to Sol, and restarts there",
       "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
+        "skills/closed-loop-pr/driver/autofix.js"
       ],
       "requires": [
-        "CONVERGENCE: MERGE -> SOL; FIX -> LUNA_CORRECT_VALIDATE_COMMIT_PUSH -> CONVERGENCE; CAP -> SOL (open findings assigned); DECISION/FAILURE -> STOP",
-        "FINAL_CHECK: new actionable evidence -> CONVERGENCE",
-        "Convergence runs first, then Sol, and Terra starts only after Sol returns `MERGE` for the exact current public head (CL-D62)"
+        "const GATES = ['convergence', 'adversarial', 'safety'];",
+        "if (gate === 'convergence' && s.counters.conv >= CAP.conv) return arm(run, 'adversarial');",
+        "if (!open.length) { const next = GATES[GATES.indexOf(gate) + 1]; if (!next && s.ledger.some((e) => e.status === 'confirmed')) return arm(run, 'adversarial'); return next ? arm(run, next) : finish(run); }",
+        "if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }"
       ]
     },
     {
@@ -134,7 +135,8 @@
         "skills/closed-loop-pr/helpers/gate-result.js"
       ],
       "requires": [
-        "`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots."
+        "`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots.",
+        "const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety', 'convergence'] };"
       ]
     },
     {

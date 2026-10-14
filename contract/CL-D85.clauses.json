@@ -18,26 +18,13 @@
     {
       "id": "CL-D85-readiness",
       "marker": "CL-D85",
-      "title": "Readiness counts a recorded wording-only Minor as dispositioned",
+      "title": "The autofix driver settles a recorded Minor and advances when no finding is open",
       "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
+        "skills/closed-loop-pr/driver/autofix.js"
       ],
-      "section": "### Source-finding replies and final readiness",
       "requires": [
-        "counting a gate result whose only open findings are Minors recorded under CL-D85 as `MERGE` for that conjunct",
-        "every finding has final disposition, a Minor whose correction changes no file of the head counting as dispositioned once recorded (CL-D85)"
-      ]
-    },
-    {
-      "id": "CL-D85-misses",
-      "marker": "CL-D85",
-      "title": "A repeat of a settled class is recorded as the earlier round's review miss",
-      "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
-      ],
-      "section": "### Findings, no-progress, and deterministic status",
-      "requires": [
-        "the run also records it in its terminal report as a review miss of the gate and invocation that did not raise it (CL-D85)"
+        "if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, summary });",
+        "const open = s.ledger.filter((e) => e.status === 'open');"
       ]
     },
     {
@@ -72,7 +59,8 @@
       ],
       "requires": [
         "in review-only in the status block's `review_misses`, as a review miss of the gate and invocation that did not raise it",
-        "The packaged review-only driver does not record a review miss: its `review_misses` line is always `none`"
+        "The packaged review-only driver does not record a review miss: its `review_misses` line is always `none`",
+        "The packaged autofix driver records none either: its terminal report names no review miss and its status block's `review_misses` line is always `none`, recorded and not closed (#249, CL-D117)."
       ],
       "section": "## CL-D85 — Wording-only Minors do not stop a run"
     },
@@ -107,18 +95,6 @@
         "Issue #153 rule 2",
         "Issue #153 rule 3",
         "Issue #153 the reset guard is the one every suite asserts"
-      ]
-    },
-    {
-      "id": "CL-D85-routing",
-      "marker": "CL-D85",
-      "title": "A qualifying gate result advances instead of routing to correction",
-      "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
-      ],
-      "section": "### Public-head loop and evidence",
-      "requires": [
-        "A gate result whose only open findings are Minors recorded under CL-D85 advances as `MERGE` at every transition — convergence to Sol, Sol to Terra, and Terra to the final check — and is not a correction path; those findings stay recorded and dispositioned, and the head does not move for them."
       ]
     },
     {

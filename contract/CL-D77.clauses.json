@@ -1,23 +1,6 @@
 {
   "clauses": [
     {
-      "id": "CL-D77-addendum",
-      "marker": "CL-D77",
-      "title": "Every exact-autofix terminal outcome with a resolved target drafts the CL-D33 owner publication artifacts",
-      "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
-      ],
-      "section": "### Source-finding replies and final readiness",
-      "requires": [
-        "At every exact-autofix terminal outcome, the parent must create and report the proposed aggregate final-summary body/draft",
-        "When the repository, PR, and public head are resolved and unambiguous, that draft is the CL-D33 owner publication artifacts, bound to the current verified public head and stating whether gates reviewed it",
-        "copies sibling `publish-review.sh` byte-for-byte, replaces its six exact ASCII placeholders once, and follows its Generation contract",
-        "`review-comment.md` and `publish-review.sh` in a fresh external `mktemp` directory",
-        "it reports their paths, digest, repository/PR/head, and the exact command `bash \"<path>/publish-review.sh\"`",
-        "and never executes it; otherwise it reports `not_drafted(<reason>)` (CL-D77)"
-      ]
-    },
-    {
       "id": "CL-D77-record",
       "marker": "CL-D77",
       "title": "CL-D77 records that autofix drafts the owner publication artifacts at every terminal outcome",
@@ -39,7 +22,11 @@
         "which the artifacts do not carry",
         "The head the artifacts are bound to, the reviewed head in review-only, is checked through the script's own metadata as before, and carrying the reviewed base or head branch too would need a new owner decision",
         "Duplicate detection keys on the exact generated summary",
-        "Issue #148 joined the identity fields with the unit separator"
+        "Issue #148 joined the identity fields with the unit separator",
+        "Every terminal outcome still ends with the summary draft",
+        "it drafts the artifacts at every stop once its target is bound, bound to the head the run last verified",
+        "and it never reports `not_drafted(<reason>)`, a target it cannot bind leaving no run",
+        "the comment calls that head the reviewed public head whether or not a gate reviewed it"
       ]
     },
     {

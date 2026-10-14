@@ -1,5 +1,5 @@
 ## CL-D82 — The gate launch names the workspace its child runs in
-**Clauses:** CL-D82-map, CL-D82-map-launch, CL-D82-map-composition, CL-D82-addendum, CL-D82-record, CL-D82-tests
+**Clauses:** CL-D82-map, CL-D82-map-launch, CL-D82-map-composition, CL-D82-driver, CL-D82-record, CL-D82-tests
 
 *Decision ID:* CL-D82
 *Kind:* contract

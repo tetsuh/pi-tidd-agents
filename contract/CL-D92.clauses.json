@@ -16,18 +16,6 @@
       ]
     },
     {
-      "id": "CL-D92-prose",
-      "marker": "CL-D92",
-      "title": "The addendum reads the classification",
-      "files": [
-        "skills/closed-loop-pr/references/autofix-addendum.md"
-      ],
-      "requires": [
-        "policies.externalReview",
-        "(CL-D92)"
-      ]
-    },
-    {
       "id": "CL-D92-readiness",
       "marker": "CL-D92",
       "title": "Readiness reads the classification and reports it as observed",
