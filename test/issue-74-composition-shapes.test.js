@@ -126,21 +126,21 @@ function compositionSnapshotTransport(head) {
 }
 
 test('Issue #74 authority declares the shape of every cross-operation field', () => {
-  const section = sectionOf(AUTOFIX, '### Cross-operation input shapes (CL-D44)');
-  assert.ok(section, 'autofix must own a CL-D44 composition section');
-  assert.match(section, /`envelope`, `data`, and `receipt` are distinct input shapes/);
-  assert.match(section, /the map names the shape each field expects, not only the field/);
-  assert.match(section, /a supplied shape that is not the declared one stops with `input_shape_mismatch`/);
-  assert.match(section, /never as a later identity, capture, or evidence failure/);
-  assert.match(section, /no shape is accepted as a tolerant alternative for another/);
+  // #249 C1 (CL-D118): the rules are read in CL-D44's record and in the code that checks the shapes, not in the map
+  // section the deletion takes; the map's "names the shape each field expects" was CL-D112's to retire.
+  const record = readText('contract/CL-D44.md'), composition = readText('skills/closed-loop-pr/helpers/composition.js');
+  assert.match(record, /`envelope`, `data`, and `receipt` remain distinct input shapes/);
+  assert.match(record, /a wrong shape stops with `input_shape_mismatch` before the operation runs/);
+  assert.match(record, /never as a later identity, capture, or evidence failure that points at the target instead of the request/);
+  assert.match(record, /the packaged CLI accepts no tolerant alternative for a declared field/);
   // The separator-not-validator boundary, its depth calibration, its residual, and the freeze
   // are contract text, so retreating from any of them fails here.
-  assert.match(section, /it is not a validator of producer output/);
-  assert.match(section, /rejected because it fails that one predicate, never because of what it was recognized to be/);
-  assert.match(section, /calibrated to what fails downstream/);
-  assert.match(section, /the closed CL-D36 schema remains the sole validator of gate results/);
-  assert.match(section, /constructed by hand to satisfy a declared predicate passes/);
-  assert.match(section, /The five declared fields are the complete CL-D44 set/);
+  assert.match(record, /it is not a validator of producer output/);
+  assert.match(record, /never because of what it was recognized to be/);
+  assert.match(composition, /Predicate depth is calibrated to what fails downstream/);
+  assert.match(composition, /remains the sole validator of gate results/);
+  assert.match(record, /constructed by hand to satisfy a declared predicate passes/);
+  assert.match(record, /the five declared fields — `operator_revalidate\.[\s\S]*are the complete CL-D44 set/);
 
   const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
   for (const declaration of [

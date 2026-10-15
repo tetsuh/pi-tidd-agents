@@ -14,7 +14,8 @@ const { repoPath, readText, readContract, manifestSources, sectionOf } = require
 
 const FILE = 'skills/closed-loop-pr/references/autofix.md';
 // The rule-stating reads (AC2) leave the file entirely, directly and through readAutofixProcedure.
-const RULE_TESTS = ['issue-100-tidd-roles', 'issue-114-message-verify', 'issue-115-writer-pre-guard', 'issue-119-exactness-class', 'issue-169-post-push-revalidation', 'issue-38-recovery-transition', 'issue-69-worktree-recovery', 'issue-80-cleanup-terminal', 'issue-82-zero-output-relaunch', 'issue-93-review-only-runtime-roots'];
+// #249 C1 (CL-D118) retired issue-35's last read, the map's no-shell instruction.
+const RULE_TESTS = ['issue-100-tidd-roles', 'issue-114-message-verify', 'issue-115-writer-pre-guard', 'issue-119-exactness-class', 'issue-169-post-push-revalidation', 'issue-38-recovery-transition', 'issue-69-worktree-recovery', 'issue-80-cleanup-terminal', 'issue-82-zero-output-relaunch', 'issue-93-review-only-runtime-roots', 'issue-35-failure-injection'];
 // A file holding both kinds keeps only its structural reads: each named here, beside the rule-stating read it lost.
 const MIXED_TESTS = {
   'closed-loop-regressions': {
@@ -33,12 +34,8 @@ const MIXED_TESTS = {
     keep: ["assert.ok(text.indexOf('### Bounded pre-writer recovery (CL-D39)') < text.indexOf('except for the CL-D39 recovery defined above'));"],
     gone: ['function mappingOutcomes() {', "assert.match(section, /One recovery is permitted for either a deterministic local tooling failure"],
   },
-  // These three keep a read through readAutofixProcedure for the helper map's text it joins (B1, CL-D112, left the map's
+  // These two keep a read through readAutofixProcedure for the helper map's text it joins (B1, CL-D112, left the map's
   // structural reads to the deletion), and issue-64 also for a negative scan; each keep line names a helper-map read.
-  'issue-35-failure-injection': {
-    keep: ["const text = (readAutofixProcedure() + '\\n' + readText(PR_AUTOFIX_ADDENDUM));"],
-    gone: ['function mappedOutcome(key) {', 'a CL-D39 row that disappears'],
-  },
   'issue-36-evidence-envelope': {
     keep: ["const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');"],
     gone: ["sectionOf(AUTOFIX, '### Versioned evidence envelope (CL-D42)')"],

@@ -1,0 +1,31 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D118-record",
+      "marker": "CL-D118",
+      "title": "CL-D118 records where the rules only the mode references stated went",
+      "files": [
+        "contract/CL-D118.md"
+      ],
+      "section": "## CL-D118 — The rules only the mode references stated get a home or retire before their deletion",
+      "requires": [
+        "issues/249#issuecomment-6179573061",
+        "it retires with that path: the kept dispatch section says the parent composes no helper request",
+        "CL-D112 notes all three",
+        "No code changes, and the four mode references and both `CONTRACT_INPUT_FILES` are unchanged."
+      ]
+    },
+    {
+      "id": "CL-D118-tests",
+      "marker": "CL-D118",
+      "title": "The #293 tests pin the moves",
+      "files": [
+        "test/issue-293-stranded-rules.test.js"
+      ],
+      "requires": [
+        "Issue #293 the stranded rules have a home in the records or the code, and their tests read it there",
+        "Issue #293 the mode references are byte-identical and no code changed"
+      ]
+    }
+  ]
+}
