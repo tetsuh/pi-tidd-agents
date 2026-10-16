@@ -1,6 +1,6 @@
 'use strict';
 
-// CL-D96 (#196): the writer's batch — its task and commit message, and whether the runner records it finished — split
+// CL-D96 (#196): the writer's batch — its task and commit message, the reason a refused step stops it (#290), and whether the runner records it finished — split
 // from autofix.js under the per-file alarm. The writer is async, so its batch is judged only on the runner's own record of the autofix worker's run: the
 // run id given (a UUID), not an earlier batch's, run in this workspace and started after this launch, in a terminal
 // state (CONV-208-WRITER-RUN-STATUS-FAIL-CLOSED, ADV-208-WRITER-BATCH-RUN-BINDING). Anything else is not finished.
@@ -53,4 +53,17 @@ function retain(s, root) {
   s.operatorActions = `${prior ? `${prior}; ` : ''}inspect, then remove this run's retained workspace roots (${s.retained.length}): ${s.retained.join(', ')}`;
 }
 
-module.exports = { writerFinished, writerMessage, writerTask, retain, bullets };
+// The stop reason of a refused batch operation (#290). A refusal that names its subcheck states it and the observed
+// value (CL-D55), and the message, less a leading subcheck prefix, when it adds to them; a guard refusal that names none is
+// a guard-implementation defect, and the reason says so. Anything else keeps its code and message. Nothing is cut, so the
+// publication's local-path net sees every root whole.
+const GUARDS = new Set(['guard_before_edit', 'overlay_freeze', 'overlay_compare', 'manifest_compare']);
+function refusalReason(operation, result) {
+  const e = result.error || result.data || {}, d = e.details || {}, plain = `${e.code} ${e.message || ''}`.trim();
+  if (typeof d.subcheck !== 'string' || !d.subcheck) return GUARDS.has(operation) ? `guard_implementation_defect: ${operation} named no subcheck (${plain})` : plain;
+  const shown = typeof d.observed === 'string' ? d.observed || '(empty)' : JSON.stringify(d.observed) ?? 'nothing';
+  const prefix = `${d.subcheck}: `, raw = String(e.message || ''), message = raw.startsWith(prefix) ? raw.slice(prefix.length) : raw;
+  return `${e.code} subcheck ${d.subcheck}, observed ${shown}${message && message !== shown ? `: ${message}` : ''}`;
+}
+
+module.exports = { refusalReason, writerFinished, writerMessage, writerTask, retain, bullets };

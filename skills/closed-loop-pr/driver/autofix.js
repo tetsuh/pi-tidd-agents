@@ -23,7 +23,7 @@ const { gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trust
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
 const { authorizedPaths } = require('./paths');
-const { writerFinished, writerMessage, writerTask, retain } = require('./writer');
+const { writerFinished, writerMessage, writerTask, retain, refusalReason } = require('./writer');
 const { readConvention, askSubject, takeSubject } = require('./message');
 
 const GATES = ['convergence', 'adversarial', 'safety'];
@@ -261,7 +261,7 @@ function preEdit(opts) {
   if (s.pending?.kind !== 'writer' || !s.batch || s.batch.preEdit) die('no writer batch is waiting for its pre-edit guard');
   const t = transition(s);
   const r = run.op('guard_before_edit', { cwd: s.workspace, expected: s.created, authorizedPaths: s.batch.authorizedPaths, ...(t ? { transition: t } : {}) }, { allowFail: true });
-  if (!r.ok) batchFail(run, 'guard_before_edit', r.error?.code);
+  if (!r.ok) batchFail(run, 'guard_before_edit', refusalReason('guard_before_edit', r));
   s.batch.preEdit = true; run.save();
   process.stdout.write('PRE_EDIT_OK\n');
 }
@@ -273,7 +273,7 @@ function batchFail(run, step, reason) {
 function batch(opts) {
   const run = openRun(opts), s = run.state, b = s.batch, ws = s.workspace;
   if (s.pending?.kind !== 'writer' || !b || !b.preEdit || b.done || b.failed) die('no writer batch is ready for its guarded chain');
-  const step = (operation, payload) => { const r = run.op(operation, payload, { allowFail: true }); if (!r.ok || r.data?.ok === false) batchFail(run, operation, `${r.error?.code || r.data?.code} ${r.error?.message || ''}`.trim()); return r.data; }; // CL-D57
+  const step = (operation, payload) => { const r = run.op(operation, payload, { allowFail: true }); if (!r.ok || r.data?.ok === false) batchFail(run, operation, refusalReason(operation, r)); return r.data; }; // CL-D57
   // The writer may not change ignored paths; only what validation adds below is adopted (CONV-208-IGNORED-WRITER-DRIFT).
   const drift = ignoredDrift(s.ignoredDelta || [], ws); if (drift) batchFail(run, 'ignored_drift', `the writer changed ignored paths: ${drift}`);
   const overlay = step('overlay_freeze', { cwd: ws, authorizedPaths: b.authorizedPaths }); // BEFORE_VALIDATION
