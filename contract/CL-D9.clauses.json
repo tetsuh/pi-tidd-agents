@@ -21,8 +21,7 @@
       "marker": "CL-D9",
       "title": "Each root owns its fingerprint list and serialization",
       "files": [
-        "skills/closed-loop-issue/SKILL.md",
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
         "sha256",
@@ -48,28 +47,46 @@
       "marker": "CL-D9",
       "title": "Pull-request fingerprints are evidence specific",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/driver/run.js"
       ],
       "requires": [
-        "pr_base",
-        "pr_tree",
-        "pr_diff",
-        "pr_commits",
-        "pr_head",
-        "metadata-only rewrite",
-        "omit a trailing separator",
-        "same raw effective diff bytes",
-        "no checkout",
-        "gh api repos/<owner>/<repo>/pulls/<n>",
-        "gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>",
-        "gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits",
-        "gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha",
-        "same-repository review-only target",
-        "local Git objects are absent",
-        "without fetch, checkout, or git-state mutation",
-        "Autofix still requires local objects",
-        "Bracket API evidence collection",
-        "discard the evidence and retry"
+        "// The six head fingerprints (CL-D9), each through its packaged operation, so a value and its record are the helper's",
+        "const diff = git(cwd, ['diff', '--binary', '--no-ext-diff', '--no-textconv', `${baseOid}...${headOid}`], 'buffer');",
+        "pr_base: ['fingerprint_pr_base', { oid: baseOid }],",
+        "pr_tree: ['fingerprint_pr_tree', { oid: git(cwd, ['rev-parse', `${headOid}^{tree}`]).trim() }],",
+        "pr_diff: ['fingerprint_pr_diff', { base64: diff.toString('base64') }],",
+        "pr_commits: ['fingerprint_pr_commits', { commits }],",
+        "pr_head: ['fingerprint_pr_head', { oid: headOid }],",
+        "env: sanitizedEnv({ LC_ALL: 'C' }, 'git')",
+        "issue_spec: ['fingerprint_issue_spec', { body: issue.body || '', comments }],"
+      ]
+    },
+    {
+      "id": "CL-D9-serialization",
+      "marker": "CL-D9",
+      "title": "The PR fingerprint serialization is the packaged helper",
+      "files": [
+        "skills/closed-loop-pr/helpers/fingerprints.js"
+      ],
+      "requires": [
+        "// CL-D9: a text record is UTF-8 with CRLF and CR normalized to LF, records join with one LF and no trailing separator, and patch bytes are hashed raw.",
+        "return value.replace(/\\r\\n?/g, '\\n');",
+        "return records.map(normalizeText).join('\\n');",
+        "function digest(value) { return crypto.createHash('sha256').update(value).digest('hex'); }",
+        "function prDiffFingerprint(diff) { return fingerprintBinary(diff); }",
+        "return comments.filter(authoritative).slice().sort((a, b) => decimalCompare(a.id, b.id))",
+        "  .map((comment) => `${comment.id}:${normalizeText(String(comment.updated_at || comment.updatedAt || ''))}:${normalizeText(String(comment.body || ''))}`);"
+      ]
+    },
+    {
+      "id": "CL-D9-brackets",
+      "marker": "CL-D9",
+      "title": "A capture whose before and after brackets differ is refused",
+      "files": [
+        "skills/closed-loop-pr/helpers/evidence.js"
+      ],
+      "requires": [
+        "if (brackets.before[field] !== brackets.after[field]) fail('bracket_identity_moved', `the target moved during capture: ${field}`);"
       ]
     }
   ]

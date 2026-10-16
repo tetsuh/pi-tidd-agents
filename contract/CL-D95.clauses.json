@@ -3,13 +3,13 @@
     {
       "id": "CL-D95-template",
       "marker": "CL-D95",
-      "title": "The PR Skill lets a repository's own template govern the body's sections",
+      "title": "CL-D95 lets a repository's own template govern the body's sections",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "contract/CL-D95.md"
       ],
-      "section": "### PR body template (CL-D67)",
+      "section": "## CL-D95 — A repository's own pull-request template governs the body's sections",
       "requires": [
-        "Where the target repository has a pull-request template of its own — a template file GitHub applies, such as `.github/pull_request_template.md`, or a template its `CONTRIBUTING.md` or `AGENTS.md` requires — that template governs the body's sections instead of the three parts above; the rules below still apply wherever the template leaves the wording to the author, and a body's section layout alone is never a finding (CL-D95)."
+        "that template governs the body's sections instead of CL-D67's three parts, and CL-D67's rules on per-head facts and chronology still apply wherever the template leaves the wording to the author."
       ]
     },
     {

@@ -1,0 +1,77 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D119-record",
+      "marker": "CL-D119",
+      "title": "CL-D119 records the trim, the deletion, the measured total and the lowered ceiling",
+      "files": [
+        "contract/CL-D119.md"
+      ],
+      "section": "## CL-D119 — The PR Skill is trimmed to its dispatch and the four mode references are deleted",
+      "requires": [
+        "issues/249#issuecomment-6179573061",
+        "issues/249#issuecomment-6208636108",
+        "The role block's heading and its two role lines are byte-identical, because `helpers/launch.js` reads them on every gate launch",
+        "Both drivers' `CONTRACT_INPUT_FILES` name the PR Skill and the two shared references alone",
+        "The four authority files measured 74,363 bytes on this change, so the ceiling falls to 81,000 bytes on the CL-D43 terms, leaving 6,637 bytes.",
+        "recorded and not closed (#249, CL-D119)"
+      ]
+    },
+    {
+      "id": "CL-D119-notes",
+      "marker": "CL-D119",
+      "title": "Each record a deleted file, a removed rule or a retired guard touched carries the forward note",
+      "files": [
+        "contract/CL-D9.md",
+        "contract/CL-D19.md",
+        "contract/CL-D30.md",
+        "contract/CL-D38.md",
+        "contract/CL-D39.md",
+        "contract/CL-D43.md",
+        "contract/CL-D44.md",
+        "contract/CL-D48.md",
+        "contract/CL-D49.md",
+        "contract/CL-D50.md",
+        "contract/CL-D54.md",
+        "contract/CL-D64.md",
+        "contract/CL-D67.md",
+        "contract/CL-D77.md",
+        "contract/CL-D80.md",
+        "contract/CL-D83.md",
+        "contract/CL-D85.md",
+        "contract/CL-D93.md",
+        "contract/CL-D95.md",
+        "contract/CL-D99.md",
+        "contract/CL-D104.md",
+        "contract/CL-D111.md",
+        "contract/CL-D112.md",
+        "contract/CL-D113.md",
+        "contract/CL-D114.md",
+        "contract/CL-D115.md",
+        "contract/CL-D117.md",
+        "contract/CL-D118.md",
+        "contract/AC-DECISION.md",
+        "contract/AC-DISPOSITION.md",
+        "contract/CL-D68.md",
+        "contract/CL-D74.md"
+      ],
+      "requires": [
+        "(CL-D119)"
+      ]
+    },
+    {
+      "id": "CL-D119-tests",
+      "marker": "CL-D119",
+      "title": "The #295 tests pin the deletion, the trim and the ceiling",
+      "files": [
+        "test/issue-295-mode-references-deleted.test.js"
+      ],
+      "requires": [
+        "Issue #295 the PR Skill keeps only its dispatch sections, and the gate launch still reads its role block",
+        "Issue #295 the four mode references are deleted, unhashed, unmeasured and unpacked, and every test that names one is listed",
+        "Issue #295 the guards retire with their files and the ceiling falls on this change's measurement",
+        "Issue #295 CL-D119 records the change and every touched record carries its note"
+      ]
+    }
+  ]
+}

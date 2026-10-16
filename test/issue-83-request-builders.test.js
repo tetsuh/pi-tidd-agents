@@ -18,9 +18,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
+const { readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
-const AUTOFIX = readAutofixProcedure();
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const BUILDERS = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'builders.js');
 
@@ -89,22 +88,15 @@ function builderRepository() {
   return { root, bare, head: git(root, ['rev-parse', 'HEAD']), tree: git(root, ['rev-parse', 'HEAD^{tree}']) };
 }
 
-test('Issue #83 the invocation map offers every builder and the builder paragraph', () => {
-  const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
-  assert.ok(map, 'the invocation map must exist');
-  for (const declaration of [
-    '| `build_operator_revalidate` | `captured` (envelope of `operator_capture`, or its complete payload, CL-D70), `cwd`, and after a push `pushes`, this run\'s snapshots oldest first (CL-D86) |',
-    '| `build_workspace_verify` | `created` (data of `workspace_create`) and optionally `transition`; the request runs in `created.path`, and a `cwd` beside it is refused (CL-D88) |',
-    '| `build_workspace_cleanup` | `created` (data of `workspace_create`); no `cwd`: the request runs from the repository the receipt states |',
-    '| `build_fingerprint_snapshot` | `snapshot` (data of `snapshot`) |',
-    '| `build_gate_expectation` | `workflow`, `correlation`, `assignedFindings`, `requiredEvidence` |',
-  ]) assert.ok(map.includes(declaration), `map must declare ${declaration}`);
-  assert.match(map, /validates the construction with the boundary's own predicates before returning it, so a builder output the boundary would reject is unrepresentable/);
-  // ADV-123-CLD68-IO-CONTRADICTION: the paragraph names the one exception the CL-D68 record grants.
-  assert.match(map, /Builders are read-only, reach no network or Git, and grant no authority; none reaches the filesystem except `build_gate_launch`, whose only reads are the installed package's own authority files and the supplied expectation file \(CL-D68\)/);
-  assert.match(map, /rejects invalid inputs with the boundary's vocabulary at phase `build`/);
-  assert.match(map, /`build_gate_expectation` returns only `expected`; the gate roles' agent definitions supply the CL-D36 `outputSchema`/, 'CL-D90: the schema is no longer in the expectation');
-  assert.match(map, /Prefer a builder over hand-assembly wherever one exists/);
+test("Issue #83 the builders' code and CL-D56 state the builder paragraph", () => {
+  // #249 C2 (CL-D119): the map went; the builders' own header, the launch builder and the records state the paragraph,
+  // and the next test reads every builder's inputs from the CLI table.
+  const builders = readText('skills/closed-loop-pr/helpers/builders.js');
+  assert.ok(builders.includes("boundary's own predicates before returning it, so a builder output the boundary would\n// reject is unrepresentable."));
+  assert.ok(builders.includes('Builders are pure and read-only: no filesystem, process,\n// network, or Git reach'));
+  assert.match(readText('contract/CL-D68.md'), /builders reach no filesystem except `build_gate_launch`, whose only reads are the installed package's own authority files and the supplied expectation file\./);
+  assert.match(readText('contract/CL-D56.md'), /Prefer a builder over hand-assembly wherever one exists/);
+  assert.match(readText('contract/CL-D90.md'), /`build_gate_expectation` returns only `expected` and `build_gate_launch` puts no `outputSchema` in the request/);
 });
 
 test('Issue #83 the CLI exposes exactly the ten builder operations with frozen inputs', () => {

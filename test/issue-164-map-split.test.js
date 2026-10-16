@@ -8,61 +8,12 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const crypto = require('node:crypto');
-const fs = require('node:fs');
-
-const os = require('node:os');
-const path = require('node:path');
-const { spawnSync } = require('node:child_process');
-
-const { readText, readContract, repoPath, AUTHORITY_FILES, copyTrackedCheckout, readManifest } = require('./helpers');
+const { readContract, readManifest } = require('./helpers');
 
 const MAP = 'skills/closed-loop-pr/references/helper-map.md';
 const AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
 
-test('Issue #164 the map and the declared shapes live in one file of their own', () => {
-  const map = readText(MAP);
-  assert.match(map, /^# Packaged helper invocation map/m);
-  assert.ok(map.includes('### Packaged helper invocation map (CL-D30, Issue #47)'), 'the map section moved');
-  assert.ok(map.includes('### Cross-operation input shapes (CL-D44)'), 'the declared shapes moved with it');
-  assert.ok(map.includes('| Phase | Operation | Required data |'), 'the table itself is here');
-  // The move is byte-preserving, so a sentence that reads as a location — the one the composed reading places after
-  // `autofix.md`, where CL-D39 is defined — keeps its own words (ADV-165-UNCHANGED-001).
-  assert.ok(map.includes('no retry beyond the CL-D39 recovery defined above'), 'the migrated sentence is unchanged');
-});
-
-// The whole map, not a sentence of it. At the split (CL-D83) this digest was the moved rule text byte for byte,
-// 12,813 bytes of lines 28-84 of `references/autofix.md` without the blank line that separated the next section
-// there, because a file may not end in one and `git diff --check` refuses a new blank line at EOF. The map grows by
-// design, so a commit that adds a row updates this digest in the same commit and says which row it added; the point
-// is that no edit to this text can pass unnoticed. Last updated by CL-D101's verification request on the launch builder's sentence and the gate_payload_verify row (#225).
-const MOVED_RULE_TEXT_SHA256 = '15cf91324630c92b8edc6f508cec3a420ae4bcbae0293449e8a362e21676c22b'; // CL-D101 (Issue #225) named the verification request: the builder's second write, and the child's first step
-
-test('Issue #164 the moved rule text is the moved rule text, byte for byte', () => {
-  const map = readText(MAP);
-  const start = map.indexOf('### Packaged helper invocation map (CL-D30, Issue #47)');
-  assert.notEqual(start, -1, 'the map section must be there');
-  const moved = map.slice(start);
-  assert.equal(moved.endsWith(String.fromCharCode(10)), true, 'the file ends with one newline');
-  assert.equal(moved.endsWith(String.fromCharCode(10, 10)), false, 'and not with a blank line, which validation refuses');
-  assert.equal(Buffer.byteLength(moved), 14961, 'the map is the size this commit left it');
-  assert.equal(crypto.createHash('sha256').update(moved).digest('hex'), MOVED_RULE_TEXT_SHA256, 'and byte for byte the same');
-});
-
-test('Issue #164 the autofix reference carries the table no longer', () => {
-  // #249 B3 (CL-D114) retired the pointer sentence's pin with CL-D83-autofix: it pointed from one prose file to another.
-  const autofix = readText(AUTOFIX);
-  assert.equal(autofix.includes('| Phase | Operation | Required data |'), false, 'the table is not in two places');
-  assert.equal(autofix.includes('### Cross-operation input shapes (CL-D44)'), false, 'nor is the shapes section');
-});
-
-test('Issue #164 the move frees the budget it was taken for', () => {
-  const size = (file) => fs.statSync(repoPath(file)).size;
-  const addendum = size('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.ok(size(AUTOFIX) < addendum - 5000, `autofix.md ${size(AUTOFIX)} must sit well under the addendum ${addendum} again`);
-  // What the new file may grow to is a budget rule, and the budget rules are stated together in
-  // test/issue-73-authority-budget.test.js (ADV-165-CEILING-002).
-});
+// #249 C2 (CL-D119) deleted both files; what remains is that no clause pins them.
 
 test('Issue #164 no clause pins a moved sentence to either file any more', () => {
   // #249 B1 and B3 (CL-D112, CL-D114) moved every pin off both files, so the per-clause search this test ran would pass
@@ -70,31 +21,6 @@ test('Issue #164 no clause pins a moved sentence to either file any more', () =>
   for (const clause of readManifest().clauses) {
     for (const file of [AUTOFIX, MAP]) assert.equal(clause.files.includes(file), false, `${clause.id} pins ${file}`);
   }
-});
-
-test('Issue #164 the moved file is measured where the moved bytes were measured', () => {
-  // The bytes did not leave the procedure, so they must not leave the measurements: the aggregate ceiling and the
-  // Issue #58 duplication scan read `AUTHORITY_FILES`, and the packed-authority guard reads
-  // `FALSIFICATION_ARTIFACTS` (ADV164-REGISTRIES-MISSING-THE-NEW-FILE, CONV-165-REG-002).
-  assert.ok(AUTHORITY_FILES.includes(MAP), 'the new reference is inside the measured authority set');
-  assert.equal(AUTHORITY_FILES.length, 8, 'and the set is exactly the eight shipped authority files');
-  const packageTest = readText('test/package.test.js');
-  assert.match(packageTest, /const PR_HELPER_MAP = 'skills\/closed-loop-pr\/references\/helper-map\.md';/);
-  assert.match(packageTest, /const FALSIFICATION_ARTIFACTS = \[[^\]]*PR_HELPER_MAP/, 'the packed-authority guard covers it');
-  // Both guards bite on it, measured rather than asserted: a duplicated authority sentence, and a reference to the
-  // unpackaged record as falsification evidence.
-  const duplicated = [...readText('skills/closed-loop-shared/references/gate-contract.md').split(String.fromCharCode(10))].find((line) => line.length > 140);
-  assert.ok(duplicated, 'the fixture sentence must exist');
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'issue-164-registries-'));
-  try {
-    for (const [label, addition, file] of [['a duplicated authority sentence', duplicated, 'test/issue-58-authority-duplication.test.js'], ['an unpackaged record as evidence', 'Falsify this against CONTRACT.md.', 'test/package.test.js']]) {
-      const copy = path.join(scratch, label.replace(/ /g, '-'));
-      copyTrackedCheckout(repoPath('.'), copy); // tracked content only: never the runtime roots (Issue #175)
-      fs.appendFileSync(path.join(copy, MAP), `${String.fromCharCode(10)}${addition}${String.fromCharCode(10)}`);
-      const run = spawnSync(process.execPath, ['--test', file], { cwd: copy, encoding: 'utf8', timeout: 300000, env: { ...process.env, NODE_TEST_CONTEXT: undefined } });
-      assert.notEqual(run.status, 0, `${label} must fail ${file}: ${run.stdout.slice(-300)}`);
-    }
-  } finally { fs.rmSync(scratch, { recursive: true, force: true }); }
 });
 
 test('Issue #164 CL-D83 records the split and what it did not change', () => {

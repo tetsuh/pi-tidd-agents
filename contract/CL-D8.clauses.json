@@ -20,7 +20,8 @@
       ],
       "requires": [
         "is refused by the driver before any run",
-        "Autofix and every publication action refuse such a target"
+        "Autofix and every publication action refuse such a target",
+        "Autofix still requires local objects"
       ]
     }
   ]

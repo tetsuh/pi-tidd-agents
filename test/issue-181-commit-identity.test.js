@@ -447,8 +447,6 @@ test('Issue #181 the CLI table, the declared shapes, the autofix driver, and CL-
   const driver = readText('skills/closed-loop-pr/driver/autofix.js');
   assert.ok(driver.includes("const commit = step('commit_create', { created: s.created, captured: s.captured, message: b.message }).commit;"), 'the batch commits through packaged commit_create');
   assert.ok(driver.includes("const pushed = run.op('push_publish', { created: s.created, captured: s.captured, parent: b.parentHead }, { allowFail: true });"), 'the batch pushes through packaged push_publish');
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.doesNotMatch(addendum, /Push exactly once with `git -C <AUTOFIX_WORKSPACE> push/, 'the push is no longer a composed command');
   const cliText = readText('skills/closed-loop-pr/helpers/cli.js');
   assert.match(cliText, /commit_create: \{ required: \['created', 'captured', 'message'\], optional: \[\] \}/);
   assert.match(cliText, /push_publish: \{ required: \['created', 'captured', 'parent'\], optional: \[\] \}/);

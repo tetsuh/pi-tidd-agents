@@ -20,9 +20,8 @@ const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas, readManifest } = require('./helpers');
+const { readText, readContract, sectionOf, cliSchemas, readManifest } = require('./helpers');
 
-const AUTOFIX = (readAutofixProcedure() + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
 const CONTRACT = readContract();
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
@@ -142,15 +141,8 @@ test('Issue #74 authority declares the shape of every cross-operation field', ()
   assert.match(record, /constructed by hand to satisfy a declared predicate passes/);
   assert.match(record, /the five declared fields — `operator_revalidate\.[\s\S]*are the complete CL-D44 set/);
 
-  const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
-  for (const declaration of [
-    // CL-D70 widened this declaration; the row still names the envelope first.
-    '`captured` \\(envelope of `operator_capture`, or its complete payload, CL-D70\\)',
-    '`expected` \\(data of `workspace_create`\\)',
-    '`receipt` \\(receipt inside `workspace_create` data\\)',
-    '`snapshot` \\(data of `snapshot`\\)',
-    '`result` \\(structured gate output\\)',
-  ]) assert.match(map, new RegExp(declaration), `the map must declare ${declaration}`);
+  // #249 C2 (CL-D119): the map went; the composition table declares each field's shape.
+  for (const declaration of ["operator_revalidate: Object.freeze({ captured: 'envelope:operator_capture' }),", "workspace_verify: Object.freeze({ expected: 'data:workspace_create' }),", "workspace_cleanup: Object.freeze({ receipt: 'receipt:workspace_create' }),", "fingerprint_snapshot: Object.freeze({ snapshot: 'data:snapshot' }),", "gate_result_validate: Object.freeze({ result: 'structured:gate_result' }),"]) assert.ok(composition.includes(declaration), `composition.js declares ${declaration}`);
 
   const decision = sectionOf(CONTRACT, '## CL-D44 — Cross-operation input shapes are declared and checked');
   assert.ok(decision, 'CONTRACT.md must record CL-D44');
@@ -454,12 +446,10 @@ test('Issue #111 the captured field accepts the operator_capture envelope or its
   } finally { removeCompositionRepository(repository); }
 });
 
-test('Issue #111 the map and the record state what the captured field accepts (CL-D70)', () => {
-  const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
-  for (const row of ['`captured` (envelope of `operator_capture`, or its complete payload, CL-D70)']) {
-    assert.ok(map.includes(row), `the map must declare ${row}`);
-  }
-  assert.equal(map.split('or its complete payload, CL-D70').length - 1, 2, 'both rows taking the capture say so');
+test('Issue #111 the CLI and the record state what the captured field accepts (CL-D70)', () => {
+  // #249 C2 (CL-D119): the map went; the CLI and the composition code state it.
+  assert.ok(readText('skills/closed-loop-pr/helpers/cli.js').includes("A declared envelope field also accepts the producer's complete payload, normalized here (CL-D70)."));
+  assert.ok(readText('skills/closed-loop-pr/helpers/composition.js').includes('CL-D70: a producer payload is wrapped as its envelope before any check, so one form crosses.'));
   const record = sectionOf(CONTRACT, '## CL-D70 — The declared envelope field accepts the producer payload');
   for (const phrase of [
     'https://github.com/tetsuh/pi-tidd-agents/issues/111#issuecomment-5642144463',

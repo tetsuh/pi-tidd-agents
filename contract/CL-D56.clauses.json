@@ -45,7 +45,7 @@
         "test/issue-83-request-builders.test.js"
       ],
       "requires": [
-        "the invocation map offers every builder and the builder paragraph",
+        "the builders' code and CL-D56 state the builder paragraph",
         "the CLI exposes exactly the ten builder operations with frozen inputs",
         "builders are pure: no filesystem, process, network, or Git reach",
         "the workspace chain round-trips: create, built verify, built cleanup",

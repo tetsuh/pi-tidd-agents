@@ -17,16 +17,15 @@ const fs = require('node:fs');
 
 const { readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 
-test('Issue #120 the PR Skill states the body template and keeps per-head facts out of the body', () => {
-  const template = sectionOf(readText('skills/closed-loop-pr/SKILL.md'), '### PR body template (CL-D67)');
-  assert.ok(template, 'the PR body template subsection must exist');
+test('Issue #120 CL-D67 states the body template and keeps per-head facts out of the body', () => {
+  // #249 C2 (CL-D119) trimmed the PR Skill to its dispatch; the template lives in the record (owner decision 2 on #249).
+  const template = sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts');
+  assert.ok(template, 'CL-D67 must state the template');
+  assert.equal(readText('skills/closed-loop-pr/SKILL.md').includes('### PR body template (CL-D67)'), false, 'the PR Skill no longer carries it');
   // CL-D85 removed the fourth part; the chronology now lives on the target's timeline (Issue #153).
   assert.match(template, /A pull-request body under this workflow carries three parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; and the AC-TDD classification of the RED with its command and counts, followed at most by one tooling attribution footer\./);
   assert.match(template, /Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology of review rounds lives on the target's timeline, so a round edits no body and invalidates no snapshot by doing so \(CL-D67, CL-D85\)\./);
-  // The exact-autofix grant is unchanged: the addendum does not mention a body edit.
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.doesNotMatch(addendum, /CL-D67|PATCH the body|pull-request body edit/);
-  assert.ok(Buffer.byteLength(addendum) < 32000, 'the CL-D30 addendum stays inside its recorded guard');
+  // #249 C2 (CL-D119) deleted the addendum with its byte guard.
 });
 
 test('Issue #120 CL-D67 records the choice, the declined bounded body edit, and the boundary', () => {

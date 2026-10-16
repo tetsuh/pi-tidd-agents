@@ -146,13 +146,6 @@ function readManifest(read = readText) {
   return { clauses };
 }
 
-// The exact-autofix procedure a run reads is two files since CL-D83: the reference and the invocation map it names.
-// Cases that ask what the procedure says read both; cases that ask where a sentence lives name the file themselves,
-// and the clause manifest pins each sentence to its own file.
-function readAutofixProcedure() {
-  return `${readText('skills/closed-loop-pr/references/autofix.md')}\n${readText('skills/closed-loop-pr/references/helper-map.md')}`;
-}
-
 // readJson refuses every clause file (its device and inode), however its path is spelled, aliased or linked; readManifest is the helper that parses them (#238, CL-D105).
 function readJson(relativePath) {
   if (manifestSources().some((source) => sameFile(relativePath, source))) throw new Error(`read the clause manifest through readManifest(), not readJson(${JSON.stringify(relativePath)})`);
@@ -197,14 +190,11 @@ function lineCount(text) {
 }
 
 // The measured authority set. The CL-D24/CL-D34/CL-D36 byte ceiling and the Issue #58
-// duplication guard must measure exactly the same files, so both import this one list.
+// duplication guard must measure exactly the same files, so both import this one list. #249 deleted the four PR mode
+// references (CL-D119).
 const AUTHORITY_FILES = [
   'skills/closed-loop-issue/SKILL.md',
   'skills/closed-loop-pr/SKILL.md',
-  'skills/closed-loop-pr/references/review-only.md',
-  'skills/closed-loop-pr/references/autofix.md',
-  'skills/closed-loop-pr/references/helper-map.md',
-  'skills/closed-loop-pr/references/autofix-addendum.md',
   'skills/closed-loop-shared/references/gate-contract.md',
   'skills/closed-loop-shared/references/records.md',
 ];
@@ -501,4 +491,4 @@ function receiverTypebox(receiver, options = {}) {
 }
 
 module.exports = {
-  copyTrackedCheckout, readAutofixProcedure, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox, RECEIVER_WRONG, toolPathChanges };
+  copyTrackedCheckout, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox, RECEIVER_WRONG, toolPathChanges };

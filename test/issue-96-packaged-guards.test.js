@@ -18,9 +18,8 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
+const { readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
-const AUTOFIX = readAutofixProcedure();
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
 function cli(operation, data) {
@@ -59,18 +58,12 @@ function guardRepository() {
   return { root, bare, head: git(root, ['rev-parse', 'HEAD']), tree: git(root, ['rev-parse', 'HEAD^{tree}']) };
 }
 
-test('Issue #96 the map offers the guard family and the driver requires it', () => {
-  const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
-  assert.ok(map, 'the invocation map must exist');
-  for (const declaration of [
-    // #185 added the post-push transition to the guard's row.
-    '| `guard_before_edit` | `cwd`, `expected` (data of `workspace_create`), `authorizedPaths`, and after a push the same `transition` `workspace_verify` takes (#185) |',
-    '| `overlay_freeze` | `cwd`, `authorizedPaths` |',
-    '| `overlay_compare` | `cwd`, `overlay` (data of `overlay_freeze`) |',
-    '| `manifest_compare` | `cwd`, `parent`, exactly one of `authorizedPaths` or `manifest` (data of `manifest_compare`) |',
-  ]) assert.ok(map.includes(declaration), `map must declare ${declaration}`);
-  assert.match(map, /authorized paths are a maximum set: the overlay must stay inside them and must not be empty, but no authorized path is required to change/);
-  assert.match(map, /compares the index against the immutable staged manifest, never against only the authorized changed files, so an entry the parent commit already carries cannot be misclassified/);
+test('Issue #96 the guard helpers state the guard family and the driver requires it', () => {
+  // #249 C2 (CL-D119): the map went; the guards state the maximum-set and staged-manifest rules, and the next test
+  // reads the four operations' inputs from the CLI table.
+  const guards = readText('skills/closed-loop-pr/helpers/guards.js');
+  assert.ok(guards.includes('Authorized paths are a maximum set, not a demand: the overlay must stay inside them'));
+  assert.ok(guards.includes('immutable staged manifest, never against only the authorized changed files'));
   // #249 B4b (CL-D117): every batch guard runs through the driver's one packaged-operation step, never a local re-derivation.
   assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("const step = (operation, payload) => { const r = run.op(operation, payload, { allowFail: true }); if (!r.ok || r.data?.ok === false) batchFail(run, operation,"), 'the batch takes each guard observation from a packaged operation');
 });

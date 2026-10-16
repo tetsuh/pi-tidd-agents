@@ -6,8 +6,9 @@ const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const Module = require('node:module');
 
-const { repoRoot, repoPath, readJson, readText, readContract, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts } = require('./helpers');
+const { repoRoot, repoPath, readJson, readText, readContract, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, cliSchemas } = require('./helpers');
 const { createWorkspace } = require('../skills/closed-loop-pr/helpers/workspace');
 
 const HELPER_DIR = 'skills/closed-loop-pr/helpers';
@@ -281,6 +282,68 @@ test('Issue #59 defines the structural helper boundary and smoke alarms', () => 
     'not a size budget',
   ]) assert.ok(section.includes(required), `CL-D37 is missing ${JSON.stringify(required)}`);
   assert.deepEqual(validateBoundary(actualModel()), []);
+});
+
+// #249 deleted the helper map (CL-D119), and with it the two-way check of its rows against the CLI table; the table is
+// pinned here instead, every operation in order with its required fields, so an operation added, removed, renamed or
+// given another required field fails until this freeze follows.
+const CLI_REQUIRED = Object.freeze({
+  operator_capture: ['cwd', 'identity'],
+  operator_revalidate: ['captured', 'cwd'],
+  writability: ['owner', 'repo', 'branchRef', 'enterprisePolicyComplete', 'enterpriseRulesets'],
+  snapshot: ['owner', 'repo', 'number'],
+  fingerprint_issue_spec: ['body', 'comments'],
+  fingerprint_pr_base: ['oid'],
+  fingerprint_pr_tree: ['oid'],
+  fingerprint_pr_diff: ['base64'],
+  fingerprint_pr_commits: ['commits'],
+  fingerprint_pr_head: ['oid'],
+  fingerprint_snapshot: ['snapshot'],
+  workspace_create: ['cwd', 'head', 'tree'],
+  workspace_verify: ['cwd', 'expected'],
+  workspace_cleanup: ['cwd'],
+  workspace_cleanup_created: ['created'],
+  gate_result_validate: ['result', 'expected'],
+  gate_result_read: ['runId'],
+  gate_payload_verify: ['path', 'sha256'],
+  evidence_verify: ['envelope', 'expected'],
+  guard_before_edit: ['cwd', 'expected', 'authorizedPaths'],
+  overlay_freeze: ['cwd', 'authorizedPaths'],
+  overlay_compare: ['cwd', 'overlay'],
+  manifest_compare: ['cwd', 'parent'],
+  build_operator_revalidate: ['captured', 'cwd'],
+  build_workspace_verify: ['created'],
+  build_workspace_cleanup: ['created'],
+  build_fingerprint_snapshot: ['snapshot'],
+  build_gate_expectation: ['workflow', 'correlation', 'assignedFindings', 'requiredEvidence'],
+  build_gate_assignments: ['findings', 'settledKeys'],
+  build_gate_launch: ['expectation', 'expectationPath', 'volatile'],
+  build_writer_launch: ['created', 'task'],
+  build_manifest_capture: ['overlay', 'cwd'],
+  build_manifest_compare: ['captured', 'cwd'],
+  message_verify: ['cwd', 'expected'],
+  commit_create: ['created', 'captured', 'message'],
+  push_publish: ['created', 'captured', 'parent'],
+  required_evidence_check: ['cwd', 'requiredEvidence'],
+  validation_run: ['cwd', 'command'],
+  required_evidence_set: ['cwd', 'baseOid', 'headOid', 'identities'],
+  marker_create: ['binding', 'visibleBody'],
+  marker_reconcile: ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor'],
+});
+
+test('Issue #59 the CLI operation table is frozen: every operation and its required fields (#249, CL-D119)', () => {
+  // Read from the module itself, so no spelling of a key escapes the freeze (pre-push sweep A1); cli.js runs main() when
+  // loaded and waits on stdin, so it is compiled here with that one call removed.
+  const file = repoPath('skills/closed-loop-pr/helpers/cli.js');
+  const source = fs.readFileSync(file, 'utf8');
+  assert.equal(source.split('\nmain();\n').length, 2, 'cli.js calls main() once at top level');
+  const m = new Module(file, null); m.filename = file; m.paths = Module._nodeModulePaths(path.dirname(file));
+  m._compile(source.replace('\nmain();\n', '\n'), file);
+  const table = Object.fromEntries(Object.entries(m.exports.SCHEMAS).map(([name, schema]) => [name, schema.required]));
+  assert.deepEqual(table, CLI_REQUIRED);
+  assert.deepEqual(Object.keys(table), Object.keys(CLI_REQUIRED), 'the table order is pinned too');
+  assert.deepEqual(cliSchemas(), CLI_REQUIRED, 'the text the other tests parse agrees');
+  assert.deepEqual(Object.keys(CLI_REQUIRED).sort(), ALLOWED_OPERATIONS);
 });
 
 test('Issue #59 structural assertions are non-vacuous under source-derived mutations', () => {

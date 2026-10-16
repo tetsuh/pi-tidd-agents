@@ -7,15 +7,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const crypto = require('node:crypto');
 const { repoPath, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
-const REFERENCES = {
-  'skills/closed-loop-pr/references/review-only.md': '1fdb9c43551eb0aa2c829e70ba738e3e9440a6f7635017b353d1c33983ecb397',
-  'skills/closed-loop-pr/references/autofix.md': 'b29a83ca9f411af5110c26234063cd7b2f15900b489fff380dfe4bb3cd382783',
-  'skills/closed-loop-pr/references/autofix-addendum.md': 'bc7420e709b490745f1d4fa6dd9423a78539314c88f9f7d73929f9a5c7c09803',
-  'skills/closed-loop-pr/references/helper-map.md': 'da1528b9cfadca6e6b375f118364e8d06c3566cb1d9d4f301d13f820ea78f357',
-};
+const REFERENCES = ['review-only.md', 'autofix.md', 'autofix-addendum.md', 'helper-map.md'].map((file) => `skills/closed-loop-pr/references/${file}`);
 const NO_SHELL = 'Do not regenerate this logic as run-time shell';
 
 test('Issue #293 the stranded rules have a home in the records or the code, and their tests read it there', () => {
@@ -43,7 +37,8 @@ test('Issue #293 the stranded rules have a home in the records or the code, and 
   assert.ok(index.indexOf('contract/CL-D118.md') !== -1 && index.indexOf('contract/CL-D118.md') < index.indexOf('contract/CL-D117.md'), 'CL-D118 is indexed above CL-D117');
 });
 
-test('Issue #293 the mode references are byte-identical and no code changed', () => {
-  for (const [file, digest] of Object.entries(REFERENCES)) assert.equal(crypto.createHash('sha256').update(fs.readFileSync(repoPath(file))).digest('hex'), digest, `${file} is unchanged`);
-  for (const driver of ['review', 'autofix']) assert.ok(readText(`skills/closed-loop-pr/driver/${driver}.js`).includes("'skills/closed-loop-pr/references/helper-map.md'"), `${driver}.js still hashes the references into contractInput`);
+test('Issue #293 the mode references are deleted and C1 changed no code', () => {
+  // C1 left the four files byte-identical; #249 C2 then deleted them (CL-D119), and neither driver hashes them.
+  for (const file of REFERENCES) assert.equal(fs.existsSync(repoPath(file)), false, `${file} is deleted`);
+  for (const driver of ['review', 'autofix']) assert.equal(/'skills\/closed-loop-pr\/references\/(?!publish-review)/.test(readText(`skills/closed-loop-pr/driver/${driver}.js`)), false, `${driver}.js hashes no mode reference`);
 });

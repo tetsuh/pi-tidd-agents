@@ -21,7 +21,7 @@ const crypto = require('node:crypto');
 const { spawnSync, execFileSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, repoPath, sectionOf, cliSchemas, readManifest } = require('./helpers');
+const { readText, readContract, repoPath, sectionOf, cliSchemas, readManifest } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40);
@@ -257,13 +257,6 @@ test('Issue #125 CL-D73 records the three compositions and the reviewed alarm re
   assert.equal(byId['CL-D73-transport'].section, '### Structured gate result transport (CL-D36)', 'the transport clause names the section its sentences live in');
   assert.equal(byId['CL-D73-addendum'], undefined, 'the addendum clause is retired: the driver call sites hold its rule (#249 B4b, CL-D117)');
   assert.ok(fs.existsSync(repoPath('test/issue-125-gate-step-builders.test.js')));
-});
-
-test('Issue #125 the invocation map offers the packaged compositions', () => {
-  const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
-  assert.ok(map.includes('| `gate_result_read` | `runId`, `expectationPath` (optional; the file `build_gate_launch` verified, which returns the validated envelope in the same result) |'), 'the map offers the read with its optional expectation path');
-  assert.ok(map.includes('| `build_gate_assignments` | `findings` (of the validated result), `settledKeys` (the ledger), `reopens` (optional; fresh finding id to the settled key it reopens) |'), 'the map offers the assignments builder');
-  assert.ok(map.includes('| `workspace_cleanup` | `cwd`, and either `receipt` (receipt inside `workspace_create` data) or `workspace` (the run workspace path) |'), 'the map offers cleanup from the workspace path');
 });
 
 test('Issue #125 workspace_cleanup removes only the workspace the request names', async () => {

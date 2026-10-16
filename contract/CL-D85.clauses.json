@@ -86,7 +86,7 @@
     {
       "id": "CL-D85-tests",
       "marker": "CL-D85",
-      "title": "The CL-D85 fixtures pin the three rules and the reset guard",
+      "title": "The CL-D85 fixtures pin the three rules; the reset guard retired with the addendum",
       "files": [
         "test/issue-153-wording-only-minors.test.js"
       ],
@@ -94,7 +94,7 @@
         "Issue #153 rule 1",
         "Issue #153 rule 2",
         "Issue #153 rule 3",
-        "Issue #153 the reset guard is the one every suite asserts"
+        "Issue #153 the reset guard retired with the addendum and no suite asserts it"
       ]
     },
     {

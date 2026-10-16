@@ -43,7 +43,7 @@
         "test/issue-96-packaged-guards.test.js"
       ],
       "requires": [
-        "the map offers the guard family and the driver requires it",
+        "the guard helpers state the guard family and the driver requires it",
         "the CLI exposes exactly the four guard operations",
         "every guard failure names its subcheck and the observed value",
         "the aggregate alarm reset is the one the suites assert",

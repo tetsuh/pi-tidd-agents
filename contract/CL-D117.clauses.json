@@ -40,9 +40,9 @@
       ],
       "requires": [
         "Issue #289 no clause names references/autofix-addendum.md, the repointed pins match, and the retired clauses are gone",
-        "Issue #289 the rule-stating tests read the code or the record, the mixed files keep only their structural reads, and every reader is listed",
+        "Issue #289 the rule-stating tests read the code or the record, and the mixed files keep no read of the file",
         "Issue #289 CL-D117 records the repoint and the six gaps, and each record states its own",
-        "Issue #289 the addendum is byte-identical, contractInput is unchanged, and the code changes are comments"
+        "Issue #289 the addendum is deleted, contractInput no longer hashes it, and the code changes were comments"
       ]
     }
   ]

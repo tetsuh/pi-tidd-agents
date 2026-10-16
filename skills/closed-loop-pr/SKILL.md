@@ -17,7 +17,7 @@ Before PR-specific rules, read both common references relative to this Skill dir
 - `../closed-loop-shared/references/gate-contract.md`
 - `../closed-loop-shared/references/records.md`
 
-These references own only policy that is identical across Issue and PR workflows. Workflow-specific target rejection, agents, gates, status, publication, and mode behavior remain authoritative in this Skill and the selected PR mode reference.
+These references own only policy that is identical across Issue and PR workflows. Workflow-specific target rejection, agents, gates, status, publication, and mode behavior remain authoritative in this Skill and the packaged driver.
 
 ## Precondition guard (CL-D20)
 
@@ -50,51 +50,17 @@ A preflight failure is not a review round.
 
 The shared grammar consumes the target reference first. CL-D6 then consumes only a final exact `autofix` token; reject any leftover token or near-miss. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence. If the reference resolves to an issue, stop and tell the operator to use `/tidd-issue`.
 
-A pull request of another repository than the current checkout's is refused before the driver: report it and stop, and review nothing (CL-D111). A pull request whose head is in **another repository** is refused by the driver before any run, as is one whose base or head commit the checkout does not hold; nothing is reviewed from the GitHub API alone (CL-D111). Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules below. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
+A pull request of another repository than the current checkout's is refused before the driver: report it and stop, and review nothing (CL-D111). A pull request whose head is in **another repository** is refused by the driver before any run, as is one whose base or head commit the checkout does not hold; nothing is reviewed from the GitHub API alone (CL-D111). Autofix still requires local objects, the head branch checked out, and the `OPERATOR_CHECKOUT@H` plus `AUTOFIX_WORKSPACE@H` rules of CL-D30. Autofix and every publication action refuse such a target because publication authority is bound to the repository of the current checkout.
 
 ## Driver dispatch (CL-D104)
 
-After the checks above, the pull request runs through the packaged driver, which sequences the round, not you. The other sections of this Skill, the shared references and the mode references are the specification the driver and the gates implement; you read no mode reference, compose no helper request, and judge no finding. A pull request the driver refuses before any run (a head in another repository, or a base or head commit the checkout does not hold) is reported on its error output; report it and stop, and review nothing by hand (CL-D111).
+After the checks above, the pull request runs through the packaged driver, which sequences the round, not you. The other sections of this Skill and the shared references are the specification the driver and the gates implement; you read no mode reference, compose no helper request, and judge no finding. A pull request the driver refuses before any run (a head in another repository, or a base or head commit the checkout does not hold) is reported on its error output; report it and stop, and review nothing by hand (CL-D111).
 
 1. From the checkout's top-level directory, run `node <skill-dir>/driver/<driver>.js start --pr <number> --repo <owner/name>`, where `<skill-dir>` is this Skill's directory, `<driver>` is `review` in review-only mode and `autofix` in autofix mode, and `<owner/name>` is the checkout's repository. Add `--language-profile "conversation=<language>; github.issue=<language>; github.pull_request=<language>; external_sites=<sites>"` with the profile CL-D16 resolved for this run (`<sites>` is `{}` when it names none), and `--convergence disabled` only when preflight found that role disabled. Set no timeout of your own on a driver command; one that is killed anyway is reported, and you stop.
 2. When a line begins `NEXT:`, call `subagent` with exactly the JSON object on the following line. If the call is refused or returns no run id, report it and stop; never change the object. Otherwise wait for the runner's own completion of that run; never interrupt, pause, steer, or cancel it. Then run the command on the `NEXT:` line itself (`result` or `writer-done`) with that run id; commands inside the JSON object are the subagent's, never yours. When a line begins `MESSAGE:` instead, write the one subject line it asks for from the corrections listed under it, under the convention it states, and run the command on that line with it, quoted for your shell; you write only the subject, never the body or the issue number. A refused subject prints `MESSAGE:` again with the reason, and the third refusal stops the run (CL-D116).
 3. When a line begins `WAIT:`, the run has not completed: wait for its completion, then run the command that line names with the same run id. This is not a retry.
 4. Otherwise, when a line begins `FINISHED comment=`, report everything from that line to the end verbatim, and stop. Never run the publication script.
 5. Otherwise, when a driver command prints none of these lines, report the last 30 lines of its combined output and stop; never retry or continue by hand.
-
-## Evidence fingerprints (CL-D9)
-
-Track identity per kind of evidence, so a change invalidates only what it actually affects:
-
-- `issue_spec` — `sha256` over the body of the issue this pull request implements, followed by its authoritative comments as `<id>:<updatedAt>:<body>`, ordered by comment id ascending;
-- `pr_base` — base revision OID reported by `gh`;
-- `pr_tree` — head tree OID from `git rev-parse <head>^{tree}`;
-- `pr_diff` — `sha256` of the effective `base...head` diff;
-- `pr_commits` — `sha256` of the ordered commit subject/body sequence;
-- `pr_head` — exact head SHA, used only for CI and exact-head external checks.
-
-Every digest uses canonical UTF-8 bytes:
-
-- normalize CRLF and CR to LF in textual records;
-- order records explicitly, join records with one LF (`0x0a`), and omit a trailing separator;
-- hash binary patch bytes raw; they are never newline-normalized.
-
-For a local target, use `LC_ALL=C`, `git -c core.autocrlf=false -c core.safecrlf=false --no-pager diff --binary --no-ext-diff --no-textconv` and the matching log options.
-
-Since CL-D111 no run takes the following path; it stays as specification until #249 deletes it. For a foreign review-only target, and for a same-repository review-only target whose local Git objects are absent, no checkout is required and evidence comes from the GitHub API without fetch, checkout, or git-state mutation:
-
-- `gh api repos/<owner>/<repo>/pulls/<n>` for OIDs;
-- `gh api -H 'Accept: application/vnd.github.v3.diff' repos/<owner>/<repo>/pulls/<n>` for the effective diff;
-- `gh api --paginate repos/<owner>/<repo>/pulls/<n>/commits` for the commit sequence;
-- `gh api repos/<owner>/<repo>/git/commits/<sha> --jq .tree.sha` for tree values.
-
-Canonicalize JSON records before hashing. Both local and foreign paths hash the same raw effective diff bytes and use the same record serialization.
-
-**Bracket API evidence collection**, and every gate that consumes it, with a fresh base/head read taken before and after. Independent calls are separate requests against a moving target, so without bracketing a single collection can mix OIDs, diff, and commit sequence from different revisions. If either value changed, review-only may discard the evidence and retry under its baseline policy. Exact PR `autofix` instead discards the evidence, fails closed, and stops without retry; a stale-target failure has no gate or mutation authority.
-
-Use `printf '%s'` or an equivalent exact-byte pipeline and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute every digest.
-
-A code review may be carried forward across a **metadata-only rewrite** only when `pr_tree` and `pr_diff` are unchanged, and the carry-forward note must name which evidence was preserved and which was invalidated. Any change to `pr_head` always invalidates CI and exact-head external evidence, even when the tree is identical.
 
 ## PR gate payload composition (CL-D2, CL-D29)
 
@@ -105,36 +71,4 @@ Copy exactly one of these owning-root blocks verbatim into each PR gate payload:
 - `PR Sol role-authority block`: `You are the read-only PR requirements, contract, scope, correctness, and test reviewer.`
 - `PR Terra role-authority block`: `You are the read-only concurrency, lifetime, ownership, cleanup, and decision-drift reviewer for this PR.`
 
-Every PR review-only Sol/Terra invocation and every exact-autofix Sol/Terra invocation composes the shared Every-gate invariant payload block verbatim, the shared Sol-only adversarial invariant payload block verbatim for Sol (including every post-push Sol), exactly one selected PR gate role-authority block verbatim, and the volatile envelope/history projection. Every convergence invocation in either mode composes the shared Every-gate invariant payload block verbatim and the volatile envelope/history projection, returns the packaged schema declared by its agent definition, with no `outputSchema` in the launch, and receives neither the Sol-only adversarial block nor a formal role-authority block (CL-D62). Review-only and exact-autofix mode references must not restate the retired all-history requirement; mode-specific correlation and safety duties remain in their owning references.
-
-### Validation sandbox delta (CL-D38)
-
-`VALIDATION_SANDBOX_DELTA` := the ignored paths that this run's own validation created, frozen by path, type, and no-follow presence at the boundary that observes them. Both PR modes use this one definition. The delta is observed only: its members are never read, followed, deleted, pruned, or restored, and its content never enters evidence, a fingerprint, a draft, or a status block. Freezing it grants no cleanup, publication, or mutation authority, and every boundary after the freeze permits only that exact presence delta.
-
-## PR-specific record obligations
-
-The PR workflow retains workflow- and mode-specific duties outside the shared references:
-
-- PR finding records retain complete stable source identity when available: source kind, source ID, source URL, author identity and type, body digest, timestamps, review-commit association, path and line association, observed public head, fingerprint, semantic fingerprint, corrective change, validation evidence, and reply/status URL.
-
-### PR finding source identity (AC-DISPOSITION)
-
-For each PR finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published. A reviewer score, severity label, or provider recommendation is never by itself a decision to change code.
-- Review-only drafts findings and replies without posting; exact PR `autofix` requires a published correction commit and responsible-gate confirmation before a fixed disposition or source-finding reply.
-- PR owner decisions retain review-only draft transport and exact-autofix `WAITING_FOR_OWNER(reason=owner_decision_required)` behavior.
-- Merging without required deterministic coverage needs explicit owner approval; this PR-specific requirement remains in this PR Skill/root.
-
-### PR owner-decision scope (AC-DECISION)
-
-The shared AC-DECISION triggers and pending state apply; this PR root additionally pauses on dangerous operations, and ship decisions.
-- PR external-review applicability, provider mutation boundaries, mode status, retry, no-resume, and final-readiness behavior remain in the selected mode reference.
-
-### PR body template (CL-D67)
-
-A pull-request body under this workflow carries three parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; and the AC-TDD classification of the RED with its command and counts, followed at most by one tooling attribution footer. Where the target repository has a pull-request template of its own — a template file GitHub applies, such as `.github/pull_request_template.md`, or a template its `CONTRIBUTING.md` or `AGENTS.md` requires — that template governs the body's sections instead of the three parts above; the rules below still apply wherever the template leaves the wording to the author, and a body's section layout alone is never a finding (CL-D95). Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages and in the review's published comment, never in the body, so no body claim depends on the head; the chronology of review rounds lives on the target's timeline, so a round edits no body and invalidates no snapshot by doing so (CL-D67, CL-D85).
-
-## Mode dispatch (CL-D19)
-
-Since CL-D111 no pull request takes this path: every run goes through the driver (Driver dispatch above), and you read no mode reference. The block stays as specification until #249 deletes it with the mode references.
-
-The former continuation, for the record only: review-only mode read `references/review-only.md`; exact CL-D30 `autofix` mode read `references/autofix.md`. Exactly one was read after mode parsing, never both.
+Every PR review-only Sol/Terra invocation and every exact-autofix Sol/Terra invocation composes the shared Every-gate invariant payload block verbatim, the shared Sol-only adversarial invariant payload block verbatim for Sol (including every post-push Sol), exactly one selected PR gate role-authority block verbatim, and the volatile envelope/history projection. Every convergence invocation in either mode composes the shared Every-gate invariant payload block verbatim and the volatile envelope/history projection, returns the packaged schema declared by its agent definition, with no `outputSchema` in the launch, and receives neither the Sol-only adversarial block nor a formal role-authority block (CL-D62).

@@ -90,8 +90,7 @@
         "Issue #152 the receiver refuses the built request with its required field removed",
         "Issue #152 the packaged CLI builds the launch from a workspace the CLI created",
         "Issue #152 the packaged CLI takes the two inputs and no others",
-        "Issue #152 the record states the fields the builder emits",
-        "Issue #152 the map states that the builder composes the writer launch"
+        "Issue #152 the record states the fields the builder emits"
       ]
     }
   ]

@@ -2,6 +2,8 @@
 
 const crypto = require('node:crypto');
 
+// CL-D9: a text record is UTF-8 with CRLF and CR normalized to LF, records join with one LF and no trailing separator, and patch bytes are hashed raw.
+
 function normalizeText(value) {
   if (typeof value !== 'string') throw new TypeError('text fingerprint input must be a string');
   return value.replace(/\r\n?/g, '\n');

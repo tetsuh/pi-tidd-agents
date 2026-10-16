@@ -4,11 +4,11 @@
 // (driver/autofix.js still hashes it into contractInput), and the last pull request of #249 deletes it. After B4a
 // (CL-D115) took CL-D30's pins, the other nineteen clauses and the tests that read the file for their rules move to where
 // each rule lives now: the driver or helper code that implements it, else its record's sentence. Duplicates and the
-// prose path retire; what the driver does not apply is recorded as a gap. The file and the byte alarms are unchanged.
+// prose path retire; what the driver does not apply is recorded as a gap. The file and the byte alarms were unchanged;
+// #249 later deleted the file (CL-D119).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const crypto = require('node:crypto');
 const { repoPath, readText, readContract, sectionOf, manifestSources } = require('./helpers');
 
 const FILE = 'skills/closed-loop-pr/references/autofix-addendum.md';
@@ -40,9 +40,6 @@ const MIXED_TESTS = {
     gone: ['const drafting = autofix.split(', 'otherwise it reports `not_drafted'],
   },
 };
-// Every other reader: B4a's and B3's mixed and structural files, and the scans, sizes, negatives and joins whose
-// asserted text is in another file, with the earlier pull requests' own tests and this one.
-const OTHER_READERS = ['helpers', 'package', 'pr-operational-cleanliness', 'issue-181-commit-identity', 'issue-55-helper-invocation-map', 'issue-61-review-only-validation-sandbox', 'issue-87-addendum-split', 'issue-73-authority-budget', 'issue-164-map-split', 'issue-36-evidence-envelope', 'issue-37-gate-result-envelope', 'issue-74-composition-shapes', 'issue-115-writer-pre-guard', 'issue-119-exactness-class', 'issue-120-pr-body-template', 'issue-126-sol-component-sweep', 'issue-249-prose-path-refused', 'issue-277-autofix-pins', 'issue-284-addendum-d30-pins', 'issue-289-addendum-rest-pins', 'issue-293-stranded-rules', 'issue-candidate-publication'];
 const GAPS = {
   'contract/CL-D34.md': ['(#283): recorded and not closed (#249, CL-D117)', 'so no fresh finding is mapped to a settled key by counterexample class'],
   'contract/CL-D77.md': ['it drafts the artifacts at every stop once its target is bound', 'it never reports `not_drafted(<reason>)`', 'the comment calls that head the reviewed public head whether or not a gate reviewed it'],
@@ -74,18 +71,14 @@ test('Issue #289 no clause names references/autofix-addendum.md, the repointed p
   }
 });
 
-test('Issue #289 the rule-stating tests read the code or the record, the mixed files keep only their structural reads, and every reader is listed', () => {
+test('Issue #289 the rule-stating tests read the code or the record, and the mixed files keep no read of the file', () => {
   for (const name of RULE_TESTS) assert.equal(readText(`test/${name}.test.js`).includes('autofix-addendum'), false, `${name} still reads the file`);
+  // #249 C2 (CL-D119) deleted the file, so the mixed files' structural reads went with it; test/issue-295-mode-references-deleted.test.js
+  // holds the inventory of every test that still names any of the four deleted files.
   for (const [name, { keep, gone }] of Object.entries(MIXED_TESTS)) {
     const text = readText(`test/${name}.test.js`);
-    for (const line of keep) assert.ok(text.includes(line), `${name} keeps its structural read: ${line}`);
-    for (const line of gone) assert.equal(text.includes(line), false, `${name} still states a rule from the file: ${line}`);
+    for (const line of [...keep, ...gone]) assert.equal(text.includes(line), false, `${name}: ${line}`);
   }
-  // The inventory is complete: every test file that names the file is in exactly one list.
-  const listed = [...Object.keys(MIXED_TESTS), ...OTHER_READERS];
-  assert.equal(new Set(listed).size, listed.length, 'no test file is listed twice');
-  const readers = fs.readdirSync(repoPath('test')).filter((f) => f.endsWith('.js') && readText(`test/${f}`).includes('autofix-addendum')).map((f) => f.replace(/(\.test)?\.js$/, ''));
-  assert.deepEqual(readers.sort(), [...listed].sort());
 });
 
 test('Issue #289 CL-D117 records the repoint and the six gaps, and each record states its own', () => {
@@ -109,10 +102,10 @@ test('Issue #289 CL-D117 records the repoint and the six gaps, and each record s
   assert.ok(index.indexOf('contract/CL-D117.md') !== -1 && index.indexOf('contract/CL-D117.md') < index.indexOf('contract/CL-D116.md'), 'CL-D117 is indexed above CL-D116');
 });
 
-test('Issue #289 the addendum is byte-identical, contractInput is unchanged, and the code changes are comments', () => {
-  assert.equal(crypto.createHash('sha256').update(fs.readFileSync(repoPath(FILE))).digest('hex'), 'bc7420e709b490745f1d4fa6dd9423a78539314c88f9f7d73929f9a5c7c09803');
+test('Issue #289 the addendum is deleted, contractInput no longer hashes it, and the code changes were comments', () => {
+  assert.equal(fs.existsSync(repoPath(FILE)), false);
   const driver = readText('skills/closed-loop-pr/driver/autofix.js');
-  assert.ok(driver.includes("const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-pr/references/autofix.md', 'skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/helper-map.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];"), 'autofix.js still reads the file into contractInput');
+  assert.ok(driver.includes("const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];"), 'autofix.js hashes the PR Skill and the two shared references alone');
   const alarms = readText('test/issue-196-review-driver-4.test.js');
   assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised');
   // The three code edits are comments.

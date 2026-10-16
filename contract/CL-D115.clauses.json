@@ -44,9 +44,9 @@
       ],
       "requires": [
         "Issue #284 no CL-D30 clause pins references/autofix-addendum.md, every CL-D30 pin matches, and the retired clauses are gone",
-        "Issue #284 the rule-stating tests read the code or the record; the mixed files keep only their structural reads; the structural reads stay",
+        "Issue #284 the rule-stating tests read the code or the record, and the file is gone",
         "Issue #284 CL-D115 records the repoint, the retired clauses and the five divergences, and CL-D30 states them",
-        "Issue #284 the addendum is byte-identical, autofix.js still reads it into contractInput, and the byte alarms are unchanged"
+        "Issue #284 the addendum is deleted, autofix.js no longer reads it into contractInput, and the byte alarms are unchanged"
       ]
     }
   ]

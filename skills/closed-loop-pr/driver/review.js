@@ -18,7 +18,7 @@ const { gateLabel: label, bindTarget, guard, readIssue, earlierRounds, trustedCo
 
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3; // CL-D11
-const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-pr/references/review-only.md', 'skills/closed-loop-pr/references/helper-map.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];
+const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];
 function rounds(s) { return GATES.map((g) => (g === 'convergence' && s.convergenceDisabled ? 'convergence disabled' : `${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`)).join(', '); }
 
 function start(opts) {

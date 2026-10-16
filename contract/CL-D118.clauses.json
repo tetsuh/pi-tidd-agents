@@ -24,7 +24,7 @@
       ],
       "requires": [
         "Issue #293 the stranded rules have a home in the records or the code, and their tests read it there",
-        "Issue #293 the mode references are byte-identical and no code changed"
+        "Issue #293 the mode references are deleted and C1 changed no code"
       ]
     }
   ]
