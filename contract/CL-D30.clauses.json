@@ -198,24 +198,6 @@
       ]
     },
     {
-      "id": "CL-D30-source-schema",
-      "marker": "CL-D30",
-      "title": "Source identity and owner confirmation assignment are complete",
-      "section": "### PR finding source identity (AC-DISPOSITION)",
-      "files": [
-        "skills/closed-loop-pr/SKILL.md"
-      ],
-      "requires": [
-        "complete stable source identity",
-        "source kind, source ID, source URL",
-        "author identity and author type",
-        "body digest",
-        "created and updated timestamps",
-        "review-commit association",
-        "path and line association"
-      ]
-    },
-    {
       "id": "CL-D30-snapshot-routing",
       "marker": "CL-D30",
       "title": "A changed external snapshot invalidates every verdict and restarts the gates on the same head",

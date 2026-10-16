@@ -51,8 +51,8 @@
       ],
       "requires": [
         "Issue #270 no clause pin names references/helper-map.md",
-        "Issue #270 the rule-stating tests read the code or the record, not the map; the structural reads stay",
-        "Issue #270 the map is byte-identical and the drivers still read it into contractInput",
+        "Issue #270 the rule-stating tests read the code or the record, not the map, and the map is gone",
+        "Issue #270 the map is deleted and neither driver reads it into contractInput",
         "Issue #270 CL-D112 records the repoint and CL-D83 names it"
       ]
     }

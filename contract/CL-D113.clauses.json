@@ -76,8 +76,8 @@
       ],
       "requires": [
         "Issue #272 no clause pin names references/review-only.md, and the retired duplicates are gone",
-        "Issue #272 the rule-stating tests read the code or the record; the mixed files keep only their structural reads; the structural reads stay",
-        "Issue #272 the file is byte-identical, review.js still reads it into contractInput, and the byte alarms are unchanged",
+        "Issue #272 the rule-stating tests read the code or the record, and the file is gone",
+        "Issue #272 the file is deleted, review.js no longer reads it into contractInput, and the byte alarms are unchanged",
         "Issue #272 CL-D113 records the repoint, the retired clauses and sentences, and the four gaps"
       ]
     }

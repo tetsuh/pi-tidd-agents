@@ -3,14 +3,11 @@
     {
       "id": "CL-D50-tests",
       "marker": "CL-D50",
-      "title": "Split fixtures pin the seven-file set, the stage bounds, and the record",
+      "title": "The record test remains after #249 deleted the split files (CL-D119)",
       "files": [
         "test/issue-87-addendum-split.test.js"
       ],
       "requires": [
-        "the addendum is its own authority file and the aggregate set has eight entries",
-        "the addendum content moved whole and the base directs to it",
-        "the disclosure stages are bounded per stage",
         "CL-D50 records the third disclosure stage"
       ]
     }

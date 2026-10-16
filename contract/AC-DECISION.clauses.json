@@ -35,18 +35,6 @@
       "requires": [
         "The shared AC-DECISION triggers and pending state apply unchanged; this Issue root adds no trigger of its own."
       ]
-    },
-    {
-      "id": "AC-DECISION-pr-scope",
-      "marker": "AC-DECISION",
-      "title": "PR owner-decision scope remains PR-specific",
-      "section": "### PR owner-decision scope (AC-DECISION)",
-      "files": [
-        "skills/closed-loop-pr/SKILL.md"
-      ],
-      "requires": [
-        "The shared AC-DECISION triggers and pending state apply; this PR root additionally pauses on dangerous operations, and ship decisions."
-      ]
     }
   ]
 }

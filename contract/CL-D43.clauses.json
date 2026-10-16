@@ -3,14 +3,12 @@
     {
       "id": "CL-D43-guards",
       "marker": "CL-D43",
-      "title": "The raised authority guards and the unraised disclosure guard",
+      "title": "The lowered authority ceiling, after #249 retired the disclosure guard (CL-D119)",
       "files": [
         "test/package.test.js"
       ],
       "requires": [
-        "assert.ok(total < 162000,",
-        "const PR_SKILL_PRE_SPLIT_BYTES = 57160;",
-        "not a budget",
+        "assert.ok(total < 81000,",
         "revision-qualified"
       ]
     },

@@ -68,8 +68,8 @@
       ],
       "requires": [
         "Issue #277 no clause pin names references/autofix.md, and the retired clauses are gone",
-        "Issue #277 the rule-stating tests read the code or the record; the mixed files keep only their structural reads; the structural reads stay",
-        "Issue #277 the file is byte-identical, autofix.js still reads it into contractInput, and the byte alarms are unchanged",
+        "Issue #277 the rule-stating tests read the code or the record, and the file is gone",
+        "Issue #277 the file is deleted, autofix.js no longer reads it into contractInput, and the byte alarms are unchanged",
         "Issue #277 CL-D114 records the repoint, the retired clauses and sentences, the gaps and the divergence"
       ]
     }

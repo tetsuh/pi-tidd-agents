@@ -1,6 +1,6 @@
 # Shared records and test contract
 
-This documentation-only reference is read by both workflow roots. It owns common record schemas, disposition vocabulary, and AC-TDD policy. Workflow-specific transport, publication, policy precedence, and deterministic-coverage approval remain in their owning files.
+This documentation-only reference is read by both workflow roots. It owns common record schemas, disposition vocabulary, and AC-TDD policy. Workflow-specific transport, publication, and policy precedence remain in their owning files.
 
 ## Finding dispositions (AC-DISPOSITION)
 
@@ -49,7 +49,7 @@ Rationale
 Validity and invalidation conditions
 ```
 
-Workflow-specific language, pending-state status, posting/draft transport, CL-D31/CL-D32 behavior, and exact-autofix owner boundaries remain in the owning workflow files. The Issue Skill retains project/Issue/package policy precedence and the recorded-owner-exception rule. The PR Skill/root retains the deterministic-coverage owner-approval duty.
+Workflow-specific language, pending-state status, posting/draft transport, CL-D31/CL-D32 behavior, and exact-autofix owner boundaries remain in the owning workflow files, for a pull request the packaged driver. The Issue Skill retains project/Issue/package policy precedence and the recorded-owner-exception rule.
 
 ## AC-TDD coverage and truthful provenance
 

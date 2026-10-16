@@ -5,16 +5,11 @@
       "marker": "CL-D38",
       "title": "The PR root defines the validation sandbox delta once",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/driver/phases.js"
       ],
-      "section": "### Validation sandbox delta (CL-D38)",
       "requires": [
-        "`VALIDATION_SANDBOX_DELTA` :=",
-        "ignored paths that this run's own validation created",
-        "frozen by path, type, and no-follow presence",
-        "never read, followed, deleted, pruned, or restored",
-        "never enters evidence, a fingerprint, a draft, or a status block",
-        "permits only that exact presence delta"
+        "// Ignored paths a validation, a gate, or a writer changed since the run took them (CL-D38): a list",
+        "const now = ignoredInventory(cwd), drift = [...now.filter((x) => !saved.includes(x)), ...saved.filter((x) => !now.includes(x))];"
       ]
     },
     {
@@ -51,7 +46,9 @@
         "contract/CL-D38.md"
       ],
       "requires": [
-        "It grants no cleanup, publication, commit, push, reply, or provider authority, changes no round budget, and reduces no review duty."
+        "It grants no cleanup, publication, commit, push, reply, or provider authority, changes no round budget, and reduces no review duty.",
+        "never read, followed, deleted, pruned, or restored",
+        "never enters evidence, a fingerprint, a draft, or a status block"
       ]
     }
   ]

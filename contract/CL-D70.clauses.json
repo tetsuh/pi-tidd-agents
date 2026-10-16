@@ -45,7 +45,7 @@
       ],
       "requires": [
         "the captured field accepts the operator_capture envelope or its complete payload (CL-D70)",
-        "the map and the record state what the captured field accepts (CL-D70)"
+        "the CLI and the record state what the captured field accepts (CL-D70)"
       ]
     }
   ]

@@ -86,7 +86,7 @@
         "test/issue-105-manifest-builders.test.js"
       ],
       "requires": [
-        "the invocation map names the manifest builders and the evidence check",
+        "the CLI table and the builders name the manifest builders and the evidence check",
         "the CLI exposes the two builders and the check with frozen inputs",
         "a request carrying both mode fields cannot be produced by a builder",
         "the built requests round-trip through manifest_compare at AFTER_STAGING and BEFORE_COMMIT",

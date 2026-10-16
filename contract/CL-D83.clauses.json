@@ -17,14 +17,11 @@
     {
       "id": "CL-D83-tests",
       "marker": "CL-D83",
-      "title": "The split is pinned by its own regression",
+      "title": "The split's no-pin check and record test remain after #249 deleted the map (CL-D119)",
       "files": [
         "test/issue-164-map-split.test.js"
       ],
       "requires": [
-        "Issue #164 the map and the declared shapes live in one file of their own",
-        "Issue #164 the autofix reference carries the table no longer",
-        "Issue #164 the move frees the budget it was taken for",
         "Issue #164 no clause pins a moved sentence to either file any more",
         "Issue #164 CL-D83 records the split and what it did not change"
       ]

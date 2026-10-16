@@ -98,7 +98,7 @@
         "skills/closed-loop-shared/references/gate-contract.md"
       ],
       "requires": [
-        "remain unchanged by this rule; CL-D107 (#254) later added one relaunchable output, which the owning mode reference states with its budget."
+        "remain unchanged by this rule; CL-D107 (#254) later added one relaunchable output, which the packaged driver states with its budget."
       ]
     },
     {

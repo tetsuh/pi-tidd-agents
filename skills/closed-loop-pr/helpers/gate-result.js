@@ -15,6 +15,7 @@ const SEVERITIES = ['Blocker', 'Major', 'Minor'], ANCHORING = ['criterion-anchor
 const DISPOSITIONS = words('fixed accepted-as-designed deferred duplicate not-applicable needs-owner-decision');
 const CONFIRMS = words('confirmed rejected unverifiable'), KINDS = words('file git github snapshot');
 const OUTCOMES = words('counterexample unavailable-evidence no-counterexample');
+// AC-DISPOSITION: a PR finding record carries its source identity, as its source kind requires, and every field the shared ledger names.
 const EXTERNAL = words('sourceUrl bodyDigest createdAt updatedAt');
 const SRC_X = { gate: [], body: EXTERNAL, 'issue-comment': EXTERNAL, review: [...EXTERNAL, 'reviewCommitOid'],
   'inline-comment': [...EXTERNAL, 'reviewCommitOid', 'path', 'line'], check: EXTERNAL, status: EXTERNAL };

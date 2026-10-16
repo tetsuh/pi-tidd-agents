@@ -10,7 +10,8 @@
       "requires": [
         "Give every actionable finding **exactly one disposition**:",
         "fixed\naccepted-as-designed\ndeferred\nduplicate\nnot-applicable\nneeds-owner-decision",
-        "For each finding record"
+        "For each finding record",
+        "Judge findings individually; a severity label is never by itself a decision to change the specification or implementation."
       ]
     },
     {
@@ -29,13 +30,16 @@
       "id": "AC-DISPOSITION-pr",
       "marker": "AC-DISPOSITION",
       "title": "The pull-request finding record names every field",
-      "section": "### PR finding source identity (AC-DISPOSITION)",
       "files": [
-        "skills/closed-loop-pr/SKILL.md"
+        "skills/closed-loop-pr/helpers/gate-result.js"
       ],
       "requires": [
-        "For each PR finding record the complete stable source identity when available: source kind, source ID, source URL, author identity and author type, body digest, created and updated timestamps, review-commit association, path and line association, observed public head, plus severity, the fingerprint it was raised against, evidence, impact, smallest correction, semantic fingerprint, disposition, rationale, corrective change when the disposition is `fixed`, validation evidence, and reply/status URL once published.",
-        "A reviewer score, severity label, or provider recommendation is never by itself a decision to change code."
+        "// AC-DISPOSITION: a PR finding record carries its source identity, as its source kind requires, and every field the shared ledger names.",
+        "const EXTERNAL = words('sourceUrl bodyDigest createdAt updatedAt');",
+        "'inline-comment': [...EXTERNAL, 'reviewCommitOid', 'path', 'line'], check: EXTERNAL, status: EXTERNAL };",
+        "const FINDING_REQ = words('findingId origin gate headOid raisedAgainstFingerprint severity proposedDisposition evidence impact rationale correction transport workflowRecord');",
+        "const PR_REQ = words('sourceKind sourceId observedHeadOid fingerprint semanticFingerprint authorIdentity authorType');",
+        "if (x.proposedDisposition === 'fixed' && !r.correctiveChange) bad('corrective change');"
       ]
     }
   ]
