@@ -109,7 +109,8 @@ test('Issue #289 the addendum is deleted, contractInput no longer hashes it, and
   const alarms = readText('test/issue-196-review-driver-4.test.js');
   assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised');
   // The three code edits are comments.
-  assert.ok(driver.includes("batchFail(run, operation, `${r.error?.code || r.data?.code} ${r.error?.message || ''}`.trim()); return r.data; }; // CL-D57\n"), 'the batch step carries CL-D57');
+  // #290 later made the step report its refusal through refusalReason (CL-D55); the CL-D57 marker stays.
+  assert.ok(driver.includes("batchFail(run, operation, refusalReason(operation, r)); return r.data; }; // CL-D57\n"), 'the batch step carries CL-D57');
   assert.ok(readText('skills/closed-loop-pr/driver/writer.js').includes("// This run's unremoved workspace roots and their count, after any earlier operator action (ADV-208-RETAINED-ROOT-REPORT, CL-D78).\n"), 'the retained-root report carries CL-D78');
   const builders = readText('skills/closed-loop-pr/helpers/builders.js');
   assert.ok(builders.includes('// CL-D73: the parent still decides which fresh finding reopens which settled blocker — the counterexample-class\n// normalization CL-D34 states is its judgment — and states that judgment as data.'), 'the builder comment names CL-D34, not the file');

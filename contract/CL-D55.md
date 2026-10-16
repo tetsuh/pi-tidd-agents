@@ -1,5 +1,5 @@
 ## CL-D55 — A guard failure must name its failed subcheck
-**Clauses:** CL-D55-guards, CL-D55-record, CL-D55-tests
+**Clauses:** CL-D55-guards, CL-D55-record, CL-D55-tests, CL-D55-driver, CL-D55-driver-tests
 
 *Decision ID:* CL-D55
 *Kind:* contract
@@ -9,4 +9,4 @@
 *Recommendation:* Option A.
 *Owner choice:* Option A. Every guard failure names the specific subcheck and the observed value; a failure with no named condition is a guard-implementation defect and its report says so while still carrying the read-only diagnostics the guard consulted. Terminality is unchanged: a true post-edit failure stays terminal with no retry or guard substitution, and an implementation-defect stop is terminal the same way.
 *Rationale:* This is the reporting corollary of the existing principle that a check that cannot fail is not a check: a failure that cannot be named is not a finding. The rule changes what a failure report must contain, never what happens after a true failure, so it weakens no CL-D39 boundary; it converts unverifiable stops into diagnosable defect reports at zero authority cost. The packaged guard operations remain a separate decision (Issue #96 rule 1) because they grow the helper surface; this rule is deliberately prose-only so it can land first.
-*Validity and invalidation conditions:* Applies to every guard and boundary check in Luna's batch sequence. It grants no retry, no guard substitution, no recovery, and no new authority. If the batch-sequence guards are later packaged as CLI operations whose failures name their predicate by construction, this rule is satisfied by that mechanism rather than invalidated.
+*Validity and invalidation conditions:* Applies to every guard and boundary check in Luna's batch sequence. It grants no retry, no guard substitution, no recovery, and no new authority. If the batch-sequence guards are later packaged as CLI operations whose failures name their predicate by construction, this rule is satisfied by that mechanism rather than invalidated. #290 later carried the naming into the packaged autofix driver's stop reason: a refused batch operation that names its subcheck is reported with it and the observed value, and a guard refusal that names none is reported as a guard-implementation defect (`driver/writer.js`).

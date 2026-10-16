@@ -36,6 +36,32 @@
         "every batch-sequence guard failure names its violated condition",
         "CL-D55 records the naming duty and what it deliberately does not change"
       ]
+    },
+    {
+      "id": "CL-D55-driver",
+      "marker": "CL-D55",
+      "title": "The autofix driver's stop reason names a refusal's subcheck and observed value, or calls an unnamed guard refusal a defect",
+      "files": [
+        "skills/closed-loop-pr/driver/writer.js"
+      ],
+      "requires": [
+        "const GUARDS = new Set(['guard_before_edit', 'overlay_freeze', 'overlay_compare', 'manifest_compare']);",
+        "if (typeof d.subcheck !== 'string' || !d.subcheck) return GUARDS.has(operation) ? `guard_implementation_defect: ${operation} named no subcheck (${plain})` : plain;",
+        "return `${e.code} subcheck ${d.subcheck}, observed "
+      ]
+    },
+    {
+      "id": "CL-D55-driver-tests",
+      "marker": "CL-D55",
+      "title": "Driver fixtures refuse a guard and pin the stop reason",
+      "files": [
+        "test/issue-290-guard-refusal-reason.test.js"
+      ],
+      "requires": [
+        "an overlay_freeze refusal stops the run naming its subcheck and observed value",
+        "a guard_before_edit refusal stops the run naming its subcheck and observed value",
+        "a guard refusal naming no subcheck is a guard-implementation defect, and other refusals keep their text"
+      ]
     }
   ]
 }
