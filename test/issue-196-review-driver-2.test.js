@@ -9,7 +9,8 @@ test('Issue #196 contractInput is the package authority files, not the target ch
   const t = setup();
   const r = drive(t.start, t.e);
   assert.equal(r.status, 0, r.stderr + r.stdout);
-  const files = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-pr/references/review-only.md', 'skills/closed-loop-pr/references/helper-map.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];
+  // #249 deleted the mode references (CL-D119): both drivers hash the PR Skill and the two shared references.
+  const files = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];
   const expected = crypto.createHash('sha256').update(Buffer.from(files.map((f) => `${f}\n${readText(f).replace(/\r\n?/g, '\n')}`).join('\n'), 'utf8')).digest('hex');
   assert.equal(state(t.runDir).contractInput, expected);
 });

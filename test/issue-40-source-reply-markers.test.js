@@ -16,9 +16,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
+const { readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
-const AUTOFIX = readAutofixProcedure();
 const CONTRACT = readContract();
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
@@ -83,9 +82,8 @@ test('Issue #40 authority defines the marker grammar, the four outcomes, and the
   assert.match(record, /a fresh owner-authorized run remains the only continuation/);
   assert.match(record, /Reconciliation grants no mutation, retry, resume, thread-resolution, approval, or summary authority/);
 
-  const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
-  assert.match(map, /\| `marker_create` \| `binding`, `visibleBody` \|/);
-  assert.match(map, /\| `marker_reconcile` \| `binding`, `visibleSha256`, `source`, `comments`, `paginationComplete`, `currentHead`, `expectedAuthor` \|/);
+  // #249 C2 (CL-D119): the map went; the CLI table declares the inputs.
+  assert.deepEqual([cliSchemas().marker_create, cliSchemas().marker_reconcile], [['binding', 'visibleBody'], ['binding', 'visibleSha256', 'source', 'comments', 'paginationComplete', 'currentHead', 'expectedAuthor']]);
 
   const decision = sectionOf(CONTRACT, '## CL-D45 — Source replies carry deterministic markers and reconcile read-only');
   assert.ok(decision, 'CONTRACT.md must record CL-D45');

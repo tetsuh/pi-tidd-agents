@@ -5,11 +5,10 @@
 // CL-D30's clause pins and the tests that read the file as the statement of a CL-D30 rule move to where the rule lives
 // now: the driver or helper code that implements it (CL-D30 in a writer.js comment, and the one guard label the batch
 // chain lacked), else CL-D30's own sentence. The other nineteen clauses that name the file are B4b's. The file itself and
-// the driver byte alarms are unchanged, so the pull request is behaviour-neutral.
+// the driver byte alarms were unchanged, so the pull request was behaviour-neutral; #249 later deleted the file (CL-D119).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const crypto = require('node:crypto');
 const { repoPath, readText, readContract, sectionOf } = require('./helpers');
 
 const FILE = 'skills/closed-loop-pr/references/autofix-addendum.md';
@@ -35,17 +34,13 @@ const MIXED_TESTS = {
     keep: ['assert.doesNotMatch(addendum, /Push exactly once with `git -C <AUTOFIX_WORKSPACE> push/'],
     gone: ['assert.match(addendum, /packaged `commit_create`/);', 'assert.match(addendum, /packaged `push_publish`/);'],
   },
-  'issue-55-helper-invocation-map': {
-    keep: ["const mapSection = () => sectionOf((readAutofixProcedure() + '\\n' + readText(PR_AUTOFIX_ADDENDUM)), MAP_HEADING);"],
-    gone: ['function prePushBoundaries() {', 'requires `OPERATOR_CHECKOUT_UNCHANGED@O` and `AUTOFIX_WORKSPACE@H`/'],
-  },
   'issue-61-review-only-validation-sandbox': {
     keep: ['for (const file of [PR_REVIEW_ONLY, PR_AUTOFIX, PR_AUTOFIX_ADDENDUM]) {'],
     gone: ['assert.match(text, /AFTER_VALIDATION/);'],
   },
 };
-// The structural reads (existence, headings, the split, size and ranking, scanner coverage) stay for the deletion.
-const STRUCTURAL_TESTS = ['issue-87-addendum-split', 'issue-73-authority-budget', 'issue-164-map-split'];
+// The structural reads (existence, headings, the split, size and ranking, scanner coverage) went with the file (#249,
+// CL-D119).
 // The tests that read the file for another record's rule were B4b's (#249), each beside that record; B4b (#289,
 // CL-D117) moved their reads, and those records no longer pin the file.
 const B4B_TESTS = {
@@ -85,15 +80,17 @@ test('Issue #284 no CL-D30 clause pins references/autofix-addendum.md, every CL-
   assert.equal(readText('contract/CL-D30.md').split('\n')[1], `**Clauses:** ${clauses.map((clause) => clause.id).join(', ')}`);
 });
 
-test('Issue #284 the rule-stating tests read the code or the record; the mixed files keep only their structural reads; the structural reads stay', () => {
+test('Issue #284 the rule-stating tests read the code or the record, and the file is gone', () => {
   for (const name of RULE_TESTS) assert.equal(readText(`test/${name}.test.js`).includes('autofix-addendum'), false, `${name} still reads the file`);
+  // #249 C2 (CL-D119) deleted the file, so the structural reads each mixed file kept went with it (issue-55 retired
+  // whole, and test/issue-295-mode-references-deleted.test.js asserts it is gone).
   for (const [name, { keep, gone }] of Object.entries(MIXED_TESTS)) {
     const text = readText(`test/${name}.test.js`);
-    for (const line of keep) assert.ok(text.includes(line), `${name} keeps its structural read: ${line}`);
+    for (const line of keep) assert.equal(text.includes(line), false, `${name}: ${line}`);
     for (const line of gone) assert.equal(text.includes(line), false, `${name} still states a CL-D30 rule from the file: ${line}`);
   }
-  for (const name of STRUCTURAL_TESTS) assert.ok(readText(`test/${name}.test.js`).includes('autofix-addendum.md'), `${name} is the deletion pull request's and still reads the file`);
-  assert.ok(readText('test/helpers.js').includes("'skills/closed-loop-pr/references/autofix-addendum.md',"), 'AUTHORITY_FILES still measures the file until the deletion');
+  assert.equal(fs.existsSync(repoPath(FILE)), false, 'the file is deleted');
+  assert.equal(readText('test/helpers.js').includes("'skills/closed-loop-pr/references/autofix-addendum.md',"), false, 'AUTHORITY_FILES no longer measures the file');
   // #249 B4b (CL-D117) moved the B4b files' reads, and test/issue-289-addendum-rest-pins.test.js now holds the complete
   // inventory of the files that name the file; the CL-D30 reads B4a retired stay gone.
   for (const [name, record] of Object.entries(B4B_TESTS)) {
@@ -135,10 +132,10 @@ test('Issue #284 CL-D115 records the repoint, the retired clauses and the five d
   assert.ok(index.indexOf('contract/CL-D115.md') !== -1 && index.indexOf('contract/CL-D115.md') < index.indexOf('contract/CL-D114.md'), 'CL-D115 is indexed above CL-D114');
 });
 
-test('Issue #284 the addendum is byte-identical, autofix.js still reads it into contractInput, and the byte alarms are unchanged', () => {
-  assert.equal(crypto.createHash('sha256').update(fs.readFileSync(repoPath(FILE))).digest('hex'), 'bc7420e709b490745f1d4fa6dd9423a78539314c88f9f7d73929f9a5c7c09803');
+test('Issue #284 the addendum is deleted, autofix.js no longer reads it into contractInput, and the byte alarms are unchanged', () => {
+  assert.equal(fs.existsSync(repoPath(FILE)), false);
   const driver = readText('skills/closed-loop-pr/driver/autofix.js');
-  assert.ok(driver.includes("const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-pr/references/autofix.md', 'skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/helper-map.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];"), 'autofix.js still reads the file into contractInput');
+  assert.ok(driver.includes("const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];"), 'autofix.js hashes the PR Skill and the two shared references alone');
   const alarms = readText('test/issue-196-review-driver-4.test.js');
   assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised for the repoint (#281 later raised the aggregate, CL-D116)');
   // The two code edits are comments: the guard label on the step that already ran first, and the writer's marker.

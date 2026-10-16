@@ -29,9 +29,6 @@ test('Issue #126 the adversarial gate exhausts a broken component before it retu
   // A Sol duty only: the every-gate block every role receives is unchanged, and so are the other roles.
   const everyGate = sectionOf(contract, '#### Every-gate invariant payload block (CL-D2)');
   assert.ok(everyGate && !everyGate.includes(SENTENCE), 'the every-gate block carries no Sol-only duty');
-  for (const file of ['skills/closed-loop-pr/references/autofix-addendum.md', 'skills/closed-loop-pr/references/review-only.md']) {
-    assert.ok(!readText(file).includes(SENTENCE), `${file} must not carry the Sol-only duty`);
-  }
   for (const file of ['skills/closed-loop-issue/SKILL.md', 'skills/closed-loop-pr/SKILL.md']) {
     assert.ok(!readText(file).includes(SENTENCE), `${file} must not carry the Sol-only duty`);
   }
@@ -45,9 +42,8 @@ test('Issue #126 the adversarial gate exhausts a broken component before it retu
   assert.deepEqual(owners, ['CL-D66'], 'the extension belongs to CL-D66, not to a record of its own');
   const carriers = AUTHORITY_FILES.filter((file) => readText(file).includes(SENTENCE));
   assert.deepEqual(carriers, ['skills/closed-loop-shared/references/gate-contract.md'], 'exactly one authority file carries the sentence');
-  assert.ok(Buffer.byteLength(readText('skills/closed-loop-pr/references/autofix-addendum.md')) < 32000, 'the CL-D30 addendum stays inside its recorded guard');
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 162000, `authority files total ${total}; the sentence must fit under the ceiling without a raise`);
+  assert.ok(total < 81000, `authority files total ${total}; the sentence must fit under the ceiling without a raise`);
 });
 
 test('Issue #126 CL-D66 records the component sweep, its declined alternatives, and its boundary', () => {

@@ -12,26 +12,19 @@ const assert = require('node:assert/strict');
 const { readText, readContract, sectionOf, readManifest } = require('./helpers');
 
 const PR_SKILL = 'skills/closed-loop-pr/SKILL.md';
-const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
-const PR_AUTOFIX = 'skills/closed-loop-pr/references/autofix.md';
-const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 
 
-test('Issue #61 the PR root defines the validation sandbox delta once for both modes', () => {
-  // Both PR modes load the root plus their mode reference, so the definition belongs to the
-  // root. Putting it in the shared gate contract would impose a PR-only concept on the Issue
-  // root, and restating it per mode would reintroduce the duplication Issue #58 removed.
-  const section = sectionOf(readText(PR_SKILL), '### Validation sandbox delta (CL-D38)');
-  assert.ok(section, `${PR_SKILL} must own the validation sandbox delta definition`);
-  assert.match(section, /`VALIDATION_SANDBOX_DELTA` :=/);
-  assert.match(section, /ignored paths that this run's own validation created/);
-  assert.match(section, /frozen by path, type, and no-follow presence/);
-  assert.match(section, /never read, followed, deleted, pruned, or restored/);
-  assert.match(section, /never enters evidence, a fingerprint, a draft, or a status block/);
-  // The definition must not be restated in either mode reference or in the addendum stage.
-  for (const file of [PR_REVIEW_ONLY, PR_AUTOFIX, PR_AUTOFIX_ADDENDUM]) {
-    assert.doesNotMatch(readText(file), /`VALIDATION_SANDBOX_DELTA` :=/, `${file} must reference the root definition, not restate it`);
-  }
+test('Issue #61 the drivers freeze the validation sandbox delta, and CL-D38 records how it is observed', () => {
+  // #249 C2 (CL-D119) trimmed the PR Skill's definition; the drivers' code and CL-D38 carry the rule and its divergence.
+  const phases = readText('skills/closed-loop-pr/driver/phases.js');
+  assert.ok(phases.includes('// Ignored paths a validation, a gate, or a writer changed since the run took them (CL-D38): a list'));
+  assert.ok(phases.includes('const now = ignoredInventory(cwd), drift = [...now.filter((x) => !saved.includes(x)), ...saved.filter((x) => !now.includes(x))];'));
+  assert.match(readText('contract/CL-D38.md'), /that inventory hashes each ignored file's content and a stop names the changed entries, where the definition observed presence only, recorded and not closed \(#249, CL-D119\)\./);
+  // The definition's rules stand in the record, beside the divergence it records.
+  const d38 = readText('contract/CL-D38.md');
+  assert.match(d38, /never read, followed, deleted, pruned, or restored/);
+  assert.match(d38, /never enters evidence, a fingerprint, a draft, or a status block/);
+  assert.equal(readText(PR_SKILL).includes('`VALIDATION_SANDBOX_DELTA` :='), false, 'the PR Skill no longer defines it');
 });
 
 test('Issue #61 review-only permits only the validation delta and keeps every other prohibition', () => {
@@ -53,13 +46,9 @@ test('Issue #61 review-only permits only the validation delta and keeps every ot
   assert.match(record, /the packaged review-only driver names no writing operation/);
 });
 
-test('Issue #61 exact autofix keeps its phase usage and stops redefining the delta', () => {
-  const text = (readText(PR_AUTOFIX) + '\n' + readText(PR_AUTOFIX_ADDENDUM));
-  assert.match(text, /`VALIDATION_SANDBOX_DELTA`/, 'autofix must still name the delta at its phases');
+test('Issue #61 exact autofix keeps its phase guard in the driver', () => {
   // #249 B4a (CL-D115): the phase guard is read in the driver's batch chain.
   assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("step('overlay_compare', { cwd: ws, overlay }); // AFTER_VALIDATION"));
-  // The general definition moved to the root; the mode reference keeps only its phase rules.
-  assert.doesNotMatch(text, /Validation-created ignored caches are frozen run-owned sandbox state/, 'the definition must not remain duplicated in the mode reference');
 });
 
 test('Issue #61 CONTRACT.md records CL-D38 with clause ownership', () => {

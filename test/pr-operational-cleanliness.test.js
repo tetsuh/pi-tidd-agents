@@ -18,13 +18,12 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const fs = require('node:fs');
-const { readAutofixProcedure, readText, readContract, readJson } = require('./helpers');
+const { readText, readContract, readJson } = require('./helpers');
 
 const CONTRACT = readContract();
 const PR_SKILL = readText('skills/closed-loop-pr/SKILL.md');
-const PR_AUTOFIX = readAutofixProcedure();
-const PR_ADDENDUM = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-const SKILL = `${PR_SKILL}\n${PR_AUTOFIX}\n${PR_ADDENDUM}`;
+// #249 deleted the mode references (CL-D119); the PR Skill is the dispatch alone.
+const SKILL = PR_SKILL;
 const README = readText('README.md');
 const PROMPT = readText('prompts/tidd-pr.md');
 const PACKAGE_TEST = readText('test/package.test.js');
@@ -584,7 +583,6 @@ test('artifact: Issue #42 isolated-workspace contract is present and single-chec
   assert.match(d30, /WORKSPACE_POST_COMMIT|POST_COMMIT.*workspace/i);
   assert.match(d30, /linked permits only a remote-tracking chain from `O` to `C` that the helper verifies as sole-child ancestry, through the heads `build_operator_revalidate` derives from the run's own post-push snapshots \(CL-D79, CL-D86\), clone operator stays `O`/);
   for (const text of [CONTRACT, README]) assert.match(text, /remote-tracking[^.\n]*(?:ref `C`|`O -> C`|chain from `O` to `C`)/);
-  assert.match(PR_AUTOFIX, /After public\/workspace `C`, linked alone passes `postPushHead:C`; clone omits it and requires `O` equality/);
   assert.match(CONTRACT, /Only linked after public\/workspace verification may `operator_revalidate` receive `postPushHead: C`/);
   assert.match(README, /only then may `operator_revalidate` receive `postPushHead: C`/);
   assert.doesNotMatch(CONTRACT, /neither mode mutates[^.\n]*remote-tracking state/i);
@@ -819,13 +817,10 @@ test('artifact: Issue #17 sections define scoped operational cleanliness', () =>
 test('artifact: Issue #17 stale cleanliness prose is rejected section-by-section', () => {
   for (const [name, text] of [
     ['CL-D10', section(CONTRACT, '## CL-D10 — Worktree precondition for autofix')],
-    ['public-head', section(SKILL, '### Public-head loop and evidence')],
-    ['publication', section(SKILL, '### Exact identity and Luna publication phases')],
-    ['reply-final', section(SKILL, '### Source-finding replies and final readiness')],
   ]) {
     assert.doesNotMatch(text, /untracked baseline clean|untracked state to be fully clean|all three local dimensions .*completely clean/i, name);
   }
-  assert.match(SKILL, /outside-`?\.pi|outside.*untracked/i);
+  assert.match(readText('contract/CL-D30.md'), /outside.*untracked/i);
   assert.doesNotMatch(README, /\.pi.*generally ignored/i);
 });
 
@@ -835,7 +830,6 @@ test('artifact: Issue #20 names each invariant once and references it at every p
   // #249 B4a (CL-D115): the addendum's phase rules are read in the driver's guarded chain and the workspace helper.
   const driver = readText('skills/closed-loop-pr/driver/autofix.js');
   const workspace = readText('skills/closed-loop-pr/helpers/workspace.js');
-  const addendum = SKILL.slice(SKILL.indexOf('## Exact PR `autofix` addendum (CL-D30)'));
   const definitionCount = (text, name) => {
     const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return [...text.matchAll(new RegExp(`^[-*] ${'`'}${escaped}${'`'} :=`, 'gm'))].length;
@@ -843,7 +837,6 @@ test('artifact: Issue #20 names each invariant once and references it at every p
 
   for (const name of ['OPERATOR_CHECKOUT@H', 'AUTOFIX_WORKSPACE@H', 'WORKSPACE_POST_COMMIT(C, P)', 'WORKSPACE_POST_PUSH(C, O)', 'OPERATOR_CHECKOUT_UNCHANGED@O', 'REPLY_EXCEPTION']) {
     assert.equal(definitionCount(CONTRACT, name), 1, `${name} must be defined exactly once in CONTRACT.md`);
-    assert.equal(definitionCount(SKILL, name), 1, `${name} must be defined exactly once in the PR Skill`);
   }
   assert.match(d10, /`OPERATOR_CHECKOUT@H`/);
   // #249 B3 (CL-D114): the preflight capture is read in the driver, which takes it before any gate.
@@ -869,10 +862,7 @@ test('artifact: Issue #20 names each invariant once and references it at every p
   assert.match(readText('contract/AC-AUTOFIX.md'), /The packaged autofix driver posts no source-finding reply and no summary, so `REPLY_EXCEPTION` is not exercised on that path/);
   // The three local dimensions are checked separately: untracked paths, runtime roots, and tracked and index state.
   for (const code of ["'unexpected_untracked'", "'unsafe_runtime_root'", "'runtime_root_tracked'", "'workspace_not_clean'"]) assert.ok(workspace.includes(`workspaceStateError(${code},`), `workspace_verify refuses ${code}`);
-  // CL-D43 raised this from the 25,022-byte pre-refactor baseline to 28,000, CL-D74 to 29,000, and
-  // CL-D85 to 32,000: it measured 29,776 bytes at f71077f, leaving 2,224 asserted at that raise.
-  // Revision-qualified, not a running total.
-  assert.ok(Buffer.byteLength(addendum) < 32000, 'the CL-D30 addendum must stay inside its recorded guard');
+  // #249 deleted the addendum (CL-D119), and its byte guard retired with it.
 
   const retainedVectorMap = {
     'OPERATOR_CHECKOUT@H': ['01', '02', '06', '08', '09', '10', '11', '12', '13', '19', '20'],
@@ -888,7 +878,6 @@ test('artifact: RUNTIME_ROOTS is the documented exact set and classifies roots i
   assert.deepEqual(RUNTIME_ROOTS, ['.pi', '.pi-subagents']);
   const definition = /`?RUNTIME_ROOTS`?\s*:=\s*[^\n{]*\{ "\.pi", "\.pi-subagents" \}/g;
   assert.equal((CONTRACT.match(definition) || []).length, 1, 'CONTRACT.md must define RUNTIME_ROOTS exactly once');
-  assert.equal((SKILL.match(definition) || []).length, 1, 'PR Skill must define RUNTIME_ROOTS exactly once');
   assert.doesNotMatch(PROMPT, /RUNTIME_ROOTS\s*:=/, 'thin prompt must not define RUNTIME_ROOTS');
   // #249 B3 (CL-D114): the set the base reference stated is read in the helpers that enforce it.
   assert.deepEqual(require('../skills/closed-loop-pr/helpers/operator.js').RUNTIME_ROOTS, RUNTIME_ROOTS);

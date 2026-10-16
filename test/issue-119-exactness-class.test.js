@@ -27,10 +27,7 @@ test('Issue #119 the adversarial gate names every same-class rigor gap in one re
   assert.match(record, /a check the writer adds or corrects against a declared list or block is written as a complete parse of the surface and an exact ordered comparison with the derived expectation, never as a presence, substring, or subsequence test/);
   assert.match(record, /The packaged writer task \(`driver\/writer\.js`\) does not carry the writer sentence/);
   assert.doesNotMatch(readText('skills/closed-loop-pr/driver/writer.js'), /exact ordered comparison/);
-  // The addendum is untouched: it sits inside its own byte guard.
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.doesNotMatch(addendum, /CL-D66/);
-  assert.ok(Buffer.byteLength(addendum) < 32000, 'the CL-D30 addendum stays inside its recorded guard');
+  // #249 C2 (CL-D119) deleted the addendum with its byte guard.
 });
 
 test('Issue #119 CL-D66 records the placement, the declined alternatives, and the boundary', () => {

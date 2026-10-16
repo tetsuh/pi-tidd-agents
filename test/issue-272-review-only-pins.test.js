@@ -4,11 +4,10 @@
 // hashes it into contractInput), and the last pull request of #249 deletes it. Before that, every clause pin and every
 // rule-stating test read moves off the file to where the rule lives now: the driver or helper code that implements the
 // rule where the file carries the record's marker (CL-D11, CL-D13 and CL-D38 added in driver comments, new or existing), else the record's own sentence. The file itself and the
-// driver byte alarms are unchanged, so the pull request is behaviour-neutral.
+// driver byte alarms were unchanged, so the pull request was behaviour-neutral; #249 later deleted the file (CL-D119).
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const crypto = require('node:crypto');
 const { repoPath, readText, readContract, manifestSources, sectionOf } = require('./helpers');
 
 const FILE = 'skills/closed-loop-pr/references/review-only.md';
@@ -29,8 +28,8 @@ const MIXED_TESTS = {
     gone: ["const section = sectionOf(text, '### Validation sandbox boundary (CL-D38)');", "const prohibitions = sectionOf(text, '## Review-only is the default (AC-REVIEW-ONLY, CL-D15)');"],
   },
 };
-// The structural reads (existence, headings, duplication guards, derived vocabulary surfaces, contractInput) stay for the deletion.
-const STRUCTURAL_TESTS = ['issue-126-sol-component-sweep', 'issue-51-anchored-findings', 'issue-196-review-driver-2', 'issue-110-derived-vocabulary'];
+// The structural reads (existence, headings, duplication guards, derived vocabulary surfaces, contractInput) went with the
+// file (#249, CL-D119).
 const RETIRED = ['CL-D107-review-only', 'CL-D72-route-review-only', 'CL-D31-pr-boundary-pr'];
 
 test('Issue #272 no clause pin names references/review-only.md, and the retired duplicates are gone', () => {
@@ -45,20 +44,21 @@ test('Issue #272 no clause pin names references/review-only.md, and the retired 
   for (const id of ['CL-D13-pr', 'CL-D33-boundary', 'CL-D38-review-only', 'CL-D54-review-only', 'CL-D62-pr', 'CL-D85-status', 'CL-D85-order', 'CL-D110-review-only', 'CL-D11-review-only', 'CL-D100-readiness', 'CL-D92-readiness', 'CL-D14-pr', 'CL-D17', 'CL-D18', 'CL-D23', 'CL-D24', 'CL-D28', 'AC-REVIEW-ONLY-record']) assert.ok(ids.has(id), `${id} carries a repointed pin`);
 });
 
-test('Issue #272 the rule-stating tests read the code or the record; the mixed files keep only their structural reads; the structural reads stay', () => {
+test('Issue #272 the rule-stating tests read the code or the record, and the file is gone', () => {
   for (const name of RULE_TESTS) assert.equal(readText(`test/${name}.test.js`).includes('references/review-only.md'), false, `${name} still reads the file`);
+  // #249 C2 (CL-D119) deleted the file, so the structural reads each mixed file kept went with it.
   for (const [name, { keep, gone }] of Object.entries(MIXED_TESTS)) {
     const text = readText(`test/${name}.test.js`);
-    for (const line of keep) assert.ok(text.includes(line), `${name} keeps its structural read: ${line}`);
+    for (const line of keep) assert.equal(text.includes(line), false, `${name}: ${line}`);
     for (const line of gone) assert.equal(text.includes(line), false, `${name} still states a rule from the file: ${line}`);
   }
-  for (const name of STRUCTURAL_TESTS) assert.ok(readText(`test/${name}.test.js`).includes('references/review-only.md'), `${name} is the deletion pull request's and still reads the file`);
-  assert.ok(readText('test/helpers.js').includes("'skills/closed-loop-pr/references/review-only.md',"), 'AUTHORITY_FILES still measures the file until the deletion');
+  assert.equal(fs.existsSync(repoPath(FILE)), false, 'the file is deleted');
+  assert.equal(readText('test/helpers.js').includes("'skills/closed-loop-pr/references/review-only.md',"), false, 'AUTHORITY_FILES no longer measures the file');
 });
 
-test('Issue #272 the file is byte-identical, review.js still reads it into contractInput, and the byte alarms are unchanged', () => {
-  assert.equal(crypto.createHash('sha256').update(fs.readFileSync(repoPath(FILE))).digest('hex'), '1fdb9c43551eb0aa2c829e70ba738e3e9440a6f7635017b353d1c33983ecb397');
-  assert.ok(readText('skills/closed-loop-pr/driver/review.js').includes("'skills/closed-loop-pr/references/review-only.md'"), 'review.js still reads the file into contractInput');
+test('Issue #272 the file is deleted, review.js no longer reads it into contractInput, and the byte alarms are unchanged', () => {
+  assert.equal(fs.existsSync(repoPath(FILE)), false);
+  assert.equal(readText('skills/closed-loop-pr/driver/review.js').includes("'skills/closed-loop-pr/references/review-only.md'"), false, 'review.js no longer reads the file into contractInput');
   assert.equal(readText('skills/closed-loop-pr/driver/autofix.js').includes('review-only.md'), false, 'autofix.js never read the file');
   const alarms = readText('test/issue-196-review-driver-4.test.js');
   assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised for the repoint (#281 later raised the aggregate, CL-D116)');

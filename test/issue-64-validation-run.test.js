@@ -16,7 +16,7 @@ const crypto = require('node:crypto');
 const { execFileSync, spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas, spawnCalls, spawnReferenceProblems, readManifest } = require('./helpers');
+const { readText, readContract, sectionOf, cliSchemas, spawnCalls, spawnReferenceProblems, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const NODE = process.execPath;
@@ -327,15 +327,14 @@ test('Issue #64 validation_run takes an argv, never a shell, and runs only at a 
   } finally { fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(outside, { recursive: true, force: true }); fs.rmSync(bare, { recursive: true, force: true }); }
 });
 
-test('Issue #64 the map, the README, the recovery key, and the record name the packaged validation run', () => {
-  const autofix = readAutofixProcedure();
-  const map = sectionOf(autofix, '### Packaged helper invocation map (CL-D30, Issue #47)');
-  assert.ok(map.includes("| The focused validation, in review-only's validation step and after the writer's edit (CL-D39, CL-D72) | `validation_run` | `cwd` (a Git toplevel), `command` (an argv, never a shell string), `timeoutMs` (optional) |"), 'the map offers validation_run with its fields');
+test('Issue #64 the CLI table, the README, the recovery key, and the record name the packaged validation run', () => {
+  // #249 C2 (CL-D119): the map went; the CLI table declares the operation's fields.
+  assert.ok(readText('skills/closed-loop-pr/helpers/cli.js').includes("validation_run: { required: ['cwd', 'command'], optional: ['timeoutMs'] },"), 'the CLI offers validation_run with its fields');
   // #249 B3 (CL-D114): the recovery key and the guarded step are read in the autofix driver and the record.
   const driver = readText('skills/closed-loop-pr/driver/autofix.js');
   assert.ok(driver.includes("batchFail(run, 'validation_run', `${v.ok === false && v.error?.code !== 'validation_failed' ? 'harness_failed' : 'validation_failed'}: "), 'a harness failure ends the batch through the packaged operation');
   assert.ok(readText('contract/CL-D72.md').includes('`validation_run@focused_validation`'), 'the record names the recovery key');
-  assert.equal(autofix.includes('validation_harness@focused_validation'), false, 'the old key is gone');
+  assert.equal(driver.includes('validation_harness@focused_validation'), false, 'the old key is gone');
   assert.match(readText('README.md'), /`validation_run` spawns the target's validation command as an argv at a Git toplevel under an explicit environment allowlist/);
   // ADV-124-REVIEW-ONLY-OPERATIONS-UNREACHABLE: each route's own authority names the operations it uses.
   assert.ok(readText('skills/closed-loop-pr/driver/review.js').includes("const v = run.op('validation_run', { cwd: checkout, command, timeoutMs: 1800000 }, { allowFail: true });"), 'the review-only driver runs validation_run (#249 B2, CL-D113)');
@@ -570,8 +569,6 @@ test('Issue #64 required_evidence_set derives the set from the change and the au
     assert.deepEqual(cliSchemas().required_evidence_set, ['cwd', 'baseOid', 'headOid', 'identities']);
     const viaCli = cli('required_evidence_set', { cwd: repo.root, baseOid: repo.base, headOid: repo.head, identities });
     assert.equal(viaCli.ok, true, JSON.stringify(viaCli.error)); assert.deepEqual(viaCli.data.requiredEvidence, derived.data.requiredEvidence);
-    const map = sectionOf(readAutofixProcedure(), '### Packaged helper invocation map (CL-D30, Issue #47)');
-    assert.ok(map.includes("| Before `required_evidence_check`, deriving the gate's required-evidence set from the change and the authority files (CL-D72) | `required_evidence_set` | `cwd` (a Git toplevel), `baseOid`, `headOid`, `identities` (the git, GitHub, and snapshot records) |"), 'the map offers required_evidence_set with its fields');
   } finally { fs.rmSync(repo.root, { recursive: true, force: true }); fs.rmSync(bare.root, { recursive: true, force: true }); }
 });
 

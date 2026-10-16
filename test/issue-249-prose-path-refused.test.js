@@ -127,12 +127,12 @@ test('Issue #249 the dispatch section routes every pull request to the driver an
   // Pre-push sweep A1: a pull request of another repository (a URL the shared grammar accepts) would otherwise be read
   // as the checkout repository's pull request of that number, since step 1 fixes --repo to the checkout's repository.
   assert.match(boundary, /A pull request of another repository than the current checkout's is refused before the driver: report it and stop, and review nothing \(CL-D111\)\./);
-  // The evidence section's foreign path is specification until #249 deletes it, and says so.
-  assert.match(sectionOf(skill, '## Evidence fingerprints (CL-D9)'), /Since CL-D111 no run takes the following path; it stays as specification until #249 deletes it\./);
+  // #249 deleted the evidence section with its foreign API path (CL-D119).
+  assert.equal(sectionOf(skill, '## Evidence fingerprints (CL-D9)'), null);
 });
 
 // Round 1 CONV-269-AC3-MODE-DISPATCH: AC3 covers the whole Skill, not only the dispatch section. No line of it instructs
-// the parent to read a mode reference; the Mode dispatch block is a non-operative note until #249 deletes it.
+// the parent to read a mode reference; #249 deleted the Mode dispatch block with the mode references (CL-D119).
 test('Issue #249 no instruction anywhere in the Skill routes a pull request to a mode reference', () => {
   const skill = readText(SKILL);
   assert.doesNotMatch(skill, /^- [^\n]*mode: read `references\//m);
@@ -141,10 +141,8 @@ test('Issue #249 no instruction anywhere in the Skill routes a pull request to a
   const routing = /PROSE_PATH|prose path|mode reference|references\/(review-only|autofix|autofix-addendum|helper-map)\.md|by hand|hand[- ]review|hand-composed round/i;
   assert.doesNotMatch(readText('README.md'), routing, 'README.md');
   for (const agent of fs.readdirSync(review.repoPath('agents')).filter((f) => f.endsWith('.md'))) assert.doesNotMatch(readText(`agents/${agent}`), routing, agent);
-  const dispatch = sectionOf(skill, '## Mode dispatch (CL-D19)');
-  assert.ok(dispatch, 'the Mode dispatch block is still the final block until #249 deletes it');
-  assert.match(dispatch, /^Since CL-D111 no pull request takes this path: every run goes through the driver \(Driver dispatch above\), and you read no mode reference\. The block stays as specification until #249 deletes it with the mode references\./m);
-  assert.match(dispatch, /The former continuation, for the record only: review-only mode read `references\/review-only\.md`; exact CL-D30 `autofix` mode read `references\/autofix\.md`\. Exactly one was read after mode parsing, never both\./);
+  assert.equal(sectionOf(skill, '## Mode dispatch (CL-D19)'), null, 'the Mode dispatch block is deleted');
+  assert.doesNotMatch(skill, /references\/(review-only|autofix|autofix-addendum|helper-map)\.md/);
 });
 
 test('Issue #249 README names the refusal in place of the send-back', () => {

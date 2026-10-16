@@ -157,9 +157,10 @@ function roleSurfaceGaps(read) {
   const canonical = ROLES.filter((role) => role.alias).map((role) => role.name), preliminary = ROLES.filter((role) => role.kind === 'preliminary').map((role) => role.name);
   expect(readme.includes(`The closed-loop workflow uses ${NUMBER_WORDS[ROLES.length]} roles: ${canonical.map(code).join(', ')}, and the non-authoritative ${code(preliminary[0])} (CL-D62).`), 'README role paragraph derives from the source');
   const prDisplay = VOCAB.gateOrder.pr.map(display);
-  const autofix = `${read('skills/closed-loop-pr/references/autofix.md')}\n${read('skills/closed-loop-pr/references/helper-map.md')}`;
-  expect(autofix.includes(`| Snapshot refresh — before each ${prDisplay.join('/')} invocation, before the first reply`), 'helper map snapshot row derives from the PR gate order');
-  expect(autofix.includes(`| Every ${prDisplay[0]}, ${prDisplay[1]}, or ${prDisplay[2]} result, before it is read as a verdict (CL-D36, CL-D62) | \`gate_result_validate\` |`), 'helper map validate row derives from the PR gate order');
+  // #249 deleted the map (CL-D119); CL-D62 states its two rows.
+  const d62 = read('contract/CL-D62.md');
+  expect(d62.includes(`before each ${prDisplay.join('/')} invocation`), 'CL-D62 snapshot row derives from the PR gate order');
+  expect(d62.includes(`Every ${prDisplay[0]}, ${prDisplay[1]}, or ${prDisplay[2]} result, before it is read as a verdict (CL-D36,`), 'CL-D62 validate row derives from the PR gate order');
   return gaps;
 }
 
@@ -171,12 +172,10 @@ function gateOrderGaps(read) {
   const { gaps, expect, section, exact, fences } = collector();
   const authoritative = (root) => VOCAB.gateOrder[root].filter((gate) => ROLES.find((role) => role.gate === gate).kind === 'reviewer');
   const merges = (text) => [...text.matchAll(/→ ([A-Z][a-z]+) MERGE(?=\n|$| )/g)].map((match) => match[1]);
-  const loop = section(read('skills/closed-loop-pr/references/review-only.md'), '## Gate loop (PR review-only baseline; AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)', 'review-only order block');
-  const block = fences(loop, 'text', 'review-only order block');
-  if (block !== null) {
-    exact(block.match(ROLE_TOKEN) || [], VOCAB.gateOrder.pr.map(roleOf), 'review-only order block stage roles');
-    exact(merges(block), authoritative('pr').map(display), 'review-only order block MERGE steps');
-  }
+  // #249 deleted review-only.md (CL-D119); the review-only order is the review driver's own gate list.
+  const reviewOrder = /^const GATES = \[(.*)\];$/m.exec(read('skills/closed-loop-pr/driver/review.js'));
+  expect(reviewOrder, 'the review driver declares its gate order');
+  exact(reviewOrder ? reviewOrder[1].split(', ').map((name) => name.replace(/'/g, '')) : [], VOCAB.gateOrder.pr, 'review-only driver gate order');
   const legacy = read('skills/closed-loop-issue/SKILL.md').split('\n').find((line) => line.startsWith('specification → '));
   expect(legacy, 'the Issue legacy sequence line exists');
   exact((legacy ?? '').match(ROLE_TOKEN) || [], VOCAB.gateOrder.issue.map(roleOf), 'Issue legacy sequence stage roles');
@@ -198,7 +197,9 @@ function gateOrderGaps(read) {
 // (see `fences` in the collector). The restart phrase is prose and stays a file literal.
 function statusGaps(read) {
   const { gaps, expect, exact, fences } = collector();
-  for (const [root, file] of [['issue', 'skills/closed-loop-issue/SKILL.md'], ['pr', 'skills/closed-loop-pr/references/review-only.md']]) {
+  // #249 deleted review-only.md (CL-D119); the PR status block is rendered by the driver's code, so only the Issue root's
+  // fenced block is a surface.
+  for (const [root, file] of [['issue', 'skills/closed-loop-issue/SKILL.md']]) {
     const block = fences(read(file), 'tidd-status', file);
     if (block === null) continue;
     exact(block.split('\n').filter((line) => /^(?:active_gate|rounds|resolved):/.test(line)), STATUS_LINES(root), `${file} tidd-status lines`, ' ‖ ');
@@ -515,25 +516,22 @@ test('Issue #110 the version 1 window and the marker gate vocabulary derive from
 test('Issue #110 one run names every simultaneous surface gap', () => {
   const overlay = new Map();
   overlay.set('README.md', readText('README.md').split('\n').filter((line) => !/^\| `tidd-(?:drift|safety)-reviewer` \|/.test(line)).join('\n').replace('\n| --- | --- | --- |\n', '\n| --- | --- | --- |\n| `tidd-legacy-reviewer` | `gpt-5.6-legacy` | stale |\n'));
-  const reviewOnly = readText('skills/closed-loop-pr/references/review-only.md');
-  overlay.set('skills/closed-loop-pr/references/review-only.md', reviewOnly.replace(`\n${VOCAB.statusLines.resolved}\n`, '\n').replace(`\n${VOCAB.statusLines.rounds}\n`, '\n').replace('\n\n', `\n\n${VOCAB.statusLines.rounds}\n\n`).replace('\n→ tidd-safety-reviewer gate\n', '\n→ tidd-drift-reviewer gate\n→ tidd-safety-reviewer gate\n'));
+  overlay.set('skills/closed-loop-pr/driver/review.js', readText('skills/closed-loop-pr/driver/review.js').replace("const GATES = ['convergence', 'adversarial', 'safety'];", "const GATES = ['convergence', 'adversarial', 'decision-drift', 'safety'];"));
   const issueSkill = readText('skills/closed-loop-issue/SKILL.md');
   overlay.set('skills/closed-loop-issue/SKILL.md', `${issueSkill.replace(/^(specification → .*)$/m, '$1 → tidd-adversarial-reviewer gate').replace('`tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve', '`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer`. If one does not resolve')}\n${issueSkill.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`);
   overlay.set('skills/closed-loop-pr/SKILL.md', readText('skills/closed-loop-pr/SKILL.md').replace('`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally', '`tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and, conditionally'));
   overlay.set('test/package.test.js', `${readText('test/package.test.js')}\n  'tidd-legacy-reviewer': 'gpt-5.6-legacy',\n`);
   const read = withOverlay(overlay);
   for (const [file, text] of overlay) assert.notEqual(text, readText(file), `${file}: the mutation must change the surface`);
-  assert.ok(overlay.get('skills/closed-loop-pr/references/review-only.md').includes(`\n${VOCAB.statusLines.rounds}\n`), 'the relocated rounds line survives in the file outside its block');
   overlay.set(cld62Source(), readText(cld62Source()).replace(CL_D62_LITERAL, '"before each Sol/Terra invocation"'));
   const gaps = [...roleSurfaceGaps(read), ...gateOrderGaps(read), ...statusGaps(read), ...fixtureGaps(read), ...manifestGaps(read)];
   const prRoles = VOCAB.gateOrder.pr.map(roleOf), issueRoles = VOCAB.gateOrder.issue.map(roleOf);
   assert.deepEqual(gaps.sort(), [
     `README Included agents rows: found ${['`tidd-legacy-reviewer` | `gpt-5.6-legacy`', ...ROLES.filter((role) => !['tidd-drift-reviewer', 'tidd-safety-reviewer'].includes(role.name)).map((role) => `${code(role.name)} | ${code(role.model)}`)].join(', ')}; declared ${ROLES.map((role) => `${code(role.name)} | ${code(role.model)}`).join(', ')}`,
     'README.md: undeclared role tidd-legacy-reviewer',
-    `review-only order block stage roles: found ${[prRoles[0], prRoles[1], 'tidd-drift-reviewer', prRoles[2]].join(', ')}; declared ${prRoles.join(', ')}`,
+    `review-only driver gate order: found ${[VOCAB.gateOrder.pr[0], VOCAB.gateOrder.pr[1], 'decision-drift', VOCAB.gateOrder.pr[2]].join(', ')}; declared ${VOCAB.gateOrder.pr.join(', ')}`,
     `Issue legacy sequence stage roles: found ${[...issueRoles, 'tidd-adversarial-reviewer'].join(', ')}; declared ${issueRoles.join(', ')}`,
     `package.test EXPECTED_AGENTS keys are exactly the declared roles: extra tidd-legacy-reviewer`,
-    `skills/closed-loop-pr/references/review-only.md tidd-status lines: found ${VOCAB.statusLines.activeGate.pr}; declared ${STATUS_LINES('pr').join(' ‖ ')}`,
     'skills/closed-loop-issue/SKILL.md declares exactly one tidd-status block: found 2',
     'test/package.test.js: undeclared role tidd-legacy-reviewer',
     `Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`,
@@ -547,20 +545,17 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
 // duplicate, reordered, conflicting, indented, or malformed entry is named. One mutation per case, run
 // alone through its collector; the unmutated surfaces are covered by the tests above.
 test('Issue #110 single-surface mutations are named exactly', () => {
-  const pr = 'skills/closed-loop-pr/references/review-only.md', issue = 'skills/closed-loop-issue/SKILL.md';
-  const { rounds, resolved } = VOCAB.statusLines, prLines = STATUS_LINES('pr'), issueLines = STATUS_LINES('issue');
+  const issue = 'skills/closed-loop-issue/SKILL.md';
+  const { rounds, resolved } = VOCAB.statusLines, issueLines = STATUS_LINES('issue');
   const rows = ROLES.map((role) => `${code(role.name)} | ${code(role.model)}`), drift = rows.indexOf('`tidd-drift-reviewer` | `gpt-6.1-sol`');
   assert.ok(drift >= 0, 'the mutated row is a declared row');
   const cases = [
-    ['duplicated rounds line', pr, (text) => text.replace(`\n${rounds}\n`, `\n${rounds}\n${rounds}\n`), statusGaps, [`${pr} tidd-status lines: found ${[prLines[0], rounds, rounds, resolved].join(' ‖ ')}; declared ${prLines.join(' ‖ ')}`]],
     ['reordered grammar lines', issue, (text) => text.replace(`\n${rounds}\n${resolved}\n`, `\n${resolved}\n${rounds}\n`), statusGaps, [`${issue} tidd-status lines: found ${[issueLines[0], resolved, rounds].join(' ‖ ')}; declared ${issueLines.join(' ‖ ')}`]],
-    ['conflicting active_gate line', pr, (text) => text.replace(`\n${prLines[0]}\n`, `\n${prLines[0]}\nactive_gate: <sol>\n`), statusGaps, [`${pr} tidd-status lines: found ${[prLines[0], 'active_gate: <sol>', rounds, resolved].join(' ‖ ')}; declared ${prLines.join(' ‖ ')}`]],
     ['second tidd-status fence', issue, (text) => `${text}\n${text.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
     ['one-space-indented second tidd-status fence', issue, (text) => `${text}\n${text.match(/```tidd-status\n[\s\S]*?```\n/)[0].replace(/^/gm, ' ')}`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
-    ['one-space-indented second text fence in the gate loop', pr, (text) => text.replace('\n→ MERGE_READY\n```\n', '\n→ MERGE_READY\n```\n\n ```text\n → tidd-safety-reviewer gate\n ```\n'), gateOrderGaps, ['review-only order block declares exactly one fenced sequence: found 2']],
     ['four-backtick second tidd-status fence', issue, (text) => `${text}\n\`\`\`\`tidd-status\nstate: <token>\n\`\`\`\`\n`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
     ['tilde second tidd-status fence', issue, (text) => `${text}\n~~~tidd-status\nstate: <token>\n~~~\n`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
-    ['four-backtick second text fence in the gate loop', pr, (text) => text.replace('\n→ MERGE_READY\n```\n', '\n→ MERGE_READY\n```\n\n````text\n→ tidd-safety-reviewer gate\n````\n'), gateOrderGaps, ['review-only order block declares exactly one fenced sequence: found 2']],
+    ['reordered review driver gate order', 'skills/closed-loop-pr/driver/review.js', (text) => text.replace("const GATES = ['convergence', 'adversarial', 'safety'];", "const GATES = ['adversarial', 'convergence', 'safety'];"), gateOrderGaps, [`review-only driver gate order: found ${['adversarial', 'convergence', 'safety'].join(', ')}; declared ${VOCAB.gateOrder.pr.join(', ')}`]],
     ['wrong-root role in the Issue preflight', issue, (text) => text.replace('`tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve', '`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer`. If one does not resolve'), roleSurfaceGaps, [`Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`]],
     ['wrong-root role in the PR preflight', 'skills/closed-loop-pr/SKILL.md', (text) => text.replace('`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally', '`tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and, conditionally'), roleSurfaceGaps, [`PR root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-drift-reviewer', 'tidd-safety-reviewer', 'tidd-autofix-worker', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('pr').join(', ')}`]],
     ['undeclared role in a clause file', 'contract/CL-D105.clauses.json', (text) => text.replace('are pinned"', 'are pinned by tidd-bogus-reviewer"'), fixtureGaps, ['contract/CL-D105.clauses.json: undeclared role tidd-bogus-reviewer']],

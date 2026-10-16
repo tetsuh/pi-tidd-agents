@@ -15,10 +15,11 @@ const once = (text, needle) => text.split(needle).length - 1;
 test('Issue #224 the Skill sends the round to the packaged driver before any mode reference is read', () => {
   const skill = readText(SKILL), s = section();
   assert.ok(s, 'the dispatch section exists');
-  assert.ok(skill.indexOf(HEADING) < skill.indexOf('## Mode dispatch (CL-D19)'), 'it comes before Mode dispatch');
+  // #249 deleted the Mode dispatch block (CL-D119); only the role-authority block follows the dispatch.
+  assert.ok(skill.indexOf(HEADING) < skill.indexOf('## PR gate payload composition (CL-D2, CL-D29)') && !skill.includes('## Mode dispatch (CL-D19)'), 'it is followed only by the payload composition');
   assert.ok(skill.indexOf('## Workflow target-kind boundary (CL-D7, CL-D8)') < skill.indexOf(HEADING), 'it comes after the checks it follows');
   assert.equal(once(s, 'the pull request runs through the packaged driver, which sequences the round, not you.'), 1);
-  assert.equal(once(s, 'The other sections of this Skill, the shared references and the mode references are the specification the driver and the gates implement'), 1);
+  assert.equal(once(s, 'The other sections of this Skill and the shared references are the specification the driver and the gates implement'), 1);
   assert.equal(once(s, 'you read no mode reference, compose no helper request, and judge no finding.'), 1);
   assert.equal(once(s, "From the checkout's top-level directory, run"), 1);
   assert.equal(once(s, 'Set no timeout of your own on a driver command; one that is killed anyway is reported, and you stop.'), 1);
@@ -198,9 +199,10 @@ test('Issue #224 CL-D104 raises the authority ceiling once, with the headroom as
   const CL_D104_BASELINE_BYTES = 156472;
   assert.match(readContract(), /they measured 156,472 bytes on this change, so the ceiling rises to 162,000 bytes on the CL-D43 terms, leaving 5,528 bytes/);
   assert.ok(CL_D104_BASELINE_BYTES > 156000 && 162000 - CL_D104_BASELINE_BYTES > 5000, `the raise left ${162000 - CL_D104_BASELINE_BYTES} bytes`);
-  for (const file of ['test/package.test.js', 'test/issue-73-authority-budget.test.js', 'test/issue-87-authority-floor.test.js', 'test/issue-87-addendum-split.test.js', 'test/issue-100-gate-ids-v2.test.js', 'test/issue-126-sol-component-sweep.test.js', 'test/issue-153-wording-only-minors.test.js']) {
+  // #249 lowered the ceiling to 81,000 (CL-D119); each carrier asserts the current one.
+  for (const file of ['test/package.test.js', 'test/issue-73-authority-budget.test.js', 'test/issue-87-authority-floor.test.js', 'test/issue-100-gate-ids-v2.test.js', 'test/issue-126-sol-component-sweep.test.js', 'test/issue-153-wording-only-minors.test.js']) {
     const text = readText(file);
-    assert.match(text, /total < 162000/, `${file} asserts the raised ceiling`);
+    assert.match(text, /total < 81000/, `${file} asserts the current ceiling`);
     assert.equal(text.includes('total < 156000'), false, `${file}: the CL-D85 ceiling must not survive the raise`);
   }
 });

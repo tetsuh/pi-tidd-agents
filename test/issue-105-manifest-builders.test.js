@@ -20,10 +20,9 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas, readManifest } = require('./helpers');
+const { readText, readContract, sectionOf, cliSchemas, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
-const AUTOFIX = readAutofixProcedure();
 const SHA = '1'.repeat(64);
 
 function cli(operation, data) {
@@ -54,17 +53,15 @@ function manifestData(parent) {
   return { parent, entries: [{ path: 'tracked.txt', status: 'M', srcMode: '100644', dstMode: '100644', srcOid: 'a'.repeat(40), dstOid: 'b'.repeat(40) }] };
 }
 
-test('Issue #105 the invocation map names the manifest builders and the evidence check', () => {
-  const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
-  assert.ok(map, 'the invocation map must exist');
-  for (const declaration of [
-    '| `build_manifest_capture` | `overlay` (data of `overlay_freeze`), `cwd` |',
-    '| `build_manifest_compare` | `captured` (data of `manifest_compare`), `cwd` |',
-    '| `required_evidence_check` | `cwd`, `requiredEvidence` |',
-  ]) assert.ok(map.includes(declaration), `map must declare ${declaration}`);
-  assert.match(map, /At `AFTER_STAGING` \(capture\) and `BEFORE_COMMIT` \(compare\) \(CL-D57\), with requests built by `build_manifest_capture` and `build_manifest_compare` \(CL-D61\)/);
-  assert.match(map, /a capture request derives its parent and authorized set from the frozen overlay and a compare request derives its parent from the capture it compares against, so a request carrying both mode fields is unrepresentable/);
-  assert.match(map, /`required_evidence_check` is a read-only observation, not a builder: it requires every `file`-kind required-evidence entry to exist before the expectation is built/);
+test('Issue #105 the CLI table and the builders name the manifest builders and the evidence check', () => {
+  // #249 C2 (CL-D119): the map went; the CLI table, the builders, the guards and the driver's two steps state its rows.
+  const cli = readText('skills/closed-loop-pr/helpers/cli.js');
+  for (const row of ["build_manifest_capture: { required: ['overlay', 'cwd'], optional: [] },", "build_manifest_compare: { required: ['captured', 'cwd'], optional: [] },", "required_evidence_check: { required: ['cwd', 'requiredEvidence'], optional: [] },"]) assert.ok(cli.includes(row), `the CLI declares ${row}`);
+  assert.ok(readText('skills/closed-loop-pr/helpers/builders.js').includes('CL-D61: the two manifest_compare requests derive every value from a producing operation'));
+  assert.ok(readText('skills/closed-loop-pr/helpers/guards.js').includes('CL-D61: a required-evidence entry naming a file that does not exist is an assembly error'));
+  const driver = readText('skills/closed-loop-pr/driver/autofix.js');
+  assert.ok(driver.includes("const manifest = step('manifest_compare', step('build_manifest_capture', { overlay, cwd: ws }).request.data); // AFTER_STAGING"));
+  assert.ok(driver.includes("step('manifest_compare', step('build_manifest_compare', { captured: manifest, cwd: ws }).request.data); // BEFORE_COMMIT"));
   const shared = sectionOf(readText('skills/closed-loop-shared/references/gate-contract.md'), '### Structured gate result transport (CL-D36)');
   assert.match(shared, /every `file`-kind entry of that set must exist, verified through packaged `required_evidence_check` before the expectation is built, so a required file that does not exist is an assembly error and never a gate outcome \(CL-D61\)/);
 });

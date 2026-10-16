@@ -13,17 +13,15 @@ const assert = require('node:assert/strict');
 
 const { readText, readContract, sectionOf } = require('./helpers');
 
-const PRECEDENCE = 'Where the target repository has a pull-request template of its own — a template file GitHub applies, such as `.github/pull_request_template.md`, or a template its `CONTRIBUTING.md` or `AGENTS.md` requires — that template governs the body\'s sections instead of the three parts above; the rules below still apply wherever the template leaves the wording to the author, and a body\'s section layout alone is never a finding (CL-D95).';
 const GATE = 'A pull-request body\'s section layout alone is never a finding; its claims are judged for accuracy against the head (CL-D95).';
 
 test('Issue #201 a repository\'s own pull-request template governs the body\'s sections', () => {
-  const template = sectionOf(readText('skills/closed-loop-pr/SKILL.md'), '### PR body template (CL-D67)');
-  assert.ok(template, 'the PR body template subsection must exist');
-  assert.ok(template.includes(PRECEDENCE), 'the template states the repository template\'s precedence');
-  // The three-part shape and the per-head rule stay, word for word: CL-D95 narrows where the shape applies.
-  assert.ok(template.includes('A pull-request body under this workflow carries three parts and nothing else'));
-  assert.ok(template.includes('Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages'));
-  assert.ok(template.indexOf(PRECEDENCE) > template.indexOf('followed at most by one tooling attribution footer.'), 'the precedence follows the shape it narrows');
+  // #249 trimmed the PR Skill's template section (CL-D119); CL-D95 and CL-D67 state the precedence and the shape.
+  const record = sectionOf(readContract(), '## CL-D95 — A repository\'s own pull-request template governs the body\'s sections');
+  assert.ok(record.includes("that template governs the body's sections instead of CL-D67's three parts, and CL-D67's rules on per-head facts and chronology still apply wherever the template leaves the wording to the author."));
+  const d67 = sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts');
+  assert.ok(d67.includes('A pull-request body under this workflow carries three parts and nothing else'));
+  assert.ok(d67.includes('Per-head measurements — run counts, guard bytes, authority headroom — live in commit messages'));
 });
 
 test('Issue #201 every gate reads that a body\'s layout alone is never a finding', () => {

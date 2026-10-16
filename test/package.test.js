@@ -25,22 +25,13 @@ const SKILLS = {
   'closed-loop-pr': 'skills/closed-loop-pr/SKILL.md',
 };
 
-const PR_MODE_REFERENCES = {
-  'review-only': 'skills/closed-loop-pr/references/review-only.md',
-  autofix: 'skills/closed-loop-pr/references/autofix.md',
-};
-const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
-const PR_HELPER_MAP = 'skills/closed-loop-pr/references/helper-map.md';
+// #249 deleted the four PR mode references (CL-D119); the package ships none of them.
+const DELETED_MODE_REFERENCES = ['review-only.md', 'autofix.md', 'autofix-addendum.md', 'helper-map.md'].map((file) => `skills/closed-loop-pr/references/${file}`);
 const PR_PUBLICATION_TEMPLATE = 'skills/closed-loop-pr/references/publish-review.sh';
 const PR_HELPER_DIR = 'skills/closed-loop-pr/helpers';
 // CL-D93: the packaged driver, under its own alarms; it is invoked with node, never a bin, main, or exports entry.
 const PR_DRIVER_FILES = ['run.js', 'readiness.js', 'phases.js', 'review.js', 'autofix.js', 'paths.js', 'writer.js', 'message.js'].map((file) => `skills/closed-loop-pr/driver/${file}`);
 const PR_HELPER_FILES = ['validation.js', 'builders.js', 'cli.js', 'composition.js', 'envelope.js', 'evidence.js', 'fingerprints.js', 'gate-result.js', 'guards.js', 'index.js', 'inspect.js', 'launch.js', 'operator.js', 'paths.js', 'payload.js', 'process.js', 'protocol.js', 'publish.js', 'reply.js', 'snapshot.js', 'writability.js', 'workspace.js'].map((file) => `${PR_HELPER_DIR}/${file}`);
-// The pre-split PR Skill's size. This is not a budget: it encodes the claim that progressive
-// disclosure is smaller than the monolith it replaced, so raising it would falsify what it
-// exists to prove. CL-D43 leaves it alone, which makes it — not the six-file ceiling — the
-// binding constraint on how much `autofix.md` can still grow.
-const PR_SKILL_PRE_SPLIT_BYTES = 57160;
 const SHARED_REFERENCES = {
   'gate-contract': 'skills/closed-loop-shared/references/gate-contract.md',
   records: 'skills/closed-loop-shared/references/records.md',
@@ -119,7 +110,7 @@ function normalizedSentences(text) {
     .filter((sentence) => [...sentence].length >= 60);
 }
 
-const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, PR_HELPER_MAP, PR_PUBLICATION_TEMPLATE, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
+const FALSIFICATION_ARTIFACTS = [...Object.values(SKILLS), PR_PUBLICATION_TEMPLATE, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
 const GENERIC_FALSIFICATION_EVIDENCE = 'authoritative files of the repository under review';
 const ABSENT_RECORD_RULE = 'that absence is not itself a finding';
 
@@ -289,10 +280,11 @@ test('Issue #24 the authority files remain below the published baseline', () => 
   // 149,602 bytes at f71077f, leaving 6,398 asserted at the raise.
   // CL-D104 raises it to 162,000 for the driver dispatch of /tidd-pr: the eight files measured
   // 156,472 bytes on that change, 472 bytes over 156,000.
+  // CL-D119 lowers it to 81,000 after #249 deleted the four mode references and trimmed the PR Skill.
   // The assertion below is the live measurement; the figures here are revision-qualified and
   // are not maintained as a running total.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 162000, `authority files total ${total} bytes, expected less than 162000`);
+  assert.ok(total < 81000, `authority files total ${total} bytes, expected less than 81000`);
 });
 
 // Review-driven regression: installed Pi discovery must validate the complete runtime result.
@@ -333,23 +325,15 @@ test('both skills are valid Agent Skills definitions', () => {
   }
 });
 
-test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note since CL-D111', () => {
+test('Issue #19 PR Skill ends on the PR gate role-authority block and names no deleted mode reference', () => {
+  // #249 trimmed the PR Skill to its dispatch and deleted the mode references (CL-D119): the Skill ends on the block
+  // `helpers/launch.js` reads on every gate launch, with one final newline, and no deleted file is named or present.
   const skill = readText(SKILLS['closed-loop-pr']);
-  for (const file of Object.values(PR_MODE_REFERENCES)) assert.ok(exists(file), `missing mode reference: ${file}`);
-  const dispatch = [
-    '## Mode dispatch (CL-D19)',
-    '',
-    // CL-D111: the block is a non-operative note until #249 deletes it with the mode references.
-    'Since CL-D111 no pull request takes this path: every run goes through the driver (Driver dispatch above), and you read no mode reference. The block stays as specification until #249 deletes it with the mode references.',
-    '',
-    'The former continuation, for the record only: review-only mode read `references/review-only.md`; exact CL-D30 `autofix` mode read `references/autofix.md`. Exactly one was read after mode parsing, never both.',
-    '',
-  ].join('\n');
-  assert.ok(skill.endsWith(dispatch), 'mode dispatch must be the final PR SKILL.md block');
-  for (const file of Object.values(PR_MODE_REFERENCES)) {
-    const relative = file.replace('skills/closed-loop-pr/', '');
-    assert.equal((skill.match(markdownLiteral(relative)) || []).length, 1, `dispatch must name ${relative} exactly once`);
-  }
+  const headings = skill.split('\n').filter((line) => /^#{1,6} /.test(line));
+  assert.equal(headings.at(-1), '### PR gate role-authority blocks (CL-D2)', 'the role-authority block is the final section');
+  assert.ok(skill.endsWith('\n') && !skill.endsWith('\n\n'), 'the Skill ends with exactly one newline');
+  assert.doesNotMatch(skill, /references\/(?:review-only|autofix|autofix-addendum|helper-map)\.md/);
+  for (const file of DELETED_MODE_REFERENCES) assert.equal(exists(file), false, `${file} is deleted`);
   for (const forbidden of [
     'implementation and validation\n→ one initial external-review snapshot',
     'A round is one completed gate invocation that returns a parsable verdict.',
@@ -361,21 +345,7 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
     'Before every allowed reply attempt',
     'A missing or unparsable verdict is a tool-level failure: retry the invocation once',
   ]) assert.ok(!skill.includes(forbidden), `root PR Skill retains mode-only prose: ${forbidden}`);
-  assert.doesNotMatch(skill, /## Gate loop \(PR review-only baseline;/);
-  assert.doesNotMatch(skill, /## Exact PR `autofix` addendum \(CL-D30\)/);
-
-  const reviewOnly = readText(PR_MODE_REFERENCES['review-only']);
-  const autofix = readText(PR_MODE_REFERENCES.autofix);
-  assert.match(reviewOnly, /## Review-only is the default/);
-  assert.match(reviewOnly, /## Gate loop \(PR review-only baseline;/);
-  assert.match(reviewOnly, /## Outcome and status block \(PR review-only baseline;/);
-  assert.doesNotMatch(reviewOnly, /Exact PR `autofix`/);
-  assert.doesNotMatch(reviewOnly, /publication_grant: .*autofix/);
-  assert.match(autofix, /## Autofix \(AC-AUTOFIX,/);
-  assert.doesNotMatch(autofix, /## Exact PR `autofix` addendum \(CL-D30\)/);
-  assert.match(autofix, /The exact `autofix` token additionally selects the CL-D30 addendum in `references\/autofix-addendum\.md`; read it only then, after this reference \(CL-D50\)\./);
-  const addendumStage = readText(PR_AUTOFIX_ADDENDUM);
-  assert.match(addendumStage, /^## Exact PR `autofix` addendum \(CL-D30\)/);
+  assert.doesNotMatch(skill, /## Mode dispatch \(CL-D19\)/);
   // #249 B4a (CL-D115): the readiness and resume boundary is read in CL-D30 and the driver; the summary draft is the
   // owner's to post, outside the run.
   const d30 = readText('contract/CL-D30.md');
@@ -385,10 +355,6 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
   const autofixDriver = readText('skills/closed-loop-pr/driver/autofix.js');
   assert.ok(autofixDriver.includes("if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }"), 'readiness is reported only from a final snapshot unchanged since the gates');
   assert.ok(autofixDriver.includes("else die('usage: autofix.js start|result|message|pre-edit|batch|writer-done|status');"), 'the autofix driver has no resume command');
-  assert.doesNotMatch(reviewOnly, /references\/autofix\.md/);
-  assert.doesNotMatch(autofix, /references\/review-only\.md/);
-  assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(reviewOnly) < PR_SKILL_PRE_SPLIT_BYTES, 'review-only disclosure must be smaller than the pre-split PR Skill');
-  assert.ok(Buffer.byteLength(skill) + Buffer.byteLength(autofix) < PR_SKILL_PRE_SPLIT_BYTES, 'autofix disclosure must be smaller than the pre-split PR Skill');
 
   // #249 B2 (CL-D113): the review-only obligations are read where they live now: the records and the driver.
   const reviewOnlyExclusive = [
@@ -406,16 +372,10 @@ test('Issue #19 PR Skill ends on the Mode dispatch block, a non-operative note s
     ['skills/closed-loop-pr/driver/phases.js', "run.stop('BLOCKED', `gate_result_read refused${p.relaunched ? ' after one relaunch' : ''}:"],
   ];
   for (const [file, text] of [...reviewOnlyExclusive, ...autofixExclusive]) assert.ok(readText(file).includes(text), `${file} must own: ${text}`);
-  assert.doesNotMatch(autofix, /Review-only never edits any repository file/);
-  assert.doesNotMatch(autofix, /Review-only has no publication phase/);
-  assert.doesNotMatch(autofix, /Review-only never commits, pushes, posts, replies/);
-  assert.doesNotMatch(reviewOnly, /Exact PR `autofix` submits only the published public-head OID/);
-  assert.doesNotMatch(reviewOnly, /Only the exact PR `autofix` mode token supplies a run-scoped publication grant/);
-  assert.doesNotMatch(reviewOnly, /Exact autofix malformed or unparsable verdict stops on first failure/);
 });
 
 test('shipped skills omit repository-specific test-suite commentary', () => {
-  for (const file of [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, ...Object.values(SHARED_REFERENCES)]) {
+  for (const file of [...Object.values(SKILLS), ...Object.values(SHARED_REFERENCES)]) {
     const text = readText(file);
     for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
       assert.doesNotMatch(text, forbidden, `${file} contains repository-specific test commentary: ${forbidden}`);
@@ -504,8 +464,8 @@ test('Issue #22 removed prompt clauses retain named Skill-scoped enforcement', (
   }
 });
 
-test('no skill, mode reference, or prompt hard-codes a model ID', () => {
-  const files = [...Object.values(SKILLS), ...Object.values(PR_MODE_REFERENCES), PR_AUTOFIX_ADDENDUM, ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
+test('no skill, shared reference, or prompt hard-codes a model ID', () => {
+  const files = [...Object.values(SKILLS), ...Object.values(SHARED_REFERENCES), ...Object.keys(PROMPTS)];
   for (const file of files) {
     const text = readText(file);
     assert.doesNotMatch(
@@ -605,8 +565,8 @@ test('Issue #25 packed artifacts do not require the unpackaged development recor
 
     // 41 since CL-D89 added helpers/publish.js, the writer's packaged commit and push; 42 since CL-D91 added helpers/payload.js;
     // 44 since CL-D93 added the driver's run.js and review.js; 45 since its readiness.js split from run.js; 46 since
-    // phases.js holds the phases a later driver shares with it; 49 since CL-D96 added autofix.js, paths.js, and writer.js; 50 since CL-D116 added message.js.
-    assert.equal(files.length, 50, `packed file count changed: ${files.join(', ')}`);
+    // phases.js holds the phases a later driver shares with it; 49 since CL-D96 added autofix.js, paths.js, and writer.js; 50 since CL-D116 added message.js; 46 since CL-D119 deleted the four mode references.
+    assert.equal(files.length, 46, `packed file count changed: ${files.join(', ')}`);
     assert.ok(!files.includes('CONTRACT.md'));
     for (const file of FALSIFICATION_ARTIFACTS) {
       assert.ok(files.includes(file), `packed tarball is missing ${file}`);
@@ -630,7 +590,6 @@ test('the packed tarball contains the closed-loop resources', () => {
     'agents/tidd-autofix-worker.md',
     'skills/closed-loop-issue/SKILL.md',
     'skills/closed-loop-pr/SKILL.md',
-    ...Object.values(PR_MODE_REFERENCES),
     ...Object.values(SHARED_REFERENCES),
     'prompts/tidd-issue.md',
     'prompts/tidd-pr.md',
@@ -659,12 +618,10 @@ test('Issue #24 npm pack reports and archives both shared references', () => {
   }
 });
 
-test('Issue #19 npm pack reports and archives both PR mode references', () => {
-  // Passing behavioral characterization: package.json already publishes the skills tree.
-  const expected = Object.values(PR_MODE_REFERENCES);
+test('Issue #19 npm pack ships none of the deleted PR mode references', () => {
+  // #249 deleted them (CL-D119); package.json publishes the skills tree, so neither the dry run nor the tarball lists them.
   const dryRunFiles = packFileList();
-  for (const file of expected) assert.ok(dryRunFiles.includes(file), `dry-run report is missing ${file}`);
-
+  for (const file of DELETED_MODE_REFERENCES) assert.equal(dryRunFiles.includes(file), false, `dry-run report lists ${file}`);
   const destination = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue19-pack-'));
   try {
     const stdout = execFileSync('npm', ['pack', '--json', '--pack-destination', destination], {
@@ -676,7 +633,7 @@ test('Issue #19 npm pack reports and archives both PR mode references', () => {
     const tarball = path.join(destination, report.filename);
     const archiveFiles = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' })
       .trim().split(/\r?\n/).filter(Boolean).map((entry) => entry.replace(/^package\//, '').replace(/\/$/, ''));
-    for (const file of expected) assert.ok(archiveFiles.includes(file), `actual tarball is missing ${file}`);
+    for (const file of DELETED_MODE_REFERENCES) assert.equal(archiveFiles.includes(file), false, `actual tarball contains ${file}`);
   } finally {
     fs.rmSync(destination, { recursive: true, force: true });
   }

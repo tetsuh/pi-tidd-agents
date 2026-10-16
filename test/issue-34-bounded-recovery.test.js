@@ -14,11 +14,10 @@ const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas, repoPath, readManifest } = require('./helpers');
+const { readText, readContract, sectionOf, cliSchemas, repoPath, readManifest } = require('./helpers');
 
 const CL_D39 = 'contract/CL-D39.md';
 const AUTOFIX_DRIVER = 'skills/closed-loop-pr/driver/autofix.js';
-const PR_AUTOFIX_ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
 const REVIEW_DRIVER_PHASES = 'skills/closed-loop-pr/driver/phases.js';
@@ -117,14 +116,11 @@ test('Issue #34 writes outside the temp parent are the CL-D37 boundary\'s job, a
   assert.match(readContract(), /^## CL-D37 — /m, 'CL-D37 must be a recorded decision');
 });
 
-test('Issue #34 the stop is CL-D39\'s sentence, the recomposition gap is recorded, and the recovery still precedes the stop in the file', () => {
-  const text = (readAutofixProcedure() + '\n' + readText(PR_AUTOFIX_ADDENDUM));
+test('Issue #34 the stop is CL-D39\'s sentence and the recomposition gap is recorded', () => {
   // #249 B4b (CL-D117): the stop is CL-D39's sentence, which names the one exception the driver keeps; the CL-D39 recovery
   // and the CL-D86 recomposition it does not take are recorded gaps (CL-D114, CL-D112).
   assert.match(readText('contract/CL-D39.md'), /a running gate waits, and every other helper refusal stops `BLOCKED`/);
   assert.match(readText('contract/CL-D112.md'), /The autofix driver does not recompose a refused post-push revalidation \(CL-D86\); that gap is recorded here, not closed\./);
-  // The recovery section really is above the stop rule.
-  assert.ok(text.indexOf('### Bounded pre-writer recovery (CL-D39)') < text.indexOf('except for the CL-D39 recovery defined above'));
 });
 
 test('Issue #34 no shared prose forks and no shared sentence gains a mode exception', () => {

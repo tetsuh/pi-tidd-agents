@@ -18,56 +18,33 @@ const { AUTHORITY_FILES, readText, readContract, repoPath, sectionOf } = require
 
 const CONTRACT = readContract();
 const PACKAGE_TEST = readText('test/package.test.js');
-const CLEANLINESS_TEST = readText('test/pr-operational-cleanliness.test.js');
 
 // The six authority files measured this at c2ad0db, when CL-D43 raised the ceiling to
 // 128,000. It is a historical fact about that decision, not a running total.
 const RAISE_BASELINE_BYTES = 114563;
 
 test('Issue #73 the raised guards are the ones the suite actually asserts', () => {
-  // The guards live in the suites that own them; this test pins the numbers so a silent
-  // re-raise in either file fails here as well as there.
-  assert.match(PACKAGE_TEST, /assert\.ok\(total < 162000,/);
+  // The ceiling lives in the suite that owns it; this test pins the number so a silent re-raise there fails here as well.
+  assert.match(PACKAGE_TEST, /assert\.ok\(total < 81000,/);
   assert.equal(PACKAGE_TEST.includes('total < 116000'), false, 'the superseded six-file ceiling must not survive');
-  assert.match(CLEANLINESS_TEST, /Buffer\.byteLength\(addendum\) < 32000,/);
-  assert.equal(CLEANLINESS_TEST.includes('byteLength(addendum) < 25022'), false, 'the superseded addendum ceiling must not survive');
-  // The regex above names one file, so a site deleted elsewhere is a guard silently gone. Every other file that
-  // asserts this guard is listed here, and removing the assertion from any of them fails here (CL-D74).
-  for (const file of ['test/issue-87-addendum-split.test.js', 'test/issue-115-writer-pre-guard.test.js',
-    'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js',
-    'test/issue-126-sol-component-sweep.test.js', 'test/pr-operational-cleanliness.test.js']) {
-    assert.match(readText(file), /< 32000/, `${file} must carry the CL-D30 addendum guard`);
+  // #249 deleted the addendum and the mode references (CL-D119): the 32,000-byte addendum guard and the 57,160-byte
+  // disclosure guard retired with them, and no suite still asserts either.
+  for (const file of ['test/issue-115-writer-pre-guard.test.js', 'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js',
+    'test/issue-126-sol-component-sweep.test.js', 'test/issue-153-wording-only-minors.test.js', 'test/pr-operational-cleanliness.test.js']) {
+    assert.equal(/^\s*assert\.ok\(Buffer\.byteLength\(addendum\)[^\n]*< 32000/m.test(readText(file)), false, `${file} no longer asserts the retired addendum guard`);
   }
-
-  // The disclosure guard is not a budget and is deliberately not raised.
-  assert.match(PACKAGE_TEST, /const PR_SKILL_PRE_SPLIT_BYTES = 57160;/);
-  assert.match(PACKAGE_TEST, /not a budget/);
+  assert.equal(PACKAGE_TEST.includes('PR_SKILL_PRE_SPLIT_BYTES'), false, 'the retired disclosure guard is gone');
 });
 
 test('Issue #73 the live measurements sit inside the raised guards', () => {
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + fs.statSync(repoPath(file)).size, 0);
-  assert.ok(total < 162000, `authority files total ${total}`);
+  assert.ok(total < 81000, `authority files total ${total}`);
   // A raise that leaves no room would repeat the defect it is meant to remove — but that is a
   // fact about the raise, not about later growth. CL-D48: asserting it against the live total
   // made the margin a second, unstated ceiling that ordinary prose work had to negotiate with.
   // The measurement recorded when CL-D43 was taken cannot drift, so the property stays honest.
   assert.ok(128000 - RAISE_BASELINE_BYTES > 8000, `the raise left only ${128000 - RAISE_BASELINE_BYTES} bytes`);
-
-  const addendum = sectionOf((readText('skills/closed-loop-pr/references/autofix.md') + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md')), '## Exact PR `autofix` addendum (CL-D30)');
-  assert.ok(addendum, 'the CL-D30 addendum must exist');
-  assert.ok(Buffer.byteLength(addendum) < 32000, 'the addendum must sit inside its raised guard');
-
-  // The exact-autofix prose absorbs each new decision. Before CL-D50 that was autofix.md;
-  // after the split it is the addendum stage, and its growth signals when a further split —
-  // not a raise — is the next structural answer.
-  const addendumBytes = fs.statSync(repoPath('skills/closed-loop-pr/references/autofix-addendum.md')).size;
-  const largest = AUTHORITY_FILES.map((file) => fs.statSync(repoPath(file)).size).sort((a, b) => b - a);
-  assert.equal(addendumBytes === largest[0] || addendumBytes === largest[1], true, 'the addendum is expected to be among the two largest authority files');
-  // CL-D83 moved the invocation map into `references/helper-map.md`, which is measured with the rest. It has no
-  // ceiling of its own: it is bounded by the aggregate above and by this rule, which keeps the addendum among the
-  // two largest, so the map may grow until it would displace the addendum — the same signal, one file later.
-  const mapBytes = fs.statSync(repoPath('skills/closed-loop-pr/references/helper-map.md')).size;
-  assert.ok(mapBytes < addendumBytes, `helper-map.md ${mapBytes} must stay under the addendum ${addendumBytes}, or the split has to happen again`);
+  // #249 deleted the addendum and the map (CL-D119), and the rules that ranked them retired with them.
 });
 
 test('Issue #73 CL-D43 records what the guards protect and when raising is wrong', () => {
@@ -81,6 +58,6 @@ test('Issue #73 CL-D43 records what the guards protect and when raising is wrong
   assert.match(decision, /57,160 is not a budget/);
   assert.match(decision, /a raise decided inside a feature pull request/);
   assert.match(decision, /splitting `autofix\.md`/);
-  // The disclosure guard, not the six-file ceiling, is what actually bounds autofix growth.
+  // CL-D43's record of why the disclosure guard bounded autofix growth then; #249 retired it with the file (CL-D119).
   assert.match(decision, /the effective room for `autofix\.md` prose/);
 });

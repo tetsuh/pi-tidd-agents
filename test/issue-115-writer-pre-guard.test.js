@@ -25,10 +25,7 @@ test('Issue #115 the guarded validation stays the single terminal check and the 
   assert.match(record, /on the packaged driver path \(CL-D96\) the writer does not run the validation commands itself/);
   assert.match(record, /receives that literal verbatim from its source/);
   assert.match(readText('skills/closed-loop-pr/driver/writer.js'), /Copy any literal a correction pins verbatim\./);
-  // The addendum is untouched: it sits inside its own byte guard and owns the guard sequence.
-  const addendum = readText('skills/closed-loop-pr/references/autofix-addendum.md');
-  assert.doesNotMatch(addendum, /the edit step is where the writer iterates/);
-  assert.ok(Buffer.byteLength(addendum) < 32000, 'the CL-D30 addendum stays inside its recorded guard');
+  // #249 C2 (CL-D119) deleted the addendum with its byte guard.
 });
 
 test('Issue #115 CL-D64 records the writer duty without relaxing the terminal rule', () => {

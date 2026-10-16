@@ -11,7 +11,6 @@ const { readText, readContract, sectionOf, readManifest } = require('./helpers')
 
 const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
 const RECORDS = 'skills/closed-loop-shared/references/records.md';
-const PR_REVIEW_ONLY = 'skills/closed-loop-pr/references/review-only.md';
 const ISSUE_SKILL = 'skills/closed-loop-issue/SKILL.md';
 const AGENT_FILES = ['agents/tidd-adversarial-reviewer.md', 'agents/tidd-safety-reviewer.md', 'agents/tidd-autofix-worker.md', 'agents/tidd-drift-reviewer.md'];
 
@@ -103,8 +102,7 @@ test('Issue #51 CL-D34 declares the exact-autofix threat model and the normaliza
   // owner is CL-D115's first divergence.
 });
 
-test('Issue #51 leaves review-only, Issue, and agent files without a threat model of their own', () => {
-  assert.doesNotMatch(readText(PR_REVIEW_ONLY), /threat model/i);
+test('Issue #51 leaves Issue and agent files without a threat model of their own', () => {
   assert.doesNotMatch(readText(ISSUE_SKILL), /threat model/i);
   for (const file of AGENT_FILES) assert.doesNotMatch(readText(file), /CL-D34|AC-ANCHOR|threat model/i, `${file} must stay unchanged`);
 });

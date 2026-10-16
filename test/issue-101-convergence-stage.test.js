@@ -19,7 +19,7 @@ const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readAutofixProcedure, readText, readContract, sectionOf, parseFrontmatter, exists, readManifest } = require('./helpers');
+const { readText, readContract, sectionOf, parseFrontmatter, exists, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -215,10 +215,10 @@ test('Issue #101 both roots run convergence before the adversarial gate and repo
     "if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }",
     "function restartAt(s) { return s.counters.conv < CAP.conv && !s.convergenceDisabled ? 'convergence' : 'adversarial'; }",
   ]) assert.ok(driver.includes(literal), `the driver: ${literal}`);
-  const autofix = readAutofixProcedure();
-  assert.match(autofix, /\| Snapshot refresh — before each convergence\/Sol\/Terra invocation, before the first reply, each reply batch, final classification, post-reply, summary mutation \| `snapshot` \|/);
-  assert.match(autofix, /\| Every convergence, Sol, or Terra result, before it is read as a verdict \(CL-D36, CL-D62\) \| `gate_result_validate` \|/);
-  assert.doesNotMatch(autofix, /before each Sol\/Terra invocation|Every Sol or Terra result/, 'no helper boundary may name only Sol and Terra');
+  // #249 C2 (CL-D119): the map went; CL-D62 states its two rows (CL-D62-autofix-map).
+  const d62 = readText('contract/CL-D62.md');
+  assert.ok(d62.includes('before each convergence/Sol/Terra invocation') && d62.includes('Every convergence, Sol, or Terra result, before it is read as a verdict (CL-D36,'));
+  assert.doesNotMatch(d62, /before each Sol\/Terra invocation|Every Sol or Terra result/, 'no helper boundary may name only Sol and Terra');
   assert.ok(readText('skills/closed-loop-pr/helpers/gate-result.js').includes("const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety', 'convergence'] };"), 'convergence is a version 2 gate');
 });
 

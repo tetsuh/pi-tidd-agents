@@ -62,10 +62,8 @@ test('Issue #175 copying the checkout copies tracked content and nothing else', 
   }
 });
 
-test('Issue #175 the map-split test copies through the shared helper', () => {
-  const source = helpers.readText('test/issue-164-map-split.test.js');
-  assert.match(source, /copyTrackedCheckout\(repoPath\('\.'\), copy\)/);
-  assert.equal(source.includes("fs.cpSync(repoPath('.')"), false, 'no test copies the whole checkout recursively');
+test('Issue #175 no test copies the whole checkout recursively', () => {
+  // #249 deleted the map with the map-split test's copy (CL-D119); no test may copy the checkout another way.
   for (const file of fs.readdirSync(__dirname).filter((name) => name.endsWith('.test.js') && name !== path.basename(__filename))) {
     assert.equal(helpers.readText(`test/${file}`).includes("cpSync(repoPath('.')"), false, `${file} copies the whole checkout`);
   }

@@ -17,9 +17,8 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readAutofixProcedure, readText, readContract, sectionOf, cliSchemas } = require('./helpers');
+const { readText, readContract, sectionOf, cliSchemas } = require('./helpers');
 
-const AUTOFIX = (readAutofixProcedure() + '\n' + readText('skills/closed-loop-pr/references/autofix-addendum.md'));
 const CONTRACT = readContract();
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 
@@ -108,8 +107,8 @@ test('Issue #36 authority records the envelope, the verifier, and the closed CL-
   assert.match(record, /a value retyped by hand into a well-formed record stays undetectable here/);
   assert.match(record, /Packaged `evidence_verify` is read-only and repeatable\./);
 
-  const map = sectionOf(AUTOFIX, '### Packaged helper invocation map (CL-D30, Issue #47)');
-  assert.match(map, /\| `evidence_verify` \| `envelope`, `expected` \|/);
+  // #249 C2 (CL-D119): the map went; the CLI table declares the inputs.
+  assert.ok(readText('skills/closed-loop-pr/helpers/cli.js').includes("evidence_verify: { required: ['envelope', 'expected'], optional: [] },"));
 
   const decision = sectionOf(CONTRACT, '## CL-D42 — Evidence travels in one versioned envelope with labelled domains');
   assert.ok(decision, 'CONTRACT.md must record CL-D42');

@@ -15,8 +15,6 @@ const fs = require('node:fs');
 
 const { readText, readContract, repoPath, sectionOf, AUTHORITY_FILES, readManifest } = require('./helpers');
 
-const ADDENDUM = 'skills/closed-loop-pr/references/autofix-addendum.md';
-
 test('Issue #153 rule 1: a Minor that changes no file of the head is recorded, not blocking', () => {
   const classes = sectionOf(readText('skills/closed-loop-shared/references/records.md'), '## Finding anchoring classes (AC-ANCHOR, CL-D34)');
   assert.ok(classes, 'the anchoring classes section must exist');
@@ -28,8 +26,9 @@ test('Issue #153 rule 1: a Minor that changes no file of the head is recorded, n
 });
 
 test('Issue #153 rule 2: the chronology leaves the pull-request body', () => {
-  const template = sectionOf(readText('skills/closed-loop-pr/SKILL.md'), '### PR body template (CL-D67)');
-  assert.ok(template, 'the PR body template subsection must exist');
+  // #249 C2 (CL-D119) trimmed the PR Skill; CL-D67 states the template.
+  const template = sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts');
+  assert.ok(template, 'CL-D67 must state the template');
   assert.match(template, /A pull-request body under this workflow carries three parts and nothing else: a `Closes #<n>` line with the owner-decision link; a Scope paragraph that points to the contract record, the manifest clauses, and the files that carry the change and states that the body does not restate them; and the AC-TDD classification of the RED with its command and counts, followed at most by one tooling attribution footer\./);
   assert.match(template, /the chronology of review rounds lives on the target's timeline, so a round edits no body and invalidates no snapshot by doing so \(CL-D67, CL-D85\)\./);
   assert.doesNotMatch(template, /the chronology is appended after each review round/);
@@ -65,9 +64,8 @@ test('Issue #153 CL-D85 records the three rules and the addendum guard reset', (
   assert.ok(fs.existsSync(repoPath('test/issue-153-wording-only-minors.test.js')));
 });
 
-test('Issue #153 the reset guard is the one every suite asserts', () => {
-  const addendum = readText(ADDENDUM);
-  assert.ok(Buffer.byteLength(addendum) < 32000, `the CL-D30 addendum stays inside its reset guard: ${Buffer.byteLength(addendum)}`);
+test('Issue #153 the reset guard retired with the addendum and no suite asserts it', () => {
+  // #249 deleted the addendum (CL-D119), and its 32,000-byte guard retired with it.
   const SELF = 'issue-153-wording-only-minors.test.js';  // this file names the superseded figure on purpose
   const carriers = [];
   for (const file of fs.readdirSync(repoPath('test'))) {
@@ -75,12 +73,12 @@ test('Issue #153 the reset guard is the one every suite asserts', () => {
     const text = readText(`test/${file}`);
     // A digit boundary, so the helper alarm's `< 290000` (CL-D89) is not read as the superseded addendum figure.
     assert.equal(/< 29000(?!\d)/.test(text), false, `${file} must not keep the superseded addendum guard`);
-    if (text.includes('< 32000')) carriers.push(file);
+    if (/^\s*assert\.ok\(Buffer\.byteLength\(addendum\)[^\n]*< 32000/m.test(text)) carriers.push(file);
   }
-  assert.ok(carriers.length >= 7, `every suite that guards the addendum carries the reset figure: ${carriers.length}`);
-  // The aggregate ceiling is untouched by this issue and still holds.
+  assert.deepEqual(carriers, [], 'no suite asserts the retired addendum guard');
+  // The aggregate ceiling, which #249 lowered (CL-D119), still holds.
   const total = AUTHORITY_FILES.reduce((sum, file) => sum + Buffer.byteLength(readText(file)), 0);
-  assert.ok(total < 162000, `authority files total ${total}`);
+  assert.ok(total < 81000, `authority files total ${total}`);
 });
 
 // The pre-push adversarial pass on c424d48 found the first statement of these rules unimplementable in places:
@@ -126,7 +124,7 @@ test('Issue #153 rule 3 is stated where the artifact that carries it exists', ()
 test('Issue #153 the superseded guard figure and phrases leave the repository', () => {
   assert.equal(readContract().includes('may not reach 29,000 bytes'), false, 'no record may state the superseded guard in the present tense');
   assert.match(sectionOf(readContract(), '## CL-D43 — Authority byte guards are set once, with headroom') || '', /CL-D85 later reset it to 32,000 bytes and the authority ceiling to 156,000 bytes on the same terms\./);
-  assert.match(readText('test/issue-87-authority-floor.test.js'), /32,000 bytes since CL-D85 reset it/, 'the floor suite names the live figure in prose, and asserts none');
+  assert.match(readText('test/issue-87-authority-floor.test.js'), /32,000 bytes since CL-D85 reset it\) were live subset guards then; #249 retired both/, 'the floor suite names the retired figure in prose, and asserts none');
   assert.equal(readText('test/issue-87-authority-floor.test.js').includes('29,000 bytes'), false);
   // CL-D48: the headroom belongs to the moment of the raise, asserted against the figures the record names.
   assert.ok(32000 - 29776 > 2000, 'the addendum raise left room');
@@ -149,10 +147,6 @@ test('Issue #153 the new pins survive a mutation of what they pin', () => {
     /CL-D85 later narrowed what a finding under these classes stops: a Minor whose correction changes no file of the head is recorded with its anchoring class and its disposition and does not stop the run, which leaves the classes themselves unchanged\./);
   assert.match(sectionOf(readContract(), '## CL-D67 — Pull-request bodies carry no per-head facts'),
     /CL-D85 later moved the fourth part, the round chronology, out of the body to the target's timeline, so the body carries three parts and a review round edits none of them; the grant is unchanged by that move, and existing bodies are not rewritten\./);
-  // A carrier is a file that asserts the live figure, not one that merely contains it.
-  for (const file of ['test/issue-73-authority-budget.test.js', 'test/issue-87-addendum-split.test.js', 'test/issue-115-writer-pre-guard.test.js', 'test/issue-119-exactness-class.test.js', 'test/issue-120-pr-body-template.test.js', 'test/issue-126-sol-component-sweep.test.js', 'test/pr-operational-cleanliness.test.js']) {
-    assert.match(readText(file), /assert\.ok\([^\n]*addendum[^\n]*< 32000/, `${file} asserts the reset addendum guard itself`);
-  }
 });
 
 // ADV-171-CLD85-ROUTING-AND-RECORD-CONTRADICTIONS: relaxing readiness is not enough while every FIX verdict is a
@@ -202,7 +196,7 @@ test('Issue #153 AC-GATES carries the CL-D85 counting rule', () => {
 // CONV-171-STALE-GUARD-DIAGNOSTIC, recorded as a non-blocking Minor under the rule this PR adds, and corrected here.
 test('Issue #153 the ceiling diagnostic names the ceiling it enforces', () => {
   assert.equal(readText('test/package.test.js').includes('expected less than 150000'), false);
-  assert.match(readText('test/package.test.js'), /expected less than 162000/);
+  assert.match(readText('test/package.test.js'), /expected less than 81000/);
 });
 
 // Three mutations survived the pass on this branch: a sentence appended to AC-GATES cancelling the counting rule,
