@@ -91,7 +91,8 @@ test('Issue #51 CL-D34 declares the exact-autofix threat model and the normaliza
     /does not run another writer against the same checkout or workspace/,
   ]) assert.match(model, condition);
   assert.match(model, /Helpers that detect a violated assumption still fail closed/);
-  assert.match(model, /\(#283\): recorded and not closed \(#249, CL-D117\)/);
+  // #283 later gave the list to Sol, so its gap is no longer recorded here.
+  assert.match(model, /#283 later gave this list to Sol/);
   assert.match(model, /same helper or clause, same invariant, different input/);
   assert.match(model, /so no fresh finding is mapped to a settled key by counterexample class/);
   assert.ok(readText('skills/closed-loop-pr/helpers/builders.js').includes('is a settled blocker key; state the reopen in reopens'), 'a fresh finding that names a settled key is refused');
@@ -188,7 +189,7 @@ test('Issue #51 CONTRACT.md records CL-D34 with its clauses, the raised authorit
   const contract = readContract();
   const section = sectionOf(contract, '## CL-D34 — Sol findings are anchored to acceptance criteria and a declared threat model');
   assert.ok(section, 'CL-D34 decision is missing');
-  assert.match(section, /^\*\*Clauses:\*\* CL-D34-anchor, CL-D34-payload, CL-D34-classes, CL-D34-threat-model, CL-D34-normalization, CL-D34-normalization-builder, CL-D34-readme, CL-D34-baseline$/m);
+  assert.match(section, /^\*\*Clauses:\*\* CL-D34-anchor, CL-D34-payload, CL-D34-classes, CL-D34-threat-model, CL-D34-threat-model-payload, CL-D34-threat-model-launch, CL-D34-normalization, CL-D34-normalization-builder, CL-D34-readme, CL-D34-baseline$/m);
   assert.match(section, /^\*Decision ID:\* CL-D34$/m);
   assert.match(section, /^\*Kind:\* contract$/m);
   assert.match(section, /tetsuh\/pi-tidd-agents#51/);
@@ -197,7 +198,7 @@ test('Issue #51 CONTRACT.md records CL-D34 with its clauses, the raised authorit
   assert.match(section, /99,182/);
   const manifest = readManifest();
   const ids = manifest.clauses.filter((clause) => clause.marker === 'CL-D34').map((clause) => clause.id).sort();
-  assert.deepEqual(ids, ['CL-D34-anchor', 'CL-D34-baseline', 'CL-D34-classes', 'CL-D34-normalization', 'CL-D34-normalization-builder', 'CL-D34-payload', 'CL-D34-readme', 'CL-D34-threat-model']);
+  assert.deepEqual(ids, ['CL-D34-anchor', 'CL-D34-baseline', 'CL-D34-classes', 'CL-D34-normalization', 'CL-D34-normalization-builder', 'CL-D34-payload', 'CL-D34-readme', 'CL-D34-threat-model', 'CL-D34-threat-model-launch', 'CL-D34-threat-model-payload']);
   const cl29 = sectionOf(contract, '## CL-D29 — Sol attempts adversarial falsification of absolute claims');
   assert.match(cl29, /CL-D34 bounds the severity and disposition of the findings this procedure produces/);
   assert.match(readText('README.md'), /Under CL-D34, every blocking Sol finding is anchored to an acceptance criterion, contract clause, or fail-stop invariant/);

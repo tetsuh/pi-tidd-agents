@@ -57,6 +57,7 @@ test('Issue #58 the scan sees the payload blocks it deliberately does not exempt
   const blocks = [
     '#### Every-gate invariant payload block (CL-D2)',
     '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)',
+    '#### Exact-autofix threat-model payload block (CL-D34)',
     '### Issue gate role-authority blocks (CL-D2)',
     '### PR gate role-authority blocks (CL-D2)',
   ];
