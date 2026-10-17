@@ -32,8 +32,20 @@
       ],
       "requires": [
         "may be relaunched exactly once per run as `gate_transport@gate_launch`, consuming no counter",
+        "A designated output with no non-whitespace content counts as zero designated output bytes",
         "however malformed, keeps the failure terminal",
         "after any mutation, Luna task, or reply the key is terminal exactly as before"
+      ]
+    },
+    {
+      "id": "CL-D51-whitespace",
+      "marker": "CL-D51",
+      "title": "An output of whitespace alone is reported as empty",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "if (outputText.trim().length === 0) fail('designated_output_empty',"
       ]
     },
     {
@@ -44,9 +56,21 @@
         "test/issue-82-zero-output-relaunch.test.js"
       ],
       "requires": [
-        "the driver relaunches a zero-output gate once, and the record states the line and its divergence",
+        "the driver relaunches a zero-output gate once, and the record states the line where launch.js draws it",
         "the stop rule names both exceptions",
         "CL-D51 records the widening under CL-D39"
+      ]
+    },
+    {
+      "id": "CL-D51-whitespace-tests",
+      "marker": "CL-D51",
+      "title": "The record line and the launch.js condition are pinned together, and the driver relaunches on that line",
+      "files": [
+        "test/issue-275-whitespace-output.test.js"
+      ],
+      "requires": [
+        "CL-D51 counts a whitespace-only designated output as zero output, where launch.js draws the line",
+        "the driver relaunches a whitespace-only output once, and stops on one non-whitespace byte"
       ]
     }
   ]

@@ -143,6 +143,7 @@ function readGateResult(data) {
     let outputText;
     try { outputText = readUtf8(canonicalOutput); } catch (error) { fail('designated_output_absent', `designated output is not readable: ${error.message}`, { statusPath, structuredOutputPath }); }
     const bytes = Buffer.byteLength(outputText);
+    // An output of whitespace alone is zero output (CL-D51, #275): it carries no verdict, so it is empty, not malformed.
     if (outputText.trim().length === 0) fail('designated_output_empty', `designated output holds ${bytes} bytes and no content`, { statusPath, structuredOutputPath, bytes });
     let envelope;
     try { envelope = JSON.parse(outputText); } catch (error) { fail('designated_output_unparsable', `designated output is not JSON: ${error.message}`, { statusPath, structuredOutputPath, bytes }); }

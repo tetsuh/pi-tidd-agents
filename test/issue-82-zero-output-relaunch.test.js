@@ -16,7 +16,7 @@ const assert = require('node:assert/strict');
 
 const { readText, readContract, sectionOf } = require('./helpers');
 
-test('Issue #82 the driver relaunches a zero-output gate once, and the record states the line and its divergence', () => {
+test('Issue #82 the driver relaunches a zero-output gate once, and the record states the line where launch.js draws it', () => {
   // #249 B3 (CL-D114): the relaunch is read in the driver and its record; the base reference's mapping row and its
   // eligibility sentence are retired with the prose path.
   const driver = readText('skills/closed-loop-pr/driver/autofix.js');
@@ -24,19 +24,19 @@ test('Issue #82 the driver relaunches a zero-output gate once, and the record st
   assert.ok(readText('skills/closed-loop-pr/driver/phases.js').includes("const as = code === 'step_incomplete' && d?.stepStatus === 'failed' && !fs.existsSync(d.structuredOutputPath || '') && !timedOut() ? 'designated_output_absent'"), 'a failed gate that left no output reads as absent output');
   const record = readText('contract/CL-D51.md');
   assert.match(record, /may be relaunched exactly once per run as `gate_transport@gate_launch`, consuming no counter/);
-  assert.match(record, /Any designated output byte, however malformed, keeps the failure terminal; after any mutation, Luna task, or reply the key is terminal exactly as before\./);
-  // The driver is wider than that line for an output of whitespace alone. The record says so, and one or both of the
-  // last two assertions fail when #275 is settled either way, so the record follows the code.
-  assert.match(record, /so a whitespace-only output is relaunched although it has bytes: wider than this record, recorded and not closed \(#249, CL-D114\); #275 asks which side changes\./);
+  assert.match(record, /Any other designated output byte, however malformed, keeps the failure terminal; after any mutation, Luna task, or reply the key is terminal exactly as before\./);
+  // #275 amended the record (owner choice a): a whitespace-only output counts as zero output bytes, which is where
+  // launch.js draws the line.
+  assert.match(record, /A designated output with no non-whitespace content counts as zero designated output bytes/);
   assert.ok(readText('skills/closed-loop-pr/helpers/launch.js').includes("if (outputText.trim().length === 0) fail('designated_output_empty',"), 'whitespace-only output is reported as empty');
 });
 
 test('Issue #82 the stop rule names both exceptions', () => {
   // #249 B4b (CL-D117): the stop and its exceptions are read in the records and the driver. CL-D39 states the stop with the
-  // one relaunch the driver keeps; CL-D51 admits only the zero-byte case and keeps every output byte terminal; the
+  // one relaunch the driver keeps; CL-D51 admits only the zero-output case and keeps every other output byte terminal; the
   // driver's correlation check names a run that never ran (CL-D107).
   assert.match(readText('contract/CL-D39.md'), /a running gate waits, and every other helper refusal stops `BLOCKED`/);
-  assert.match(readText('contract/CL-D51.md'), /Any designated output byte, however malformed, keeps the failure terminal/);
+  assert.match(readText('contract/CL-D51.md'), /Any other designated output byte, however malformed, keeps the failure terminal/);
   assert.ok(readText('skills/closed-loop-pr/driver/phases.js').includes(": code === 'correlation_mismatch' && noRun() ? 'result_names_no_run' : code;"), 'a correlation that names no run is the one other relaunch key');
 });
 
