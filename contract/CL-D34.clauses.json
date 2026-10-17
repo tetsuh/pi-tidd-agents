@@ -73,7 +73,39 @@
         "schema-valid responses for supported endpoints",
         "another writer against the same checkout or workspace",
         "Helpers that detect a violated assumption still fail closed",
-        "(#283): recorded and not closed (#249, CL-D117)"
+        "#283 later gave this list to Sol",
+        "which states the same five conditions, to every exact PR `autofix` Sol payload and to no review-only or Issue payload"
+      ]
+    },
+    {
+      "id": "CL-D34-threat-model-payload",
+      "marker": "CL-D34",
+      "title": "The exact-autofix threat model is a payload block",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Exact-autofix threat-model payload block (CL-D34)",
+      "requires": [
+        "This run is exact PR `autofix`.",
+        "`TMPDIR`/`TEMP`/`TMP` and any supplied `runRoot` resolve outside the operator checkout",
+        "not mutated by a third party during the run",
+        "not concurrently hostile between one discrete no-follow observation and the next Git operation",
+        "schema-valid responses for supported endpoints",
+        "another writer against the same checkout or workspace",
+        "Helpers that detect a violated assumption still fail closed",
+        "classified by the Sol-only block's threat-model rule"
+      ]
+    },
+    {
+      "id": "CL-D34-threat-model-launch",
+      "marker": "CL-D34",
+      "title": "Only an exact-autofix Sol launch carries the threat-model block",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "heading: '#### Exact-autofix threat-model payload block (CL-D34)'",
+        "if (gate === 'adversarial' && autofix && expected.workflow === 'pr') { const m = packageBlock(THREAT_MODEL); blocks.push(m); parts.push(m.content); }"
       ]
     },
     {

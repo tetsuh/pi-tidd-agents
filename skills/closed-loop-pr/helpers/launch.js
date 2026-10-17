@@ -28,8 +28,10 @@ const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const STEP_IN_PROGRESS = Object.freeze(['pending', 'running']), RUN_IN_PROGRESS = Object.freeze(['queued', 'running']);
 // One table, pinned against the vocabulary source by test/issue-111-gate-read-launch.test.js.
 const ROLE_BY_GATE = Object.freeze({ adversarial: 'tidd-adversarial-reviewer', 'decision-drift': 'tidd-drift-reviewer', safety: 'tidd-safety-reviewer', convergence: 'tidd-convergence-reviewer' });
-const EVERY_GATE = Object.freeze({ file: 'skills/closed-loop-shared/references/gate-contract.md', heading: '#### Every-gate invariant payload block (CL-D2)' });
-const SOL_ONLY = Object.freeze({ file: 'skills/closed-loop-shared/references/gate-contract.md', heading: '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)' });
+const GATE_CONTRACT = 'skills/closed-loop-shared/references/gate-contract.md';
+const EVERY_GATE = Object.freeze({ file: GATE_CONTRACT, heading: '#### Every-gate invariant payload block (CL-D2)' });
+const SOL_ONLY = Object.freeze({ file: GATE_CONTRACT, heading: '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)' });
+const THREAT_MODEL = Object.freeze({ file: GATE_CONTRACT, heading: '#### Exact-autofix threat-model payload block (CL-D34)' });
 const ROLE_BLOCKS = Object.freeze({
   issue: Object.freeze({ file: 'skills/closed-loop-issue/SKILL.md', heading: '### Issue gate role-authority blocks (CL-D2)', label: 'Issue' }),
   pr: Object.freeze({ file: 'skills/closed-loop-pr/SKILL.md', heading: '### PR gate role-authority blocks (CL-D2)', label: 'PR' }),
@@ -251,9 +253,11 @@ function buildGateLaunch(data) {
     const gate = expected.correlation.gate;
     const agent = ROLE_BY_GATE[gate];
     if (!agent) fail('invalid_request', `no role owns gate ${JSON.stringify(gate)}`);
+    const autofix = data.volatile.target.mode === 'autofix';
     const blocks = [packageBlock(EVERY_GATE)];
     const parts = [blocks[0].content];
     if (gate === 'adversarial') { const sol = packageBlock(SOL_ONLY); blocks.push(sol); parts.push(sol.content); }
+    if (gate === 'adversarial' && autofix && expected.workflow === 'pr') { const m = packageBlock(THREAT_MODEL); blocks.push(m); parts.push(m.content); }
     if (gate !== 'convergence') {
       const role = roleBlockLine(ROLE_BLOCKS[expected.workflow], gate === 'adversarial' ? 'Sol' : 'Terra');
       blocks.push(role.block); parts.push(role.line);
@@ -281,7 +285,6 @@ function buildGateLaunch(data) {
     // workspace and its child inherits the operator checkout, which is the tree it reviews. The envelope already
     // states which mode this is, so the two are related here rather than left to the parent's memory: an autofix
     // launch without the workspace is the very hazard this record closed (ADV159B-MODE-AND-WORKSPACE-UNRELATED).
-    const autofix = data.volatile.target.mode === 'autofix';
     if (autofix && !Object.hasOwn(data, 'created')) fail('invalid_request', 'an autofix gate runs in the run-owned workspace; pass the workspace_create data as created');
     if (!autofix && Object.hasOwn(data, 'created')) fail('invalid_request', 'a review-only gate reviews the operator checkout; it takes no workspace');
     if (Object.hasOwn(data, 'created')) request.cwd = gateWorkspaceCwd(data.created);
