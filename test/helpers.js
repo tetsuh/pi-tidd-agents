@@ -490,5 +490,16 @@ function receiverTypebox(receiver, options = {}) {
   return source;
 }
 
+// CL-D120 (#190): version 2's Issue correlation beside a fixture's pull-request one: every field an Issue has, none it
+// lacks, bound by `issueSpec`. An Issue finding or confirmation is the pull-request one rebound the same way.
+const ISSUE_SPEC = 'e'.repeat(64);
+function issueCorrelationOf({ repository, number, gate, invocation, contractInput, snapshotFingerprint }, over = {}) {
+  return { repository, number, lifecycle: 'open', gate, invocation, contractInput, snapshotFingerprint, issueSpec: ISSUE_SPEC, ...over };
+}
+function issueBound(record, issueSpec = ISSUE_SPEC) {
+  const { headOid: _omit, ...rest } = record;
+  return { ...rest, issueSpec };
+}
+
 module.exports = {
-  copyTrackedCheckout, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox, RECEIVER_WRONG, toolPathChanges };
+  ISSUE_SPEC, issueCorrelationOf, issueBound, copyTrackedCheckout, repoRoot, repoPath, readText, readContract, contractIndex, contractFiles, assertUniqueJsonKeys, manifestSources, readManifest, readJson, exists, parseFrontmatter, lineCount, AUTHORITY_FILES, sectionOf, cliSchemas, spawnCalls, gitArgLists, spawnReferenceProblems, primeSpawnFacts, SPAWN_PRIMITIVES, receiverTypebox, RECEIVER_WRONG, toolPathChanges };

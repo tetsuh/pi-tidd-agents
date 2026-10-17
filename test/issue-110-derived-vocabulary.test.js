@@ -37,7 +37,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, contractFiles, readContract, readJson, repoPath, parseFrontmatter, sectionOf, manifestSources, readManifest } = require('./helpers');
+const { readText, contractFiles, readContract, readJson, repoPath, parseFrontmatter, sectionOf, manifestSources, readManifest, issueCorrelationOf, issueBound } = require('./helpers');
 
 // The clause source that holds the CL-D62-autofix-map literal the mutations below change, wherever it lives (CL-D105).
 const CL_D62_LITERAL = '"before each convergence/Sol/Terra invocation"';
@@ -405,14 +405,17 @@ test('Issue #110 the vocabulary source matches the packaged agents and the envel
   for (const gate of VOCAB.gateIdentities) {
     const root = VOCAB.gateOrder.issue.includes(gate) ? 'issue' : 'pr';
     const findingId = `${VOCAB.prefixes[gate]}-110-DERIVED`;
-    const finding = {
+    const prFinding = {
       findingId, origin: 'fresh', gate, headOid: OID, raisedAgainstFingerprint: SHA, severity: 'Minor', anchoring: 'criterion-anchored', anchor: 'AC', proposedDisposition: 'fixed',
       evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 'pending',
       workflowRecord: root === 'pr'
         ? { sourceKind: 'gate', sourceId: findingId, authorIdentity: 'x', authorType: 'Agent', observedHeadOid: OID, fingerprint: SHA, semanticFingerprint: SHA, correctiveChange: 'c' }
-        : { candidateIdentity: 'c', revisedPassage: 'p', snapshotAssignment: 's' },
+        : { revisedPassage: 'p', snapshotAssignment: 's' },
     };
-    const correlation = { repository: 'o/r', number: 110, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
+    // CL-D120: an Issue gate's result names the Issue correlation and binds by issueSpec.
+    const finding = root === 'pr' ? prFinding : issueBound(prFinding);
+    const prCorrelation = { repository: 'o/r', number: 110, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
+    const correlation = root === 'pr' ? prCorrelation : issueCorrelationOf(prCorrelation);
     const envelope = { schemaVersion: 2, correlation, verdict: 'FIX BEFORE MERGE', evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }], findings: [finding], confirmations: [], decisions: [], adversarialResults: gate === 'adversarial' ? [{ claim: 'c', searched: 's', outcome: 'counterexample', evidence: 'e', findingId }] : [] };
     const result = gateResult.validateGateResult(envelope, { workflow: root, correlation, assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
     expect(result.ok === true, `${gate}: the declared prefix ${VOCAB.prefixes[gate]} is the derived namespace: ${JSON.stringify(result.error ?? {})}`);

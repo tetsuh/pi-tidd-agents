@@ -17,7 +17,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
+const { SCHEMA, ROLE_SCHEMAS } = require('../skills/closed-loop-pr/helpers/gate-result');
 const { readText } = require('./helpers');
 
 const GATE_ROLES = ['tidd-convergence-reviewer', 'tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer'];
@@ -52,7 +52,10 @@ function runRecord(root, schema, stepStatus, { schemaPath, output } = {}) {
 }
 
 test('Issue #184 every gate role carries the packaged schema in its definition', () => {
-  for (const agent of GATE_ROLES) assert.deepEqual(frontmatterSchema(agent), SCHEMA, `${agent} outputSchema is gate-result.js SCHEMA exactly`);
+  // CL-D120: each role's schema covers the roots its gate reviews; Terra on the pull-request root keeps SCHEMA exactly.
+  assert.deepEqual(Object.keys(ROLE_SCHEMAS).sort(), [...GATE_ROLES].sort());
+  for (const agent of GATE_ROLES) assert.deepEqual(frontmatterSchema(agent), ROLE_SCHEMAS[agent], `${agent} outputSchema is gate-result.js ROLE_SCHEMAS exactly`);
+  assert.deepEqual(ROLE_SCHEMAS['tidd-safety-reviewer'], SCHEMA);
   // The writer is not a gate and returns no gate envelope.
   assert.doesNotMatch(readText('agents/tidd-autofix-worker.md'), /^outputSchema:/m);
 });
