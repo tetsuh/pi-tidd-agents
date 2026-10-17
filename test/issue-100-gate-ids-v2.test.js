@@ -21,7 +21,7 @@ const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { AUTHORITY_FILES, readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
+const { AUTHORITY_FILES, issueCorrelationOf, issueBound, readText, readContract, repoPath, sectionOf, readManifest } = require('./helpers');
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -38,7 +38,8 @@ function cli(operation, data) {
   const run = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' });
   return JSON.parse(run.stdout);
 }
-function correlation(gate) {
+function correlation(gate, root = 'pr', version = 2) {
+  if (root === 'issue' && version === 2) return issueCorrelationOf(correlation(gate));
   return {
     repository: 'tetsuh/pi-tidd-agents', number: 100, baseOid: 'b'.repeat(40),
     headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'feat/issue-100-gate-ids-v2',
@@ -46,19 +47,20 @@ function correlation(gate) {
     contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64),
   };
 }
-function envelope(schemaVersion, gate, over = {}) {
+function envelope(schemaVersion, gate, over = {}, root = 'pr') {
   return {
-    schemaVersion, correlation: correlation(gate), verdict: 'MERGE',
+    schemaVersion, correlation: correlation(gate, root, schemaVersion), verdict: 'MERGE',
     evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [],
     adversarialResults: [{ claim: 'gate identities', searched: 'the validator', outcome: 'no-counterexample', evidence: 'complete' }],
     ...over,
   };
 }
-function expectation(workflow, gate) {
-  return { workflow, correlation: correlation(gate), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] };
+function expectation(workflow, gate, version = 2) {
+  return { workflow, correlation: correlation(gate, workflow, version), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] };
 }
-function fresh(findingId, gate, root) {
+function fresh(findingId, gate, root, version = 2) {
+  if (root === 'issue' && version === 2) return issueBound({ ...fresh(findingId, gate, 'pr'), workflowRecord: { revisedPassage: 'revised', snapshotAssignment: 'snapshot-1' } });
   return {
     findingId, origin: 'fresh', gate, headOid: OID, raisedAgainstFingerprint: SHA,
     severity: 'Major', anchoring: 'criterion-anchored', anchor: 'AC-GATES', proposedDisposition: 'fixed',
@@ -69,7 +71,7 @@ function fresh(findingId, gate, root) {
   };
 }
 function withFresh(schemaVersion, gate, root, findingId) {
-  return envelope(schemaVersion, gate, { verdict: 'FIX BEFORE MERGE', findings: [fresh(findingId, gate, root)] });
+  return envelope(schemaVersion, gate, { verdict: 'FIX BEFORE MERGE', findings: [fresh(findingId, gate, root, schemaVersion)] }, root);
 }
 function marker(gates) {
   return helpers.createReplyMarker({
@@ -85,12 +87,12 @@ function marker(gates) {
 
 test("Issue #100 version 2 envelopes validate with their root's gates and reject the other root's gate", () => {
   for (const [workflow, gate] of [['pr', 'adversarial'], ['pr', 'safety'], ['issue', 'adversarial'], ['issue', 'decision-drift']]) {
-    const ok = gateResult.validateGateResult(envelope(2, gate), expectation(workflow, gate));
+    const ok = gateResult.validateGateResult(envelope(2, gate, {}, workflow), expectation(workflow, gate));
     assert.equal(ok.ok, true, `${workflow}/${gate}: ${JSON.stringify(ok.error ?? {})}`);
     assert.equal(ok.data.correlation.gate, gate);
   }
   for (const [workflow, gate] of [['pr', 'decision-drift'], ['issue', 'safety']]) {
-    const bad = gateResult.validateGateResult(envelope(2, gate), expectation(workflow, gate));
+    const bad = gateResult.validateGateResult(envelope(2, gate, {}, workflow), expectation(workflow, gate));
     assert.equal(bad.ok, false, `${workflow}/${gate} must be rejected`);
     assert.equal(bad.error.code, 'correlation_mismatch', `${workflow}/${gate}: ${bad.error.code}`);
   }
@@ -111,7 +113,7 @@ test('Issue #100 fresh findings bind to the derived version 2 namespace, never t
 
 test('Issue #100 version 1 stays accepted verbatim for one release, with no cross-mapping in either direction', () => {
   for (const [workflow, gate] of [['pr', 'sol'], ['pr', 'terra'], ['issue', 'sol'], ['issue', 'terra']]) {
-    const ok = gateResult.validateGateResult(envelope(1, gate), expectation(workflow, gate));
+    const ok = gateResult.validateGateResult(envelope(1, gate, {}, workflow), expectation(workflow, gate, 1));
     assert.equal(ok.ok, true, `v1 ${workflow}/${gate}: ${JSON.stringify(ok.error ?? {})}`);
   }
   assert.equal(gateResult.validateGateResult(withFresh(1, 'sol', 'pr', 'SOL-100-A'), expectation('pr', 'sol')).ok, true);

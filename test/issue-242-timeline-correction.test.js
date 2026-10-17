@@ -11,7 +11,7 @@ const os = require('node:os');
 const path = require('node:path');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readText, sectionOf } = require('./helpers');
+const { readText, sectionOf, issueCorrelationOf } = require('./helpers');
 
 const BLOCK_RULE = 'A pull-request body claim that a later conversation comment by a trusted author (owner, member or collaborator, not a bot) corrects is judged as corrected: the gate cites that comment and raises no finding against the body sentence, unless the correction itself is inaccurate against the head (CL-D108).';
 const OID = 'a'.repeat(40), SHA = 'e'.repeat(64);
@@ -35,14 +35,16 @@ test('Issue #242 the payload the launch builder writes carries the rule, for eve
   for (const [workflow, gate, mode] of LAUNCHES) {
     const label = `${workflow}/${gate}/${mode}`, dir = fs.mkdtempSync(path.join(os.tmpdir(), 'i242-'));
     try {
-      const correlation = { repository: 'o/r', number: 242, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
+      const prCorrelation = { repository: 'o/r', number: 242, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
+      // CL-D120: an Issue gate is correlated by the Issue's own fields.
+      const correlation = workflow === 'pr' ? prCorrelation : issueCorrelationOf(prCorrelation);
       const expectation = helpers.buildGateExpectation({ workflow, correlation, assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
       assert.equal(expectation.ok, true, `${label}: ${JSON.stringify(expectation.error)}`);
       const expectationPath = path.join(dir, `expectation-${gate}.json`);
       fs.writeFileSync(expectationPath, `${JSON.stringify(expectation.data.expected, null, 2)}\n`);
       const volatile = {
-        target: { repository: 'o/r', number: 242, mode, gate, baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' },
-        fingerprints: workflow === 'pr' ? { issue_spec: SHA, pr_base: 'b'.repeat(40), pr_tree: 'c'.repeat(40), pr_head: OID, pr_diff: SHA, pr_commits: SHA, snapshot: 'd'.repeat(64) } : { issue_spec: SHA, snapshot: 'd'.repeat(64) },
+        target: { repository: 'o/r', number: 242, mode, gate, ...(workflow === 'pr' ? { baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' } : {}) },
+        fingerprints: workflow === 'pr' ? { issue_spec: SHA, pr_base: 'b'.repeat(40), pr_tree: 'c'.repeat(40), pr_head: OID, pr_diff: SHA, pr_commits: SHA, snapshot: 'd'.repeat(64) } : { issue_spec: correlation.issueSpec, snapshot: 'd'.repeat(64) },
         body: 'body', languageProfile: 'conversation: ja; GitHub issue / pull request: en',
         acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] },
       };
