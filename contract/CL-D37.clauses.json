@@ -15,7 +15,39 @@
         "no persistent state written outside a validated external run root",
         "140,000-byte aggregate smoke alarm",
         "30,000-byte per-file smoke alarm",
-        "not a size budget"
+        "not a size budget",
+        "#292 later allowed the helpers one wait",
+        "another deliberate evasion is outside what it claims, as before #292",
+        "CL-D57 and CL-D72 read them through this record",
+        "trimming code merely to silence the alarm remains the recorded anti-pattern, not compliance"
+      ]
+    },
+    {
+      "id": "CL-D37-backoff",
+      "marker": "CL-D37",
+      "title": "The snapshot's read retries hold the one wait the helpers may hold",
+      "files": [
+        "skills/closed-loop-pr/helpers/snapshot.js"
+      ],
+      "requires": [
+        "const ATTEMPTS = 3;",
+        "function delay(ms) { return new Promise((resolve) => { setTimeout(resolve, ms); }); }",
+        "await sleep(1000 * 2 ** (attempt - 1));",
+        "The backoff is the one wait CL-D37 allows the helpers."
+      ]
+    },
+    {
+      "id": "CL-D37-backoff-lint",
+      "marker": "CL-D37",
+      "title": "The structural test exempts the snapshot backoff's pinned block alone",
+      "files": [
+        "test/issue-59-helper-surface.test.js"
+      ],
+      "requires": [
+        "const SNAPSHOT_BACKOFF = [",
+        "const WAIT_NAMES = /\\b(?:delay|sleep|retrying|transientReason)\\b/;",
+        "a shadowed global or another deliberate evasion is outside what it claims",
+        "the snapshot backoff is used outside its pinned site"
       ]
     }
   ]

@@ -228,7 +228,42 @@ async function optionalPolicy(transport, args, cwd, label, missingValue) {
   }
 }
 
-async function collectSnapshot({ owner, repo, number, cwd, transport = defaultTransport }) {
+// A transient GitHub failure on one of the snapshot's reads is retried (#292): a 5xx answer, or a failure that carries
+// no HTTP status (a timeout or a connection error), up to ATTEMPTS reads with a growing backoff. A 4xx answer is read
+// once, so a 404 keeps its optional-policy meaning. A retry repeats the same read, and the brackets still compare what
+// was read before and after it. Each retry is reported beside the snapshot, never in its data, so the data and its
+// fingerprint are those of a clean collection (CL-D44). The backoff is the one wait CL-D37 allows the helpers.
+const ATTEMPTS = 3;
+const CONNECTION = /error connecting to|connection (?:reset|refused)|i\/o timeout|TLS handshake timeout|unexpected EOF|dial tcp|no such host/i;
+function transientReason(error) {
+  const stderr = String(error?.stderr || ''), status = /HTTP (\d{3})/.exec(stderr);
+  if (status) return status[1].startsWith('5') ? `HTTP ${status[1]}` : null;
+  if (error?.code === 'command_timeout') return 'command_timeout';
+  return error?.code === 'command_failed' && CONNECTION.test(stderr) ? 'connection failure' : null;
+}
+function delay(ms) { return new Promise((resolve) => { setTimeout(resolve, ms); }); }
+// Once the collection has ended, a read still backing off fails instead of reading again, and records no retry.
+function retrying(transport, sleep, retries, ended) {
+  return async (_command, args, options) => {
+    for (let attempt = 1; ; attempt += 1) {
+      try { return await transport('gh', args, options); } catch (error) {
+        const reason = transientReason(error);
+        if (!reason || attempt >= ATTEMPTS) throw error;
+        await sleep(1000 * 2 ** (attempt - 1));
+        if (ended.value) throw error;
+        retries.push({ request: args[1] === 'graphql' ? 'graphql' : String(args.at(-1)), attempt, reason });
+      }
+    }
+  };
+}
+
+async function collectSnapshot({ owner, repo, number, cwd, transport = defaultTransport, sleep = delay }) {
+  const retries = [], ended = { value: false };
+  const result = await collect({ owner, repo, number, cwd, transport: retrying(transport, sleep, retries, ended) });
+  ended.value = true;
+  return retries.length ? { ...result, retries: retries.slice() } : result;
+}
+async function collect({ owner, repo, number, cwd, transport }) {
   try {
     if (typeof owner !== 'string' || typeof repo !== 'string' || !Number.isSafeInteger(number) || number <= 0) throw schemaError('invalid snapshot target', 'invalid_request');
     const endpoint = `repos/${owner}/${repo}`;

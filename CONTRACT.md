@@ -68,7 +68,6 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D68.md](contract/CL-D68.md) — The gate launch request and the designated-output read are packaged
 - [contract/CL-D69.md](contract/CL-D69.md) — The evidence attestation carries no identity
 - [contract/CL-D70.md](contract/CL-D70.md) — The declared envelope field accepts the producer payload
-- [contract/CL-D71.md](contract/CL-D71.md) — The aggregate helper smoke alarm is reset a third time
 - [contract/CL-D72.md](contract/CL-D72.md) — The focused validation is packaged and the alarm is reset for it
 - [contract/CL-D73.md](contract/CL-D73.md) — The gate step composes no request by hand
 - [contract/CL-D74.md](contract/CL-D74.md) — The post-commit message check is packaged
@@ -131,7 +130,6 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D50.md](contract/CL-D50.md) — The CL-D30 addendum is a third disclosure stage
 - [contract/CL-D51.md](contract/CL-D51.md) — A zero-output gate transport failure may relaunch once
 - [contract/CL-D52.md](contract/CL-D52.md) — The stability digest ignores foreign-branch configuration
-- [contract/CL-D53.md](contract/CL-D53.md) — The aggregate helper smoke alarm is reset after firing
 - [contract/CL-D54.md](contract/CL-D54.md) — Review-only tolerates the runtime roots the harness itself writes
 - [contract/CL-D55.md](contract/CL-D55.md) — A guard failure must name its failed subcheck
 - [contract/CL-D56.md](contract/CL-D56.md) — Package-owned builders construct the documents the boundary checks
