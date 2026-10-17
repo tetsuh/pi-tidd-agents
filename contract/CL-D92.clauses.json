@@ -51,6 +51,18 @@
         "Issue #193 an empty queued suite beside a success status is a completed CodeRabbit review",
         "Issue #193 an empty suite alone detects no provider"
       ]
+    },
+    {
+      "id": "CL-D92-alarm",
+      "marker": "CL-D92",
+      "title": "The aggregate alarm value is the one the suites assert",
+      "files": [
+        "test/issue-59-helper-surface.test.js"
+      ],
+      "requires": [
+        "const AGGREGATE_SMOKE_ALARM = 320000;",
+        "#264 reviewed reset from 310,000 (CL-D92)"
+      ]
     }
   ]
 }

@@ -278,7 +278,7 @@ class Run {
     try { result = JSON.parse(r.stdout.trim().split('\n').pop()); } catch { result = { ok: false, operation, error: { code: 'cli_unparsable', message: String(r.stderr || r.stdout).slice(0, 2000) } }; }
     this.file(`${n}-${operation}.result.json`, result);
     const ok = result.ok === true && result.data?.ok !== false;
-    this.state.log.push({ n, operation, ok, ...(ok ? {} : { code: result.error?.code || result.data?.code }) });
+    this.state.log.push({ n, operation, ok, ...(ok ? {} : { code: result.error?.code || result.data?.code }), ...(result.retries && { retries: result.retries }) });
     this.save();
     if (!ok && !allowFail) this.stop(status, `${operation} refused: ${result.error?.code || result.data?.code} ${result.error?.message || ''}`.trim());
     return result;
