@@ -25,12 +25,11 @@
     {
       "id": "CL-D114-gaps",
       "marker": "CL-D114",
-      "title": "Each gap and the divergence is recorded in its own record, not closed",
+      "title": "Each gap is recorded in its own record, not closed",
       "files": [
         "contract/AC-AUTOFIX.md",
         "contract/CL-D39.md",
         "contract/CL-D40.md",
-        "contract/CL-D51.md",
         "contract/CL-D66.md"
       ],
       "requires": [
