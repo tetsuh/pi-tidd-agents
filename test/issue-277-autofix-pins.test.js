@@ -57,7 +57,8 @@ const MIXED_TESTS = {
 // #249 B4b (CL-D117) moved issue-51's remaining reads to CL-D34 and the builder.
 const STILL_KEPT = new Set(['assert.doesNotMatch(pr, /Issue PATCH.*POST.*CL-D30/s);']);
 const RETIRED = ['CL-D107-autofix', 'CL-D81-autofix', 'CL-D72-route-autofix', 'CL-D72-map', 'CL-D40-autofix', 'CL-D50-base', 'CL-D83-autofix'];
-const GAP_RECORDS = ['contract/AC-AUTOFIX.md', 'contract/CL-D39.md', 'contract/CL-D40.md', 'contract/CL-D51.md', 'contract/CL-D66.md'];
+// CL-D51's divergence was closed by #275, so CL-D51 no longer records it as open.
+const GAP_RECORDS = ['contract/AC-AUTOFIX.md', 'contract/CL-D39.md', 'contract/CL-D40.md', 'contract/CL-D66.md'];
 
 test('Issue #277 no clause pin names references/autofix.md, and the retired clauses are gone', () => {
   const ids = new Set();
@@ -114,7 +115,10 @@ test('Issue #277 CL-D114 records the repoint, the retired clauses and sentences,
   assert.match(record, /`REPLY_EXCEPTION` is not exercised \(AC-AUTOFIX\), only CL-D51's relaunch is recovered \(CL-D39\), the writer task does not carry the exactness rule \(CL-D66\), and no identity-gated worktree removal is drafted \(CL-D40\)/);
   assert.match(record, /a whitespace-only designated output is relaunched \(CL-D51, #275\)/);
   assert.match(record, /enterprise-policy constants are #276/);
-  // Each gap and the divergence is recorded in its own record as well, under the record limit.
+  // Each gap is recorded in its own record as well, under the record limit; the divergence, closed by #275, is recorded
+  // closed in CL-D51 and here.
+  assert.match(readText('contract/CL-D51.md'), /#275 closed it by amending this record \(option a\)/);
+  assert.match(record, /#275 later closed the divergence by amending CL-D51 \(option a\)\./);
   for (const file of GAP_RECORDS) {
     const text = readText(file);
     assert.ok(text.includes('recorded and not closed (#249, CL-D114)'), `${file} records its gap`);
