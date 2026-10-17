@@ -15,7 +15,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { createResult, createError } = require('./protocol');
-const { SCHEMA, ROOT_GATES, expectedState, validateGateResult } = require('./gate-result');
+const { SCHEMA, ROLE_SCHEMAS, ROOT_GATES, expectedState, validateGateResult } = require('./gate-result');
 const { inputShapeProblem } = require('./composition');
 const { VOLATILE_FIELDS, volatileRequired, volatileEmptiness, nestedProblem, citedRecords } = require('./envelope');
 // CL-D91, CL-D101: the gate payload file, the verification request the launch names, and the child's verification.
@@ -129,7 +129,8 @@ function readGateResult(data) {
         try { childSchema = JSON.parse(readUtf8(canonicalSchema)); } catch { schemaProblem('designated_schema_unreadable', 'the recorded output schema is not JSON', { statusPath, childSchemaPath }); }
       }
     }
-    const differs = childSchema === undefined ? null : firstDifference(childSchema, SCHEMA, '');
+    // CL-D120: a role's schema covers the roots its gate reviews, so the child ran with one of the packaged schemas or none.
+    const differs = childSchema === undefined || Object.values(ROLE_SCHEMAS).some((s) => firstDifference(childSchema, s, '') === null) ? null : firstDifference(childSchema, SCHEMA, '');
     if (differs !== null) fail('schema_transcription_mismatch', `the child ran with an outputSchema other than the packaged one, first differing at ${differs || '/'}; the launch request, not the reviewed change, is at fault`, { statusPath, childSchemaPath, path: differs });
     // A completed run whose selected step failed, is still running, or carries no status is not a result,
     // whatever sits at its path (CONV-123-INCOMPLETE-STEP-READ).

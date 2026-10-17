@@ -42,34 +42,58 @@ const findingBase = (gate) => closed({ ...fields('findingId blockerKey anchor pr
 // can emit, so decoding cannot produce a finding the validator refuses for them. The local check keeps reading the
 // base shape (LOOSE), and checkFindings still states the rules with their own codes.
 const LOOSE = new WeakMap();
-const finding = (gate) => {
-  const base = findingBase(gate);
-  const variant = (props, required = []) => ({ ...base, properties: { ...base.properties, ...props }, required: [...FINDING_REQ, ...required] });
+// #190 (CL-D120): version 2's Issue root has its own correlation, with no pull-request field: `candidateIdentity` only
+// while a candidate is under review, and an Issue finding or confirmation binds to its gate by `issueSpec`, not `headOid`.
+const ISSUE_CORR_REQ = words('repository number lifecycle gate invocation contractInput snapshotFingerprint issueSpec');
+const issueCorr = (gate) => closed({ repository: NWO, number: { type: 'integer', minimum: 1 }, lifecycle: choice(words('open closed')),
+  gate, invocation: { type: 'integer', minimum: 1 }, contractInput: SHA256, snapshotFingerprint: SHA256, issueSpec: SHA256, candidateIdentity: SHA256 }, ISSUE_CORR_REQ);
+const ISSUE_RECORD = closed({ ...fields('revisedPassage snapshotAssignment'), candidateIdentity: SHA256 }, ['snapshotAssignment']);
+const ISSUE_FINDING_REQ = FINDING_REQ.map((key) => (key === 'headOid' ? 'issueSpec' : key));
+const issueFindingBase = (gate) => {
+  const { headOid: _omit, ...properties } = findingBase(gate).properties;
+  return closed({ ...properties, issueSpec: SHA256, workflowRecord: ISSUE_RECORD }, ISSUE_FINDING_REQ);
+};
+const finding = (gate, root = 'pr') => {
+  const base = root === 'issue' ? issueFindingBase(gate) : findingBase(gate), REQ = base.required;
+  const variant = (props, required = []) => ({ ...base, properties: { ...base.properties, ...props }, required: [...REQ, ...required] });
   const without = (key) => { const { [key]: _omit, ...rest } = base.properties; return rest; };
   const notOut = { outOfScope: { type: 'boolean', enum: [false] } };
   const node = { anyOf: [
     variant({ anchoring: choice(['criterion-anchored']), ...notOut }, ['anchoring', 'anchor']),
     variant({ anchoring: choice(['reword']), severity: choice(['Major', 'Minor']), proposedDisposition: choice(['fixed', 'accepted-as-designed']), ...notOut }, ['anchoring']),
     variant({ anchoring: choice(['follow-up']), severity: choice(['Major', 'Minor']), proposedDisposition: choice(['deferred']), ...notOut }, ['anchoring', 'proposedIssueTitle']),
-    { ...base, properties: { ...without('anchoring'), outOfScope: { type: 'boolean', enum: [true] }, severity: choice(['Minor']), proposedDisposition: choice(['accepted-as-designed', 'deferred', 'not-applicable']) }, required: [...FINDING_REQ, 'outOfScope'] },
+    { ...base, properties: { ...without('anchoring'), outOfScope: { type: 'boolean', enum: [true] }, severity: choice(['Minor']), proposedDisposition: choice(['accepted-as-designed', 'deferred', 'not-applicable']) }, required: [...REQ, 'outOfScope'] },
   ] };
   LOOSE.set(node, base);
   return node;
 };
 const confirm = (gate) => closed({ ...fields('findingId evidence'), gate, headOid: OID,
   confirmation: choice(CONFIRMS) }, words('findingId gate headOid confirmation evidence'));
+const issueConfirm = (gate) => closed({ ...fields('findingId evidence'), gate, issueSpec: SHA256,
+  confirmation: choice(CONFIRMS) }, words('findingId gate issueSpec confirmation evidence'));
 const DEC = closed({ ...fields('decisionId kind targetAndRevision question options recommendation ownerChoice rationale validity'),
   status: choice(words('pending recorded')) }, words('decisionId kind targetAndRevision question options recommendation rationale validity status'));
 // The attestation names source, kind, and readCompletely; the identity lives in the expectation (CL-D69).
 const EVID = closed({ ...fields('source'), kind: choice(KINDS), readCompletely: { type: 'boolean' } }, words('source kind readCompletely'));
 const ADV = closed({ ...fields('claim searched evidence findingId'), outcome: choice(OUTCOMES) }, words('claim searched outcome evidence'));
-const schemaFor = (version) => {
-  const gate = choice(GATES[version]);
-  return closed({ schemaVersion: { type: 'integer', const: version }, correlation: corr(gate), verdict: choice(VERDICTS),
-    evidenceRead: list(EVID), findings: list(finding(gate)), confirmations: list(confirm(gate)), decisions: list(DEC),
+// `parts` names the correlation, finding, and confirmation shapes of one root; the agents of a role that serves both
+// roots decode a union of the two, and nothing walks that union: each envelope is checked against its root's own.
+const PR_PARTS = { corr, finding: (gate) => [finding(gate)], confirm };
+const ISSUE_PARTS = { corr: issueCorr, finding: (gate) => [finding(gate, 'issue')], confirm: issueConfirm };
+const UNION_PARTS = { corr: (gate) => ({ anyOf: [corr(gate), issueCorr(gate)] }), finding: (gate) => [finding(gate), finding(gate, 'issue')].flatMap((x) => x.anyOf),
+  confirm: (gate) => ({ anyOf: [confirm(gate), issueConfirm(gate)] }) };
+const schemaFor = (version, parts = PR_PARTS) => {
+  const gate = choice(GATES[version]), variants = parts.finding(gate);
+  return closed({ schemaVersion: { type: 'integer', const: version }, correlation: parts.corr(gate), verdict: choice(VERDICTS),
+    evidenceRead: list(EVID), findings: list(variants.length === 1 ? variants[0] : { anyOf: variants }), confirmations: list(parts.confirm(gate)), decisions: list(DEC),
     adversarialResults: list(ADV) }, words('schemaVersion correlation verdict evidenceRead findings confirmations decisions adversarialResults'));
 };
-const SCHEMAS = { 1: schemaFor(1), 2: schemaFor(2) }, SCHEMA = SCHEMAS[2];
+// SCHEMAS stays the pull-request schema of each version; version 1 keeps that shape on both roots, as it always had.
+const SCHEMAS = { 1: schemaFor(1), 2: schemaFor(2) }, SCHEMA = SCHEMAS[2], ISSUE_SCHEMA = schemaFor(2, ISSUE_PARTS);
+const ROOT_SCHEMAS = { 1: { pr: SCHEMAS[1], issue: SCHEMAS[1] }, 2: { pr: SCHEMA, issue: ISSUE_SCHEMA } };
+// The schema each gate role's agent definition declares (CL-D90): the root or roots its gate reviews.
+const ROLE_SCHEMAS = Object.freeze({ 'tidd-adversarial-reviewer': schemaFor(2, UNION_PARTS), 'tidd-convergence-reviewer': schemaFor(2, UNION_PARTS),
+  'tidd-safety-reviewer': SCHEMA, 'tidd-drift-reviewer': ISSUE_SCHEMA });
 
 const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 function fail(code, message) { throw Object.assign(new Error(message), { code }); }
@@ -108,7 +132,7 @@ function check(s, v, p = 'envelope') {
 // correlation is the packaged closed schema of the version in play (CONV-123-EXPECTATION-CORRELATION-CLOSURE).
 function expectedState(e, version = 2) {
   if (!plain(e) || !plain(e.correlation) || !ROOTS.includes(e.workflow)) fail('invalid_request', 'bad expected root');
-  check(SCHEMAS[version].properties.correlation, e.correlation, 'expected.correlation');
+  check(ROOT_SCHEMAS[version][e.workflow].properties.correlation, e.correlation, 'expected.correlation');
   checkRequiredEvidence(e.requiredEvidence);
   const a = e.assignedFindings;
   if (!Array.isArray(a) || a.some((x) => !keysExactly(x, words('blockerKey findingId'))
@@ -117,8 +141,8 @@ function expectedState(e, version = 2) {
   if (new Set(ids).size !== ids.length) fail('invalid_request', 'duplicate assignment');
   return new Map(a.map((x) => [x.findingId, x.blockerKey]));
 }
-function checkCorrelation(a, e) {
-  for (const k of CORR_REQ) if (a[k] !== e[k]) fail('correlation_mismatch', `${k} mismatch`);
+function checkCorrelation(a, e, issue) {
+  for (const k of issue ? [...ISSUE_CORR_REQ, 'candidateIdentity'] : CORR_REQ) if (a[k] !== e[k]) fail('correlation_mismatch', `${k} mismatch`);
 }
 // Required and attested entries match by source and kind (CL-D69).
 const evidenceKey = (x) => JSON.stringify([x.source, x.kind]);
@@ -148,10 +172,11 @@ function checkEvidence(v, req, adversarialGate) {
 }
 const ISSUE = words('candidateIdentity revisedPassage snapshotAssignment');
 const PR_REQ = words('sourceKind sourceId observedHeadOid fingerprint semanticFingerprint authorIdentity authorType');
-function checkWorkflowRecord(x, root) {
+function checkWorkflowRecord(x, root, corr, issue) {
   const bad = (m) => fail('finding_records_invalid', `${x.findingId}: ${m}`), r = x.workflowRecord;
   if (root === 'issue') {
-    if (Object.keys(r).some((k) => !ISSUE.includes(k)) || !r.candidateIdentity || !r.snapshotAssignment) bad('Issue record');
+    // Version 1 keeps its rule; under version 2 the record names the candidate exactly when the correlation does.
+    if (Object.keys(r).some((k) => !ISSUE.includes(k)) || !r.snapshotAssignment || (issue ? r.candidateIdentity !== corr.candidateIdentity : !r.candidateIdentity)) bad('Issue record');
     if (x.proposedDisposition === 'fixed' && !r.revisedPassage) bad('revised passage');
     return;
   }
@@ -160,11 +185,11 @@ function checkWorkflowRecord(x, root) {
   if (r.observedHeadOid !== x.headOid) bad('PR head mismatch');
   if (x.proposedDisposition === 'fixed' && !r.correctiveChange) bad('corrective change');
 }
-function checkFindings(findings, corr, assigned, prefix, root) {
-  const bad = (m) => fail('finding_records_invalid', m), ids = findings.map((x) => x.findingId);
+function checkFindings(findings, corr, assigned, prefix, root, issue) {
+  const bad = (m) => fail('finding_records_invalid', m), ids = findings.map((x) => x.findingId), bind = issue ? 'issueSpec' : 'headOid';
   if (new Set(ids).size !== ids.length) bad('duplicate findingId');
   for (const x of findings) {
-    if (x.gate !== corr.gate || x.headOid !== corr.headOid) bad(`${x.findingId}: gate/head mismatch`);
+    if (x.gate !== corr.gate || x[bind] !== corr[bind]) bad(`${x.findingId}: gate/head mismatch`);
     // `outOfScope: false` says what an omitted field says; only `true` is the residual label (CL-D34).
     const residual = x.outOfScope === true;
     if (residual === Boolean(x.anchoring)) bad(`${x.findingId}: classification`);
@@ -180,15 +205,16 @@ function checkFindings(findings, corr, assigned, prefix, root) {
       if (!x.findingId.startsWith(prefix) || !/^[A-Z0-9._-]+$/.test(x.findingId.slice(prefix.length))) bad(`${x.findingId}: namespace`);
       if (x.blockerKey) bad(`${x.findingId}: fresh blockerKey`);
     }
-    checkWorkflowRecord(x, root);
+    checkWorkflowRecord(x, root, corr, issue);
   }
   for (const id of assigned.keys()) if (!findings.some((x) => x.findingId === id && x.origin === 'assigned')) fail('confirmation_records_invalid', `result omits assigned finding ${id}`);
 }
-function checkConfirmations(findings, confirmations, assigned, corr) {
+function checkConfirmations(findings, confirmations, assigned, corr, issue) {
   const bad = (m) => fail('confirmation_records_invalid', m), reported = findings.filter((x) => x.origin === 'assigned').map((x) => x.findingId), seen = new Map();
+  const bind = issue ? 'issueSpec' : 'headOid';
   for (const x of confirmations) {
     if (seen.has(x.findingId) || !assigned.has(x.findingId)) bad(`unexpected/duplicate ${x.findingId}`);
-    if (x.gate !== corr.gate || x.headOid !== corr.headOid) bad(`${x.findingId}: gate/head`);
+    if (x.gate !== corr.gate || x[bind] !== corr[bind]) bad(`${x.findingId}: gate/head`);
     seen.set(x.findingId, x);
   }
   for (const id of reported) if (!seen.has(id)) bad(`missing ${id}`);
@@ -217,16 +243,18 @@ function validateGateResult(v, e) {
     // so a version 1 gate inside a version 2 envelope (or the reverse) is an unknown enum, never
     // a mapped value; an unlisted version falls to the shipping schema's const and fails there.
     const version = plain(v) && Object.hasOwn(SCHEMAS, v.schemaVersion) ? v.schemaVersion : 2;
-    check(SCHEMAS[version], v); const assigned = expectedState(e, version);
-    checkCorrelation(v.correlation, e.correlation);
+    // The root is the expectation's; until the expectation is judged, an envelope is checked as it always was.
+    const root = plain(e) && ROOTS.includes(e.workflow) ? e.workflow : 'pr', issue = version === 2 && root === 'issue';
+    check(ROOT_SCHEMAS[version][root], v); const assigned = expectedState(e, version);
+    checkCorrelation(v.correlation, e.correlation, issue);
     if (version === 2 && !ROOT_GATES[e.workflow].includes(v.correlation.gate)) fail('correlation_mismatch', `gate ${v.correlation.gate} is not a ${e.workflow} gate`);
     // The namespace is derived, never supplied: a hand-copied duplicate of a derivable value
     // can only ever be wrong, and in the field a copy mismatch destroyed completed verdicts.
     if ('freshFindingIdPrefix' in e) fail('invalid_request', 'freshFindingIdPrefix is derived from the correlation; do not supply it');
     const prefix = `${PREFIX[v.correlation.gate]}-${v.correlation.number}-`;
     const material = checkEvidence(v, e.requiredEvidence, ADVERSARIAL[version]);
-    checkFindings(v.findings, v.correlation, assigned, prefix, e.workflow);
-    const confirmed = checkConfirmations(v.findings, v.confirmations, assigned, v.correlation);
+    checkFindings(v.findings, v.correlation, assigned, prefix, e.workflow, issue);
+    const confirmed = checkConfirmations(v.findings, v.confirmations, assigned, v.correlation, issue);
     checkVerdict(v, confirmed, material);
     return createResult('gate_result_validate', { verdict: v.verdict, correlation: v.correlation, evidenceRead: v.evidenceRead,
       findings: v.findings, confirmations: v.confirmations, decisions: v.decisions, adversarialResults: v.adversarialResults });
@@ -236,5 +264,7 @@ function validateGateResult(v, e) {
 // validate a correlation with the boundary's own checker instead of a re-derivation.
 function checkSchema(schema, value, pathName = 'value') { check(schema, value, pathName); }
 // The whole finding shape behind the #162 variants: every field any variant may carry.
-const findingShape = (schema = SCHEMA) => LOOSE.get(schema.properties.findings.items);
-module.exports = { SCHEMA, SCHEMAS, ROOT_GATES, validateGateResult, expectedState, checkRequiredEvidence, checkSchema, findingShape };
+const findingShape = (root = 'pr') => LOOSE.get(ROOT_SCHEMAS[2][root].properties.findings.items);
+// The correlation shape a root's expectation is built with (CL-D120).
+const correlationSchema = (root) => ROOT_SCHEMAS[2][root].properties.correlation;
+module.exports = { SCHEMA, SCHEMAS, ISSUE_SCHEMA, ROLE_SCHEMAS, ROOT_GATES, validateGateResult, expectedState, checkRequiredEvidence, checkSchema, findingShape, correlationSchema };

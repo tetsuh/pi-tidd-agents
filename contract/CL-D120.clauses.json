@@ -1,0 +1,88 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D120-record",
+      "marker": "CL-D120",
+      "title": "CL-D120 records the per-root correlation, the role schemas, the launch identity and the alarm",
+      "files": [
+        "contract/CL-D120.md"
+      ],
+      "section": "## CL-D120 — Gate result schema version 2 carries an Issue correlation beside the pull-request one",
+      "requires": [
+        "issues/190#issuecomment-6233941786",
+        "The validator checks each envelope against its root's own closed schema and never walks a union.",
+        "the parent supplies both until the Issue driver of step 2 does",
+        "the per-file helper alarm resets from 30,000 to 32,000 bytes for every helper file, prompted by `helpers/launch.js`"
+      ]
+    },
+    {
+      "id": "CL-D120-schema",
+      "marker": "CL-D120",
+      "title": "Version 2 has an Issue correlation, binding and record beside the pull-request ones",
+      "files": [
+        "skills/closed-loop-pr/helpers/gate-result.js"
+      ],
+      "requires": [
+        "const ISSUE_CORR_REQ = words('repository number lifecycle gate invocation contractInput snapshotFingerprint issueSpec');",
+        "const ROOT_SCHEMAS = { 1: { pr: SCHEMAS[1], issue: SCHEMAS[1] }, 2: { pr: SCHEMA, issue: ISSUE_SCHEMA } };",
+        "check(ROOT_SCHEMAS[version][root], v);",
+        "(issue ? r.candidateIdentity !== corr.candidateIdentity : !r.candidateIdentity)",
+        "bind = issue ? 'issueSpec' : 'headOid'"
+      ]
+    },
+    {
+      "id": "CL-D120-envelope",
+      "marker": "CL-D120",
+      "title": "An Issue volatile target names no pull-request field and its issue_spec is the correlation's",
+      "files": [
+        "skills/closed-loop-pr/helpers/envelope.js"
+      ],
+      "requires": [
+        "const PR_TARGET_ONLY = Object.freeze(['baseOid', 'headOid', 'headBranch', 'headRepository']);",
+        "issue: Object.freeze({ issue_spec: 'issueSpec', snapshot: 'snapshotFingerprint' })"
+      ]
+    },
+    {
+      "id": "CL-D120-read",
+      "marker": "CL-D120",
+      "title": "The read accepts a child that ran with one of the packaged role schemas",
+      "files": [
+        "skills/closed-loop-pr/helpers/launch.js"
+      ],
+      "requires": [
+        "Object.values(ROLE_SCHEMAS).some((s) => firstDifference(childSchema, s, '') === null)"
+      ]
+    },
+    {
+      "id": "CL-D120-skill",
+      "marker": "CL-D120",
+      "title": "The Issue Skill names the packaged composition, its correlation and the packaged launch identity",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "Every Issue gate launch is composed by packaged `build_gate_launch`",
+        "validated by `gate_result_validate` (CL-D120)",
+        "it names no base, head, branch, or draft, and an Issue finding or confirmation binds to its gate by `issueSpec`",
+        "the parent supplies both until the Issue driver does (#190)",
+        "Every physical convergence, Sol, or Terra launch is identified by the packaged identity (CL-D120)",
+        "A retry keeps its gate's `invocation` but returns a new runner run id, and the earlier run id expires.",
+        "Read and consume each run id exactly once, a refused read included",
+        "The packaged launch identity and run-id consumption rules (CL-D120) remain unchanged."
+      ]
+    },
+    {
+      "id": "CL-D120-contract",
+      "marker": "CL-D120",
+      "title": "The gate contract states each root's correlation",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "Under envelope schema version 2 each root has its own closed correlation (CL-D120).",
+        "a finding or confirmation binds to its gate by `issueSpec`, and an Issue record names the candidate identity exactly when the correlation does",
+        "Each role's schema covers the roots its gate reviews: the pull-request one, the Issue one, or both (CL-D120)."
+      ]
+    }
+  ]
+}

@@ -8,7 +8,7 @@
 
 const { createResult, createError, keysExactly } = require('./protocol');
 const { inputShapeProblem, normalizeDeclaredInputs, authorizedPathsProblem, cleanupCwdProblem, absoluteSpelling } = require('./composition');
-const { SCHEMA, expectedState, checkRequiredEvidence, checkSchema, ROOT_GATES } = require('./gate-result');
+const { expectedState, checkRequiredEvidence, checkSchema, correlationSchema, ROOT_GATES } = require('./gate-result');
 
 // Transition OIDs mirror the CLI's 40-or-64 hex rule; postPushHead mirrors
 // operator_revalidate's exact 40-hex commit rule (SOL-98-OID-WIDTH).
@@ -201,7 +201,8 @@ function buildManifestCompare(data) {
 function buildGateExpectation(data) {
   return wrap('build_gate_expectation', () => {
     if (!['issue', 'pr'].includes(data.workflow)) fail('invalid_request', 'workflow must be issue or pr');
-    checkSchema(SCHEMA.properties.correlation, data.correlation, 'correlation');
+    // Each root's own correlation shape: an Issue has no base, head, branch, or draft to name (CL-D120).
+    checkSchema(correlationSchema(data.workflow), data.correlation, 'correlation');
     const expected = {
       workflow: data.workflow, correlation: data.correlation,
       assignedFindings: data.assignedFindings, requiredEvidence: data.requiredEvidence,
