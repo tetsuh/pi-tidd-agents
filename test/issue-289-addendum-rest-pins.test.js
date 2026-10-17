@@ -41,7 +41,7 @@ const MIXED_TESTS = {
   },
 };
 const GAPS = {
-  'contract/CL-D34.md': ['(#283): recorded and not closed (#249, CL-D117)', 'so no fresh finding is mapped to a settled key by counterexample class'],
+  'contract/CL-D34.md': ['so no fresh finding is mapped to a settled key by counterexample class'],
   'contract/CL-D77.md': ['it drafts the artifacts at every stop once its target is bound', 'it never reports `not_drafted(<reason>)`', 'the comment calls that head the reviewed public head whether or not a gate reviewed it'],
   'contract/CL-D85.md': ["The packaged autofix driver records none either: its terminal report names no review miss and its status block's `review_misses` line is always `none`, recorded and not closed (#249, CL-D117)."],
   'contract/CL-D86.md': ['The packaged autofix driver does not recompose a refused post-push revalidation: the first refusal, after the push or at the recheck before a later gate or the writer, stops the run `BLOCKED`'],
