@@ -30,6 +30,43 @@ const FORBIDDEN_OPERATION = /(?:^|_)(?:commit|push|merge|reply|approve|thread_re
 // run in the created workspace with what the capture recorded. Nothing else named above is allowed.
 const CL_D89_OPERATIONS = new Set(['commit_create', 'push_publish']);
 const SCHEDULING_OR_STATE = /\b(?:setInterval|setTimeout|setImmediate|queueMicrotask|scheduler|node-schedule|cron|node:timers|node:sqlite|sqlite3|level|lmdb|globalThis)\b/;
+// CL-D37 (#292): the one wait the helpers may hold is the snapshot's read-retry backoff. Its whole block is pinned here,
+// from the attempt bound to the collector that passes the wait on. Outside that block no helper names the wait, the
+// retry or its classifier, and any other timer is scheduling. The check reads the source as written: an escaped
+// identifier, a shadowed global or another deliberate evasion is outside what it claims, as it was before #292.
+const WAIT_NAMES = /\b(?:delay|sleep|retrying|transientReason)\b/;
+const SNAPSHOT_BACKOFF = [
+  "const ATTEMPTS = 3;",
+  "const CONNECTION = /error connecting to|connection (?:reset|refused)|i\\/o timeout|TLS handshake timeout|unexpected EOF|dial tcp|no such host/i;",
+  "function transientReason(error) {",
+  "  const stderr = String(error?.stderr || ''), status = /HTTP (\\d{3})/.exec(stderr);",
+  "  if (status) return status[1].startsWith('5') ? `HTTP ${status[1]}` : null;",
+  "  if (error?.code === 'command_timeout') return 'command_timeout';",
+  "  return error?.code === 'command_failed' && CONNECTION.test(stderr) ? 'connection failure' : null;",
+  "}",
+  "function delay(ms) { return new Promise((resolve) => { setTimeout(resolve, ms); }); }",
+  "// Once the collection has ended, a read still backing off fails instead of reading again, and records no retry.",
+  "function retrying(transport, sleep, retries, ended) {",
+  "  return async (_command, args, options) => {",
+  "    for (let attempt = 1; ; attempt += 1) {",
+  "      try { return await transport('gh', args, options); } catch (error) {",
+  "        const reason = transientReason(error);",
+  "        if (!reason || attempt >= ATTEMPTS) throw error;",
+  "        await sleep(1000 * 2 ** (attempt - 1));",
+  "        if (ended.value) throw error;",
+  "        retries.push({ request: args[1] === 'graphql' ? 'graphql' : String(args.at(-1)), attempt, reason });",
+  "      }",
+  "    }",
+  "  };",
+  "}",
+  "",
+  "async function collectSnapshot({ owner, repo, number, cwd, transport = defaultTransport, sleep = delay }) {",
+  "  const retries = [], ended = { value: false };",
+  "  const result = await collect({ owner, repo, number, cwd, transport: retrying(transport, sleep, retries, ended) });",
+  "  ended.value = true;",
+  "  return retries.length ? { ...result, retries: retries.slice() } : result;",
+  "}",
+].join('\n');
 const APPROVED_FS_SITES = [
   "skills/closed-loop-pr/helpers/cli.js|const fs = require('node:fs');",
   'skills/closed-loop-pr/helpers/cli.js|const input = fs.readFileSync(0);',
@@ -208,7 +245,9 @@ function validateBoundary(model) {
   const required = requireInventory(model.sources);
   if (required.calls !== required.literals || JSON.stringify(required.counts) !== JSON.stringify(EXPECTED_REQUIRE_COUNTS)) errors.push('module import callsites differ from the reviewed allowlist');
   for (const [file, source] of Object.entries(model.sources)) {
-    if (SCHEDULING_OR_STATE.test(source) || /\bimport\s*\(/.test(source)) errors.push(`scheduling or durable-state primitive is forbidden: ${file}`);
+    const scanned = file === `${HELPER_DIR}/snapshot.js` ? source.replace(SNAPSHOT_BACKOFF, '') : source;
+    if (WAIT_NAMES.test(scanned)) errors.push(`the snapshot backoff is used outside its pinned site: ${file}`);
+    if (SCHEDULING_OR_STATE.test(scanned) || /\bimport\s*\(/.test(source)) errors.push(`scheduling or durable-state primitive is forbidden: ${file}`);
     if (/\breceipt\s*\.\s*(?:storedPath|root)\s*=|\b(?:Object\.assign|Reflect\.set)\s*\(\s*receipt\b|\bdelete\s+receipt\s*\./.test(source)) errors.push(`workspace receipt provenance mutation is forbidden: ${file}`);
   }
   for (const { file, command } of gitCommands(model.sources)) if (!gitCommandAllowed(file, command)) errors.push(`Git command is outside the reviewed verification/lifecycle allowlist: ${file}:${command}`);
@@ -422,6 +461,20 @@ test('Issue #59 structural assertions are non-vacuous under source-derived mutat
   rejectsMutation(model, 'renamed filesystem import', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nconst storage = require("node:fs");\n'; }, 'filesystem access callsites');
   rejectsMutation(model, 'builtin filesystem import', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nprocess.getBuiltinModule("fs");\n'; }, 'filesystem access callsites');
   rejectsMutation(model, 'timer', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nsetInterval(() => {}, 1000);\n'; }, 'scheduling or durable-state primitive');
+  // CL-D37 (#292): the snapshot backoff exempts only its own pinned text.
+  rejectsMutation(model, 'the snapshot backoff copied into another helper', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += `\n${SNAPSHOT_BACKOFF}\n`; }, 'scheduling or durable-state primitive is forbidden: skills/closed-loop-pr/helpers/workspace.js');
+  rejectsMutation(model, 'a second timer in snapshot.js', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] += '\nsetTimeout(() => {}, 1000);\n'; }, 'scheduling or durable-state primitive is forbidden: skills/closed-loop-pr/helpers/snapshot.js');
+  rejectsMutation(model, 'a second copy of the backoff in snapshot.js', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] += `\n${SNAPSHOT_BACKOFF.replace('delay', 'pause')}\n`; }, 'scheduling or durable-state primitive is forbidden: skills/closed-loop-pr/helpers/snapshot.js');
+  rejectsMutation(model, 'the backoff altered at its site', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace("setTimeout(resolve, ms);", "setTimeout(resolve, ms).unref();"); }, 'scheduling or durable-state primitive is forbidden: skills/closed-loop-pr/helpers/snapshot.js');
+  rejectsMutation(model, 'a wait before the collection', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace("  const retries = [], ended = { value: false };", "  await sleep(600000);\n  const retries = [], ended = { value: false };"); }, 'scheduling or durable-state primitive is forbidden: skills/closed-loop-pr/helpers/snapshot.js');
+  rejectsMutation(model, 'a second wait in the retry loop', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace("        if (ended.value) throw error;\n", "        if (ended.value) throw error;\n        await sleep(3600000);\n"); }, 'scheduling or durable-state primitive is forbidden: skills/closed-loop-pr/helpers/snapshot.js');
+  rejectsMutation(model, 'another default wait', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace("sleep = delay }", "sleep = (ms) => delay(ms * 1000) }"); }, 'scheduling or durable-state primitive is forbidden: skills/closed-loop-pr/helpers/snapshot.js');
+  rejectsMutation(model, 'a raised attempt bound', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace("const ATTEMPTS = 3;", "const ATTEMPTS = 30;"); }, 'scheduling or durable-state primitive is forbidden: skills/closed-loop-pr/helpers/snapshot.js');
+  rejectsMutation(model, 'the retry redefined after the block', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] += '\nfunction retrying(transport, wait) { return async () => wait(3600000); }\n'; }, 'the snapshot backoff is used outside its pinned site');
+  rejectsMutation(model, 'the classifier redefined after the block', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] += "\nfunction transientReason() { return 'any failure'; }\n"; }, 'the snapshot backoff is used outside its pinned site');
+  rejectsMutation(model, 'a wait passed in from the CLI', (copy) => { copy.sources[`${HELPER_DIR}/cli.js`] += '\nhelpers.collectSnapshot({ sleep: () => {} });\n'; }, 'the snapshot backoff is used outside its pinned site: skills/closed-loop-pr/helpers/cli.js');
+  rejectsMutation(model, 'the backoff exported to another helper', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] = copy.sources[`${HELPER_DIR}/snapshot.js`].replace('canonicalPull, MAX_PAGES };', 'canonicalPull, MAX_PAGES, delay };'); }, 'the snapshot backoff is used outside its pinned site');
+  rejectsMutation(model, 'the backoff called outside the retries', (copy) => { copy.sources[`${HELPER_DIR}/snapshot.js`] += '\ndelay(60000);\n'; }, 'the snapshot backoff is used outside its pinned site');
   rejectsMutation(model, 'timer module alias', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nconst timers = require("node:timers/promises"); const wait = timers["set" + "Timeout"]; wait(1000);\n'; }, 'module import callsites');
   rejectsMutation(model, 'state module', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += '\nrequire("node:sqlite");\n'; }, 'module import callsites');
   rejectsMutation(model, 'Git push', (copy) => { copy.sources[`${HELPER_DIR}/workspace.js`] += "\ngitArgs(['push', 'origin', 'HEAD']);\n"; }, 'Git command');
