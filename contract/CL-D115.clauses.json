@@ -27,7 +27,7 @@
     {
       "id": "CL-D115-gaps",
       "marker": "CL-D115",
-      "title": "CL-D30 states the five divergences, recorded and not closed",
+      "title": "CL-D30 states the five divergences, recorded and not closed (#282 later closed one)",
       "files": [
         "contract/CL-D30.md"
       ],

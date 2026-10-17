@@ -24,7 +24,8 @@
       "section": "## CL-D96 — The packaged autofix driver runs correction cycles; the writer's process commits and pushes",
       "requires": [
         "issues/191#issuecomment-5857263114",
-        "Letting the driver itself commit or push, widening the correctable class, or deriving `authorizedPaths` from anything but the findings and the changed files requires a new owner decision."
+        "Letting the driver itself commit or push, widening the correctable class, or deriving `authorizedPaths` from anything but the findings and the changed files requires a new owner decision.",
+        "proposed `fixed` or `deferred`, whatever its domain (#282)"
       ]
     },
     {
@@ -49,6 +50,17 @@
       "requires": [
         "Issue #196 the packaged autofix driver corrects a finding through the writer batch and reaches MERGE_READY",
         "Issue #196 an edit outside the authorized paths is refused before any commit, and the run stops BLOCKED"
+      ]
+    },
+    {
+      "id": "CL-D96-domain-tests",
+      "marker": "CL-D96",
+      "title": "The record's class and the driver's correctable() are pinned together",
+      "files": [
+        "test/issue-282-correctable-domain.test.js"
+      ],
+      "requires": [
+        "CL-D96 states that the correctable class does not depend on the finding's domain"
       ]
     }
   ]
