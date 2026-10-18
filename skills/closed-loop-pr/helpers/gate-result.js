@@ -5,9 +5,9 @@ const words = (s) => s.split(' ');
 const VERDICTS = ['MERGE', 'FIX BEFORE MERGE', 'NEEDS DECISION'], ROOTS = ['issue', 'pr'];
 // Gate identities per envelope version (CL-D60): version 2 names workflow functions, each valid
 // only on the root that runs it; version 1 stays accepted verbatim for one release, unmapped.
-// `convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots.
+// `convergence` (CL-D62) is the non-authoritative preliminary stage, valid on the pull-request root only (CL-D121).
 const GATES = { 1: ['sol', 'terra'], 2: ['adversarial', 'decision-drift', 'safety', 'convergence'] };
-const ROOT_GATES = { issue: ['adversarial', 'decision-drift', 'convergence'], pr: ['adversarial', 'safety', 'convergence'] };
+const ROOT_GATES = { issue: ['adversarial', 'decision-drift'], pr: ['adversarial', 'safety', 'convergence'] };
 const PREFIX = { sol: 'SOL', terra: 'TERRA', adversarial: 'ADV', 'decision-drift': 'DRIFT', safety: 'SAFETY', convergence: 'CONV' };
 // Version 1 keeps its exact legacy diagnostic (ADV-106-V1-VERBATIM); version 2 has its own.
 const ADVERSARIAL = { 1: 'sol', 2: 'adversarial' }, ADVERSARIAL_MISSING = { sol: 'Sol adversarial missing', adversarial: 'adversarial results missing' };
@@ -92,7 +92,7 @@ const schemaFor = (version, parts = PR_PARTS) => {
 const SCHEMAS = { 1: schemaFor(1), 2: schemaFor(2) }, SCHEMA = SCHEMAS[2], ISSUE_SCHEMA = schemaFor(2, ISSUE_PARTS);
 const ROOT_SCHEMAS = { 1: { pr: SCHEMAS[1], issue: SCHEMAS[1] }, 2: { pr: SCHEMA, issue: ISSUE_SCHEMA } };
 // The schema each gate role's agent definition declares (CL-D90): the root or roots its gate reviews.
-const ROLE_SCHEMAS = Object.freeze({ 'tidd-adversarial-reviewer': schemaFor(2, UNION_PARTS), 'tidd-convergence-reviewer': schemaFor(2, UNION_PARTS),
+const ROLE_SCHEMAS = Object.freeze({ 'tidd-adversarial-reviewer': schemaFor(2, UNION_PARTS), 'tidd-convergence-reviewer': SCHEMA,
   'tidd-safety-reviewer': SCHEMA, 'tidd-drift-reviewer': ISSUE_SCHEMA });
 
 const plain = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);

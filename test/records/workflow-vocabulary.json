@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "$comment": "CL-D63: the one source the declared role, gate, status, and restart surfaces are derived from. Adding a role or gate changes this file; the derived-vocabulary test then names every surface that has not followed. Retired phrases are listed only when a decision retired them.",
+  "$comment": "CL-D63: the one source the declared role, gate, status, and restart surfaces are derived from. Adding a role or gate changes this file; the derived-vocabulary test then names every surface that has not followed. Retired phrases are listed only when a decision retired them; `allowedIn` names the files where a later decision (`allowedBy`) makes a retired phrase current again.",
   "roles": [
     {
       "name": "tidd-adversarial-reviewer",
@@ -54,7 +54,6 @@
       "kind": "preliminary",
       "gate": "convergence",
       "roots": [
-        "issue",
         "pr"
       ],
       "model": "gpt-6-luna",
@@ -75,7 +74,6 @@
   },
   "gateOrder": {
     "issue": [
-      "convergence",
       "adversarial",
       "decision-drift"
     ],
@@ -85,12 +83,19 @@
       "safety"
     ]
   },
-  "restart": "restarts at convergence, then Sol",
+  "restart": {
+    "issue": "restarts at Sol",
+    "pr": "restarts at convergence, then Sol"
+  },
   "statusLines": {
-    "rounds": "rounds: convergence <used>/3, sol <used>/3, terra <used>/3",
-    "resolved": "resolved: <role provider/model:thinking, one per role that ran; convergence: disabled when skipped>",
+    "rounds": {
+      "issue": "rounds: sol <used>/3, terra <used>/3"
+    },
+    "resolved": {
+      "issue": "resolved: <role provider/model:thinking, one per role that ran>"
+    },
     "activeGate": {
-      "issue": "active_gate: <convergence|sol|terra|none>",
+      "issue": "active_gate: <sol|terra|none>",
       "pr": "active_gate: <convergence|sol|terra|external|none>"
     }
   },
@@ -120,7 +125,11 @@
     {
       "pattern": "restarts? at Sol\\b",
       "retiredBy": "CL-D62",
-      "allowedWith": "CL-D62 later inserts the convergence stage before Sol"
+      "allowedWith": "CL-D62 later inserts the convergence stage before Sol",
+      "allowedIn": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "allowedBy": "CL-D121"
     },
     {
       "pattern": "before each Sol/Terra invocation",
@@ -144,7 +153,11 @@
     },
     {
       "pattern": "The fixed review order is Sol-before-Terra\\.",
-      "retiredBy": "CL-D62"
+      "retiredBy": "CL-D62",
+      "allowedIn": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "allowedBy": "CL-D121"
     },
     {
       "pattern": "uses four roles",
