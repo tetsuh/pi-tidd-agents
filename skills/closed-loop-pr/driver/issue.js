@@ -144,11 +144,14 @@ function result(opts) {
   if (!p) die('no gate is pending in this run');
   guard(run);
   s.nextAction = null;
-  // Each run id is read and consumed once, a refused read included (CL-D120).
+  // Each run id is read and consumed once, a refused read included (CL-D120). A run still in progress prints WAIT and exits
+  // inside readGate before anything is consumed, so its id stays readable; a read or a relaunch then consumes every id seen
+  // for this gate, so an id seen on WAIT expires with the relaunch.
   const runId = opts['run-id'] || die('--run-id is required');
   if ((s.consumedRunIds || []).includes(runId)) run.stop('BLOCKED', `run id ${runId} was already read; a relaunch expires it`);
-  s.consumedRunIds = [...(s.consumedRunIds || []), runId]; run.save();
+  p.seenRunIds = [...new Set([...(p.seenRunIds || []), runId])]; run.save();
   const read = readGate(run, runId, __filename, { before: () => { if (p.gate !== GATES[0]) revalidate(run); } });
+  s.consumedRunIds = [...new Set([...(s.consumedRunIds || []), ...p.seenRunIds])]; run.save();
   if (!read) return;
   const envelope = read.envelope, gate = p.gate, findings = envelope.findings || [];
   const status = read.statusPath ? JSON.parse(fs.readFileSync(read.statusPath, 'utf8')) : {}, step = (status.steps || []).at(-1) || {};
