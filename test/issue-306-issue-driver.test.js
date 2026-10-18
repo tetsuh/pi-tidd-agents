@@ -174,6 +174,37 @@ test('Issue #306 each run id is read once, a refused read included', () => {
   assert.match(state(t).reason, /was already read; a relaunch expires it/);
 });
 
+// CONV-307-WAIT-REUSE-001: a run still in progress prints WAIT and leaves its id unread, so the same id is read once it ends.
+test('Issue #306 a gate still running prints WAIT and its run id stays readable', () => {
+  const t = setup();
+  drive(t, t.start);
+  const runId = fakeGate(t), status = path.join(t.runs, 'async-subagent-runs', runId, 'status.json');
+  const done = fs.readFileSync(status, 'utf8'), running = JSON.parse(done);
+  running.state = 'running'; running.steps[0].status = 'running';
+  fs.writeFileSync(status, JSON.stringify(running));
+  const wait = drive(t, ['result', '--run-dir', t.runDir, '--run-id', runId]);
+  assert.equal(wait.status, 3, wait.stdout + wait.stderr);
+  assert.match(wait.stdout, /^WAIT: the sol run is still in progress; when it completes, run: node \S+issue\.js result --run-dir \S+ --run-id <runId>$/m);
+  fs.writeFileSync(status, done);
+  const read = drive(t, ['result', '--run-dir', t.runDir, '--run-id', runId]);
+  assert.equal(nextRequest(read.stdout)?.agent, 'tidd-drift-reviewer', read.stdout + read.stderr);
+  assert.deepEqual(state(t).consumedRunIds, [runId]);
+  // An id seen on WAIT expires when another id's read relaunches the gate.
+  const u = setup();
+  drive(u, u.start);
+  const seen = fakeGate(u), seenStatus = path.join(u.runs, 'async-subagent-runs', seen, 'status.json'), complete = fs.readFileSync(seenStatus, 'utf8'), going = JSON.parse(complete);
+  going.state = 'running'; going.steps[0].status = 'running';
+  fs.writeFileSync(seenStatus, JSON.stringify(going));
+  assert.equal(drive(u, ['result', '--run-dir', u.runDir, '--run-id', seen]).status, 3);
+  assert.ok(nextRequest(drive(u, ['result', '--run-dir', u.runDir, '--run-id', crypto.randomUUID()]).stdout), 'the unreadable id relaunches');
+  fs.writeFileSync(seenStatus, complete);
+  const late = drive(u, ['result', '--run-dir', u.runDir, '--run-id', seen]);
+  assert.equal(late.status, 1);
+  assert.equal(state(u).state, 'BLOCKED');
+  assert.match(state(u).reason, /was already read; a relaunch expires it/);
+  assert.deepEqual(state(u).gateLog, [], 'the round did not advance');
+});
+
 test('Issue #306 a moved Issue is refused, a missing --issue value is refused, and odd records still bind', () => {
   // A number that answers with another record (a transferred Issue) is refused before any run, and later in the round.
   const moved = setup({ issue: issueRecord({ number: 9 }) });
