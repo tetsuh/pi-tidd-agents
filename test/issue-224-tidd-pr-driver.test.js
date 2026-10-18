@@ -38,7 +38,7 @@ test('Issue #224 the Skill sends the round to the packaged driver before any mod
   assert.equal(once(s, 'PROSE_PATH'), 0);
   // No text in the driver says to review on the prose path (#249).
   const driver = (file) => readText(`skills/closed-loop-pr/driver/${file}`);
-  for (const file of ['phases.js', 'review.js', 'autofix.js', 'run.js', 'readiness.js', 'paths.js', 'writer.js', 'message.js']) assert.equal(once(driver(file), 'on the prose path'), 0, file);
+  for (const file of ['phases.js', 'review.js', 'autofix.js', 'run.js', 'readiness.js', 'paths.js', 'writer.js', 'message.js', 'issue.js']) assert.equal(once(driver(file), 'on the prose path'), 0, file);
   // A WAIT line is the driver's own report that a run is still going, for a gate and for the writer.
   assert.match(driver('phases.js'), /WAIT: the \$\{gateLabel\(p\.gate\)\} run is still in progress; when it completes, run: node \$\{self\} result --run-dir \$\{run\.dir\} --run-id <runId>/);
   assert.match(driver('autofix.js'), /WAIT: the writer run has no terminal record yet; when it completes, run: node \$\{SELF\} writer-done --run-dir \$\{run\.dir\} --run-id \$\{opts\['run-id'\]\}/);

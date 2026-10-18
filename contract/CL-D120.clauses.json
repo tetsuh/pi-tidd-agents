@@ -64,7 +64,7 @@
         "Every Issue gate launch is composed by packaged `build_gate_launch`",
         "validated by `gate_result_validate` (CL-D120)",
         "it names no base, head, branch, or draft, and an Issue finding or confirmation binds to its gate by `issueSpec`",
-        "the parent supplies both until the Issue driver does (#190)",
+        "The packaged Issue driver derives the Issue `contractInput` and `snapshotFingerprint` (CL-D122).",
         "Every physical Sol or Terra launch is identified by the packaged identity (CL-D120)",
         "A retry keeps its gate's `invocation` but returns a new runner run id, and the earlier run id expires.",
         "Read and consume each run id exactly once, a refused read included",

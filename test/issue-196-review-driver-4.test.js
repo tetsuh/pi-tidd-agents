@@ -11,14 +11,16 @@ test('Issue #196 the driver is packaged under its own alarms and names no writin
   // the one driver file that names the writer operations (test/issue-196-autofix-driver-*.test.js), and reset the
   // aggregate alarm from 60,000 to 100,000; CL-D97 resets it to 105,000 for the kernel-like path walk; #241 resets it to
   // 110,000 for the failed-step relaunch, the files measuring 105,565 bytes on that change (CL-D106: a forward note in CL-D97);
-  // #281 adds message.js and resets it to 120,000 for the parent's commit subject, the files measuring 115,503 bytes (CL-D116).
-  assert.deepEqual(files.sort(), [`${DRIVER_DIR}/autofix.js`, `${DRIVER_DIR}/message.js`, `${DRIVER_DIR}/paths.js`, `${DRIVER_DIR}/phases.js`, `${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`, `${DRIVER_DIR}/writer.js`]);
+  // #281 adds message.js and resets it to 120,000 for the parent's commit subject, the files measuring 115,503 bytes (CL-D116);
+  // #306 adds issue.js, the Issue review driver, and resets it to 140,000, the files measuring 134,169 bytes (CL-D122).
+  assert.deepEqual(files.sort(), [`${DRIVER_DIR}/autofix.js`, `${DRIVER_DIR}/issue.js`, `${DRIVER_DIR}/message.js`, `${DRIVER_DIR}/paths.js`, `${DRIVER_DIR}/phases.js`, `${DRIVER_DIR}/readiness.js`, `${DRIVER_DIR}/review.js`, `${DRIVER_DIR}/run.js`, `${DRIVER_DIR}/writer.js`]);
   const sizes = files.map((f) => fs.statSync(repoPath(f)).size);
   for (const [i, size] of sizes.entries()) assert.ok(size < 30000, `${files[i]} is ${size} bytes`);
-  assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');
+  assert.ok(sizes.reduce((a, b) => a + b, 0) < 140000, 'driver aggregate alarm');
   // The raise left room when it was taken (CL-D43's terms).
   assert.ok(110000 - 105565 > 4000, 'the #241 raise left room');
   assert.ok(120000 - 115503 > 4000, 'the #281 raise left room');
+  assert.ok(140000 - 134169 > 4000, 'the #306 raise left room');
   for (const f of files.filter((f) => !f.endsWith('/autofix.js'))) assert.doesNotMatch(readText(f), /commit_create|push_publish|marker_create|\/merge\b|'merge'|--approve|'APPROVE'/, `${f} names a writing operation`);
   for (const f of files) assert.doesNotMatch(readText(f), /require\('\.\.\/helpers\/(?:fingerprints|evidence)'\)/, `${f} computes evidence outside the packaged operations`);
   assert.ok(/^## CL-D93 — /m.test(require('./helpers').readContract()), 'CL-D93 records the driver boundary');

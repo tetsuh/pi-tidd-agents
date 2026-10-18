@@ -160,10 +160,10 @@ test('Issue #281 the Skill, the records and the raised alarm', () => {
   const record = sectionOf(readContract(), '## CL-D116 — The parent writes the autofix correction subject; the driver checks it against the commit convention');
   assert.ok(record, 'CL-D116 is in the contract');
   for (const url of ['issues/281#issuecomment-6127207592', 'issues/281#issuecomment-6146666131']) assert.ok(record.includes(url), url);
-  assert.match(readText('contract/CL-D96.md'), /and #281 to 120,000 \(CL-D116\)/);
+  assert.match(readText('contract/CL-D96.md'), /#281 to 120,000 \(CL-D116\) and #306 to 140,000 \(CL-D122\)/);
   assert.match(readText('contract/CL-D25.md'), /except the exact-autofix correction subject, which CL-D116 checks/);
   const alarms = readText('test/issue-196-review-driver-4.test.js');
-  assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');"));
+  assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 140000, 'driver aggregate alarm');"));
   assert.ok(alarms.includes('`${DRIVER_DIR}/message.js`'));
   const index = readText('CONTRACT.md');
   assert.ok(index.indexOf('contract/CL-D116.md') !== -1 && index.indexOf('contract/CL-D116.md') < index.indexOf('contract/CL-D115.md'), 'CL-D116 is indexed above CL-D115');

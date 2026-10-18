@@ -107,7 +107,7 @@ test('Issue #289 the addendum is deleted, contractInput no longer hashes it, and
   const driver = readText('skills/closed-loop-pr/driver/autofix.js');
   assert.ok(driver.includes("const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];"), 'autofix.js hashes the PR Skill and the two shared references alone');
   const alarms = readText('test/issue-196-review-driver-4.test.js');
-  assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 120000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised');
+  assert.ok(alarms.includes("assert.ok(sizes.reduce((a, b) => a + b, 0) < 140000, 'driver aggregate alarm');") && alarms.includes('assert.ok(size < 30000,'), 'the driver alarms are not raised (#306 later raised the aggregate, CL-D122)');
   // The three code edits are comments.
   // #290 later made the step report its refusal through refusalReason (CL-D55); the CL-D57 marker stays.
   assert.ok(driver.includes("batchFail(run, operation, refusalReason(operation, r)); return r.data; }; // CL-D57\n"), 'the batch step carries CL-D57');
