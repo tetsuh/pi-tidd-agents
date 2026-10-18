@@ -51,7 +51,9 @@ class IssueRun extends Run {
   static open(opts) {
     const dir = path.resolve(opts['run-dir'] || die('--run-dir is required'));
     const problem = runDirProblem(dir); if (problem) die(problem);
-    return new IssueRun(dir);
+    const run = new IssueRun(dir);
+    if (run.state.workflow !== 'issue') die(`${dir} is not an Issue review run`);
+    return run;
   }
   stop(state, reason) {
     Object.assign(this.state, { state, reason, pending: null });
@@ -81,17 +83,18 @@ class IssueRun extends Run {
   }
 }
 
-// The Issue and every comment, read once (CL-D122): issue_spec through its packaged operation (the helper keeps the
-// CL-D9 authoritative subset). The snapshot is the SHA-256 of a fixed projection of the Issue's state and every comment,
-// bots included, in comment-id order, computed here as the pull-request driver computes its body identity: the
-// packaged snapshot shape is the pull request's.
 // The repository GitHub names for an Issue record: its canonical `owner/name`, or undefined.
 function repositoryOf(issue) { return /\/repos\/([^/]+\/[^/]+)$/.exec(String(issue.repository_url || ''))?.[1]; }
+// One identity check for the first read and every re-read (CL-D7, CL-D27): the record is this number's Issue in this
+// repository, the name compared without case; a redirect to anything else is another target.
+function otherRecord(issue, repository, number) { return issue.number !== number || Boolean(issue.pull_request) || repositoryOf(issue)?.toLowerCase() !== repository.toLowerCase(); }
+// The Issue and every comment as they are now, its identity checked; issue_spec through its packaged operation (the helper
+// keeps the CL-D9 authoritative subset).
 function readTarget(run, first) {
   const s = run.state, t = s.target;
   const issue = first || gh(['api', `repos/${t.repository}/issues/${t.number}`], s.checkout);
   // A moved or transferred Issue answers with another record; only this Issue is the target (CL-D7).
-  if (issue.number !== t.number || issue.pull_request || repositoryOf(issue)?.toLowerCase() !== t.repository.toLowerCase()) run.stop('BLOCKED', `the target moved: ${t.repository}#${t.number} now answers with another record`);
+  if (otherRecord(issue, t.repository, t.number)) run.stop('BLOCKED', `the target moved: ${t.repository}#${t.number} now answers with another record`);
   const comments = gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${t.number}/comments?per_page=100`], s.checkout).flat();
   const spec = run.op('fingerprint_issue_spec', { body: issue.body || '', comments }).data.fingerprint;
   return { issue, comments, spec };
@@ -105,6 +108,7 @@ function revalidate(run) {
 
 function start(opts) {
   if (typeof opts.issue !== 'string' || !/^[1-9][0-9]*$/.test(opts.issue)) die('--issue must be an Issue number');
+  if ('repo' in opts && (typeof opts.repo !== 'string' || !opts.repo)) die('--repo must be owner/name');
   const number = Number(opts.issue);
   const checkout = path.resolve(opts.checkout || process.cwd());
   const problem = runDirProblem(opts['run-dir'] ? path.resolve(opts['run-dir']) : os.tmpdir()) || (opts['run-dir'] && runDirNotFresh(path.resolve(opts['run-dir']))); if (problem) die(problem);
@@ -115,10 +119,9 @@ function start(opts) {
   } catch (error) { die(`cannot read Issue ${repository || ''}#${number}: ${String(error.message).split('\n')[0]}`); }
   // GitHub numbers Issues and pull requests in one sequence (CL-D7); only an open Issue is a target.
   if (issue.pull_request) die(`${repository}#${number} is a pull request; use /tidd-pr`);
-  if (issue.number !== number) die(`${repository}#${number} answers with another record (#${issue.number}); the Issue moved`);
+  if (otherRecord(issue, repository, number)) die(`${repository}#${number} answers with another record (other number, kind or repository); the Issue moved`);
   if (issue.state !== 'open') die(`Issue ${repository}#${number} is ${issue.state}; only an open Issue is reviewed`);
   const canonical = repositoryOf(issue);
-  if (!canonical) die(`cannot bind Issue ${repository}#${number}: its repository is missing`);
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-issue${number}-review.`));
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
   const run = new IssueRun(runDir), s = run.state;
@@ -128,6 +131,9 @@ function start(opts) {
   guard(run);
   const { issue: read, comments, spec } = readTarget(run, issue);
   run.file('issue.json', read); run.file('issue-comments.json', comments);
+  // The snapshot is one read (CL-D122): the SHA-256 of a fixed projection of the Issue's state and every comment, bots
+  // included, in comment-id order, computed here as the pull-request driver computes its body identity, because the
+  // packaged snapshot shape is the pull request's.
   const text = (v) => String(v ?? '').replace(/\r\n?/g, '\n');
   const snapshot = { issue: { state: text(read.state), title: text(read.title), body: text(read.body), updatedAt: text(read.updated_at), labels: (read.labels || []).map((l) => text(typeof l === 'string' ? l : l?.name)).sort() },
     comments: comments.map((c) => ({ id: text(c.id), updatedAt: text(c.updated_at), author: text(c.user?.login), authorType: text(c.user?.type), authorAssociation: text(c.author_association), body: text(c.body) })).sort((a, b) => a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) };
