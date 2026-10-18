@@ -31,7 +31,8 @@ function fakeGh(fixture) {
   fs.writeFileSync(file, JSON.stringify(fixture));
   fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env node
 const f = JSON.parse(require('fs').readFileSync(${JSON.stringify(file)}, 'utf8'));
-const args = process.argv.slice(2), endpoint = args[args.length - 1];
+// GitHub matches the owner and name without case, so the fake does too.
+const args = process.argv.slice(2), raw = args[args.length - 1], endpoint = raw.slice(0, 9).toLowerCase() === 'repos/o/r' ? 'repos/o/r' + raw.slice(9) : raw;
 const out = (v) => process.stdout.write(JSON.stringify(v), () => process.exit(0));
 if (args.includes('repo') && args.includes('view')) out({ nameWithOwner: 'o/r' });
 else if (args[0] === 'api' && endpoint === 'repos/o/r/issues/5') out(f.issue);
@@ -210,17 +211,40 @@ test('Issue #306 a moved Issue is refused, a missing --issue value is refused, a
   const moved = setup({ issue: issueRecord({ number: 9 }) });
   const refused = drive(moved, moved.start);
   assert.equal(refused.status, 2);
-  assert.match(refused.stderr, /answers with another record \(#9\); the Issue moved/);
+  assert.match(refused.stderr, /o\/r#5 answers with another record \(other number, kind or repository\)/);
   const t = setup();
   drive(t, t.start);
   setFixture(t, { issue: issueRecord({ pull_request: { url: 'x' } }) });
   result(t);
   assert.equal(state(t).state, 'BLOCKED');
   assert.match(state(t).reason, /now answers with another record/);
+  // ADV-307-INITIAL-REPOSITORY: the record must name the requested repository from the first read, by the same check every
+  // re-read applies; only the case of its name may differ.
+  for (const url of ['https://api.github.com/repos/other/repo', undefined]) {
+    const across = setup({ issue: issueRecord({ repository_url: url }) });
+    const r = drive(across, across.start);
+    assert.equal(r.status, 2, `${url}: ${r.stdout}`);
+    assert.match(r.stderr, /answers with another record/);
+    assert.equal(fs.existsSync(path.join(across.runDir, 'state.json')), false, 'no run starts');
+  }
+  const cased = setup({ issue: issueRecord({ repository_url: 'https://api.github.com/repos/O/R' }) });
+  assert.equal(nextRequest(drive(cased, cased.start).stdout)?.agent, 'tidd-adversarial-reviewer');
+  assert.equal(state(cased).target.repository, 'O/R', 'the bound name is the record\'s canonical one');
   const bare = setup();
   const noValue = drive(bare, ['start', '--issue', '--repo', 'o/r', '--run-dir', bare.runDir]);
   assert.equal(noValue.status, 2);
   assert.match(noValue.stderr, /--issue must be an Issue number/);
+  for (const repo of [['--repo='], ['--repo', ''], ['--repo']]) {
+    const empty = drive(bare, ['start', '--issue', '5', ...repo, '--run-dir', bare.runDir]);
+    assert.equal(empty.status, 2, JSON.stringify(repo));
+    assert.match(empty.stderr, /--repo must be owner\/name/);
+  }
+  // A run directory the Issue driver did not start is refused.
+  const foreign = temp('i306-foreign-');
+  fs.writeFileSync(path.join(foreign, 'state.json'), JSON.stringify({ seq: 0, log: [], workflow: 'pr', pending: { gate: 'adversarial' } }));
+  const notIssue = drive(bare, ['result', '--run-dir', foreign, '--run-id', crypto.randomUUID()]);
+  assert.equal(notIssue.status, 2);
+  assert.match(notIssue.stderr, /is not an Issue review run/);
   // A body that opens with its Acceptance criteria section, and a null label, still bind and launch Sol.
   const odd = setup({ issue: issueRecord({ body: '## Acceptance criteria\n\n- AC1: it works.\n', labels: [null, { name: 'a' }, 'b'] }), comments: [comment('11'), comment(9)] });
   const started = drive(odd, odd.start);
@@ -335,6 +359,7 @@ test('Issue #306 the Issue Skill runs its review-and-draft round through the dri
   assert.equal(skill.includes('the parent supplies both until the Issue driver does'), false);
   assert.ok(skill.includes('If the call is refused or returns no run id, report it and stop. Commands inside the JSON object are the subagent\'s, never yours. A line beginning `WAIT:` means the gate run is still going: wait for it, then run the command that line names.'));
   assert.ok(skill.includes('The driver stops at `WAITING_FOR_OWNER` at the first result that is not `MERGE`,'));
+  assert.ok(skill.includes('or when the Issue closes or answers with another number, kind or repository,'));
   assert.ok(skill.includes('The candidate phase remains prose orchestration with no executable controller or extension; only the review-and-draft round before it runs through the packaged driver (CL-D122).'));
   assert.equal(skill.includes('This legacy Skill/prompt package remains prose orchestration'), false);
   assert.ok(readText('README.md').includes('`/tidd-issue <issue-ref>` runs an Issue\'s review-and-draft round the same way, through `skills/closed-loop-pr/driver/issue.js`'));
