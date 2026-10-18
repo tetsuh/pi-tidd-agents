@@ -131,6 +131,32 @@ test('Issue #306 an open finding or a pending decision stops the round for the o
   assert.equal(nextRequest(reword.stdout), null, 'Terra is not launched without Sol MERGE');
 });
 
+// CONV-307-AC1-SNAPSHOT-PROJECTION-TEST: the snapshot covers every comment, bots included, and the Issue's own state, while
+// issue_spec keeps the CL-D9 authoritative subset.
+test('Issue #306 the snapshot covers every comment and the Issue state; issue_spec only the authoritative text', () => {
+  const fingerprints = (fixture) => { const t = setup(fixture); assert.equal(drive(t, t.start).status, 0); return state(t).fingerprints; };
+  const base = fingerprints({});
+  const bot = fingerprints({ comments: [comment(31, { user: { login: 'bot', type: 'Bot' }, author_association: 'NONE' })] });
+  assert.equal(bot.issue_spec, base.issue_spec, 'a bot comment is not authoritative');
+  assert.notEqual(bot.snapshot, base.snapshot, 'the snapshot covers it');
+  assert.deepEqual(fingerprints({}), base, 'the same Issue gives the same snapshot');
+  const human = fingerprints({ comments: [comment(33, { author_association: 'NONE' })] });
+  assert.equal(human.issue_spec, base.issue_spec, 'a non-member comment is advisory');
+  assert.notEqual(human.snapshot, base.snapshot, 'the snapshot covers it');
+  // An edit to the bot comment's body alone, or its update time alone, changes the snapshot.
+  for (const change of [{ body: 'edited' }, { updated_at: '2026-10-18T01:00:00Z' }]) {
+    const edited = fingerprints({ comments: [comment(31, { user: { login: 'bot', type: 'Bot' }, author_association: 'NONE', ...change })] });
+    assert.equal(edited.issue_spec, base.issue_spec);
+    assert.notEqual(edited.snapshot, bot.snapshot, `an edited bot comment changes the snapshot: ${Object.keys(change)}`);
+  }
+  const labelled = fingerprints({ issue: issueRecord({ labels: [{ name: 'x' }] }) });
+  assert.equal(labelled.issue_spec, base.issue_spec);
+  assert.notEqual(labelled.snapshot, base.snapshot, 'the snapshot covers the Issue state');
+  const authored = fingerprints({ comments: [comment(32)] });
+  assert.notEqual(authored.issue_spec, base.issue_spec);
+  assert.notEqual(authored.snapshot, base.snapshot);
+});
+
 test('Issue #306 each run id is read once, a refused read included', () => {
   const t = setup();
   drive(t, t.start);
@@ -194,11 +220,20 @@ test('Issue #306 a changed issue_spec before Terra or at readiness stops the rou
   setFixture(t, { comments: [comment(21, { user: { login: 'bot', type: 'Bot' }, author_association: 'NONE' })] });
   const terra = result(t);
   assert.equal(nextRequest(terra.stdout).agent, 'tidd-drift-reviewer', 'a bot comment leaves issue_spec unchanged');
+  // Terra's result is read and recorded, then the readiness recheck finds the Issue changed (CONV-307-AC2-READINESS-RECHECK-TEST).
   setFixture(t, { comments: [comment(22)] });
   const moved = result(t);
   assert.equal(moved.status, 1);
   assert.equal(state(t).state, 'BLOCKED');
   assert.equal(state(t).reason, 'the target moved: issue_spec changed');
+  assert.deepEqual(state(t).gateLog.map((g) => [g.gate, g.verdict]), [['adversarial', 'MERGE'], ['decision-drift', 'MERGE']], 'the stop is at readiness, after both gates merged');
+  // An Issue closed mid-round stops it too.
+  const c = setup();
+  drive(c, c.start);
+  setFixture(c, { issue: issueRecord({ state: 'closed' }) });
+  result(c);
+  assert.equal(state(c).state, 'BLOCKED');
+  assert.equal(state(c).reason, 'the target moved: the Issue is closed');
   const u = setup();
   drive(u, u.start);
   setFixture(u, { issue: issueRecord({ body: `${SPEC}\nEdited.\n` }) });
