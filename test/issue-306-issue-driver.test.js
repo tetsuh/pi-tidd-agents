@@ -32,11 +32,11 @@ function fakeGh(fixture) {
   fs.writeFileSync(path.join(bin, 'gh'), `#!/usr/bin/env node
 const f = JSON.parse(require('fs').readFileSync(${JSON.stringify(file)}, 'utf8'));
 const args = process.argv.slice(2), endpoint = args[args.length - 1];
-const out = (v) => { process.stdout.write(JSON.stringify(v)); process.exit(0); };
+const out = (v) => process.stdout.write(JSON.stringify(v), () => process.exit(0));
 if (args.includes('repo') && args.includes('view')) out({ nameWithOwner: 'o/r' });
-if (args[0] === 'api' && endpoint === 'repos/o/r/issues/5') out(f.issue);
-if (args[0] === 'api' && endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [f.comments || []] : (f.comments || []));
-process.stderr.write('unexpected gh ' + args.join(' ')); process.exit(9);
+else if (args[0] === 'api' && endpoint === 'repos/o/r/issues/5') out(f.issue);
+else if (args[0] === 'api' && endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [f.comments || []] : (f.comments || []));
+else { process.stderr.write('unexpected gh ' + args.join(' ')); process.exit(9); }
 `, { mode: 0o755 });
   return { bin, file };
 }
@@ -272,6 +272,60 @@ test('Issue #306 a changed issue_spec before Terra or at readiness stops the rou
   assert.equal(edited.status, 1);
   assert.equal(state(u).state, 'BLOCKED');
   assert.equal(nextRequest(edited.stdout), null, 'Terra is not launched on an edited Issue');
+});
+
+// ADV-307-TARGET-REPOSITORY: an Issue transferred to another repository under the same number is another target.
+test('Issue #306 an Issue that moves to another repository stops the round before Terra and at readiness', () => {
+  const t = setup();
+  drive(t, t.start);
+  setFixture(t, { issue: issueRecord({ repository_url: 'https://api.github.com/repos/other/repo' }) });
+  const beforeTerra = result(t);
+  assert.equal(beforeTerra.status, 1);
+  assert.equal(state(t).state, 'BLOCKED');
+  assert.match(state(t).reason, /now answers with another record/);
+  assert.equal(nextRequest(beforeTerra.stdout), null, 'Terra is not launched');
+  const u = setup();
+  drive(u, u.start);
+  assert.equal(nextRequest(result(u).stdout).agent, 'tidd-drift-reviewer');
+  setFixture(u, { issue: issueRecord({ repository_url: 'https://api.github.com/repos/other/repo' }) });
+  result(u);
+  assert.equal(state(u).state, 'BLOCKED', 'readiness is not declared on a moved Issue');
+});
+
+// ADV-307-AC3-CRITERIA: the section is read by CL-D122's bounded grammar: an ATX heading of two to six `#` (closing `#`s
+// allowed) outside fenced code, up to the next heading, with `-`, `*`, `+`, `N.` or `N)` items.
+test('Issue #306 the Acceptance criteria section is read outside fenced code, with numbered items and closing hashes', () => {
+  const criteriaOf = (body) => {
+    const t = setup({ issue: issueRecord({ body }) });
+    const r = drive(t, t.start);
+    return { state: state(t).state, criteria: state(t).acceptanceCriteria, launched: Boolean(nextRequest(r.stdout)) };
+  };
+  for (const body of ['Spec.\n\n```md\n## Acceptance criteria\n\n- AC1: an example.\n```\n', 'Spec.\n\n~~~\n## Acceptance criteria\n- AC1: an example.\n~~~\n']) {
+    const r = criteriaOf(body);
+    assert.equal(r.state, 'WAITING_FOR_OWNER', `a fenced example is no section: ${JSON.stringify(body)}`);
+    assert.equal(r.launched, false);
+  }
+  for (const [body, expected] of [
+    ['Spec.\n\n## Acceptance criteria\n\n1. AC1: works.\n2) AC2: also.\n', ['AC1: works.', 'AC2: also.']],
+    ['Spec.\n\n## Acceptance criteria ##\n\n- AC1: works.\n', ['AC1: works.']],
+    ['Spec.\n\n### Acceptance Criteria\n\n+ AC1: works.\n* AC2: also.\n\n## Next\n\n- not a criterion\n', ['AC1: works.', 'AC2: also.']],
+    ['## Acceptance criteria\n\n- AC1: works.\n\n```\n- not a criterion\n```\n- AC2: after the fence.\n', ['AC1: works.', 'AC2: after the fence.']],
+  ]) {
+    const r = criteriaOf(body);
+    assert.deepEqual(r.criteria, expected, JSON.stringify(body));
+    assert.equal(r.launched, true);
+  }
+  // A backtick line with a backtick after its run is inline code, not a fence; U+2028 and U+2029 are not line endings; a
+  // long whitespace line is read in linear time.
+  for (const [body, expected] of [
+    ['Spec.\n\n## Acceptance criteria\n\n```npm test``` passes on every criterion below.\n\n- AC1: works.\n- AC2: also.\n', ['AC1: works.', 'AC2: also.']],
+    ['## Acceptance criteria\n- AC1\n## Out of scope\u2028(later)\n- not a criterion\n', ['AC1']],
+    ['## Acceptance criteria\n- AC1 head\u2029tail end\n', ['AC1 head\u2029tail end']],
+  ]) assert.deepEqual(criteriaOf(body).criteria, expected, JSON.stringify(body));
+  const began = Date.now();
+  const long = criteriaOf(`## Acceptance criteria\n- AC1: works.\n- ${' \t'.repeat(100000)}\n`);
+  assert.deepEqual(long.criteria, ['AC1: works.']);
+  assert.ok(Date.now() - began < 5000, `a 200 KB whitespace item line took ${Date.now() - began} ms`);
 });
 
 test('Issue #306 the Issue Skill runs its review-and-draft round through the driver, and CL-D122 records it', () => {
