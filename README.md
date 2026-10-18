@@ -130,15 +130,9 @@ An explicit target is always required; the workflow never infers a pull request 
 
 The driver runs the validation commands from the first source that exists (CL-D97): `.tidd.json` at the base commit (`{"validate": [["node", "--test"]]}`); otherwise `--validate`, a JSON list of argv lists, only when you start the driver directly (`/tidd-pr` never passes it); otherwise the operator's own `$XDG_CONFIG_HOME/tidd/<owner>/<repo>.json` (`~/.config` when unset or relative) in the same format. The pull request's head is never a source. With none, review-only runs `git diff --check` alone and reports "no validation commands configured". Autofix with none stops `BLOCKED` before it changes anything, because its writer commits and pushes.
 
-### Owner-gated Issue candidate publication
+### Issue review publishes nothing
 
-Issue readiness remains opt-in and is exposed through the equivalent `/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` entrypoints. In the ordinary CL-D31 route, a complete candidate is reviewed by Sol, then Terra before the Skill shows one exact frozen preview containing the full body diff and English disposition ledger. Only the current session operator's exact response can authorize the bounded attempt.
-
-#### Combined scope-freeze approval
-
-CL-D32 adds a narrow combined route. An eligible current-repository Issue may show one exact combined scope-freeze preview before post-decision rereview: one exact owner response binds or conditionally approves the already-frozen complete decision-containing candidate, then the mandatory Sol rereview and Terra review occur in that order. A dormant at-most-one counted Sol round activates only when the decision arose on the last already-authorized Sol round; otherwise it remains unused. The target-specific scope-freeze decision is never a standalone comment: after matching gates, existing Snapshot A, optional body PATCH, Snapshot B, one ledger POST, and Snapshot C proof remain mandatory. The route does not authorize starting implementation. Foreign Issues, PR/CL-D30, legacy decisions, and all other boundaries remain unchanged.
-
-The bounded attempt may perform at most one optional body update in the current checkout repository followed by one ledger comment, in that order. There is no retry or compensating overwrite after failure; deletion, cross-session resume, and a second attempt remain prohibited. A failure after the first mutation reports the observed partial state and requires a fresh run. Foreign-repository Issues remain review-and-draft-only. Snapshot-C byte/content identity may establish readiness without duplicate gates, but the proof is observational and cannot exclude every provider race. This is legacy Skill/prompt orchestration, not an executable controller or extension. PR review-only and exact PR `autofix` behavior, including Luna ownership and their separate boundaries, remain unchanged.
+`/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` are review-and-draft only: they never edit the Issue or post to GitHub (CL-D123). When a gate does not return `MERGE`, the round stops, the owner revises the Issue, and a fresh run reviews the revised text.
 
 ### Review-only is the default
 
@@ -174,7 +168,7 @@ In exact `autofix` mode, `tidd-autofix-worker` is the sole writer/publisher for 
 
 ### Stop, status, and fresh runs (CL-D30)
 
-PR review-only retains the legacy resumable `tidd-status`, one malformed-verdict retry, and per-gate three-round accounting; it may report a next action and resume after fingerprint revalidation. Exact PR `autofix` ends on interruption, failure, owner decision, or limit: apart from the one bounded pre-writer recovery CL-D39 defines, it has no retry, resume, outbox, scheduler, quiet-period polling, or durable workflow artifact. Any later exact-autofix command is a fresh run with fresh counters and reconciliation. Issue behavior is governed by the Issue Skill: its CL-D31 exception is limited to the two equivalent Issue entrypoints and does not change PR behavior.
+PR review-only retains the legacy resumable `tidd-status`, one malformed-verdict retry, and per-gate three-round accounting; it may report a next action and resume after fingerprint revalidation. Exact PR `autofix` ends on interruption, failure, owner decision, or limit: apart from the one bounded pre-writer recovery CL-D39 defines, it has no retry, resume, outbox, scheduler, quiet-period polling, or durable workflow artifact. Any later exact-autofix command is a fresh run with fresh counters and reconciliation. Issue behavior is governed by the Issue Skill, which publishes nothing (CL-D123).
 
 ### Language routing
 

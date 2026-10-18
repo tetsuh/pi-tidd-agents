@@ -1,5 +1,5 @@
-## CL-D31 — Owner-gated Issue candidate publication
-**Clauses:** CL-D31-architecture-contract, CL-D31-architecture-skill, CL-D31-authority-contract, CL-D31-authority-skill, CL-D31-candidate-skill, CL-D31-resolver-skill, CL-D31-snapshot-skill, CL-D31-correlation-skill, CL-D31-preview-skill, CL-D31-publication-skill, CL-D31-readiness-skill, CL-D31-status-skill, CL-D31-language-skill, CL-D31-readme, CL-D31-fixtures, CL-D31-packaging
+## CL-D31 — Owner-gated Issue candidate publication (historical; retired by CL-D123)
+**Clauses:** CL-D31-architecture-contract, CL-D31-authority-contract
 *Decision ID:* CL-D31
 *Kind:* contract
 *Target and revision:* `tetsuh/pi-tidd-agents#13` at the proposed revision based on published base `issue_spec` `7f527af828599860c4dcf2651c0bd329bca09e67c0c565dcf7e1616a2d5af0b7`
@@ -11,3 +11,5 @@
 *Validity and invalidation conditions:* Applies only to the two named Issue entrypoints and this bounded Issue #13 exception. It remains valid until a later explicit owner-approved contract decision separates the entrypoints or changes the shared Skill architecture. It grants no authority to PR commands, other aliases, foreign repositories, provider review services, Git state, repository files, or any unlisted action. #190 later replaced the run nonce and the physical-attempt sequence with the packaged launch identity, the per-gate `invocation`, the runner run id and the payload digest, each run id consumed once (owner choice, https://github.com/tetsuh/pi-tidd-agents/issues/190#issuecomment-6233941786; CL-D120).
 
 The exception supersedes CL-D13, CL-D13-issue, CL-D16, CL-D28, AC-AUTOFIX, AC-GRANT, and AC-REVIEW-ONLY only for these two Issue entrypoints and only for the bounded actions and candidate-phase rules above. PR review-only, exact PR `autofix`, CL-D30, foreign-repository review-and-draft-only behavior, and all unlisted prohibitions remain unchanged.
+
+Retired by CL-D123 (#310, step 4 of #190): the Issue root has no candidate publication route. The Issue Skill no longer carries this section, and this record keeps only its own clauses as history.

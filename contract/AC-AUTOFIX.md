@@ -2,3 +2,5 @@
 **Clauses:** AC-AUTOFIX, SOL-PR14-CONTRACT-001-autofix
 
 Without the exact PR `autofix` token, Issue and PR review-only remain file-mutation-free and publication-free before candidate construction and outside CL-D31. During CL-D31, its named same-session approval is the only Issue grant. The exact PR token itself is the run-scoped approval only for the smallest CL-D30 correction batch per reviewed public head: one normal commit, one non-force push, and `REPLY_EXCEPTION`. It does not authorize merge, force-push, amend, rebase, history rewriting, or provider mutation other than `REPLY_EXCEPTION` and CL-D31 optional body PATCH/ledger POST; it does not authorize approval, thread resolution, authoritative Issue changes, aggregate-summary posting, or any different target. The packaged autofix driver posts no source-finding reply and no summary, so `REPLY_EXCEPTION` is not exercised on that path and the drafted publication is the operator's to run: narrower than the grant, recorded and not closed (#249, CL-D114).
+
+#310 later retired the Issue candidate route (CL-D123): the Issue root publishes nothing.

@@ -48,8 +48,8 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D28.md](contract/CL-D28.md) — Mode-scoped publication boundary (historical no-publication rule)
 - [contract/CL-D29.md](contract/CL-D29.md) — Sol attempts adversarial falsification of absolute claims
 - [contract/CL-D30.md](contract/CL-D30.md) — Exact PR autofix publishes one bounded correction per public head
-- [contract/CL-D31.md](contract/CL-D31.md) — Owner-gated Issue candidate publication
-- [contract/CL-D32.md](contract/CL-D32.md) — Scope-freeze approval stays inside the candidate transaction
+- [contract/CL-D31.md](contract/CL-D31.md) — Owner-gated Issue candidate publication (historical; retired by CL-D123)
+- [contract/CL-D32.md](contract/CL-D32.md) — Scope-freeze approval stays inside the candidate transaction (historical; retired by CL-D123)
 - [contract/CL-D33.md](contract/CL-D33.md) — Review-only drafts guarded owner-executed PR publication artifacts
 - [contract/CL-D34.md](contract/CL-D34.md) — Sol findings are anchored to acceptance criteria and a declared threat model
 - [contract/CL-D35.md](contract/CL-D35.md) — One-time removal of the unloaded intercom tool from the six agent allowlists
@@ -77,6 +77,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D78.md](contract/CL-D78.md) — A run reports the run roots it retained
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
+- [contract/CL-D123.md](contract/CL-D123.md) — The Issue root has no candidate publication route
 - [contract/CL-D122.md](contract/CL-D122.md) — A thin packaged driver runs the Issue review-and-draft round
 - [contract/CL-D121.md](contract/CL-D121.md) — The Issue root runs no convergence stage
 - [contract/CL-D120.md](contract/CL-D120.md) — Gate result schema version 2 carries an Issue correlation beside the pull-request one
@@ -137,7 +138,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D55.md](contract/CL-D55.md) — A guard failure must name its failed subcheck
 - [contract/CL-D56.md](contract/CL-D56.md) — Package-owned builders construct the documents the boundary checks
 - [contract/CL-D57.md](contract/CL-D57.md) — The batch-sequence guards are packaged and the alarm is reset for them
-- [contract/DEC-I15-ROUND-BUDGET-001.md](contract/DEC-I15-ROUND-BUDGET-001.md) — Bounded post-decision Sol round
+- [contract/DEC-I15-ROUND-BUDGET-001.md](contract/DEC-I15-ROUND-BUDGET-001.md) — Bounded post-decision Sol round (historical; retired by CL-D123)
 - [contract/DEC-I13-ENTRYPOINT-029.md](contract/DEC-I13-ENTRYPOINT-029.md) — Equivalent Issue entrypoints
 - [contract/DEC-EXT-SNAPSHOT-001.md](contract/DEC-EXT-SNAPSHOT-001.md) — External observation resumes by re-fetching
 - [contract/AC-AUTOFIX.md](contract/AC-AUTOFIX.md) — Autofix token grants only bounded CL-D30 actions

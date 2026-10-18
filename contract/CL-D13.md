@@ -2,3 +2,5 @@
 **Clauses:** CL-D13, CL-D13-issue, CL-D13-pr, CL-D13-pr-resume, CL-D13-pr-driver
 
 Outside the CL-D31 candidate-publication phase, a legacy review run that stops emits a `tidd-status` block carrying the target, fingerprints, state, active gate, rounds, internal findings with dispositions, pending decisions, and the next permitted action. Resuming means pasting it back; fingerprints are revalidated and recomputed rather than trusted. During candidate construction and afterward in that phase, CL-D31 supersedes this status/resume rule: no resumable block is emitted or accepted. The packaged review-only driver resumes only a `WAITING_EXTERNAL_REVIEW` stop, from its own run directory and after recomputing every fingerprint; every other stop is followed by a fresh run, and a pasted block is not read (#249, CL-D113).
+
+#310 later retired the Issue candidate route (CL-D123): the Issue root publishes nothing.

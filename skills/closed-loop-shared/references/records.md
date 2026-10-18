@@ -49,7 +49,7 @@ Rationale
 Validity and invalidation conditions
 ```
 
-Workflow-specific language, pending-state status, posting/draft transport, CL-D31/CL-D32 behavior, and exact-autofix owner boundaries remain in the owning workflow files, for a pull request the packaged driver. The Issue Skill retains project/Issue/package policy precedence and the recorded-owner-exception rule.
+Workflow-specific language, pending-state status, posting/draft transport, and exact-autofix owner boundaries remain in the owning workflow files, for a pull request the packaged driver. The Issue Skill retains project/Issue/package policy precedence and the recorded-owner-exception rule.
 
 ## AC-TDD coverage and truthful provenance
 
