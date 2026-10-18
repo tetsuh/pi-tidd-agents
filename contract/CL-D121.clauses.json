@@ -1,0 +1,57 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D121-record",
+      "marker": "CL-D121",
+      "title": "CL-D121 records that the Issue root runs no convergence stage",
+      "files": [
+        "contract/CL-D121.md"
+      ],
+      "section": "## CL-D121 — The Issue root runs no convergence stage",
+      "requires": [
+        "issues/190#issuecomment-6243884276",
+        "The Issue root runs no convergence stage. Its order is Sol, then Terra, on the legacy route and on the CL-D31 and CL-D32 candidate routes alike.",
+        "The pull-request root keeps the stage, its caps and its order unchanged."
+      ]
+    },
+    {
+      "id": "CL-D121-schema",
+      "marker": "CL-D121",
+      "title": "The Issue root's gates exclude convergence, and the convergence role declares the pull-request schema",
+      "files": [
+        "skills/closed-loop-pr/helpers/gate-result.js"
+      ],
+      "requires": [
+        "const ROOT_GATES = { issue: ['adversarial', 'decision-drift'], pr: ['adversarial', 'safety', 'convergence'] };",
+        "'tidd-convergence-reviewer': SCHEMA,"
+      ]
+    },
+    {
+      "id": "CL-D121-skill",
+      "marker": "CL-D121",
+      "title": "The Issue Skill orders Sol, then Terra, with no convergence stage",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "The Issue root runs no convergence stage (CL-D121).",
+        "The Issue root runs no convergence stage (CL-D121): Sol is the first gate on every Issue route.",
+        "specification → tidd-adversarial-reviewer gate → disposition/revision → Sol MERGE → tidd-drift-reviewer gate → disposition/revision → Terra MERGE",
+        "The fixed review order is Sol-before-Terra.",
+        "rounds: sol <used>/3, terra <used>/3"
+      ]
+    },
+    {
+      "id": "CL-D121-contract",
+      "marker": "CL-D121",
+      "title": "The shared contract runs the convergence stage on the pull-request root only",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "## Convergence stage (CL-D62)",
+      "requires": [
+        "on the pull-request root only: PR `convergence → adversarial → safety`. The Issue root runs no convergence stage, and its order is `adversarial → decision-drift` (CL-D121)"
+      ]
+    }
+  ]
+}
