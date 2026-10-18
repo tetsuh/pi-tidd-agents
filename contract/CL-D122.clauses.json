@@ -1,0 +1,46 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D122-record",
+      "marker": "CL-D122",
+      "title": "CL-D122 records the thin Issue driver",
+      "files": [
+        "contract/CL-D122.md"
+      ],
+      "section": "## CL-D122 — A thin packaged driver runs the Issue review-and-draft round",
+      "requires": [
+        "issues/190#issuecomment-6243884276",
+        "Each gate's required evidence is the Issue's `issue_spec` and snapshot identities only.",
+        "The round drafts a local review file with the Issue status block and publishes nothing.",
+        "The driver aggregate alarm resets from 120,000 to 140,000 bytes for the new file."
+      ]
+    },
+    {
+      "id": "CL-D122-driver",
+      "marker": "CL-D122",
+      "title": "The Issue driver runs Sol, then Terra, with the Issue's own evidence, and stops for the owner",
+      "files": [
+        "skills/closed-loop-pr/driver/issue.js"
+      ],
+      "requires": [
+        "const GATES = ['adversarial', 'decision-drift'];",
+        "s.requiredEvidence = [{ source: `github:issue:${number}:spec`, kind: 'github', identity: s.fingerprints.issue_spec }, { source: `snapshot:issue:${number}`, kind: 'snapshot', identity: s.fingerprints.snapshot }];",
+        "if (spec !== s.fingerprints.issue_spec) { s.invalidated = 'every gate verdict: the Issue changed'; run.stop('BLOCKED', 'the target moved: issue_spec changed'); }",
+        "run.stop('IMPLEMENTATION_READY', 'Sol and Terra returned MERGE on the unchanged issue_spec');"
+      ]
+    },
+    {
+      "id": "CL-D122-skill",
+      "marker": "CL-D122",
+      "title": "The Issue Skill runs its review-and-draft round through the driver",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "Before candidate construction, the review-and-draft round runs through the packaged Issue driver (CL-D122)",
+        "The packaged Issue driver derives the Issue `contractInput` and `snapshotFingerprint` (CL-D122).",
+        "Legacy resume is a fresh driver run, which is how you revalidate the fingerprints: it recomputes every one from the Issue as it is now (CL-D122)."
+      ]
+    }
+  ]
+}

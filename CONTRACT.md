@@ -77,6 +77,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D78.md](contract/CL-D78.md) — A run reports the run roots it retained
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
+- [contract/CL-D122.md](contract/CL-D122.md) — A thin packaged driver runs the Issue review-and-draft round
 - [contract/CL-D121.md](contract/CL-D121.md) — The Issue root runs no convergence stage
 - [contract/CL-D120.md](contract/CL-D120.md) — Gate result schema version 2 carries an Issue correlation beside the pull-request one
 - [contract/CL-D119.md](contract/CL-D119.md) — The PR Skill is trimmed to its dispatch and the four mode references are deleted
