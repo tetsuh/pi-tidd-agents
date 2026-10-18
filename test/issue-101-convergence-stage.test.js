@@ -19,7 +19,9 @@ const { spawnSync } = require('node:child_process');
 
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
-const { readText, readContract, sectionOf, parseFrontmatter, exists, readManifest } = require('./helpers');
+const { readText, readContract, sectionOf, parseFrontmatter, exists, readManifest, issueCorrelationOf, issueBound } = require('./helpers');
+// The convergence stage runs once per candidate identity (CL-D62), so the Issue fixture reviews one (CL-D120).
+const CANDIDATE = 'f'.repeat(64);
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -30,7 +32,8 @@ function cli(operation, data) {
   const run = spawnSync(process.execPath, [CLI], { input: JSON.stringify({ version: 1, operation, data }), encoding: 'utf8' });
   return JSON.parse(run.stdout);
 }
-function correlation(gate) {
+function correlation(gate, root = 'pr') {
+  if (root === 'issue') return issueCorrelationOf(correlation(gate), { candidateIdentity: CANDIDATE });
   return {
     repository: 'tetsuh/pi-tidd-agents', number: 101, baseOid: 'b'.repeat(40),
     headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'feat/issue-101-convergence-stage',
@@ -38,18 +41,19 @@ function correlation(gate) {
     contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64),
   };
 }
-function envelope(gate, over = {}) {
+function envelope(gate, over = {}, root = 'pr') {
   return {
-    schemaVersion: 2, correlation: correlation(gate), verdict: 'MERGE',
+    schemaVersion: 2, correlation: correlation(gate, root), verdict: 'MERGE',
     evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }],
     findings: [], confirmations: [], decisions: [], adversarialResults: [],
     ...over,
   };
 }
 function expectation(workflow, gate) {
-  return { workflow, correlation: correlation(gate), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] };
+  return { workflow, correlation: correlation(gate, workflow), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] };
 }
 function fresh(findingId, root) {
+  if (root === 'issue') return issueBound({ ...fresh(findingId, 'pr'), workflowRecord: { candidateIdentity: CANDIDATE, revisedPassage: 'revised', snapshotAssignment: 'snapshot-1' } });
   return {
     findingId, origin: 'fresh', gate: 'convergence', headOid: OID, raisedAgainstFingerprint: SHA,
     severity: 'Minor', anchoring: 'criterion-anchored', anchor: 'AC-TESTS', proposedDisposition: 'fixed',
@@ -86,17 +90,17 @@ test('Issue #101 the package ships the convergence role as a read-only, fresh-co
 
 test('Issue #101 the envelope accepts the convergence gate on both roots with its own namespace and no adversarial duty', () => {
   for (const root of ['pr', 'issue']) {
-    const clean = gateResult.validateGateResult(envelope('convergence'), expectation(root, 'convergence'));
+    const clean = gateResult.validateGateResult(envelope('convergence', {}, root), expectation(root, 'convergence'));
     assert.equal(clean.ok, true, `${root}: ${JSON.stringify(clean.error ?? {})}`);
-    const findings = gateResult.validateGateResult(envelope('convergence', { verdict: 'FIX BEFORE MERGE', findings: [fresh('CONV-101-OMISSION', root)] }), expectation(root, 'convergence'));
+    const findings = gateResult.validateGateResult(envelope('convergence', { verdict: 'FIX BEFORE MERGE', findings: [fresh('CONV-101-OMISSION', root)] }, root), expectation(root, 'convergence'));
     assert.equal(findings.ok, true, `${root} findings: ${JSON.stringify(findings.error ?? {})}`);
-    const wrongNamespace = gateResult.validateGateResult(envelope('convergence', { verdict: 'FIX BEFORE MERGE', findings: [fresh('ADV-101-OMISSION', root)] }), expectation(root, 'convergence'));
+    const wrongNamespace = gateResult.validateGateResult(envelope('convergence', { verdict: 'FIX BEFORE MERGE', findings: [fresh('ADV-101-OMISSION', root)] }, root), expectation(root, 'convergence'));
     assert.equal(wrongNamespace.error.code, 'finding_records_invalid', `${root}: a convergence finding under the adversarial namespace is a record error`);
     // Owner decision 4: a NEEDS DECISION verdict takes the ordinary owner-decision path.
-    const needs = gateResult.validateGateResult(envelope('convergence', { verdict: 'NEEDS DECISION', decisions: [decision()] }), expectation(root, 'convergence'));
+    const needs = gateResult.validateGateResult(envelope('convergence', { verdict: 'NEEDS DECISION', decisions: [decision()] }, root), expectation(root, 'convergence'));
     assert.equal(needs.ok, true, `${root} decision: ${JSON.stringify(needs.error ?? {})}`);
     // Malformed output is a tool failure in the boundary's vocabulary, never a verdict.
-    const malformed = gateResult.validateGateResult({ ...envelope('convergence'), verdict: undefined }, expectation(root, 'convergence'));
+    const malformed = gateResult.validateGateResult({ ...envelope('convergence', {}, root), verdict: undefined }, expectation(root, 'convergence'));
     assert.equal(malformed.ok, false);
     assert.equal(malformed.error.code, 'schema_invalid');
   }

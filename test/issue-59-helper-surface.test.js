@@ -173,7 +173,7 @@ const APPROVED_SPAWN_SITES = [
   `${HELPER_DIR}/writability.js|run|'gh'|args|options`,
 ].sort();
 const AGGREGATE_SMOKE_ALARM = 320000; // #264 reviewed reset from 310,000 (CL-D92) for the per-invocation diff and log pins
-const PER_FILE_SMOKE_ALARM = 30000;
+const PER_FILE_SMOKE_ALARM = 32000; // #190 reviewed reset from 30,000 (CL-D37), prompted by helpers/launch.js
 
 function normalizedLine(line) { return line.trim().replace(/\s+/g, ' '); }
 function parseOperations(cliSource) {

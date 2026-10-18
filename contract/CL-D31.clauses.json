@@ -107,8 +107,8 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "fresh 128-bit run nonce",
-        "physical-attempt sequence",
+        "identified by the packaged identity (CL-D120)",
+        "the runner run id the launch returns",
         "Sol-before-Terra"
       ],
       "section": "## Owner-gated Issue candidate publication (CL-D31)"

@@ -26,7 +26,7 @@ const { spawnSync, execFileSync } = require('node:child_process');
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 const { diffSection } = require('../skills/closed-loop-pr/helpers/payload');
-const { readText, readContract, readJson, repoPath, sectionOf, cliSchemas, readManifest } = require('./helpers');
+const { readText, readContract, readJson, repoPath, sectionOf, cliSchemas, readManifest, issueCorrelationOf, ISSUE_SPEC } = require('./helpers');
 
 const CLI = repoPath('skills/closed-loop-pr/helpers/cli.js');
 const OID = 'a'.repeat(40), SHA = '1'.repeat(64), RUN = '7305b50a-2708-4e55-8364-d72f11197fbe';
@@ -38,6 +38,7 @@ function cli(operation, data) {
   return JSON.parse(run.stdout);
 }
 function correlation(workflow, gate) {
+  if (workflow === 'issue') return issueCorrelationOf(correlation('pr', gate));  // CL-D120
   return { repository: 'o/r', number: 111, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
 }
 function envelopeFor(workflow, gate) {
@@ -245,7 +246,7 @@ test('Issue #111 build_gate_launch composes the request from the package and can
     for (const [workflow, gate] of [['issue', 'safety'], ['pr', 'decision-drift']]) {
       const wrongPair = helpers.buildGateExpectation({ workflow, correlation: correlation(workflow, gate), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
       assert.equal(wrongPair.ok, false, `${workflow}/${gate} expectation`); assert.equal(wrongPair.error.code, 'gate_outside_root', JSON.stringify(wrongPair.error));
-      const forged = JSON.parse(JSON.stringify(expectation)); forged.expected.workflow = workflow; forged.expected.correlation.gate = gate;
+      const forged = JSON.parse(JSON.stringify(expectation)); forged.expected.workflow = workflow; forged.expected.correlation = correlation(workflow, gate);
       fail({ expectation: forged, expectationPath, volatile }, 'gate_outside_root');
     }
     fs.writeFileSync(expectationPath, `${JSON.stringify(expectation.expected, null, 2)}\n`);
@@ -449,10 +450,11 @@ const VOLATILE_REQUIRED_BY = {
 };
 function completeVolatile(workflow, gate) {
   const envelope = {
-    target: { repository: 'o/r', number: 111, mode: 'review-only', gate, baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' },
+    // CL-D120: an Issue target names no base, head, or branch, and its issue_spec is the correlation's issueSpec.
+    target: { repository: 'o/r', number: 111, mode: 'review-only', gate, ...(workflow === 'pr' ? { baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' } : {}) },
     fingerprints: workflow === 'pr'
       ? { issue_spec: SHA, pr_base: 'b'.repeat(40), pr_tree: 'c'.repeat(40), pr_head: OID, pr_diff: SHA, pr_commits: SHA, snapshot: 'd'.repeat(64) }
-      : { issue_spec: SHA, snapshot: 'd'.repeat(64) },
+      : { issue_spec: ISSUE_SPEC, snapshot: 'd'.repeat(64) },
     body: 'body',
     languageProfile: 'conversation: ja; GitHub issue / pull request: en',
     acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] },
@@ -593,6 +595,13 @@ test('Issue #111 the target names the mode and the gate, correlated with the exp
       const { repository, number } = complete.target;
       const otherGate = gate === 'adversarial' ? (workflow === 'pr' ? 'safety' : 'decision-drift') : 'adversarial';
       const withoutField = (field) => { const target = { ...complete.target }; delete target[field]; return target; };
+      const refusedFor = (target, label, named) => {
+        const refused = withTarget(target);
+        assert.equal(refused.ok, false, `${workflow}/${gate}: ${label} must be refused`);
+        assert.equal(refused.error.code, 'invalid_request', `${workflow}/${gate}/${label}: ${JSON.stringify(refused.error)}`);
+        assert.match(refused.error.message, /target/, `${workflow}/${gate}/${label}`);
+        assert.match(refused.error.message, new RegExp(named), `${workflow}/${gate}/${label}: the message names ${named}`);
+      };
       for (const [label, target, named] of [
         ['no mode', withoutField('mode'), 'mode'],
         ['an empty mode', { ...complete.target, mode: '' }, 'mode'],
@@ -602,6 +611,9 @@ test('Issue #111 the target names the mode and the gate, correlated with the exp
         ['another gate', { ...complete.target, gate: otherGate }, 'gate'],
         ['another repository', { ...complete.target, repository: 'other/repo' }, 'repository'],
         ['another number', { ...complete.target, number: 999 }, 'number'],
+      ]) refusedFor(target, label, named);
+      // A pull-request target names what it reviews; an Issue has no base, head, or branch to name (CL-D120).
+      if (workflow === 'pr') for (const [label, target, named] of [
         ['another head', { ...complete.target, headOid: 'f'.repeat(40) }, 'headOid'],
         ['another base', { ...complete.target, baseOid: 'f'.repeat(40) }, 'baseOid'],
         ['another head branch', { ...complete.target, headBranch: 'other' }, 'headBranch'],
@@ -611,12 +623,12 @@ test('Issue #111 the target names the mode and the gate, correlated with the exp
         ['no head branch', withoutField('headBranch'), 'headBranch'],
         // CONV-123-TARGET-IDENTITY-CORRELATION: a repeated head repository is the expectation's too.
         ['another head repository', { ...complete.target, headRepository: 'evil/x' }, 'headRepository'],
-      ]) {
-        const refused = withTarget(target);
-        assert.equal(refused.ok, false, `${workflow}/${gate}: ${label} must be refused`);
-        assert.equal(refused.error.code, 'invalid_request', `${workflow}/${gate}/${label}: ${JSON.stringify(refused.error)}`);
-        assert.match(refused.error.message, /target/, `${workflow}/${gate}/${label}`);
-        assert.match(refused.error.message, new RegExp(named), `${workflow}/${gate}/${label}: the message names ${named}`);
+      ]) refusedFor(target, label, named);
+      else for (const [field, value] of [['baseOid', 'b'.repeat(40)], ['headOid', OID], ['headBranch', 'b'], ['headRepository', 'o/r']]) {
+        const refused = withTarget({ ...complete.target, [field]: value });
+        assert.equal(refused.ok, false, `${workflow}/${gate}: an Issue target naming ${field} must be refused`);
+        assert.equal(refused.error.code, 'volatile_unknown_field', `${workflow}/${gate}/${field}: ${JSON.stringify(refused.error)}`);
+        assert.match(refused.error.message, new RegExp(`target\\.${field}`), `${workflow}/${gate}/${field}`);
       }
       // The exact-autofix mode composes the same gates; only the two declared modes do. Since CL-D82 an autofix
       // launch also names the workspace its child runs in, so the mode alone is refused for the missing workspace,
@@ -625,7 +637,7 @@ test('Issue #111 the target names the mode and the gate, correlated with the exp
       assert.equal(asAutofix.ok, false, `${workflow}/${gate}: autofix is a declared mode, and needs its workspace`);
       assert.match(asAutofix.error.message, /pass the workspace_create data as created/, `${workflow}/${gate}: ${JSON.stringify(asAutofix.error)}`);
       // An identity the target does not repeat is the expectation's alone, and stays optional.
-      assert.equal(withTarget({ ...complete.target, headRepository: expectation.expected.correlation.headRepository }).ok, true, `${workflow}/${gate}: a target repeating the head repository composes`);
+      if (workflow === 'pr') assert.equal(withTarget({ ...complete.target, headRepository: expectation.expected.correlation.headRepository }).ok, true, `${workflow}/${gate}: a target repeating the head repository composes`);
     }
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
@@ -703,7 +715,7 @@ test('Issue #111 the volatile envelope is closed at every declared object (ADV-1
       // a domain outside the root's set is refused by name.
       const correlation = expectation.expected.correlation;
       const roots = { pr: helpers.FINGERPRINT_DOMAINS, issue: ['issue_spec', 'snapshot'] };
-      const declared = Object.fromEntries(roots[workflow].map((domain) => [domain, domain === 'pr_head' ? correlation.headOid : domain === 'pr_base' ? correlation.baseOid : domain === 'pr_tree' ? 'c'.repeat(40) : domain === 'snapshot' ? correlation.snapshotFingerprint : SHA]));
+      const declared = Object.fromEntries(roots[workflow].map((domain) => [domain, domain === 'pr_head' ? correlation.headOid : domain === 'pr_base' ? correlation.baseOid : domain === 'pr_tree' ? 'c'.repeat(40) : domain === 'snapshot' ? correlation.snapshotFingerprint : domain === 'issue_spec' && workflow === 'issue' ? correlation.issueSpec : SHA]));
       assert.equal(build({ fingerprints: declared }).ok, true, `${workflow}/${gate}: the root's declared domains compose`);
       const foreign = workflow === 'pr' ? 'not_a_domain' : 'pr_head';
       const outside = build({ fingerprints: { ...declared, [foreign]: 'a'.repeat(40) } });

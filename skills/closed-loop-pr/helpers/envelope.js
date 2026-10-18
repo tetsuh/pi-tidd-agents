@@ -39,12 +39,16 @@ const HISTORY_FIELDS = Object.freeze(['unresolved', 'reopened', 'settled']);
 // A history record is a finding record or a settled summary: the finding fields the packaged schema declares,
 // plus the projection fields CL-D2 names for a settled or reopened entry. Every record names its finding.
 // #162: the finding schema is a set of variants; its fields are those of the whole shape behind them.
-const HISTORY_RECORD_FIELDS = Object.freeze([...Object.keys(findingShape().properties),
-  'sourceGate', 'raisedAgainst', 'disposition', 'dispositionRationale', 'confirmation', 'status', 'reviewedHead', 'summary']);
+// Each root's records are its own finding shape's (CL-D120).
+const HISTORY_RECORD_FIELDS = Object.freeze(Object.fromEntries(['pr', 'issue'].map((root) => [root, Object.freeze([...Object.keys(findingShape(root).properties),
+  'sourceGate', 'raisedAgainst', 'disposition', 'dispositionRationale', 'confirmation', 'status', 'reviewedHead', 'summary'])])));
 // The one declared object inside a record is closed by the same schema (CONV-123-HISTORY-RECORD-CLOSURE).
-const WORKFLOW_RECORD_FIELDS = Object.freeze(Object.keys(findingShape().properties.workflowRecord.properties));
+const WORKFLOW_RECORD_FIELDS = Object.freeze(Object.fromEntries(['pr', 'issue'].map((root) => [root, Object.freeze(Object.keys(findingShape(root).properties.workflowRecord.properties))])));
 // The evidence identities the correlation already fixes; a repeated one must agree with it.
-const FINGERPRINT_CORRELATED = Object.freeze({ pr_head: 'headOid', pr_base: 'baseOid', snapshot: 'snapshotFingerprint' });
+const FINGERPRINT_CORRELATED = Object.freeze({ pr: Object.freeze({ pr_head: 'headOid', pr_base: 'baseOid', snapshot: 'snapshotFingerprint' }),
+  issue: Object.freeze({ issue_spec: 'issueSpec', snapshot: 'snapshotFingerprint' }) });
+// An Issue has no base, head, or branch, so its target names none (CL-D120).
+const PR_TARGET_ONLY = Object.freeze(['baseOid', 'headOid', 'headBranch', 'headRepository']);
 const RECORD_LISTS = Object.freeze(['decisions', 'comments']);
 // A decision or comment is a record the gate cites: its identity, its author, when it was written, and its
 // body, which is the target's own text. The package owns this shape. GitHub's own issue-comment record is
@@ -100,13 +104,13 @@ const TARGET_CORRELATED = Object.freeze(['repository', 'number', 'baseOid', 'hea
 // Every declared object, key by key, before any of it is serialized.
 function nestedProblem(v, correlation, workflow) {
   for (const [key, value] of Object.entries(v.target)) {
-    if (!Object.hasOwn(TARGET_FIELDS, key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: target.${key}` };
+    if (!Object.hasOwn(TARGET_FIELDS, key) || (workflow === 'issue' && PR_TARGET_ONLY.includes(key))) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: target.${key}` };
     if (!TARGET_FIELDS[key](value)) return { code: 'invalid_request', message: `volatile field target.${key} is not the declared shape` };
   }
   for (const [key, value] of Object.entries(v.fingerprints)) {
     if (!FINGERPRINT_SET[workflow].includes(key)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: fingerprints.${key}` };
     if (typeof value !== 'string' || !FINGERPRINT_ENCODINGS[key].test(value)) return { code: 'invalid_request', message: `volatile field fingerprints.${key} is not a ${key} identity` };
-    const correlated = FINGERPRINT_CORRELATED[key];
+    const correlated = FINGERPRINT_CORRELATED[workflow][key];
     if (correlated && value !== correlation[correlated]) return { code: 'invalid_request', message: `volatile field fingerprints.${key} disagrees with the expectation on ${correlated}` };
   }
   for (const [key, value] of Object.entries(v.history)) {
@@ -114,7 +118,7 @@ function nestedProblem(v, correlation, workflow) {
     if (!Array.isArray(value) || value.some((record) => !plain(record))) return { code: 'invalid_request', message: `volatile field history.${key} must be a list of records` };
     for (const record of value) {
       for (const field of Object.keys(record)) {
-        if (!HISTORY_RECORD_FIELDS.includes(field)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}[].${field}` };
+        if (!HISTORY_RECORD_FIELDS[workflow].includes(field)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}[].${field}` };
       }
       if (typeof record.findingId !== 'string' || record.findingId.length === 0) return { code: 'invalid_request', message: `volatile field history.${key} carries a record naming no finding` };
       // Every value in a record is a scalar, and the one declared object holds scalars: nothing deeper can
@@ -123,7 +127,7 @@ function nestedProblem(v, correlation, workflow) {
         if (field === 'workflowRecord') {
           if (!plain(value)) return { code: 'invalid_request', message: `volatile field history.${key}[].workflowRecord must be a record` };
           for (const [inner, held] of Object.entries(value)) {
-            if (!WORKFLOW_RECORD_FIELDS.includes(inner)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}[].workflowRecord.${inner}` };
+            if (!WORKFLOW_RECORD_FIELDS[workflow].includes(inner)) return { code: 'volatile_unknown_field', message: `volatile carries an unknown field: history.${key}[].workflowRecord.${inner}` };
             if (!scalar(held)) return { code: 'invalid_request', message: `volatile field history.${key}[].workflowRecord.${inner} is not a value` };
           }
           continue;
@@ -145,11 +149,13 @@ function volatileEmptiness(expected, v) {
   if (!filled(v.target.repository) || !Number.isInteger(v.target.number) || v.target.number < 1) return bad('target', 'must name the repository and the target number');
   // The target is complete or it is not the target: the head it reviews, the base it is measured against,
   // and the branch it sits on, each checked against the expectation below.
-  for (const key of ['baseOid', 'headOid', 'headBranch']) if (!filled(v.target[key])) return bad('target', `must name ${key}`);
+  if (workflow === 'pr') for (const key of ['baseOid', 'headOid', 'headBranch']) if (!filled(v.target[key])) return bad('target', `must name ${key}`);
   // CL-D2's mode or gate correlation: the gate is the expectation's, and the mode is one CL-D6 parses.
   if (!MODES.includes(v.target.mode)) return bad('target', `must name the mode, one of ${MODES.join(', ')}`);
   if (v.target.gate !== correlation.gate) return bad('target', `must name the gate the expectation names: ${correlation.gate}`);
   for (const key of TARGET_CORRELATED) {
+    // An Issue target naming a pull-request field is refused for the unknown field below, not compared here.
+    if (workflow === 'issue' && PR_TARGET_ONLY.includes(key)) continue;
     if (Object.hasOwn(v.target, key) && v.target[key] !== correlation[key]) return bad('target', `disagrees with the expectation on ${key}`);
   }
   for (const key of FINGERPRINT_SET[workflow]) if (!filled(v.fingerprints[key])) return bad('fingerprints', `must carry ${key}`);

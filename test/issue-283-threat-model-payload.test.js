@@ -8,7 +8,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const helpers = require('../skills/closed-loop-pr/helpers');
-const { readContract, sectionOf, readManifest } = require('./helpers');
+const { readContract, sectionOf, readManifest, issueCorrelationOf } = require('./helpers');
 const autofixDriver = require('./issue-196-autofix-driver.fixtures');
 const reviewDriver = require('./issue-196-review-driver.fixtures');
 
@@ -94,7 +94,8 @@ const OID = 'a'.repeat(40), SHA = '1'.repeat(64);
 const CREATED = Object.freeze({ kind: 'linked', path: '/tmp/pi-autofix-helper-test/workspace', root: '/tmp/pi-autofix-helper-test', head: OID, tree: 'b'.repeat(40), cleanupAllowed: true,
   receipt: { version: 1, id: 'id', root: '/tmp/pi-autofix-helper-test', storedPath: '/tmp/pi-autofix-helper-test/.cleanup-receipt.json' } });
 function launch(workflow, gate, mode) {
-  const correlation = { repository: 'o/r', number: 283, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
+  const prCorrelation = { repository: 'o/r', number: 283, baseOid: 'b'.repeat(40), headRepository: 'o/r', headBranch: 'b', headOid: OID, lifecycle: 'open', draft: false, gate, invocation: 1, contractInput: 'c'.repeat(64), snapshotFingerprint: 'd'.repeat(64) };
+  const correlation = workflow === 'pr' ? prCorrelation : issueCorrelationOf(prCorrelation);  // CL-D120
   const built = helpers.buildGateExpectation({ workflow, correlation, assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] });
   assert.equal(built.ok, true, JSON.stringify(built.error));
   const dir = temp('issue-283-launch-');
@@ -102,8 +103,8 @@ function launch(workflow, gate, mode) {
     const expectationPath = path.join(dir, `${gate}.json`);
     fs.writeFileSync(expectationPath, `${JSON.stringify(built.data.expected, null, 2)}\n`);
     const volatile = {
-      target: { repository: 'o/r', number: 283, mode, gate, baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' },
-      fingerprints: workflow === 'pr' ? { issue_spec: SHA, pr_base: 'b'.repeat(40), pr_tree: 'c'.repeat(40), pr_head: OID, pr_diff: SHA, pr_commits: SHA, snapshot: 'd'.repeat(64) } : { issue_spec: SHA, snapshot: 'd'.repeat(64) },
+      target: { repository: 'o/r', number: 283, mode, gate, ...(workflow === 'pr' ? { baseOid: 'b'.repeat(40), headOid: OID, headBranch: 'b' } : {}) },
+      fingerprints: workflow === 'pr' ? { issue_spec: SHA, pr_base: 'b'.repeat(40), pr_tree: 'c'.repeat(40), pr_head: OID, pr_diff: SHA, pr_commits: SHA, snapshot: 'd'.repeat(64) } : { issue_spec: correlation.issueSpec, snapshot: 'd'.repeat(64) },
       body: 'body', languageProfile: 'conversation: ja; GitHub issue / pull request: en', acceptanceCriteria: ['AC1'], history: { unresolved: [], reopened: [], settled: [] },
       ...(workflow === 'pr' ? { diff: 'diff --git a/a b/a\n' } : {}),
       ...(gate === 'adversarial' ? { decisions: [], comments: [] } : {}),

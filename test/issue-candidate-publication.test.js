@@ -16,7 +16,7 @@ const { readText, readContract, readJson } = require('./helpers');
 const REQUIRED_COVERAGE = new Set([
   'delimiter', 'crlf', 'unicode', 'scalar-grammar', 'body-comment-boundary', 'legacy-issue-spec-collision', 'schema-version', 'alternate-diff',
   'foreign-repository', 'https-ssh-canonicalization', 'branch-upstream', 'all-remotes', 'multiple-fetch-urls', 'independent-fetch-push', 'explicit-push', 'fallback-push', 'insteadOf', 'conflicting-pushInsteadOf', 'missing-url-sets', 'non-github-url', 'fetch-push-conflict', 'fork-upstream-ambiguity', 'preview-identity-movement',
-  'nonce-grammar', 'cross-run', 'physical-attempt-failures', 'verdict-retry', 'missing-result', 'duplicate-result', 'reused-result', 'consumed-result', 'stale-result', 'mismatched-result', 'sol-before-terra', 'terra-to-sol', 'convergence-before-sol', 'convergence-cap-handover', 'round-accounting',
+  'run-id-grammar', 'cross-run', 'physical-launch-failures', 'verdict-retry', 'missing-result', 'duplicate-result', 'reused-result', 'consumed-result', 'stale-result', 'mismatched-result', 'sol-before-terra', 'terra-to-sol', 'convergence-before-sol', 'convergence-cap-handover', 'round-accounting',
   'candidate-status-no-resume', 'live-owner-continuation', 'legacy-issue-resume', 'pr-resume', 'complete-findings', 'duplicate-ownership', 'nine-field-decisions', 'decline', 'non-affirmative', 'approval-expiry',
   'snapshot-a-mismatch', 'snapshot-a-failure', 'no-body-snapshot-b', 'post-patch-snapshot-b', 'pre-post-resolver-movement', 'over-100-pagination', 'addition-edit-deletion-reclassification', 'missing-repeated-cursor', 'duplicate-comment-id', 'large-comment-ids', 'total-count-mismatch', 'truncation', 'missing-terminal', 'page-failure', 'ordering-ambiguity',
   'one-time-approval', 'patch-post-order', 'post-mutation-failure', 'no-retry-compensation', 'snapshot-c-body', 'snapshot-c-comment-transport', 'snapshot-c-cld9', 'snapshot-c-issue-spec', 'authoritative-invalidation', 'advisory-no-change',
@@ -78,7 +78,7 @@ test('artifact: Issue 13 safety boundaries are explicit and PR behavior stays se
     'complete paginated', 'insteadOf', 'pushInsteadOf', 'foreign-repository',
     'snapshot A', 'snapshot B', 'snapshot C', 'no retry', 'no compensation',
     'no-resume', 'postcondition', 'partial state', 'provider lock',
-    'author_association', 'run nonce', 'physical-attempt', 'tidd-status',
+    'author_association', 'runner run id', 'physical launch', 'tidd-status',
     'Sol-before-Terra', 'snapshot-C', 'Do not retry',
   ]) assert.ok(skill.includes(required), `Issue Skill missing safety contract: ${required}`);
   const pr = readText('skills/closed-loop-pr/SKILL.md');
@@ -439,20 +439,20 @@ test('fixture: initial/A/B/C stable capture table covers pagination and every ad
   covered('over-100-pagination', 'addition-edit-deletion-reclassification', 'missing-repeated-cursor', 'duplicate-comment-id', 'large-comment-ids', 'total-count-mismatch', 'truncation', 'missing-terminal', 'page-failure', 'ordering-ambiguity');
 });
 
-const RUN = '0123456789abcdef0123456789abcdef';
-function invocationId(run, attempt) { return `tidd-issue-gate-v1:${run}:${attempt}`; }
-function validInvocationId(id) { return /^tidd-issue-gate-v1:[0-9a-f]{32}:[1-9][0-9]*$/.test(id); }
+// CL-D120 (#190): a physical launch is identified by the runner run id it returns, which the parent's map binds to the
+// frozen object and the payload digest; its result matches the expectation's correlation, and each run id is read once.
+const RUN_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+function runIdOf(n) { return `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`; }
 function tupleValid(result, expected) {
-  return result && validInvocationId(result.identity) && validInvocationId(expected.identity) &&
-    result.runNonce === expected.runNonce && result.attempt === expected.attempt &&
-    result.identity === invocationId(result.runNonce, result.attempt) && result.identity === expected.identity &&
+  return result && RUN_ID.test(result.runId ?? '') && RUN_ID.test(expected.runId ?? '') &&
+    result.runId === expected.runId && result.payloadSha256 === expected.payloadSha256 &&
     result.target === expected.target && result.issueSpec === expected.issueSpec &&
     result.candidate === expected.candidate && ['convergence', 'sol', 'terra'].includes(result.gate) &&
-    result.gate === expected.gate && result.round === expected.round;
+    result.gate === expected.gate && result.invocation === expected.invocation;
 }
 function terminalResult(result, expected, mapped, consumed) {
-  if (!result?.identity || !mapped.has(result.identity) || consumed.has(result.identity)) return false;
-  consumed.add(result.identity);
+  if (!result?.runId || !mapped.has(result.runId) || consumed.has(result.runId)) return false;
+  consumed.add(result.runId);
   return tupleValid(result, expected);
 }
 function gateTransition(state, { gate, verdict, candidateChanged = false }) {
@@ -466,41 +466,42 @@ function gateTransition(state, { gate, verdict, candidateChanged = false }) {
   if (candidateChanged || verdict === 'FIX BEFORE MERGE') return { rounds, next: 'convergence', accepted: true };
   return { rounds, next: 'stop', accepted: true };
 }
-function launch(state, kind, gate, proposedRound) {
+function launch(state, kind, gate, invocation) {
   state.attempt += 1;
-  const record = { identity: invocationId(state.run, state.attempt), attempt: state.attempt, gate, proposedRound, kind };
+  const record = { runId: runIdOf(state.attempt), gate, invocation, kind };
   if (kind === 'verdict') state.rounds[gate] += 1;
   state.launches.push(record);
   return record;
 }
 
 test('fixture: exact gate identity/tuple table covers attempts, retries, consumption, stale/cross-run/reused cases, rounds, and Terra-to-Sol', () => {
-  const expected = { runNonce: RUN, attempt: 1, identity: invocationId(RUN, 1), target: 'R#13', issueSpec: 's'.repeat(64), candidate: 'c'.repeat(64), gate: 'sol', round: 1 };
-  assert.equal(validInvocationId(expected.identity), true); assert.equal(validInvocationId(invocationId(RUN, 0)), false); assert.equal(validInvocationId(invocationId(RUN, '01')), false); assert.equal(validInvocationId(`${expected.identity}:sol`), false);
+  const expected = { runId: runIdOf(1), payloadSha256: 'p'.repeat(64), target: 'R#13', issueSpec: 's'.repeat(64), candidate: 'c'.repeat(64), gate: 'sol', invocation: 1 };
+  assert.equal(RUN_ID.test(expected.runId), true); assert.equal(RUN_ID.test('tidd-issue-gate-v1:0123456789abcdef0123456789abcdef:1'), false); assert.equal(RUN_ID.test(`${expected.runId}:sol`), false);
   assert.equal(tupleValid(expected, expected), true);
   for (const bad of [
-    { ...expected, identity: invocationId('f'.repeat(32), 1) },
-    { ...expected, identity: invocationId(RUN, 2) },
-    { ...expected, target: 'R#14' }, { ...expected, issueSpec: 'x'.repeat(64) }, { ...expected, candidate: 'd'.repeat(64) }, { ...expected, gate: 'terra' }, { ...expected, round: 2 },
-    { ...expected, identity: undefined },
+    { ...expected, runId: runIdOf(9) },
+    { ...expected, payloadSha256: 'q'.repeat(64) },
+    { ...expected, target: 'R#14' }, { ...expected, issueSpec: 'x'.repeat(64) }, { ...expected, candidate: 'd'.repeat(64) }, { ...expected, gate: 'terra' }, { ...expected, invocation: 2 },
+    { ...expected, runId: undefined },
   ]) assert.equal(tupleValid(bad, expected), false);
-  const mapped = new Set([expected.identity]);
+  const mapped = new Set([expected.runId]);
   const consumed = new Set();
   assert.equal(terminalResult(expected, expected, mapped, consumed), true);
   assert.equal(terminalResult(expected, expected, mapped, consumed), false, 'duplicate terminal result is rejected');
   const terminalMismatchConsumed = new Set();
   assert.equal(terminalResult({ ...expected, target: 'R#14' }, expected, mapped, terminalMismatchConsumed), false);
-  assert.equal(terminalResult(expected, expected, mapped, terminalMismatchConsumed), false, 'mismatched terminal result still consumes the identity');
-  assert.equal(invocationId(RUN, 2), invocationId(RUN, 2)); assert.notEqual(invocationId(RUN, 2), invocationId('f'.repeat(32), 2));
-  const state = { run: RUN, attempt: 0, rounds: { sol: 0, terra: 0 }, launches: [] };
+  assert.equal(terminalResult(expected, expected, mapped, terminalMismatchConsumed), false, 'mismatched terminal result still consumes the run id');
+  // An expired run id, one a relaunch replaced, is no longer mapped, so its result is refused.
+  assert.equal(terminalResult({ ...expected, runId: runIdOf(2) }, { ...expected, runId: runIdOf(2) }, mapped, new Set()), false, 'an unmapped run id is refused');
+  const state = { attempt: 0, rounds: { sol: 0, terra: 0 }, launches: [] };
   const startup = launch(state, 'startup-failure', 'sol', 1);
   const provider = launch(state, 'provider-failure', 'sol', 1);
   const tool = launch(state, 'tool-failure', 'sol', 1);
   const malformed = launch(state, 'unparsable-verdict', 'sol', 1);
   const retryVerdict = launch(state, 'verdict', 'sol', 1);
-  assert.deepEqual(state.launches.map((record) => record.attempt), [1, 2, 3, 4, 5]);
+  assert.deepEqual(state.launches.map((record) => record.runId), [1, 2, 3, 4, 5].map(runIdOf), 'every physical launch returns its own run id');
   assert.deepEqual(state.rounds, { sol: 1, terra: 0 });
-  assert.equal(startup.proposedRound, retryVerdict.proposedRound); assert.notEqual(malformed.identity, retryVerdict.identity);
+  assert.equal(startup.invocation, retryVerdict.invocation); assert.notEqual(malformed.runId, retryVerdict.runId);
   launch(state, 'verdict', 'sol', 2); launch(state, 'verdict', 'sol', 3);
   assert.equal(state.rounds.sol, 3, 'passing round counts');
   // CL-D62: convergence runs first, once per candidate identity and snapshot fingerprint; every correction
@@ -520,7 +521,7 @@ test('fixture: exact gate identity/tuple table covers attempts, retries, consump
   const exhausted = { rounds: { convergence: 1, sol: 3, terra: 0 }, next: 'sol' };
   assert.equal(gateTransition(exhausted, { gate: 'sol', verdict: 'MERGE' }).accepted, false, 'fourth counted round is rejected without owner extension');
   assert.equal(provider.kind, 'provider-failure'); assert.equal(tool.kind, 'tool-failure');
-  covered('nonce-grammar', 'cross-run', 'physical-attempt-failures', 'verdict-retry', 'missing-result', 'duplicate-result', 'reused-result', 'consumed-result', 'stale-result', 'mismatched-result', 'sol-before-terra', 'terra-to-sol', 'convergence-before-sol', 'convergence-cap-handover', 'round-accounting');
+  covered('run-id-grammar', 'cross-run', 'physical-launch-failures', 'verdict-retry', 'missing-result', 'duplicate-result', 'reused-result', 'consumed-result', 'stale-result', 'mismatched-result', 'sol-before-terra', 'terra-to-sol', 'convergence-before-sol', 'convergence-cap-handover', 'round-accounting');
 });
 
 const DISPOSITIONS = new Set(['fixed', 'accepted-as-designed', 'deferred', 'duplicate', 'not-applicable', 'needs-owner-decision']);
