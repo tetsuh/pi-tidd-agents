@@ -247,7 +247,8 @@ test('Issue #190 an Issue volatile target names no pull-request field, and its i
 test('Issue #190 the Issue Skill composes through the packaged helpers and names the packaged launch identity', () => {
   const skill = readText('skills/closed-loop-issue/SKILL.md');
   assert.ok(skill.includes('Every Issue gate launch is composed by packaged `build_gate_launch` from the expectation packaged `build_gate_expectation` builds, and every result is read by packaged `gate_result_read` and validated by `gate_result_validate` (CL-D120).'));
-  assert.ok(skill.includes('No packaged helper derives the Issue `contractInput` or `snapshotFingerprint` yet: the parent supplies both until the Issue driver does (#190).'));
+  // CL-D122 (#306): the packaged Issue driver now derives both.
+  assert.ok(skill.includes('The packaged Issue driver derives the Issue `contractInput` and `snapshotFingerprint` (CL-D122).'));
   for (const gone of ['run nonce', 'tidd-issue-gate-v1', 'attempt_seq', 'physical-attempt sequence', 'allocate physical identities', 'Physical-attempt allocation']) assert.equal(skill.includes(gone), false, `the Skill no longer names ${gone}`);
   assert.ok(skill.includes('A retry keeps its gate\'s `invocation` but returns a new runner run id, and the earlier run id expires.'));
   assert.ok(skill.includes('Read and consume each run id exactly once, a refused read included,'));
