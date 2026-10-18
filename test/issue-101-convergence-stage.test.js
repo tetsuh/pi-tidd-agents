@@ -88,8 +88,9 @@ test('Issue #101 the package ships the convergence role as a read-only, fresh-co
   assert.match(body, /You never apply fixes/);
 });
 
-test('Issue #101 the envelope accepts the convergence gate on both roots with its own namespace and no adversarial duty', () => {
-  for (const root of ['pr', 'issue']) {
+// CL-D121 (#304): the stage runs on the pull-request root only; an Issue convergence gate is outside its root.
+test('Issue #101 the envelope accepts the convergence gate on the pull-request root with its own namespace and no adversarial duty', () => {
+  for (const root of ['pr']) {
     const clean = gateResult.validateGateResult(envelope('convergence', {}, root), expectation(root, 'convergence'));
     assert.equal(clean.ok, true, `${root}: ${JSON.stringify(clean.error ?? {})}`);
     const findings = gateResult.validateGateResult(envelope('convergence', { verdict: 'FIX BEFORE MERGE', findings: [fresh('CONV-101-OMISSION', root)] }, root), expectation(root, 'convergence'));
@@ -108,8 +109,10 @@ test('Issue #101 the envelope accepts the convergence gate on both roots with it
   assert.equal(gateResult.validateGateResult(envelope('adversarial'), expectation('pr', 'adversarial')).error.code, 'evidence_records_invalid');
   assert.equal(gateResult.validateGateResult({ ...envelope('convergence'), schemaVersion: 1 }, expectation('pr', 'convergence')).error.code, 'unknown_enum');
   assert.deepEqual(gateResult.SCHEMA.properties.correlation.properties.gate.enum, ['adversarial', 'decision-drift', 'safety', 'convergence']);
-  const built = cli('build_gate_expectation', expectation('issue', 'convergence'));
+  const built = cli('build_gate_expectation', expectation('pr', 'convergence'));
   assert.equal(built.ok, true, JSON.stringify(built.error));
+  assert.equal(cli('build_gate_expectation', expectation('issue', 'convergence')).error.code, 'gate_outside_root');
+  assert.equal(gateResult.validateGateResult(envelope('convergence', {}, 'issue'), expectation('issue', 'convergence')).error.code, 'correlation_mismatch');
   assert.ok(require('../skills/closed-loop-pr/helpers/gate-result').SCHEMA.properties.correlation.properties.gate.enum.includes('convergence'));  // CL-D90: the schema is the agent definition's
   const marker = helpers.createReplyMarker({
     binding: {
@@ -128,15 +131,15 @@ test('Issue #101 the shared contract defines the stage: order, one per candidate
   const section = sectionOf(contract, '## Convergence stage (CL-D62)');
   assert.ok(section, 'the shared contract must carry the convergence section');
   // DEC-109-CONV-SNAPSHOT-001 (Option B): attempts are keyed by candidate identity and snapshot fingerprint.
-  assert.match(section, /read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity and snapshot fingerprint before the adversarial gate on both roots/);
+  assert.match(section, /read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity and snapshot fingerprint before the adversarial gate on the pull-request root only/);
   assert.match(section, /new snapshot evidence on an unchanged head reruns convergence before Sol within the same cap/);
-  assert.match(section, /Issue `convergence → adversarial → decision-drift`, PR `convergence → adversarial → safety`/);
+  assert.ok(section.includes('on the pull-request root only: PR `convergence → adversarial → safety`. The Issue root runs no convergence stage, and its order is `adversarial → decision-drift` (CL-D121)'));
   assert.match(section, /gate `convergence` and the derived namespace `CONV-<n>-`/);
   assert.match(section, /reach the adversarial gate as assigned findings/);
   assert.match(section, /no convergence outcome can declare `IMPLEMENTATION_READY` or `MERGE_READY`/);
   assert.match(section, /invalidates convergence results exactly as it invalidates formal results, and the sequence restarts at convergence/);
   assert.match(section, /accounted separately as `convergence <used>\/<cap>`, never against a formal gate's budget/);
-  assert.match(section, /the cap is 3 per run on the Issue root and PR review-only and 5 on exact autofix/);
+  assert.match(section, /the cap is 3 per run on PR review-only and 5 on exact autofix/);
   assert.match(section, /hands the current candidate to the adversarial gate with those findings assigned and does not invoke convergence again; `ROUND_LIMIT_REACHED` remains reserved for the formal gates/);
   assert.match(section, /A `NEEDS DECISION` verdict from convergence takes the ordinary owner-decision path/);
   assert.match(section, /the stage is skipped and the status block reports `convergence: disabled`/);
@@ -149,37 +152,28 @@ test('Issue #101 the shared contract defines the stage: order, one per candidate
   assert.match(resolution, /plus the non-authoritative preliminary `tidd-convergence-reviewer` \(CL-D62\)/);
   assert.match(resolution, /a disabled `tidd-convergence-reviewer` skips its stage \(CL-D62\)/);
   const transport = sectionOf(contract, '### Structured gate result transport (CL-D36)');
-  assert.match(transport, /or `convergence` \(the non-authoritative preliminary stage on both roots, CL-D62\)/);
+  assert.match(transport, /or `convergence` \(the non-authoritative preliminary stage on the PR root, CL-D62 and CL-D121\)/);
   assert.match(transport, /`CONV-<n>-` for convergence/);
 });
 
-test('Issue #101 both roots run convergence before the adversarial gate and report it in the status block', () => {
+// CL-D121 (#304): the Issue root runs no convergence stage, so its Skill names none of the stage's obligations.
+test('Issue #101 the pull-request root runs convergence before the adversarial gate and reports it, and the Issue root runs none', () => {
   const issue = readText('skills/closed-loop-issue/SKILL.md');
-  // ADV-109-SKILL-PREFLIGHT-OMITS-CONVERGENCE: both roots require the convergence role unless explicitly disabled.
-  assert.match(issue, /`tidd-convergence-reviewer` is required for the CL-D62 convergence stage unless it is explicitly disabled: a disabled role skips the stage and reports `convergence: disabled`; a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule/);
-  assert.doesNotMatch(issue, /when it resolves and is skipped when disabled/);
-  // Proactive sweep: payload composition, candidate-change trigger, and formal-gate wording name convergence.
-  assert.match(issue, /Every Issue convergence invocation composes the shared Every-gate invariant payload block verbatim and the volatile envelope\/history projection, returns the packaged schema declared by its agent definition, with no `outputSchema` in the launch, and receives neither the Sol-only adversarial block nor a formal role-authority block \(CL-D62\)/);
-  assert.match(issue, /a candidate-changing convergence, Sol, or Terra finding/);
+  assert.match(issue, /The Issue root runs no convergence stage \(CL-D121\): Sol is the first gate on every Issue route\./);
+  assert.doesNotMatch(issue, /tidd-convergence-reviewer|convergence stage \(CL-D62\)|restarts at convergence|convergence review|convergence, Sol|convergence\|/);
+  assert.match(issue, /specification → tidd-adversarial-reviewer gate → disposition\/revision → Sol MERGE → tidd-drift-reviewer gate/);
+  assert.match(issue, /The fixed review order is Sol-before-Terra\./);
+  assert.match(issue, /a candidate-changing Sol or Terra finding/);
   assert.match(issue, /after both formal gates merge the same frozen object/);
   assert.match(issue, /only when both formal gates returned `MERGE` against the current `issue_spec`/);
-  // SOL-109-ISSUE-FIXED-ORDER-OMITS-CONVERGENCE: the legacy sequence and its order sentence start at convergence.
-  assert.match(issue, /specification → tidd-convergence-reviewer stage \(non-authoritative, CL-D62\) → preliminary disposition\/revision → tidd-adversarial-reviewer gate → disposition\/revision → Sol MERGE/);
-  assert.match(issue, /The fixed review order is convergence first, then Sol-before-Terra\./);
-  assert.match(issue, /`tidd-convergence-reviewer` first runs the non-authoritative convergence stage \(CL-D62\) once per candidate identity and snapshot fingerprint; its findings reach Sol as assigned findings and it never authorizes readiness/);
-  assert.match(issue, /the convergence stage reviews the complete unchanged object once \(CL-D62\), Sol reviews the complete unchanged object/);
-  assert.match(issue, /restarts at convergence, then Sol/);
-  // ADV-109-CLD32-POST-DECISION-OMITS-CONVERGENCE: the CL-D32 combined-decision route and the
-  // candidate-phase identity allocation include convergence; the pinned CL-D32 phrases survive.
-  assert.match(issue, /grants no mutation before the mandatory unchanged convergence review and the mandatory unchanged Sol then Terra sequence/);
-  assert.match(issue, /After the exact affirmative response, convergence reviews the unchanged decision-containing candidate first \(CL-D62\); Sol must re-review the unchanged candidate containing the decision, and Terra starts only after Sol returns `MERGE`/);
-  assert.match(issue, /before every physical convergence, Sol, or Terra launch/);
-  assert.match(issue, /mandatory unchanged convergence review, then mandatory unchanged Sol then Terra review, follows the exact affirmative response/);
-  assert.match(issue, /once its unchanged convergence stage has run and its unchanged Sol and Terra gates match/);
-  assert.doesNotMatch(issue, /before every physical Sol or Terra launch/);
-  assert.match(issue, /active_gate: <convergence\|sol\|terra\|none>/);
-  assert.match(issue, /rounds: convergence <used>\/3, sol <used>\/3, terra <used>\/3/);
-  assert.match(issue, /resolved: <role provider\/model:thinking, one per role that ran; convergence: disabled when skipped>/);
+  assert.match(issue, /grants no mutation before the mandatory unchanged Sol then Terra sequence/);
+  assert.match(issue, /After the exact affirmative response, Sol must re-review the unchanged candidate containing the decision, and Terra starts only after Sol returns `MERGE`/);
+  assert.match(issue, /before every physical Sol or Terra launch/);
+  assert.match(issue, /construct\/freeze the bundle, Sol reviews the complete unchanged object/);
+  assert.match(issue, /once its unchanged Sol and Terra gates match/);
+  assert.match(issue, /active_gate: <sol\|terra\|none>/);
+  assert.match(issue, /rounds: sol <used>\/3, terra <used>\/3/);
+  assert.match(issue, /resolved: <role provider\/model:thinking, one per role that ran>/);
   const pr = readText('skills/closed-loop-pr/SKILL.md');
   assert.match(pr, /`tidd-convergence-reviewer` is required in both modes for the CL-D62 convergence stage unless it is explicitly disabled: a disabled role skips the stage and reports `convergence: disabled`; a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule/);
   assert.doesNotMatch(pr, /when it resolves and is skipped when disabled/);
@@ -233,7 +227,8 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   assert.match(readme, /ships with the `gpt-6-luna` default/);
   assert.match(readme, /In exact autofix its default reviews the writer's own patch, which is model-level self-review; the owner kept that default in #274, with Sol and Terra as the independent gates\./);
   assert.match(readme, /Disable the agent through pi-subagents configuration to skip the stage/);
-  assert.match(readme, /runs before the adversarial gate on both roots, once per candidate identity and snapshot fingerprint, with its own round budget/);
+  assert.match(readme, /runs before the adversarial gate on the pull-request root \(the Issue root runs none, CL-D121\), once per candidate identity and snapshot fingerprint, with its own round budget/);
+  assert.match(readme, /Runs automatically before the adversarial gate in `\/tidd-pr`; no standalone prompt is needed\./);
   // Included agents and Model overrides inventories name the fifth role.
   assert.match(readme, /\| `tidd-convergence-reviewer` \| `gpt-6-luna` \| Read-only preliminary convergence review before the formal gates \(non-authoritative\) \|/);
   assert.match(readme, /Overrides are keyed by role name, for all five roles including `tidd-convergence-reviewer`/);
@@ -245,16 +240,17 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   assert.doesNotMatch(readme, /uses four roles/);
   // ADV-109-README-RESTARTS-AT-SOL / ADV-109-README-AUTOFIX-RESTARTS-AT-SOL (Sol envelopes at b843485 that the
   // parent failed to read): the README route summaries and both autofix restart sentences name convergence.
-  assert.match(readme, /a complete candidate is reviewed by convergence, then Sol, then Terra before the Skill shows one exact frozen preview/);
+  assert.match(readme, /a complete candidate is reviewed by Sol, then Terra before the Skill shows one exact frozen preview/);
   assert.match(readme, /Every push restarts at convergence, then Sol\./);
-  assert.match(readme, /then a mandatory convergence review precedes the mandatory Sol rereview and Terra review, which occur in that order \(CL-D62\)/);
+  assert.match(readme, /then the mandatory Sol rereview and Terra review occur in that order\./);
   assert.match(readme, /Every successful push invalidates prior approvals and restarts at convergence, then Sol\./);
   assert.doesNotMatch(readme, /restarts? at Sol\b/, 'no README route may restart at Sol');
   // ADV-109-README-PREFLIGHT-OVERRIDE-OMITS-CONVERGENCE: the per-command preflight lists and the
   // custom-definition guidance name the convergence role and the disable-to-skip rule.
-  assert.match(readme, /`\/tidd-issue` preflights `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, and `tidd-convergence-reviewer`; `\/tidd-pr` preflights `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-convergence-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode\. A disabled `tidd-convergence-reviewer` is not a preflight failure: its stage is skipped and the status block reports `convergence: disabled`\./);
+  assert.match(readme, /`\/tidd-issue` preflights `tidd-adversarial-reviewer` and `tidd-drift-reviewer`; `\/tidd-pr` preflights `tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-convergence-reviewer`, and adds `tidd-autofix-worker` in `autofix` mode\. A disabled `tidd-convergence-reviewer` is not a preflight failure: its stage is skipped and the status block reports `convergence: disabled`\./);
   assert.match(readme, /defining your own `tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, `tidd-autofix-worker`, and `tidd-convergence-reviewer`, or disabling `tidd-convergence-reviewer` when no model is available for it/);
-  assert.doesNotMatch(readme, /preflights `tidd-adversarial-reviewer` and `tidd-drift-reviewer`;|`tidd-safety-reviewer`, and `tidd-autofix-worker`\.\n/, 'no four-role operational inventory remains');
+  // CL-D121 (#304) makes the two-role Issue preflight current again; the four-role inventory stays retired.
+  assert.doesNotMatch(readme, /`tidd-safety-reviewer`, and `tidd-autofix-worker`\.\n/, 'no four-role operational inventory remains');
 });
 
 test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60', () => {
@@ -294,5 +290,5 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);
   const manifest = readManifest();
-  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D62').map((clause) => clause.id).sort(), ['CL-D62-autofix', 'CL-D62-autofix-flow', 'CL-D62-autofix-map', 'CL-D62-autofix-map-driver', 'CL-D62-autofix-map-review', 'CL-D62-autofix-map-schema', 'CL-D62-issue', 'CL-D62-pr', 'CL-D62-pr-record', 'CL-D62-readme', 'CL-D62-shared', 'CL-D62-tests']);
+  assert.deepEqual(manifest.clauses.filter((clause) => clause.marker === 'CL-D62').map((clause) => clause.id).sort(), ['CL-D62-autofix', 'CL-D62-autofix-flow', 'CL-D62-autofix-map', 'CL-D62-autofix-map-driver', 'CL-D62-autofix-map-review', 'CL-D62-autofix-map-schema', 'CL-D62-pr', 'CL-D62-pr-record', 'CL-D62-readme', 'CL-D62-shared', 'CL-D62-tests']);
 });

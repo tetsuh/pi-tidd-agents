@@ -58,9 +58,11 @@ const display = (gate) => { const role = ROLES.find((candidate) => candidate.gat
 const roleOf = (gate) => ROLES.find((role) => role.gate === gate).name;
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
 const ROLE_TOKEN = /tidd-[a-z-]+-(?:reviewer|worker)/g;
+// CL-D121: the shared contract states the PR order with its convergence stage and the Issue order without one.
+const SHARED_ORDER = `on the pull-request root only: PR \`${VOCAB.gateOrder.pr.join(' → ')}\`. The Issue root runs no convergence stage, and its order is \`${VOCAB.gateOrder.issue.join(' → ')}\` (CL-D121)`;
 const DECLARED = ROLES.map((role) => role.name).sort();
 const PREFLIGHT = (root) => [...byRoot(root, ['reviewer']), ...byRoot(root, ['writer']), ...byRoot(root, ['preliminary'])];
-const STATUS_LINES = (root) => [VOCAB.statusLines.activeGate[root], VOCAB.statusLines.rounds, VOCAB.statusLines.resolved];
+const STATUS_LINES = (root) => [VOCAB.statusLines.activeGate[root], VOCAB.statusLines.rounds[root], VOCAB.statusLines.resolved[root]];
 
 function proseFiles() {
   const out = ['README.md', ...contractFiles()];
@@ -185,7 +187,7 @@ function gateOrderGaps(read) {
   expect(driverOrder, 'the autofix driver declares its gate order');
   exact(driverOrder ? driverOrder[1].split(', ').map((name) => name.replace(/'/g, '')) : [], VOCAB.gateOrder.pr, 'exact-autofix driver gate order');
   const shared = section(read('skills/closed-loop-shared/references/gate-contract.md'), '## Convergence stage (CL-D62)', 'shared convergence section');
-  expect(shared.includes(`Issue \`${VOCAB.gateOrder.issue.join(' → ')}\`, PR \`${VOCAB.gateOrder.pr.join(' → ')}\``), 'shared order sentence derives from the source');
+  expect(shared.includes(SHARED_ORDER), 'shared order sentence derives from the source');
   return gaps;
 }
 
@@ -204,7 +206,8 @@ function statusGaps(read) {
     if (block === null) continue;
     exact(block.split('\n').filter((line) => /^(?:active_gate|rounds|resolved):/.test(line)), STATUS_LINES(root), `${file} tidd-status lines`, ' ‖ ');
   }
-  for (const file of ['README.md', 'skills/closed-loop-issue/SKILL.md']) expect(read(file).includes(VOCAB.restart), `${file} uses the declared restart phrase`);
+  // CL-D121: each root's restart phrase is its own; the Issue root runs no convergence stage.
+  for (const [root, file] of [['pr', 'README.md'], ['issue', 'skills/closed-loop-issue/SKILL.md']]) expect(read(file).includes(VOCAB.restart[root]), `${file} uses the declared restart phrase`);
   return gaps;
 }
 
@@ -231,7 +234,7 @@ function fixtureGaps(read) {
   expect(gateIds.includes(`const MARKER_GATES = [${quoted(VOCAB.version1Window.markerGates)}];`), 'issue-100-gate-ids-v2 MARKER_GATES equals the declared marker gate vocabulary');
   const convergence = read('test/issue-101-convergence-stage.test.js');
   expect(convergence.includes(`[${quoted(VOCAB.gateIdentities)}]`), 'issue-101 pins the declared identity list');
-  expect(convergence.includes(`Issue \`${VOCAB.gateOrder.issue.join(' → ')}\`, PR \`${VOCAB.gateOrder.pr.join(' → ')}\``), 'issue-101 pins the declared gate order');
+  expect(convergence.includes(SHARED_ORDER), 'issue-101 pins the declared gate order');
   expect(convergence.includes(`${VOCAB.prefixes.convergence}-101-`), 'issue-101 uses the declared convergence namespace');
   // CONV-113-MANIFEST-CROSSCHECK-001 / CONV-113-SURFACE-COVERAGE-001: the checks are two-way. The fixture
   // constants carry exactly the declared role set, and every role-shaped token in the named fixtures and
@@ -252,10 +255,10 @@ function fixtureGaps(read) {
 // derived from the source. A literal that carries no vocabulary is restated verbatim so the comparison
 // is whole-array exact: a dropped, added, reworded, or reordered literal names its clause.
 const MANIFEST = (() => {
-  const gate = { adversarial: VOCAB.gateIdentities[0], drift: VOCAB.gateOrder.issue[2], safety: VOCAB.gateOrder.pr[2], convergence: VOCAB.gateOrder.pr[0] };
+  const gate = { adversarial: VOCAB.gateIdentities[0], drift: VOCAB.gateOrder.issue.at(-1), safety: VOCAB.gateOrder.pr[2], convergence: VOCAB.gateOrder.pr[0] };
   const C = display(gate.convergence), S = display(gate.adversarial), T = display(gate.safety);
   const cap = (word) => word[0].toUpperCase() + word.slice(1), up = (word) => word.toUpperCase();
-  const prD = VOCAB.gateOrder.pr.map(display), issueD = VOCAB.gateOrder.issue.map(display);
+  const prD = VOCAB.gateOrder.pr.map(display);
   const convergenceRole = code(roleOf(gate.convergence)), canonical = ROLES.filter((role) => role.alias).map((role) => role.name);
   const formalPrefixes = VOCAB.gateIdentities.filter((identity) => identity !== gate.convergence).map((identity) => `\`${VOCAB.prefixes[identity]}-<n>-\``);
   const v1 = VOCAB.version1Window.gates;
@@ -291,25 +294,15 @@ const MANIFEST = (() => {
       'CL-D60 raises the authority ceiling once, with the headroom property asserted at the raise',
     ],
     'CL-D62-shared': [
-      `read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity and snapshot fingerprint before the ${gate.adversarial} gate on both roots`,
+      `read-only, fresh-context, non-authoritative preliminary reviewer that runs once per candidate identity and snapshot fingerprint before the ${gate.adversarial} gate on the pull-request root only`,
       `no ${C} outcome can declare \`IMPLEMENTATION_READY\` or \`MERGE_READY\``,
       `the sequence restarts at ${C}`,
       `accounted separately as \`${C} <used>/<cap>\`, never against a formal gate's budget`,
-      'the cap is 3 per run on the Issue root and PR review-only and 5 on exact autofix',
+      'the cap is 3 per run on PR review-only and 5 on exact autofix',
       `hands the current candidate to the ${gate.adversarial} gate with those findings assigned and does not invoke ${C} again`,
       `the stage is skipped and the status block reports \`${C}: disabled\``,
       'reports `resolved:` with the provider, model, and thinking level each role ran with',
       `the third observation across ${C} and formal gates stops the run`,
-    ],
-    'CL-D62-issue': [
-      `${convergenceRole} is required for the CL-D62 ${C} stage unless it is explicitly disabled`,
-      'a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule',
-      `its findings reach ${S} as assigned findings and it never authorizes readiness`,
-      `the ${C} stage reviews the complete unchanged object once (CL-D62)`,
-      VOCAB.restart,
-      `before every physical ${issueD[0]}, ${issueD[1]}, or ${issueD[2]} launch`,
-      `${C} reviews the unchanged decision-containing candidate first (CL-D62)`,
-      VOCAB.statusLines.rounds,
     ],
     // #249 B2 (CL-D113): the review-only root is the packaged driver; its gate order, preliminary stop, convergence cap and
     // per-gate rounds are pinned as code, the preliminary stop also as the record's sentence.
@@ -347,19 +340,19 @@ const MANIFEST = (() => {
       'owner; the validated envelope is the confirmation authority (gate-contract.md).',
     ],
     'CL-D62-autofix-map-driver': ['if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s)))'],
-    'CL-D62-autofix-map-schema': ['`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on both roots.', `const GATES = { 1: [${quoted(v1)}], 2: [${quoted(VOCAB.gateIdentities)}] };`],
+    'CL-D62-autofix-map-schema': ['`convergence` (CL-D62) is the non-authoritative preliminary stage, valid on the pull-request root only (CL-D121).', `const GATES = { 1: [${quoted(v1)}], 2: [${quoted(VOCAB.gateIdentities)}] };`],
     'CL-D62-readme': [
       `${convergenceRole} (CL-D62) is the non-authoritative preliminary reviewer that runs before the ${gate.adversarial} gate`,
       'the owner kept that default in #274',
       `The ${C} reviewer uses fresh context and is never readiness authority.`,
-      `Every successful push invalidates prior approvals and ${VOCAB.restart}.`,
+      `Every successful push invalidates prior approvals and ${VOCAB.restart.pr}.`,
       `A disabled ${convergenceRole} is not a preflight failure: its stage is skipped and the status block reports \`${C}: disabled\`.`,
     ],
     'CL-D62-tests': [
       `the package ships the ${C} role as a read-only, fresh-context, non-authoritative reviewer`,
-      `the envelope accepts the ${C} gate on both roots with its own namespace and no ${gate.adversarial} duty`,
+      `the envelope accepts the ${C} gate on the pull-request root with its own namespace and no ${gate.adversarial} duty`,
       'the shared contract defines the stage: order, one per candidate and snapshot, caps, hand-over, invalidation, disabled skip, telemetry',
-      `both roots run ${C} before the ${gate.adversarial} gate and report it in the status block`,
+      `the pull-request root runs ${C} before the ${gate.adversarial} gate and reports it, and the Issue root runs none`,
       'the README documents the role, its default, the self-review caveat, and the design rule',
       'CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
     ],
@@ -443,12 +436,14 @@ test('Issue #110 retired phrases do not survive outside their recorded qualifica
       for (const retired of VOCAB.retiredPhrases) {
         if (!new RegExp(retired.pattern).test(line)) continue;
         if (retired.allowedWith && line.includes(retired.allowedWith)) continue;
+        if (retired.allowedIn?.includes(file)) continue;
         offenders.push(`${file}:${index + 1} [${retired.retiredBy}] /${retired.pattern}/`);
       }
     });
   }
   assertNoGaps(offenders, 'retired phrases survive');
   assertNoGaps(VOCAB.retiredPhrases.filter((retired) => !/^CL-D\d+$/.test(retired.retiredBy)).map((retired) => `/${retired.pattern}/ names ${retired.retiredBy}`), 'every denylist entry names the decision that retired it');
+  assertNoGaps(VOCAB.retiredPhrases.filter((retired) => retired.allowedIn && !/^CL-D\d+$/.test(retired.allowedBy ?? '')).map((retired) => `/${retired.pattern}/ is allowed in a file by no decision`), 'every allowed file names the decision that allows it');
 });
 
 test('Issue #110 the Sol-only payload block pre-checks derived surfaces and CL-D63 records the layer', () => {
@@ -537,7 +532,7 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
     `package.test EXPECTED_AGENTS keys are exactly the declared roles: extra tidd-legacy-reviewer`,
     'skills/closed-loop-issue/SKILL.md declares exactly one tidd-status block: found 2',
     'test/package.test.js: undeclared role tidd-legacy-reviewer',
-    `Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`,
+    `Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`,
     `PR root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-drift-reviewer', 'tidd-safety-reviewer', 'tidd-autofix-worker', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('pr').join(', ')}`,
     `CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`,
   ].sort());
@@ -549,7 +544,7 @@ test('Issue #110 one run names every simultaneous surface gap', () => {
 // alone through its collector; the unmutated surfaces are covered by the tests above.
 test('Issue #110 single-surface mutations are named exactly', () => {
   const issue = 'skills/closed-loop-issue/SKILL.md';
-  const { rounds, resolved } = VOCAB.statusLines, issueLines = STATUS_LINES('issue');
+  const rounds = VOCAB.statusLines.rounds.issue, resolved = VOCAB.statusLines.resolved.issue, issueLines = STATUS_LINES('issue');
   const rows = ROLES.map((role) => `${code(role.name)} | ${code(role.model)}`), drift = rows.indexOf('`tidd-drift-reviewer` | `gpt-6.1-sol`');
   assert.ok(drift >= 0, 'the mutated row is a declared row');
   const cases = [
@@ -559,7 +554,7 @@ test('Issue #110 single-surface mutations are named exactly', () => {
     ['four-backtick second tidd-status fence', issue, (text) => `${text}\n\`\`\`\`tidd-status\nstate: <token>\n\`\`\`\`\n`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
     ['tilde second tidd-status fence', issue, (text) => `${text}\n~~~tidd-status\nstate: <token>\n~~~\n`, statusGaps, [`${issue} declares exactly one tidd-status block: found 2`]],
     ['reordered review driver gate order', 'skills/closed-loop-pr/driver/review.js', (text) => text.replace("const GATES = ['convergence', 'adversarial', 'safety'];", "const GATES = ['adversarial', 'convergence', 'safety'];"), gateOrderGaps, [`review-only driver gate order: found ${['adversarial', 'convergence', 'safety'].join(', ')}; declared ${VOCAB.gateOrder.pr.join(', ')}`]],
-    ['wrong-root role in the Issue preflight', issue, (text) => text.replace('`tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve', '`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer`. If one does not resolve'), roleSurfaceGaps, [`Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`]],
+    ['wrong-root role in the Issue preflight', issue, (text) => text.replace('`tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve', '`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer`. If one does not resolve'), roleSurfaceGaps, [`Issue root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-safety-reviewer', 'tidd-drift-reviewer'].join(', ')}; declared ${PREFLIGHT('issue').join(', ')}`]],
     ['wrong-root role in the PR preflight', 'skills/closed-loop-pr/SKILL.md', (text) => text.replace('`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and, conditionally', '`tidd-adversarial-reviewer`, `tidd-drift-reviewer`, `tidd-safety-reviewer`, and, conditionally'), roleSurfaceGaps, [`PR root preflight roles: found ${['tidd-adversarial-reviewer', 'tidd-drift-reviewer', 'tidd-safety-reviewer', 'tidd-autofix-worker', 'tidd-convergence-reviewer'].join(', ')}; declared ${PREFLIGHT('pr').join(', ')}`]],
     ['undeclared role in a clause file', 'contract/CL-D105.clauses.json', (text) => text.replace('are pinned"', 'are pinned by tidd-bogus-reviewer"'), fixtureGaps, ['contract/CL-D105.clauses.json: undeclared role tidd-bogus-reviewer']],
     ['convergence dropped from a manifest literal', cld62Source(), (text) => text.replace(CL_D62_LITERAL, '"before each Sol/Terra invocation"'), manifestGaps, [`CL-D62-autofix-map literals: found ${['before each Sol/Terra invocation', MANIFEST['CL-D62-autofix-map'][1]].join(' ‖ ')}; declared ${MANIFEST['CL-D62-autofix-map'].join(' ‖ ')}`]],

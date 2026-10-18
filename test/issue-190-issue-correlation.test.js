@@ -82,7 +82,9 @@ test('Issue #190 each gate role declares the schema of the roots its gate review
   assert.deepEqual(Object.keys(ROLE_SCHEMAS).sort(), ROLES);
   assert.equal(ROLE_SCHEMAS['tidd-safety-reviewer'], SCHEMA);
   assert.equal(ROLE_SCHEMAS['tidd-drift-reviewer'], ISSUE_SCHEMA);
-  for (const role of ['tidd-adversarial-reviewer', 'tidd-convergence-reviewer']) {
+  // CL-D121: convergence reviews the pull-request root only.
+  assert.equal(ROLE_SCHEMAS['tidd-convergence-reviewer'], SCHEMA);
+  for (const role of ['tidd-adversarial-reviewer']) {
     const union = ROLE_SCHEMAS[role];
     // The root stays an object; the branches sit inside it.
     assert.equal(union.type, 'object');
@@ -102,11 +104,11 @@ test('Issue #190 each gate role declares the schema of the roots its gate review
 });
 
 test('Issue #190 an Issue result validates with the Issue\'s own correlation, before and during a candidate', () => {
-  for (const gate of ['adversarial', 'decision-drift', 'convergence']) {
+  for (const gate of ['adversarial', 'decision-drift']) {
     for (const corr of [issueCorrelation(gate), issueCorrelation(gate, { candidateIdentity: CANDIDATE })]) {
       const clean = gateResult.validateGateResult(envelope(corr), expectation('issue', corr));
       assert.equal(clean.ok, true, `${gate}: ${JSON.stringify(clean.error)}`);
-      const id = `${{ adversarial: 'ADV', 'decision-drift': 'DRIFT', convergence: 'CONV' }[gate]}-190-SHAPE`;
+      const id = `${{ adversarial: 'ADV', 'decision-drift': 'DRIFT' }[gate]}-190-SHAPE`;
       const found = gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { findingId: id })), expectation('issue', corr));
       assert.equal(found.ok, true, `${gate} finding: ${JSON.stringify(found.error)}`);
     }
@@ -205,7 +207,7 @@ function runRecord(root, envelopeValue, schema, agent) {
 test('Issue #190 an Issue gate is launched and its result read with the role\'s packaged schema', () => {
   const dir = temp('i190-launch-');
   try {
-    for (const [gate, role] of [['adversarial', 'tidd-adversarial-reviewer'], ['decision-drift', 'tidd-drift-reviewer'], ['convergence', 'tidd-convergence-reviewer']]) {
+    for (const [gate, role] of [['adversarial', 'tidd-adversarial-reviewer'], ['decision-drift', 'tidd-drift-reviewer']]) {
       const { expectationPath, launch } = issueLaunch(dir, gate);
       assert.equal(launch.ok, true, `${gate}: ${JSON.stringify(launch.error)}`);
       assert.equal(launch.data.request.agent, role);
@@ -249,7 +251,7 @@ test('Issue #190 the Issue Skill composes through the packaged helpers and names
   for (const gone of ['run nonce', 'tidd-issue-gate-v1', 'attempt_seq', 'physical-attempt sequence', 'allocate physical identities', 'Physical-attempt allocation']) assert.equal(skill.includes(gone), false, `the Skill no longer names ${gone}`);
   assert.ok(skill.includes('A retry keeps its gate\'s `invocation` but returns a new runner run id, and the earlier run id expires.'));
   assert.ok(skill.includes('Read and consume each run id exactly once, a refused read included,'));
-  assert.ok(skill.includes('before every physical convergence, Sol, or Terra launch'), 'the CL-D62 sentence stays');
+  assert.ok(skill.includes('before every physical Sol or Terra launch'), 'the launch sentence names the Issue gates (CL-D121)');
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('Under envelope schema version 2 each root has its own closed correlation (CL-D120).'));
 });
 

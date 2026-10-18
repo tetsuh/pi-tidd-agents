@@ -41,7 +41,8 @@ const CREATED = Object.freeze({ kind: 'linked', path: '/tmp/pi-autofix-helper-te
   receipt: { version: 1, id: 'id', root: '/tmp/pi-autofix-helper-test', storedPath: '/tmp/pi-autofix-helper-test/.cleanup-receipt.json' } });
 const LAUNCHES = [
   ...['convergence', 'adversarial', 'safety'].flatMap((gate) => [['pr', gate, 'review-only'], ['pr', gate, 'autofix']]),
-  ...['convergence', 'adversarial', 'decision-drift'].map((gate) => ['issue', gate, 'review-only']),
+  // CL-D121: the Issue root runs no convergence stage.
+  ...['adversarial', 'decision-drift'].map((gate) => ['issue', gate, 'review-only']),
 ];
 
 test('Issue #228 the payload the launch builder writes carries the rule, for every gate of both roots', () => {
