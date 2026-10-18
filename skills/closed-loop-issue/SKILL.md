@@ -35,7 +35,7 @@ Before the first gate, confirm the workflow-specific required roles resolve with
 
 ## Workflow target-kind boundary (CL-D7, CL-D8)
 
-Reject any remaining argument before calling `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence, so a number alone does not identify the kind. If the reference resolves to a pull request, stop and tell the operator to use `/tidd-pr`.
+Reject any remaining argument before calling `gh`. **Verify that the resolved target is the expected kind**: GitHub numbers issues and pull requests in one sequence, so a number alone does not identify the kind. If the reference resolves to a pull request, stop and tell the operator to use `/tidd-pr`. On the review-and-draft round, the driver makes this check and refuses the target before any run (CL-D122).
 
 A target in **another repository** may be reviewed, but nothing may be published to it and no local work may be started for it. Publication authority is bound to the repository of the current checkout.
 
@@ -45,9 +45,9 @@ Record the identity of what you reviewed, so later evidence is invalidated only 
 
 - `issue_spec` — `sha256` over canonical UTF-8 bytes consisting of the issue body record followed by each authoritative comment rendered as `<id>:<updatedAt>:<body>`, ordered by comment id ascending, with records joined by one LF (`0x0a`) and no trailing separator. Normalize CRLF and CR in text fields to LF before encoding. Do not let shell locale, Git configuration, or platform newline conversion alter the bytes.
 
-Use `LC_ALL=C`, `printf '%s'`, explicit UTF-8 input, and `sha256sum` (or an equivalent command that hashes the exact byte stream) to compute the digest.
+The packaged Issue driver computes `issue_spec` on the review-and-draft round (CL-D122). In the candidate phase, use `LC_ALL=C`, `printf '%s'` and `sha256sum`, or an equivalent, on the exact UTF-8 byte stream.
 
-Outside the CL-D31 candidate-publication phase, recompute `issue_spec` before declaring readiness; if it changed since a gate passed, that gate is stale and must run again. During CL-D31, gates are bound to the base `issue_spec` and exact frozen candidate; the separately computed snapshot-C final `issue_spec` may establish readiness without duplicate gates only through the byte/content-identity proof below.
+Outside the CL-D31 candidate-publication phase, the driver recomputes `issue_spec` before Terra and at readiness, and a change stops the round at `BLOCKED` (CL-D122); a fresh run reruns both gates. During CL-D31, gates are bound to the base `issue_spec` and exact frozen candidate; the separately computed snapshot-C final `issue_spec` may establish readiness without duplicate gates only through the byte/content-identity proof below.
 
 ## Mutation boundary (CL-D15, CL-D28, CL-D31)
 
@@ -64,15 +64,14 @@ Working notes, the disposition ledger, and drafts belong in a temporary director
 
 ### Issue gate role-authority blocks (CL-D2)
 
-Copy exactly one of these owning-root blocks verbatim into each Issue gate payload:
+Packaged `build_gate_launch` copies exactly one of these owning-root blocks verbatim into each Issue gate payload (CL-D120):
 
 - `Issue Sol role-authority block`: `You are the read-only Issue requirements, contract, scope, acceptance, and feasibility reviewer.`
 - `Issue Terra role-authority block`: `You are the read-only inherited-decision, contradiction, and decision-drift reviewer for this Issue.`
 
 The Issue workflow retains these obligations outside the shared references:
 
-- `tidd-drift-reviewer` has no verdict contract of its own; the parent requires the shared Every-gate invariant payload block verbatim in every Issue Terra invocation, plus one concrete Issue Terra role-authority block.
-- Every Issue Sol invocation composes the shared Every-gate and Sol-only adversarial invariant payload blocks verbatim, one concrete Issue Sol role-authority block, and the volatile envelope/history projection. The same composition is mandatory for ordinary Sol/Terra, candidate rereview Sol/Terra, and every CL-D32 post-decision rereview route; Terra receives only the Every-gate block, never the Sol-only block.
+- `tidd-drift-reviewer` has no verdict contract of its own. On every Issue route, ordinary Sol/Terra, candidate rereview Sol/Terra, and every CL-D32 post-decision rereview route, `build_gate_launch` composes the shared Every-gate invariant payload block verbatim, for Sol the Sol-only adversarial block too, the role-authority block and the volatile envelope; Terra never receives the Sol-only block, and on the review-and-draft round the packaged Issue driver calls it (CL-D122).
 - Every Issue gate launch is composed by packaged `build_gate_launch` from the expectation packaged `build_gate_expectation` builds, and every result is read by packaged `gate_result_read` and validated by `gate_result_validate` (CL-D120). The correlation is the Issue root's own: repository, number, lifecycle, gate, `invocation`, `contractInput`, `snapshotFingerprint`, `issueSpec` (the base `issue_spec` the gate reviews), and `candidateIdentity` exactly while a candidate is under review; it names no base, head, branch, or draft, and an Issue finding or confirmation binds to its gate by `issueSpec`. The packaged Issue driver derives the Issue `contractInput` and `snapshotFingerprint` (CL-D122).
 - External review services, external static-analysis sites, and pull-request checks **are not part of issue readiness** (AC-ISSUE-NO-EXTERNAL).
 - Issue finding records retain the `issue_spec` raised-against field, candidate identity while a candidate is under review, revised passage, validation evidence, and explicit snapshot-C assignment.
@@ -93,7 +92,7 @@ An issue is not ready until it states its acceptance contract and validation pla
 
 ### Issue malformed-verdict boundary (CL-D1, CL-D32)
 
-Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`. Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes still count as physical launches under the existing correlation rules, but expire the combined approval and any dormant or activated grant; they cannot use the ordinary missing-or-unparsable retry.
+On the review-and-draft round, the driver reads every result and owns its one relaunch (CL-D122). Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`. Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes still count as physical launches under the existing correlation rules, but expire the combined approval and any dormant or activated grant; they cannot use the ordinary missing-or-unparsable retry.
 
 ## Gate loop (AC-GATES, CL-D1, CL-D2, CL-D11, CL-D12)
 
@@ -103,11 +102,11 @@ The order is fixed and sequential for legacy review, and the CL-D31 candidate pa
 specification → tidd-adversarial-reviewer gate → disposition/revision → Sol MERGE → tidd-drift-reviewer gate → disposition/revision → Terra MERGE
 ```
 
-Before candidate construction, legacy review-and-draft status remains available, and a stopped round resumes as a fresh driver run. Once CL-D31 candidate construction begins, the candidate phase is non-resumable and the exact preview/publication rules in the CL-D31 section apply.
+Once CL-D31 candidate construction begins, the candidate phase is non-resumable and the exact preview/publication rules in the CL-D31 section apply.
 
 The Issue root runs no convergence stage (CL-D121): Sol is the first gate on every Issue route. `tidd-adversarial-reviewer` owns requirements, contracts, scope, acceptance, feasibility, and the shared adversarial falsification procedure. `tidd-drift-reviewer` then checks the revised specification against inherited decisions for contradiction and drift. **Never start the Terra gate before the Sol gate returns `MERGE`.**
 
-Before candidate construction, the review-and-draft round runs through the packaged Issue driver (CL-D122): from the checkout's top-level directory, run `node <skill-dir>/../closed-loop-pr/driver/issue.js start --issue <number> --repo <owner/name>`, where `<skill-dir>` is this Skill's directory, and add `--language-profile` with the profile CL-D16 resolved for this run. When a line begins `NEXT:`, call `subagent` with exactly the JSON object on the following line, wait for the runner's own completion of that run, then run the command on the `NEXT:` line with its run id; never change the object, and compose no gate request of your own. If the call is refused or returns no run id, report it and stop. Commands inside the JSON object are the subagent's, never yours. A line beginning `WAIT:` means the gate run is still going: wait for it, then run the command that line names. Each gate's required evidence is the Issue's `issue_spec` and snapshot. The driver stops at `WAITING_FOR_OWNER` at the first result that is not `MERGE`, at `BLOCKED` when `issue_spec` changes before Terra or at readiness, or when the Issue closes or answers with another number, kind or repository, and at `IMPLEMENTATION_READY` when Sol and Terra return `MERGE` on the unchanged `issue_spec`. It drafts a local review file with the status block below and publishes nothing; report everything from its `FINISHED` line on verbatim, then disposition and draft revisions of its findings as below.
+Before candidate construction, the review-and-draft round runs through the packaged Issue driver (CL-D122): from the checkout's top-level directory, run `node <skill-dir>/../closed-loop-pr/driver/issue.js start --issue <number> --repo <owner/name>`, where `<skill-dir>` is this Skill's directory, and add `--language-profile` with the profile CL-D16 resolved for this run. When a line begins `NEXT:`, call `subagent` with exactly the JSON object on the following line, wait for the runner's own completion of that run, then run the command on the `NEXT:` line with its run id; never change the object, and compose no gate request of your own. If the call is refused or returns no run id, report it and stop. Commands inside the JSON object are the subagent's, never yours. A line beginning `WAIT:` means the gate run is still going: wait for it, then run the command that line names. The driver stops at `WAITING_FOR_OWNER` at the first result that is not `MERGE`, at `BLOCKED` when `issue_spec` changes before Terra or at readiness, or when the Issue closes or answers with another number, kind or repository, and at `IMPLEMENTATION_READY` when Sol and Terra return `MERGE` on the unchanged `issue_spec`. It drafts a local review file with the status block below and publishes nothing; report everything from its `FINISHED` line on verbatim, then disposition and draft revisions of its findings as below.
 
 ## Owner-gated Issue candidate publication (CL-D31)
 
@@ -189,7 +188,7 @@ Outside CL-D31, declare `IMPLEMENTATION_READY` only when both formal gates retur
 
 A run that drafts a revision before CL-D31 candidate construction ends at `WAITING_FOR_OWNER`; the legacy review-only gate approved text the Issue does not yet contain. During ordinary CL-D31, only the post-gate/pre-attempt `WAITING_FOR_OWNER` state carries the active exact same-session preview and may proceed through the bounded attempt. Under CL-D32, the pre-rereview combined response is the active same-session approval; once its unchanged Sol and Terra gates match, it replaces the later prompt, so no second approval, command, or fresh run is requested. A pre-mutation mismatch or any post-first-mutation failure also reports `WAITING_FOR_OWNER`, but it is audit-only with expired, non-reusable authority and a fresh equivalent command as the only next action. After any operator-posted revision outside that attempt, recompute `issue_spec` and rerun both gates against the exact authoritative text.
 
-Before candidate construction and otherwise outside the CL-D31 candidate-publication phase, whenever the run stops without reaching readiness, the driver drafts the legacy block below. Its `publication_grant: not-applicable` field describes only that legacy state.
+Before candidate construction and otherwise outside the CL-D31 candidate-publication phase, the driver drafts the legacy block below whenever its round stops (CL-D122). Its `publication_grant: not-applicable` field describes only that legacy state.
 
 ````text
 ```tidd-status

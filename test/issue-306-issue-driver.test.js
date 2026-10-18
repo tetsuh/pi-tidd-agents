@@ -367,7 +367,7 @@ test('Issue #306 the Issue Skill runs its review-and-draft round through the dri
   assert.ok(record, 'CL-D122 must exist');
   for (const field of ['*Decision ID:* CL-D122', '*Kind:* contract', '*Owner choice:*', '*Rationale:*', '*Validity and invalidation conditions:*']) assert.ok(record.includes(field), field);
   assert.match(record, /issues\/190#issuecomment-6243884276/);
-  assert.deepEqual(readManifest().clauses.filter((clause) => clause.marker === 'CL-D122').map((clause) => clause.id), ['CL-D122-record', 'CL-D122-driver', 'CL-D122-skill']);
+  assert.deepEqual(readManifest().clauses.filter((clause) => clause.marker === 'CL-D122').map((clause) => clause.id), ['CL-D122-record', 'CL-D122-driver', 'CL-D122-skill', 'CL-D122-trim']);
   assert.match(sectionOf(readContract(), '## CL-D120 — Gate result schema version 2 carries an Issue correlation beside the pull-request one'), /#306 later derived both in the packaged Issue driver \(CL-D122\)\./);
   // The driver names no writing operation and publishes nothing.
   assert.doesNotMatch(readText('skills/closed-loop-pr/driver/issue.js'), /commit_create|push_publish|marker_create|publish-review\.sh|\/merge\b|'merge'|--approve|'APPROVE'/);

@@ -34,7 +34,7 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "Copy exactly one of these owning-root blocks verbatim into each Issue gate payload",
+        "copies exactly one of these owning-root blocks verbatim into each Issue gate payload",
         "Issue Sol role-authority block",
         "read-only Issue requirements, contract, scope, acceptance, and feasibility reviewer",
         "Issue Terra role-authority block",
