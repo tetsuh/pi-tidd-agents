@@ -13,7 +13,7 @@
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { Run, sha256, runDirProblem, runDirNotFresh, roleLabel, PACKAGE, LANGUAGE_PROFILE, die, parseArgs, gh, contractInput, acceptanceCriteria, jsonLine } = require('./run');
+const { Run, sha256, runDirProblem, runDirNotFresh, roleLabel, PACKAGE, LANGUAGE_PROFILE, die, parseArgs, gh, contractInput, jsonLine } = require('./run');
 const { guard, readGate, trustedComments } = require('./phases');
 
 const GATES = ['adversarial', 'decision-drift'];
@@ -24,6 +24,25 @@ const CONTRACT_INPUT_FILES = ['skills/closed-loop-issue/SKILL.md', 'skills/close
 const NEXT_ACTION = { BLOCKED: 'address the cause, then a fresh run', ROUND_LIMIT_REACHED: 'owner decision, then a fresh run', WAITING_FOR_OWNER: 'owner decision, then a fresh run', IMPLEMENTATION_READY: 'the owner may start implementation' };
 // One line of the drafted block: a value from GitHub or a gate never breaks the line.
 const one = (v) => [...String(v)].map((c) => ('\r\n\u000b\u000c\u0085\u2028\u2029'.includes(c) ? ' ' : c)).join('');
+// The Acceptance criteria section by CL-D122's bounded grammar: an ATX heading of two to six `#` reading "Acceptance
+// criteria" (closing `#`s allowed), outside fenced code (``` or ~~~, indented up to three spaces), up to the next ATX
+// heading; its items are `-`, `*`, `+`, `N.` or `N)` lines. Any other Markdown form is outside the surface it reads.
+function criteria(body) {
+  const out = []; let fence = null, inSection = false;
+  for (const line of String(body || '').replace(/\r\n?/g, '\n').split('\n')) {
+    // A backtick fence's info string holds no backtick, so a backtick run with one after it is inline code.
+    const open = /^ {0,3}(`{3,}(?!`)(?![^`]*`)|~{3,})/.exec(line);
+    if (fence) { if (open && open[1][0] === fence[0] && open[1].length >= fence.length && /^ {0,3}(`+|~+)[ \t]*$/.test(line)) fence = null; continue; }
+    if (open) { fence = open[1]; continue; }
+    // `s`: U+2028 and U+2029 sit inside a Markdown line.
+    const heading = /^ {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$/s.exec(line);
+    if (heading) { inSection = heading[1].length >= 2 && /^acceptance criteria$/i.test((heading[2] || '').trim()); continue; }
+    // One separator then the rest, trimmed after the match, so a long whitespace line is read in linear time.
+    const item = inSection && /^[ \t]*(?:[-*+]|[0-9]{1,9}[.)])[ \t](.*)/s.exec(line);
+    if (item && item[1].trim()) out.push(item[1].trim());
+  }
+  return out;
+}
 function rounds(s) { return GATES.map((g) => `${LABEL[g]} ${s.invocations[g] || 0}/${ROUND_CAP}`).join(', '); }
 
 // A run of this driver: the same directory, lock and operations as the pull-request driver's, with the Issue's own
@@ -66,11 +85,13 @@ class IssueRun extends Run {
 // CL-D9 authoritative subset). The snapshot is the SHA-256 of a fixed projection of the Issue's state and every comment,
 // bots included, in comment-id order, computed here as the pull-request driver computes its body identity: the
 // packaged snapshot shape is the pull request's.
+// The repository GitHub names for an Issue record: its canonical `owner/name`, or undefined.
+function repositoryOf(issue) { return /\/repos\/([^/]+\/[^/]+)$/.exec(String(issue.repository_url || ''))?.[1]; }
 function readTarget(run, first) {
   const s = run.state, t = s.target;
   const issue = first || gh(['api', `repos/${t.repository}/issues/${t.number}`], s.checkout);
   // A moved or transferred Issue answers with another record; only this Issue is the target (CL-D7).
-  if (issue.number !== t.number || issue.pull_request) run.stop('BLOCKED', `the target moved: ${t.repository}#${t.number} now answers with another record`);
+  if (issue.number !== t.number || issue.pull_request || repositoryOf(issue)?.toLowerCase() !== t.repository.toLowerCase()) run.stop('BLOCKED', `the target moved: ${t.repository}#${t.number} now answers with another record`);
   const comments = gh(['api', '--paginate', '--slurp', `repos/${t.repository}/issues/${t.number}/comments?per_page=100`], s.checkout).flat();
   const spec = run.op('fingerprint_issue_spec', { body: issue.body || '', comments }).data.fingerprint;
   return { issue, comments, spec };
@@ -96,12 +117,12 @@ function start(opts) {
   if (issue.pull_request) die(`${repository}#${number} is a pull request; use /tidd-pr`);
   if (issue.number !== number) die(`${repository}#${number} answers with another record (#${issue.number}); the Issue moved`);
   if (issue.state !== 'open') die(`Issue ${repository}#${number} is ${issue.state}; only an open Issue is reviewed`);
-  const canonical = /\/repos\/([^/]+\/[^/]+)$/.exec(String(issue.repository_url || ''));
+  const canonical = repositoryOf(issue);
   if (!canonical) die(`cannot bind Issue ${repository}#${number}: its repository is missing`);
   const runDir = opts['run-dir'] ? path.resolve(opts['run-dir']) : fs.mkdtempSync(path.join(os.tmpdir(), `tidd-issue${number}-review.`));
   fs.mkdirSync(runDir, { recursive: true, mode: 0o700 });
   const run = new IssueRun(runDir), s = run.state;
-  Object.assign(s, { workflow: 'issue', mode: 'review-and-draft', checkout, startedAt: new Date().toISOString(), target: { repository: canonical[1], number }, invocations: {}, verdicts: {}, findings: [], resolved: [], gateLog: [], languageProfile: opts['language-profile'] || LANGUAGE_PROFILE });
+  Object.assign(s, { workflow: 'issue', mode: 'review-and-draft', checkout, startedAt: new Date().toISOString(), target: { repository: canonical, number }, invocations: {}, verdicts: {}, findings: [], resolved: [], gateLog: [], languageProfile: opts['language-profile'] || LANGUAGE_PROFILE });
   s.contractInput = contractInput(CONTRACT_INPUT_FILES);
   run.save();
   guard(run);
@@ -112,8 +133,7 @@ function start(opts) {
     comments: comments.map((c) => ({ id: text(c.id), updatedAt: text(c.updated_at), author: text(c.user?.login), authorType: text(c.user?.type), authorAssociation: text(c.author_association), body: text(c.body) })).sort((a, b) => a.id.length - b.id.length || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)) };
   s.fingerprints = { issue_spec: spec, snapshot: sha256(Buffer.from(JSON.stringify(snapshot), 'utf8')) };
   s.body = read.body || '';
-  // The section may open the body; the shared reader looks for a heading after a newline.
-  s.acceptanceCriteria = acceptanceCriteria(`\n${s.body}`);
+  s.acceptanceCriteria = criteria(s.body);
   // AC-TDD: an Issue that states no acceptance contract is not ready, and no gate can judge it.
   if (!s.acceptanceCriteria.length) { s.nextAction = 'the owner adds an Acceptance criteria section to the Issue, then a fresh run'; run.stop('WAITING_FOR_OWNER', `issue #${number} has no Acceptance criteria section with at least one criterion`); }
   s.requiredEvidence = [{ source: `github:issue:${number}:spec`, kind: 'github', identity: s.fingerprints.issue_spec }, { source: `snapshot:issue:${number}`, kind: 'snapshot', identity: s.fingerprints.snapshot }];
