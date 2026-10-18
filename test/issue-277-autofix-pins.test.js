@@ -47,15 +47,12 @@ const MIXED_TESTS = {
     keep: ["assert.equal(autofix.includes('| Phase | Operation | Required data |'), false, 'the table is not in two places');"],
     gone: ["'one pointer'"],
   },
-  'issue-candidate-publication': {
-    keep: ["assert.doesNotMatch(pr, /Issue PATCH.*POST.*CL-D30/s);"],
-    gone: ['assert.match(pr, /CL-D31 exception/);'],
-  },
 };
 // The structural reads (existence, headings, the split, duplication guards, authority measurement, derived vocabulary
 // surfaces, contractInput) went with the file (#249, CL-D119).
 // #249 B4b (CL-D117) moved issue-51's remaining reads to CL-D34 and the builder.
-const STILL_KEPT = new Set(['assert.doesNotMatch(pr, /Issue PATCH.*POST.*CL-D30/s);']);
+// #310 (CL-D123) deleted issue-candidate-publication, which held the last such scan, with the route it tested.
+const STILL_KEPT = new Set();
 const RETIRED = ['CL-D107-autofix', 'CL-D81-autofix', 'CL-D72-route-autofix', 'CL-D72-map', 'CL-D40-autofix', 'CL-D50-base', 'CL-D83-autofix'];
 // CL-D51's divergence was closed by #275, so CL-D51 no longer records it as open.
 const GAP_RECORDS = ['contract/AC-AUTOFIX.md', 'contract/CL-D39.md', 'contract/CL-D40.md', 'contract/CL-D66.md'];

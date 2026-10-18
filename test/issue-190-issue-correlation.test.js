@@ -250,9 +250,8 @@ test('Issue #190 the Issue Skill composes through the packaged helpers and names
   // CL-D122 (#306): the packaged Issue driver now derives both.
   assert.ok(skill.includes('The packaged Issue driver derives the Issue `contractInput` and `snapshotFingerprint` (CL-D122).'));
   for (const gone of ['run nonce', 'tidd-issue-gate-v1', 'attempt_seq', 'physical-attempt sequence', 'allocate physical identities', 'Physical-attempt allocation']) assert.equal(skill.includes(gone), false, `the Skill no longer names ${gone}`);
-  assert.ok(skill.includes('A retry keeps its gate\'s `invocation` but returns a new runner run id, and the earlier run id expires.'));
-  assert.ok(skill.includes('Read and consume each run id exactly once, a refused read included,'));
-  assert.ok(skill.includes('before every physical Sol or Terra launch'), 'the launch sentence names the Issue gates (CL-D121)');
+  // #310 (CL-D123) retired the candidate route, whose launches the parent made; every Issue launch is the driver's.
+  assert.ok(skill.includes('The driver reads every result and owns its one relaunch (CL-D122)'));
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('Under envelope schema version 2 each root has its own closed correlation (CL-D120).'));
 });
 
