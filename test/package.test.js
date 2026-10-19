@@ -453,10 +453,7 @@ test('Issue #22 removed prompt clauses retain named Skill-scoped enforcement', (
     'CL-D6-skill': SKILLS['closed-loop-pr'],
     'AC-REVIEW-ONLY-record': 'contract/AC-REVIEW-ONLY.md', // #249 B2 (CL-D113): the pin moved off the mode reference
     'CL-D8': SKILLS['closed-loop-issue'],
-    'CL-D31-authority-skill': SKILLS['closed-loop-issue'],
-    'CL-D31-preview-skill': SKILLS['closed-loop-issue'],
-    'CL-D31-publication-skill': SKILLS['closed-loop-issue'],
-    'CL-D32-skill': SKILLS['closed-loop-issue'],
+    // #310 (CL-D123) retired the Issue candidate route, so CL-D31 and CL-D32 pin only their own records.
   };
   for (const [id, file] of Object.entries(surviving)) {
     assert.ok(clauses.has(id), `missing surviving Skill-scoped clause ${id}`);
@@ -493,7 +490,7 @@ test('Issue #13 CL-D31 legacy artifacts are packaged without a controller', () =
 
 // CL-D32 packaging is behavioral: execute npm pack and read the resulting packed Skill,
 // prompt, and README from the tarball rather than inferring payload content from package.json. The package remains prose-only and has no executable/controller.
-test('Issue #15 CL-D32 packed artifacts contain the combined transaction prose', () => {
+test('Issue #15 packed artifacts are prose-only, and the retired CL-D32 transaction is gone from the Skill (CL-D123)', () => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-tidd-issue-15-pack-'));
   try {
     const stdout = execSync(`npm pack --json --pack-destination ${JSON.stringify(directory)}`, {
@@ -517,7 +514,7 @@ test('Issue #15 CL-D32 packed artifacts contain the combined transaction prose',
       cwd: repoRoot,
       encoding: 'utf8',
     });
-    assert.match(readPacked('skills/closed-loop-issue/SKILL.md'), /Combined scope-freeze decision transaction \(CL-D32\)/);
+    assert.doesNotMatch(readPacked('skills/closed-loop-issue/SKILL.md'), /Combined scope-freeze decision transaction|CL-D32/);
     for (const file of Object.values(SKILLS)) {
       const text = readPacked(file);
       for (const forbidden of REPOSITORY_SPECIFIC_SKILL_PROSE) {
@@ -528,7 +525,7 @@ test('Issue #15 CL-D32 packed artifacts contain the combined transaction prose',
     assert.match(packedIssuePrompt, /Raw arguments \(preserve this complete vector for the Skill to parse\): \$@/);
     assert.match(packedIssuePrompt, /closed-loop-issue.*authoritative contract/s);
     assert.doesNotMatch(packedIssuePrompt, /CL-D32 combined scope-freeze approval|one exact owner response/);
-    assert.match(readPacked('README.md'), /#### Combined scope-freeze approval/);
+    assert.doesNotMatch(readPacked('README.md'), /Combined scope-freeze approval/);
     assert.deepEqual(files.slice().sort(), reportedFiles.slice().sort(), 'the generated archive must match its same-invocation npm report');
     assert.ok(!files.some((file) => /(?:controller|extension)/i.test(file)));
     assert.deepEqual(

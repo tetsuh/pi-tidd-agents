@@ -62,9 +62,9 @@ test('Issue #86 keeps validation-failure handling owned by each route', () => {
   // Ordinary review-only retains its existing one retry for a missing/unparsable verdict (#249 B2, CL-D113: the driver).
   assert.match(REVIEW_DRIVER_PHASES, /is relaunched once without spending a round/);
   assert.match(REVIEW_DRIVER_PHASES, /run\.stop\('BLOCKED', `gate_result_read refused\$\{p\.relaunched \? ' after one relaunch' : ''\}/);
-  // Ordinary Issue mode retains its CL-D31-scoped retry, while CL-D32 remains fail-stop.
-  assert.match(ISSUE_WORKFLOW, /Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`/);
-  assert.match(ISSUE_WORKFLOW, /Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes.*cannot use the ordinary missing-or-unparsable retry/s);
+  // The Issue driver owns its relaunch; the CL-D31 retry and CL-D32 fail-stop went with the candidate route (#310, CL-D123).
+  assert.match(ISSUE_WORKFLOW, /The driver reads every result and owns its one relaunch \(CL-D122\); a result it still cannot read after that relaunch, or one it may not relaunch, stops the round at `BLOCKED`\./);
+  assert.doesNotMatch(ISSUE_WORKFLOW, /CL-D31|CL-D32/);
   // Exact autofix remains terminal on its first malformed result (#249 B4a, CL-D115: the driver and CL-D30): only the
   // designated output's absence relaunches, once.
   assert.ok(AUTOFIX_DRIVER.includes("codes: new Set(['designated_output_absent', 'designated_output_empty', 'result_names_no_run']), may: () => !s.relaunched && !s.writerLaunched"));

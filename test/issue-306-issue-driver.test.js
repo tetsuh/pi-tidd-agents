@@ -354,13 +354,14 @@ test('Issue #306 the Acceptance criteria section is read outside fenced code, wi
 
 test('Issue #306 the Issue Skill runs its review-and-draft round through the driver, and CL-D122 records it', () => {
   const skill = readText('skills/closed-loop-issue/SKILL.md');
-  assert.ok(skill.includes('Before candidate construction, the review-and-draft round runs through the packaged Issue driver (CL-D122): from the checkout\'s top-level directory, run `node <skill-dir>/../closed-loop-pr/driver/issue.js start --issue <number> --repo <owner/name>`'));
+  assert.ok(skill.includes('The review-and-draft round runs through the packaged Issue driver (CL-D122): from the checkout\'s top-level directory, run `node <skill-dir>/../closed-loop-pr/driver/issue.js start --issue <number> --repo <owner/name>`'));
   assert.ok(skill.includes('The packaged Issue driver derives the Issue `contractInput` and `snapshotFingerprint` (CL-D122).'));
   assert.equal(skill.includes('the parent supplies both until the Issue driver does'), false);
   assert.ok(skill.includes('If the call is refused or returns no run id, report it and stop. Commands inside the JSON object are the subagent\'s, never yours. A line beginning `WAIT:` means the gate run is still going: wait for it, then run the command that line names.'));
   assert.ok(skill.includes('The driver stops at `WAITING_FOR_OWNER` at the first result that is not `MERGE`,'));
   assert.ok(skill.includes('or when the Issue closes or answers with another number, kind or repository,'));
-  assert.ok(skill.includes('The candidate phase remains prose orchestration with no executable controller or extension; only the review-and-draft round before it runs through the packaged driver (CL-D122).'));
+  // #310 (CL-D123) retired the candidate phase, so the driver's round is the Issue root's only one.
+  assert.equal(skill.includes('The candidate phase remains prose orchestration'), false);
   assert.equal(skill.includes('This legacy Skill/prompt package remains prose orchestration'), false);
   assert.ok(readText('README.md').includes('`/tidd-issue <issue-ref>` runs an Issue\'s review-and-draft round the same way, through `skills/closed-loop-pr/driver/issue.js`'));
   const record = sectionOf(readContract(), '## CL-D122 — A thin packaged driver runs the Issue review-and-draft round');

@@ -37,9 +37,7 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "no trailing separator",
-        "LC_ALL=C",
-        "sha256sum"
+        "no trailing separator"
       ]
     },
     {

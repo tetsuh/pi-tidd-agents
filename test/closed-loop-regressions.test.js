@@ -615,8 +615,9 @@ test('Issue #23 contains self-contained invariant blocks and compacts only histo
   assert.doesNotMatch(shared, /finding ID, blocker key, source gate, raised-against identity/);
   assert.match(contract, /DEC-I23-PAYLOAD-COMPACTION-001/);
   assert.match(contract, /does not reduce the transmitted size of any invariant block/);
-  assert.match(issue, /ordinary Sol\/Terra, candidate rereview Sol\/Terra/);
-  assert.match(issue, /every CL-D32 post-decision rereview route/);
+  // #310 (CL-D123): the Issue root's candidate and CL-D32 rereview routes are retired; every Issue gate is the driver's.
+  assert.match(issue, /For every Issue gate, `build_gate_launch` composes/);
+  assert.doesNotMatch(issue, /candidate rereview|CL-D32 post-decision rereview/);
   assert.match(pr, /Every PR review-only Sol\/Terra invocation/);
   assert.match(pr, /every post-push Sol/);
   // #249 B2 (CL-D113): the review-only launch composer packages the Every-gate block for every gate and the Sol-only block for Sol.
@@ -743,8 +744,7 @@ test('Issue #24 workflow-specific ownership remains outside shared records', () 
   assert.match(readText('contract/AC-DISPOSITION.md'), /the PR Skill's owner approval for merging without required deterministic coverage lapsed with the prose path/);
   assert.match(readText('contract/AC-DECISION.md'), /its own pauses on dangerous operations and ship decisions lapsed with the prose path/);
   assert.doesNotMatch(issue, /dangerous operations, and ship decisions/);
-  assert.match(issue, /Only under ordinary CL-D31 rules, a missing or unparsable verdict is a tool-level failure: retry the invocation once, and if it fails again report `BLOCKED`\./);
-  assert.match(issue, /Under CL-D32, tool, provider, startup, capture, malformed, missing, or uncertain outcomes/);
+  assert.match(issue, /The driver reads every result and owns its one relaunch \(CL-D122\)/);
   assert.doesNotMatch(shared, /retry the invocation once, and if it fails again report `BLOCKED`/);
 });
 
@@ -761,12 +761,12 @@ test('Issue 13 negative guards reject stale unqualified publication/resume prose
   const issue = readText('skills/closed-loop-issue/SKILL.md');
   assert.doesNotMatch(issue, /This MVP never posts|this MVP does not publish|all revisions.*operator.*post/i);
   assert.doesNotMatch(issue, /Whenever the run stops without reaching readiness, emit a resumable block/);
-  assert.match(issue, /Before candidate construction and otherwise outside the CL-D31 candidate-publication phase/);
-  assert.match(issue, /During candidate construction and the entire candidate-publication phase, never emit or accept/);
-  assert.match(issue, /frozen English ledger owns the complete decision record/);
+  // #310 (CL-D123): the candidate phase is retired, so the status block has no phase qualifier left.
+  assert.match(issue, /The driver drafts the block below whenever its round stops \(CL-D122\)/);
+  assert.doesNotMatch(issue, /candidate-publication phase|frozen English ledger/);
   const readme = readText('README.md');
   assert.doesNotMatch(readme, /Issue behavior remains unchanged\.?$/m);
-  assert.match(readme, /CL-D31 exception/);
+  assert.match(readme, /Issue behavior is governed by the Issue Skill, which publishes nothing \(CL-D123\)\./);
   const contract = readContract();
   const cld28 = artifactSection(contract, '## CL-D28 — Mode-scoped publication boundary (historical no-publication rule)');
   const cld16 = artifactSection(contract, '## CL-D16 — Language Profile package defaults');
@@ -776,6 +776,8 @@ test('Issue 13 negative guards reject stale unqualified publication/resume prose
   assert.match(cld28, /During CL-D31 only, exact same-session approval authorizes/);
   assert.match(cld16, /exact approved GitHub Issue body PATCH and ledger POST are allowed/);
   assert.match(cld16, /every other provider API mutation remain forbidden/);
+  // #310 (CL-D123) retired the route both grants named; each record says so after the rule it kept.
+  for (const record of [cld28, cld16]) assert.match(record, /#310 later retired the Issue candidate route \(CL-D123\): the Issue root publishes nothing\./);
   assert.match(contract, /The exception supersedes CL-D13, CL-D13-issue, CL-D16, CL-D28, AC-AUTOFIX, AC-GRANT, and AC-REVIEW-ONLY/);
   assert.match(entrypointDecision, /It remains valid until a later explicit owner-approved contract decision separates the entrypoints or changes their shared Skill architecture/);
 });

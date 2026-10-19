@@ -23,7 +23,7 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "For each finding record the source gate, severity, the `issue_spec` it was raised against, candidate identity, evidence, impact, exactly one disposition, rationale, revised passage when the disposition is `fixed`, validation evidence that the revision resolves it, and the reply/status URL or explicit snapshot-C assignment."
+        "For each finding record the source gate, severity, the `issue_spec` it was raised against, evidence, impact, exactly one disposition, rationale, revised passage when the disposition is `fixed`, validation evidence that the revision resolves it, and the pending transport assignment, recorded as `snapshotAssignment`, which names the local review draft."
       ]
     },
     {

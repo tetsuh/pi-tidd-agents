@@ -8,3 +8,5 @@ An authoritative comment is one whose `author_association` is `OWNER`, `MEMBER` 
 #249 later refused the foreign review-only path (CL-D111): the packaged driver computes the pull-request fingerprints from the local checkout, and no run collects them from the GitHub API alone.
 
 #249 later trimmed the PR Skill to its dispatch (CL-D119): the pull-request fingerprints, their serialization and the capture brackets are read in the packaged driver and helpers, and the Skill's carry-forward across a metadata-only rewrite and its retry after a moved bracket lapsed with the prose path, since a moved target stops the run.
+
+#310 later retired the Issue candidate route (CL-D123): the packaged Issue driver computes `issue_spec`, so the Issue Skill no longer carries the shell recipe for hashing it by hand.

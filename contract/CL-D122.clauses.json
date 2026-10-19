@@ -37,26 +37,25 @@
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "Before candidate construction, the review-and-draft round runs through the packaged Issue driver (CL-D122)",
+        "The review-and-draft round runs through the packaged Issue driver (CL-D122)",
         "The packaged Issue driver derives the Issue `contractInput` and `snapshotFingerprint` (CL-D122).",
-        "Legacy resume is a fresh driver run, which is how you revalidate the fingerprints: it recomputes every one from the Issue as it is now (CL-D122)."
+        "Resume is a fresh driver run, which is how you revalidate the fingerprints: it recomputes every one from the Issue as it is now (CL-D122)."
       ]
     },
     {
       "id": "CL-D122-trim",
       "marker": "CL-D122",
-      "title": "Each driver-owned Issue Skill passage names its owner or is scoped to the candidate phase",
+      "title": "Each driver-owned Issue Skill passage names its owner",
       "files": [
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
         "Packaged `build_gate_launch` copies exactly one of these owning-root blocks verbatim into each Issue gate payload (CL-D120):",
-        "On every Issue route, ordinary Sol/Terra, candidate rereview Sol/Terra, and every CL-D32 post-decision rereview route, `build_gate_launch` composes the shared Every-gate invariant payload block verbatim, for Sol the Sol-only adversarial block too, the role-authority block and the volatile envelope; Terra never receives the Sol-only block, and on the review-and-draft round the packaged Issue driver calls it (CL-D122).",
+        "For every Issue gate, `build_gate_launch` composes the shared Every-gate invariant payload block verbatim, for Sol the Sol-only adversarial block too, the role-authority block and the volatile envelope; Terra never receives the Sol-only block, and the packaged Issue driver calls it (CL-D122).",
         "On the review-and-draft round, the driver makes this check and refuses the target before any run (CL-D122).",
-        "The packaged Issue driver computes `issue_spec` on the review-and-draft round (CL-D122). In the candidate phase, use `LC_ALL=C`",
-        "Outside the CL-D31 candidate-publication phase, the driver recomputes `issue_spec` before Terra and at readiness, and a change stops the round at `BLOCKED` (CL-D122); a fresh run reruns both gates.",
-        "On the review-and-draft round, the driver reads every result and owns its one relaunch (CL-D122).",
-        "Before candidate construction and otherwise outside the CL-D31 candidate-publication phase, the driver drafts the legacy block below whenever its round stops (CL-D122)."
+        "The packaged Issue driver computes `issue_spec`, recomputes it before Terra and at readiness, and stops the round at `BLOCKED` when it changes (CL-D122); a fresh run reruns both gates.",
+        "The driver reads every result and owns its one relaunch (CL-D122)",
+        "The driver drafts the block below whenever its round stops (CL-D122)."
       ]
     }
   ]

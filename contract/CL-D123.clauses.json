@@ -1,0 +1,32 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D123-record",
+      "marker": "CL-D123",
+      "title": "CL-D123 records the retirement of the Issue candidate route",
+      "files": [
+        "contract/CL-D123.md"
+      ],
+      "requires": [
+        "issues/190#issuecomment-6252295881",
+        "The Issue root is review-and-draft only: `/tidd-issue` and `/skill:closed-loop-issue` never edit the Issue or post to GitHub.",
+        "CL-D31 and CL-D32 become historical records whose clauses pin only their own files.",
+        "`candidateIdentity` stays optional in gate-result schema v2 (CL-D120) and in the gate roles' output schemas, and the Issue root never sets it."
+      ]
+    },
+    {
+      "id": "CL-D123-skill",
+      "marker": "CL-D123",
+      "title": "The Issue Skill is review-and-draft only",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "`/tidd-issue` is review-and-draft only: it never edits the Issue or posts to GitHub (CL-D123).",
+        "When a round stops, the owner revises the Issue, and a fresh run reviews the revised text.",
+        "The Issue root never sets `candidateIdentity` (CL-D123).",
+        "Its `publication_grant` field is always `not-applicable`: the Issue root grants no publication (CL-D123)."
+      ]
+    }
+  ]
+}

@@ -94,6 +94,6 @@ test('Issue #304 CL-D121 records the decision, and CL-D62 and CL-D120 say what i
   assert.ok(readManifest().clauses.every((clause) => clause.id !== 'CL-D62-issue'), 'the Issue convergence clause is gone');
   assert.match(sectionOf(contract, '## CL-D62 — A non-authoritative convergence stage runs before the adversarial gate'), /#304 later took the stage off the Issue root \(CL-D121\)/);
   assert.match(contract, /#304 later took `convergence` out of the Issue root's gates and gave `tidd-convergence-reviewer` the pull-request schema \(CL-D121\)\./);
-  assert.match(sectionOf(contract, '## CL-D32 — Scope-freeze approval stays inside the candidate transaction'), /#304 later took it off that route \(CL-D121\): the Issue root runs no convergence stage\./);
+  assert.match(sectionOf(contract, '## CL-D32 — Scope-freeze approval stays inside the candidate transaction (historical; retired by CL-D123)'), /#304 later took it off that route \(CL-D121\): the Issue root runs no convergence stage\./);
   assert.match(sectionOf(contract, '## CL-D63 — Deterministic agreement checks are the first review layer'), /CL-D121 later allowed two phrases CL-D62 retired in the Issue Skill by file \(`allowedIn`, `allowedBy`\), beside the line qualification\./);
 });

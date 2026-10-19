@@ -3,7 +3,8 @@
 // Issue #308 (CL-D122), step 3 of #190. Step 2b moved the Issue review-and-draft round into the packaged driver, and
 // step 1 had already put every Issue gate launch through `build_gate_launch` (CL-D120). The Issue Skill still told the
 // parent to compose payloads, hash `issue_spec`, check the target kind, read results and draft the status block on
-// that round; each such passage now names the driver or helper that owns it, or is scoped to the candidate phase.
+// that round; each such passage now names the driver or helper that owns it. #310 (CL-D123) later retired the candidate
+// phase the passages were once scoped against, so each now names its owner alone.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -16,12 +17,11 @@ const read = (file) => fs.readFileSync(path.join(ROOT, file), 'utf8');
 
 const OWNED = [
   ['role-authority blocks', 'Packaged `build_gate_launch` copies exactly one of these owning-root blocks verbatim into each Issue gate payload (CL-D120):'],
-  ['payload composition', 'On every Issue route, ordinary Sol/Terra, candidate rereview Sol/Terra, and every CL-D32 post-decision rereview route, `build_gate_launch` composes the shared Every-gate invariant payload block verbatim, for Sol the Sol-only adversarial block too, the role-authority block and the volatile envelope; Terra never receives the Sol-only block, and on the review-and-draft round the packaged Issue driver calls it (CL-D122).'],
+  ['payload composition', 'For every Issue gate, `build_gate_launch` composes the shared Every-gate invariant payload block verbatim, for Sol the Sol-only adversarial block too, the role-authority block and the volatile envelope; Terra never receives the Sol-only block, and the packaged Issue driver calls it (CL-D122).'],
   ['target kind', 'On the review-and-draft round, the driver makes this check and refuses the target before any run (CL-D122).'],
-  ['issue_spec by hand', 'The packaged Issue driver computes `issue_spec` on the review-and-draft round (CL-D122). In the candidate phase, use `LC_ALL=C`'],
-  ['issue_spec recompute', 'Outside the CL-D31 candidate-publication phase, the driver recomputes `issue_spec` before Terra and at readiness, and a change stops the round at `BLOCKED` (CL-D122); a fresh run reruns both gates.'],
-  ['result reading', 'On the review-and-draft round, the driver reads every result and owns its one relaunch (CL-D122).'],
-  ['status block', 'Before candidate construction and otherwise outside the CL-D31 candidate-publication phase, the driver drafts the legacy block below whenever its round stops (CL-D122).'],
+  ['issue_spec', 'The packaged Issue driver computes `issue_spec`, recomputes it before Terra and at readiness, and stops the round at `BLOCKED` when it changes (CL-D122); a fresh run reruns both gates.'],
+  ['result reading', 'The driver reads every result and owns its one relaunch (CL-D122)'],
+  ['status block', 'The driver drafts the block below whenever its round stops (CL-D122).'],
 ];
 // The parent instructions those passages replace.
 const RETIRED = [

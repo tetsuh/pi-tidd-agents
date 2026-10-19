@@ -138,9 +138,10 @@ test('Issue #34 no shared prose forks and no shared sentence gains a mode except
     assert.doesNotMatch(text, /CL-D39/, `${file} must not carry the mode-specific recovery decision`);
     assert.doesNotMatch(text, /exact autofix[^.]*recover/i, `${file} must not gain an autofix exception`);
   }
-  // The other two modes keep their own rule, untouched and unqualified (#249 B2, CL-D113: review-only's is the driver's relaunch).
+  // The other two modes keep their own rule, untouched and unqualified (#249 B2, CL-D113: review-only's is the driver's relaunch;
+  // #310, CL-D123: the Issue root's is its driver's too).
   const issue = readText(ISSUE_SKILL);
-  assert.match(issue, /retry the invocation once, and if it fails again report `BLOCKED`/, `${ISSUE_SKILL} must keep its existing single retry`);
+  assert.match(issue, /The driver reads every result and owns its one relaunch \(CL-D122\)/, `${ISSUE_SKILL} must keep its driver's single relaunch`);
   assert.doesNotMatch(issue, /CL-D39/, `${ISSUE_SKILL} must not be conditionalised by the autofix decision`);
   const phases = readText(REVIEW_DRIVER_PHASES);
   assert.match(phases, /is relaunched once without spending a round/, `${REVIEW_DRIVER_PHASES} must keep its single relaunch`);

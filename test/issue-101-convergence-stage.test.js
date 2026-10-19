@@ -163,14 +163,9 @@ test('Issue #101 the pull-request root runs convergence before the adversarial g
   assert.doesNotMatch(issue, /tidd-convergence-reviewer|convergence stage \(CL-D62\)|restarts at convergence|convergence review|convergence, Sol|convergence\|/);
   assert.match(issue, /specification → tidd-adversarial-reviewer gate → disposition\/revision → Sol MERGE → tidd-drift-reviewer gate/);
   assert.match(issue, /The fixed review order is Sol-before-Terra\./);
-  assert.match(issue, /a candidate-changing Sol or Terra finding/);
-  assert.match(issue, /after both formal gates merge the same frozen object/);
   assert.match(issue, /only when both formal gates returned `MERGE` against the current `issue_spec`/);
-  assert.match(issue, /grants no mutation before the mandatory unchanged Sol then Terra sequence/);
-  assert.match(issue, /After the exact affirmative response, Sol must re-review the unchanged candidate containing the decision, and Terra starts only after Sol returns `MERGE`/);
-  assert.match(issue, /before every physical Sol or Terra launch/);
-  assert.match(issue, /construct\/freeze the bundle, Sol reviews the complete unchanged object/);
-  assert.match(issue, /once its unchanged Sol and Terra gates match/);
+  // #310 (CL-D123) retired the candidate routes whose Sol-then-Terra sequences these lines pinned.
+  assert.doesNotMatch(issue, /exact affirmative response|frozen object|construct\/freeze the bundle/);
   assert.match(issue, /active_gate: <sol\|terra\|none>/);
   assert.match(issue, /rounds: sol <used>\/3, terra <used>\/3/);
   assert.match(issue, /resolved: <role provider\/model:thinking, one per role that ran>/);
@@ -240,9 +235,7 @@ test('Issue #101 the README documents the role, its default, the self-review cav
   assert.doesNotMatch(readme, /uses four roles/);
   // ADV-109-README-RESTARTS-AT-SOL / ADV-109-README-AUTOFIX-RESTARTS-AT-SOL (Sol envelopes at b843485 that the
   // parent failed to read): the README route summaries and both autofix restart sentences name convergence.
-  assert.match(readme, /a complete candidate is reviewed by Sol, then Terra before the Skill shows one exact frozen preview/);
   assert.match(readme, /Every push restarts at convergence, then Sol\./);
-  assert.match(readme, /then the mandatory Sol rereview and Terra review occur in that order\./);
   assert.match(readme, /Every successful push invalidates prior approvals and restarts at convergence, then Sol\./);
   assert.doesNotMatch(readme, /restarts? at Sol\b/, 'no README route may restart at Sol');
   // ADV-109-README-PREFLIGHT-OVERRIDE-OMITS-CONVERGENCE: the per-command preflight lists and the
@@ -282,10 +275,7 @@ test('Issue #101 CL-D62 records the stage and widens CL-D1, CL-D22, and CL-D60',
   assert.match(regressions, /restart: 'convergence'/);
   assert.match(regressions, /observation\.gate !== 'sol' && observation\.gate !== 'convergence'/, 'the reference no-progress history counts convergence observations');
   assert.doesNotMatch(regressions, /restart: 'sol'|newActionableEvidence \? 'sol'|newActionableEvidence\) return 'sol'/);
-  const candidate = readText('test/issue-candidate-publication.test.js');
-  assert.match(candidate, /next: 'convergence', accepted: true/);
-  assert.doesNotMatch(candidate, /return \{ rounds, next: 'sol', accepted: true \};\n  return \{ rounds, next: 'stop'/, 'a correction never returns directly to Sol');
-  assert.match(sectionOf(contract, '## CL-D32 — Scope-freeze approval stays inside the candidate transaction'), /CL-D62 later placed the convergence stage before the mandatory unchanged Sol then Terra rereview/);
+  assert.match(sectionOf(contract, '## CL-D32 — Scope-freeze approval stays inside the candidate transaction (historical; retired by CL-D123)'), /CL-D62 later placed the convergence stage before the mandatory unchanged Sol then Terra rereview/);
   assert.match(sectionOf(contract, '## CL-D1 — Gate verdicts are supplied by the caller, not by agent files'), /CL-D62 later added the convergence role file under its own widening/);
   assert.match(sectionOf(contract, '## CL-D22 — Closed-loop model requirements and preflight'), /CL-D62 later added the non-authoritative `tidd-convergence-reviewer`/);
   assert.match(sectionOf(contract, '## CL-D60 — Gate identities name workflow functions; schema version 2'), /CL-D62 later added the `convergence` identity under its own decision/);

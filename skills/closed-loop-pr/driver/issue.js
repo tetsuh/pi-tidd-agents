@@ -1,10 +1,10 @@
 'use strict';
 
-// CL-D122 (#306): the packaged Issue review driver. It runs one Issue's review-and-draft round before CL-D31 candidate
-// construction: Sol, then Terra (CL-D121), each composed and read through the packaged helpers, and leaves the parent
+// CL-D122 (#306): the packaged Issue review driver. It runs one Issue's review-and-draft round:
+// Sol, then Terra (CL-D121), each composed and read through the packaged helpers, and leaves the parent
 // the `subagent` call it prints. It is lighter than the pull-request round by the owner's choice: the gates' required
 // evidence is the Issue's own two identities, the snapshot is read once, and the round stops at the first open
-// finding. It publishes nothing; candidate construction and publication stay the Skill's prose.
+// finding. It publishes nothing, and the Issue root has no publication route (CL-D123).
 //
 //   node issue.js start  --issue N [--repo owner/name] [--checkout DIR] [--run-dir DIR] [--language-profile P]
 //   node issue.js result --run-dir DIR --run-id ID
@@ -79,7 +79,7 @@ class IssueRun extends Run {
     const file = path.join(dir, 'issue-review.md');
     fs.writeFileSync(file, body, { mode: 0o600, flag: 'wx' });
     s.statusBlock = block; s.draft = file; this.save();
-    process.stdout.write(`FINISHED comment=${file}\nThe draft is local and nothing was published; the Issue root posts nothing outside CL-D31.\n${block}\n`);
+    process.stdout.write(`FINISHED comment=${file}\nThe draft is local and nothing was published; the Issue root posts nothing (CL-D123).\n${block}\n`);
   }
 }
 

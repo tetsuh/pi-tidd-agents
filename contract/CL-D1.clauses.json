@@ -43,17 +43,13 @@
     {
       "id": "CL-D1-issue-retry",
       "marker": "CL-D1",
-      "title": "Issue malformed-verdict retry and CL-D32 expiry remain workflow-specific",
-      "section": "### Issue malformed-verdict boundary (CL-D1, CL-D32)",
+      "title": "The Issue driver owns the malformed-verdict relaunch",
+      "section": "### Issue malformed-verdict boundary (CL-D1)",
       "files": [
         "skills/closed-loop-issue/SKILL.md"
       ],
       "requires": [
-        "Only under ordinary CL-D31 rules",
-        "retry the invocation once",
-        "if it fails again report `BLOCKED`",
-        "Under CL-D32",
-        "expire the combined approval"
+        "The driver reads every result and owns its one relaunch (CL-D122); a result it still cannot read after that relaunch, or one it may not relaunch, stops the round at `BLOCKED`."
       ]
     }
   ]
