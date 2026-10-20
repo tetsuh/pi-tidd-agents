@@ -20,8 +20,6 @@ const { spawnSync } = require('node:child_process');
 const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 const { readText, readContract, sectionOf, parseFrontmatter, exists, readManifest, issueCorrelationOf, issueBound } = require('./helpers');
-// The convergence stage runs once per candidate identity (CL-D62), so the Issue fixture reviews one (CL-D120).
-const CANDIDATE = 'f'.repeat(64);
 
 const CLI = path.join(__dirname, '..', 'skills', 'closed-loop-pr', 'helpers', 'cli.js');
 const OID = 'a'.repeat(40);
@@ -33,7 +31,7 @@ function cli(operation, data) {
   return JSON.parse(run.stdout);
 }
 function correlation(gate, root = 'pr') {
-  if (root === 'issue') return issueCorrelationOf(correlation(gate), { candidateIdentity: CANDIDATE });
+  if (root === 'issue') return issueCorrelationOf(correlation(gate));
   return {
     repository: 'tetsuh/pi-tidd-agents', number: 101, baseOid: 'b'.repeat(40),
     headRepository: 'tetsuh/pi-tidd-agents', headBranch: 'feat/issue-101-convergence-stage',
@@ -53,7 +51,7 @@ function expectation(workflow, gate) {
   return { workflow, correlation: correlation(gate, workflow), assignedFindings: [], requiredEvidence: [{ source: 'CONTRACT.md', kind: 'file', identity: SHA }] };
 }
 function fresh(findingId, root) {
-  if (root === 'issue') return issueBound({ ...fresh(findingId, 'pr'), workflowRecord: { candidateIdentity: CANDIDATE, revisedPassage: 'revised', snapshotAssignment: 'snapshot-1' } });
+  if (root === 'issue') return issueBound({ ...fresh(findingId, 'pr'), workflowRecord: { revisedPassage: 'revised', snapshotAssignment: 'snapshot-1' } });
   return {
     findingId, origin: 'fresh', gate: 'convergence', headOid: OID, raisedAgainstFingerprint: SHA,
     severity: 'Minor', anchoring: 'criterion-anchored', anchor: 'AC-TESTS', proposedDisposition: 'fixed',

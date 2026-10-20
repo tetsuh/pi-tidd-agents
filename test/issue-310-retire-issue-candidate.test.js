@@ -3,8 +3,8 @@
 // Issue #310 (CL-D123), step 4 of #190. The verification of step 3 found that no packaged launch could carry a CL-D31
 // candidate bundle, and the owner retired the route instead of extending the builder
 // (issues/190#issuecomment-6252295881): a gate finding stops the round, the owner revises the Issue, and a fresh run
-// reviews it. The Issue root publishes nothing, CL-D31 and CL-D32 are history, and `candidateIdentity` stays in the
-// schemas, unset on the Issue root.
+// reviews it. The Issue root publishes nothing, and CL-D31 and CL-D32 are history. #312 (CL-D124) later removed
+// `candidateIdentity` from the version-2 Issue schema.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -24,7 +24,6 @@ test('Issue #310 the Issue Skill has no candidate route and publishes nothing', 
   assert.ok(skill.includes('`/tidd-issue` is review-and-draft only: it never edits the Issue or posts to GitHub (CL-D123).'));
   assert.ok(skill.includes('When a round stops, the owner revises the Issue, and a fresh run reviews the revised text.'));
   assert.ok(skill.includes('Its `publication_grant` field is always `not-applicable`: the Issue root grants no publication (CL-D123).'));
-  assert.ok(skill.includes('The Issue root never sets `candidateIdentity` (CL-D123).'));
   // 34,904 bytes at ecec912, the merge of PR #309.
   assert.ok(fs.statSync(path.join(ROOT, SKILL)).size <= 34904 - 18000);
 });
@@ -59,11 +58,7 @@ test('Issue #310 the shared references, the README and the driver describe no Is
   assert.ok(driver.includes('the Issue root posts nothing (CL-D123).'));
 });
 
-test('Issue #310 candidateIdentity stays in the schemas, and CL-D123 records the decision', () => {
-  const { ISSUE_SCHEMA } = require('../skills/closed-loop-pr/helpers/gate-result');
-  const corr = ISSUE_SCHEMA.properties.correlation;
-  assert.ok(Object.hasOwn(corr.properties, 'candidateIdentity'));
-  assert.equal(corr.required.includes('candidateIdentity'), false);
+test('Issue #310 CL-D123 records the decision', () => {
   const record = read('contract/CL-D123.md');
   assert.match(record, /^## CL-D123 — The Issue root has no candidate publication route\n\*\*Clauses:\*\* CL-D123-record, CL-D123-skill\n/);
   assert.match(record, /issues\/190#issuecomment-6252295881/);

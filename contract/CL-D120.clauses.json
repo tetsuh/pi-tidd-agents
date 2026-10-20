@@ -26,7 +26,7 @@
         "const ISSUE_CORR_REQ = words('repository number lifecycle gate invocation contractInput snapshotFingerprint issueSpec');",
         "const ROOT_SCHEMAS = { 1: { pr: SCHEMAS[1], issue: SCHEMAS[1] }, 2: { pr: SCHEMA, issue: ISSUE_SCHEMA } };",
         "check(ROOT_SCHEMAS[version][root], v);",
-        "(issue ? r.candidateIdentity !== corr.candidateIdentity : !r.candidateIdentity)",
+        "(!issue && !r.candidateIdentity)",
         "bind = issue ? 'issueSpec' : 'headOid'"
       ]
     },
@@ -76,7 +76,7 @@
       ],
       "requires": [
         "Under envelope schema version 2 each root has its own closed correlation (CL-D120).",
-        "a finding or confirmation binds to its gate by `issueSpec`, and an Issue record names the candidate identity exactly when the correlation does",
+        "a finding or confirmation binds to its gate by `issueSpec`, and an Issue record names no candidate",
         "Each role's schema covers the roots its gate reviews: the pull-request one, the Issue one, or both (CL-D120)."
       ]
     }

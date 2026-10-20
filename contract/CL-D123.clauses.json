@@ -24,7 +24,7 @@
       "requires": [
         "`/tidd-issue` is review-and-draft only: it never edits the Issue or posts to GitHub (CL-D123).",
         "When a round stops, the owner revises the Issue, and a fresh run reviews the revised text.",
-        "The Issue root never sets `candidateIdentity` (CL-D123).",
+        "The Issue correlation and finding record have no candidate field (CL-D124).",
         "Its `publication_grant` field is always `not-applicable`: the Issue root grants no publication (CL-D123)."
       ]
     }

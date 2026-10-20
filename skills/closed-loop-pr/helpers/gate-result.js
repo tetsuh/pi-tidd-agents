@@ -42,12 +42,12 @@ const findingBase = (gate) => closed({ ...fields('findingId blockerKey anchor pr
 // can emit, so decoding cannot produce a finding the validator refuses for them. The local check keeps reading the
 // base shape (LOOSE), and checkFindings still states the rules with their own codes.
 const LOOSE = new WeakMap();
-// #190 (CL-D120): version 2's Issue root has its own correlation, with no pull-request field: `candidateIdentity` only
-// while a candidate is under review, and an Issue finding or confirmation binds to its gate by `issueSpec`, not `headOid`.
+// #190 (CL-D120): version 2's Issue root has its own correlation, with no pull-request field and no candidate (CL-D124),
+// and an Issue finding or confirmation binds to its gate by `issueSpec`, not `headOid`.
 const ISSUE_CORR_REQ = words('repository number lifecycle gate invocation contractInput snapshotFingerprint issueSpec');
 const issueCorr = (gate) => closed({ repository: NWO, number: { type: 'integer', minimum: 1 }, lifecycle: choice(words('open closed')),
-  gate, invocation: { type: 'integer', minimum: 1 }, contractInput: SHA256, snapshotFingerprint: SHA256, issueSpec: SHA256, candidateIdentity: SHA256 }, ISSUE_CORR_REQ);
-const ISSUE_RECORD = closed({ ...fields('revisedPassage snapshotAssignment'), candidateIdentity: SHA256 }, ['snapshotAssignment']);
+  gate, invocation: { type: 'integer', minimum: 1 }, contractInput: SHA256, snapshotFingerprint: SHA256, issueSpec: SHA256 }, ISSUE_CORR_REQ);
+const ISSUE_RECORD = closed(fields('revisedPassage snapshotAssignment'), ['snapshotAssignment']);
 const ISSUE_FINDING_REQ = FINDING_REQ.map((key) => (key === 'headOid' ? 'issueSpec' : key));
 const issueFindingBase = (gate) => {
   const { headOid: _omit, ...properties } = findingBase(gate).properties;
@@ -142,7 +142,7 @@ function expectedState(e, version = 2) {
   return new Map(a.map((x) => [x.findingId, x.blockerKey]));
 }
 function checkCorrelation(a, e, issue) {
-  for (const k of issue ? [...ISSUE_CORR_REQ, 'candidateIdentity'] : CORR_REQ) if (a[k] !== e[k]) fail('correlation_mismatch', `${k} mismatch`);
+  for (const k of issue ? ISSUE_CORR_REQ : CORR_REQ) if (a[k] !== e[k]) fail('correlation_mismatch', `${k} mismatch`);
 }
 // Required and attested entries match by source and kind (CL-D69).
 const evidenceKey = (x) => JSON.stringify([x.source, x.kind]);
@@ -172,11 +172,11 @@ function checkEvidence(v, req, adversarialGate) {
 }
 const ISSUE = words('candidateIdentity revisedPassage snapshotAssignment');
 const PR_REQ = words('sourceKind sourceId observedHeadOid fingerprint semanticFingerprint authorIdentity authorType');
-function checkWorkflowRecord(x, root, corr, issue) {
+function checkWorkflowRecord(x, root, issue) {
   const bad = (m) => fail('finding_records_invalid', `${x.findingId}: ${m}`), r = x.workflowRecord;
   if (root === 'issue') {
-    // Version 1 keeps its rule; under version 2 the record names the candidate exactly when the correlation does.
-    if (Object.keys(r).some((k) => !ISSUE.includes(k)) || !r.snapshotAssignment || (issue ? r.candidateIdentity !== corr.candidateIdentity : !r.candidateIdentity)) bad('Issue record');
+    // Version 1 keeps its rule, a candidate on every Issue record; version 2's closed record has no candidate (CL-D124).
+    if (Object.keys(r).some((k) => !ISSUE.includes(k)) || !r.snapshotAssignment || (!issue && !r.candidateIdentity)) bad('Issue record');
     if (x.proposedDisposition === 'fixed' && !r.revisedPassage) bad('revised passage');
     return;
   }
@@ -205,7 +205,7 @@ function checkFindings(findings, corr, assigned, prefix, root, issue) {
       if (!x.findingId.startsWith(prefix) || !/^[A-Z0-9._-]+$/.test(x.findingId.slice(prefix.length))) bad(`${x.findingId}: namespace`);
       if (x.blockerKey) bad(`${x.findingId}: fresh blockerKey`);
     }
-    checkWorkflowRecord(x, root, corr, issue);
+    checkWorkflowRecord(x, root, issue);
   }
   for (const id of assigned.keys()) if (!findings.some((x) => x.findingId === id && x.origin === 'assigned')) fail('confirmation_records_invalid', `result omits assigned finding ${id}`);
 }

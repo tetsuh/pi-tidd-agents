@@ -17,7 +17,7 @@ const helpers = require('../skills/closed-loop-pr/helpers');
 const gateResult = require('../skills/closed-loop-pr/helpers/gate-result');
 const { readText, readContract, sectionOf, readManifest, issueCorrelationOf, ISSUE_SPEC } = require('./helpers');
 
-const OID = 'a'.repeat(40), SHA = '1'.repeat(64), CANDIDATE = 'f'.repeat(64);
+const OID = 'a'.repeat(40), SHA = '1'.repeat(64);
 const RUN = '19019019-0190-4190-8190-190190190190';
 const temp = (prefix) => fs.mkdtempSync(path.join(os.tmpdir(), prefix));
 const digest = (value) => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -40,7 +40,7 @@ function issueFinding(correlation, over = {}) {
     findingId: 'ADV-190-SHAPE', origin: 'fresh', gate: correlation.gate, issueSpec: correlation.issueSpec, raisedAgainstFingerprint: SHA,
     severity: 'Major', anchoring: 'criterion-anchored', anchor: 'AC1', proposedDisposition: 'fixed',
     evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 'pending',
-    workflowRecord: { revisedPassage: 'revised', snapshotAssignment: 'snapshot A', ...(correlation.candidateIdentity ? { candidateIdentity: correlation.candidateIdentity } : {}) },
+    workflowRecord: { revisedPassage: 'revised', snapshotAssignment: 'snapshot A' },
     ...over,
   };
 }
@@ -65,7 +65,7 @@ test('Issue #190 the pull-request schema keeps its bytes, and version 1 is uncha
 
 test('Issue #190 the Issue correlation is closed and names no pull-request field', () => {
   const corr = gateResult.correlationSchema('issue');
-  assert.deepEqual(Object.keys(corr.properties).sort(), ['candidateIdentity', 'contractInput', 'gate', 'invocation', 'issueSpec', 'lifecycle', 'number', 'repository', 'snapshotFingerprint']);
+  assert.deepEqual(Object.keys(corr.properties).sort(), ['contractInput', 'gate', 'invocation', 'issueSpec', 'lifecycle', 'number', 'repository', 'snapshotFingerprint']);
   assert.deepEqual([...corr.required].sort(), ['contractInput', 'gate', 'invocation', 'issueSpec', 'lifecycle', 'number', 'repository', 'snapshotFingerprint']);
   assert.equal(corr.additionalProperties, false);
   assert.deepEqual(corr.properties.lifecycle.enum, ['open', 'closed']);
@@ -73,7 +73,7 @@ test('Issue #190 the Issue correlation is closed and names no pull-request field
   assert.equal(gateResult.correlationSchema('pr'), gateResult.SCHEMA.properties.correlation);
   const issue = gateResult.ISSUE_SCHEMA;
   assert.deepEqual(issue.properties.confirmations.items.required, ['findingId', 'gate', 'issueSpec', 'confirmation', 'evidence']);
-  assert.deepEqual(Object.keys(issue.properties.findings.items.anyOf[0].properties.workflowRecord.properties).sort(), ['candidateIdentity', 'revisedPassage', 'snapshotAssignment']);
+  assert.deepEqual(Object.keys(issue.properties.findings.items.anyOf[0].properties.workflowRecord.properties).sort(), ['revisedPassage', 'snapshotAssignment']);
   assert.deepEqual(issue.properties.findings.items.anyOf[0].properties.workflowRecord.required, ['snapshotAssignment']);
 });
 
@@ -103,37 +103,30 @@ test('Issue #190 each gate role declares the schema of the roots its gate review
   assert.deepEqual([...readText('skills/closed-loop-pr/helpers/builders.js').matchAll(/\bcheckSchema\(([^,]+),/g)].map((m) => m[1]), ['correlationSchema(data.workflow)']);
 });
 
-test('Issue #190 an Issue result validates with the Issue\'s own correlation, before and during a candidate', () => {
+test('Issue #190 an Issue result validates with the Issue\'s own correlation', () => {
   for (const gate of ['adversarial', 'decision-drift']) {
-    for (const corr of [issueCorrelation(gate), issueCorrelation(gate, { candidateIdentity: CANDIDATE })]) {
-      const clean = gateResult.validateGateResult(envelope(corr), expectation('issue', corr));
-      assert.equal(clean.ok, true, `${gate}: ${JSON.stringify(clean.error)}`);
-      const id = `${{ adversarial: 'ADV', 'decision-drift': 'DRIFT' }[gate]}-190-SHAPE`;
-      const found = gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { findingId: id })), expectation('issue', corr));
-      assert.equal(found.ok, true, `${gate} finding: ${JSON.stringify(found.error)}`);
-    }
+    const corr = issueCorrelation(gate);
+    const clean = gateResult.validateGateResult(envelope(corr), expectation('issue', corr));
+    assert.equal(clean.ok, true, `${gate}: ${JSON.stringify(clean.error)}`);
+    const id = `${{ adversarial: 'ADV', 'decision-drift': 'DRIFT' }[gate]}-190-SHAPE`;
+    const found = gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { findingId: id })), expectation('issue', corr));
+    assert.equal(found.ok, true, `${gate} finding: ${JSON.stringify(found.error)}`);
   }
 });
 
 test('Issue #190 an Issue result naming a pull-request field, or another Issue identity, is refused', () => {
-  const corr = issueCorrelation('adversarial', { candidateIdentity: CANDIDATE });
+  const corr = issueCorrelation('adversarial');
   const e = expectation('issue', corr);
   for (const field of ['baseOid', 'headOid', 'headBranch', 'headRepository', 'draft']) {
     refused(gateResult.validateGateResult(envelope({ ...corr, [field]: prCorrelation('adversarial')[field] }), e), 'unknown_field', new RegExp(`correlation: unknown ${field}`));
   }
-  // The candidate is named exactly when the expectation names it, both ways.
-  const { candidateIdentity: _omit, ...pre } = corr;
-  refused(gateResult.validateGateResult(envelope(pre), e), 'correlation_mismatch', /candidateIdentity mismatch/);
-  refused(gateResult.validateGateResult(envelope(corr), expectation('issue', pre)), 'correlation_mismatch', /candidateIdentity mismatch/);
   refused(gateResult.validateGateResult(envelope({ ...corr, issueSpec: '2'.repeat(64) }), e), 'correlation_mismatch', /issueSpec mismatch/);
   refused(gateResult.validateGateResult(envelope({ ...corr, lifecycle: 'merged' }), e), 'unknown_enum');
-  // A finding binds by issueSpec, never headOid, and its record names this candidate.
+  // A finding binds by issueSpec, never headOid, and its record names no candidate (CL-D124).
   refused(gateResult.validateGateResult(withFinding(corr, { ...issueFinding(corr), headOid: OID }), e), 'unknown_field', /unknown headOid/);
   refused(gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { issueSpec: '2'.repeat(64) })), e), 'finding_records_invalid', /gate\/head mismatch/);
-  refused(gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { workflowRecord: { revisedPassage: 'r', snapshotAssignment: 's', candidateIdentity: '3'.repeat(64) } })), e), 'finding_records_invalid', /Issue record/);
-  refused(gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { workflowRecord: { revisedPassage: 'r', snapshotAssignment: 's' } })), e), 'finding_records_invalid', /Issue record/);
-  refused(gateResult.validateGateResult(withFinding(pre, issueFinding(pre, { workflowRecord: { revisedPassage: 'r', snapshotAssignment: 's', candidateIdentity: CANDIDATE } })), expectation('issue', pre)), 'finding_records_invalid', /Issue record/);
-  refused(gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { workflowRecord: { revisedPassage: 'r', candidateIdentity: CANDIDATE } })), e), 'schema_invalid', /snapshotAssignment/);
+  refused(gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { workflowRecord: { revisedPassage: 'r', snapshotAssignment: 's', candidateIdentity: '3'.repeat(64) } })), e), 'unknown_field', /unknown candidateIdentity/);
+  refused(gateResult.validateGateResult(withFinding(corr, issueFinding(corr, { workflowRecord: { revisedPassage: 'r' } })), e), 'schema_invalid', /snapshotAssignment/);
   // A pull-request result is refused on the Issue root, and an Issue result on the pull-request root.
   refused(gateResult.validateGateResult(envelope(prCorrelation('adversarial')), e), 'unknown_field');
   refused(gateResult.validateGateResult(envelope(corr), expectation('pr', prCorrelation('adversarial'))), 'unknown_field');

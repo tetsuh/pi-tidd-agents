@@ -1,0 +1,53 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D124-record",
+      "marker": "CL-D124",
+      "title": "CL-D124 records the removal of the Issue candidate field",
+      "files": [
+        "contract/CL-D124.md"
+      ],
+      "requires": [
+        "Version 2's Issue correlation and Issue finding record declare no `candidateIdentity`",
+        "Version 1 keeps its rule: its Issue finding record still requires a candidate identity.",
+        "The version-2 pull-request finding record keeps its schema; its validator already refuses `candidateIdentity`."
+      ]
+    },
+    {
+      "id": "CL-D124-schema",
+      "marker": "CL-D124",
+      "title": "The version-2 Issue schema declares no candidate",
+      "files": [
+        "skills/closed-loop-pr/helpers/gate-result.js"
+      ],
+      "requires": [
+        "issueSpec: SHA256 }, ISSUE_CORR_REQ);",
+        "const ISSUE_RECORD = closed(fields('revisedPassage snapshotAssignment'), ['snapshotAssignment']);",
+        "for (const k of issue ? ISSUE_CORR_REQ : CORR_REQ)"
+      ]
+    },
+    {
+      "id": "CL-D124-skill",
+      "marker": "CL-D124",
+      "title": "The Issue Skill names no version-2 Issue candidate",
+      "files": [
+        "skills/closed-loop-issue/SKILL.md"
+      ],
+      "requires": [
+        "The Issue correlation and finding record have no candidate field (CL-D124)."
+      ]
+    },
+    {
+      "id": "CL-D124-contract",
+      "marker": "CL-D124",
+      "title": "The gate contract names no version-2 Issue candidate",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "Issue records carry only candidate identity, fixed revised passage, and snapshot assignment under version 1; under version 2 they carry no candidate identity (CL-D124).",
+        "The Issue correlation names none of them and no candidate (CL-D124); it carries `issueSpec`, a finding or confirmation binds to its gate by `issueSpec`, and an Issue record names no candidate."
+      ]
+    }
+  ]
+}
