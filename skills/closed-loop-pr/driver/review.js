@@ -19,6 +19,13 @@ const { gateLabel: label, bindTarget, guard, readIssue, earlierRounds, trustedCo
 const GATES = ['convergence', 'adversarial', 'safety'];
 const ROUND_CAP = 3; // CL-D11
 const CONTRACT_INPUT_FILES = ['skills/closed-loop-pr/SKILL.md', 'skills/closed-loop-shared/references/gate-contract.md', 'skills/closed-loop-shared/references/records.md'];
+// The gates whose verdict stands as MERGE, for the MERGE_READY reason: a gate whose findings are all recorded, or a
+// convergence whose MERGE an external-snapshot change cleared, is not named (#314).
+function standing(s) {
+  const names = GATES.filter((g) => s.verdicts[g] === 'MERGE').map((g) => ({ convergence: 'convergence', adversarial: 'Sol', safety: 'Terra' })[g]);
+  if (!names.length) return 'every gate\'s findings are recorded';
+  return `${names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names.at(-1)}` : names[0]} returned MERGE`;
+}
 function rounds(s) { return GATES.map((g) => (g === 'convergence' && s.convergenceDisabled ? 'convergence disabled' : `${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`)).join(', '); }
 
 function start(opts) {
@@ -160,7 +167,7 @@ function finalReadiness(run) {
   s.resumeCommand = `node ${__filename} resume --run-dir ${run.dir}`;
   finalPolicy(run, snapshot, 'wait, then resume this run with review.js resume, as the operator report shows');
   s.invalidated = null;
-  run.stop('MERGE_READY', `${s.convergenceDisabled ? 'convergence was disabled; Sol and Terra' : 'convergence, Sol and Terra'} returned MERGE on the unchanged head; the final policy passes`);
+  run.stop('MERGE_READY', `${s.convergenceDisabled ? 'convergence was disabled; ' : ''}${standing(s)} on the unchanged head; the final policy passes`);
 }
 
 // CL-D13: a stopped run resumes only after every fingerprint is recomputed, never trusting recorded state; a
