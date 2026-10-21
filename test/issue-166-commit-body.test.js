@@ -51,6 +51,10 @@ test('Issue #166 the shape check accepts a bullet-list body and refuses prose, a
     `fix: measurements (#1)\n\n- RED: node --test test/x.test.js fails on the base\n- GREEN: node --test test/x.test.js passes\n\n${trailer}\nSigned-off-by: Someone <someone@example.com>\n`,
   ]) assert.equal(bodyShape(ok), null, JSON.stringify(ok));
   const bad = (message, line, reason) => { const r = bodyShape(message); assert.ok(r, JSON.stringify(message)); assert.equal(r.line, line, JSON.stringify(message)); assert.match(r.reason, reason); };
+  // CONV-318-EMPTY-SUBJECT: an empty or blank line 1 is no subject, which the subject-only case must not cover.
+  bad('', 1, /subject is empty/);
+  bad('\n\n- a claim\n', 1, /subject is empty/);
+  bad('   \n\n- a claim\n', 1, /subject is empty/);
   bad('fix: prose (#1)\n\nThe third line is prose.\n', 3, /not a bullet/);
   bad('fix: no blank line (#1)\n- a bullet on line 2\n', 2, /line 2 must be blank/);
   bad('fix: wrapped (#1)\n\n- a claim that wraps\n  onto a second line\n', 4, /not a bullet/);
