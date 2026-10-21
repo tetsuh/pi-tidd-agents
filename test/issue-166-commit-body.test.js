@@ -20,6 +20,7 @@ const BULLET = /^\s*- \S/;
 // null when the message follows the rule, else the first line that breaks it and why.
 function bodyShape(message) {
   const lines = String(message).replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+  if (!lines[0].trim()) return { line: 1, reason: 'the subject is empty' };
   // Trailers: the final block of `Key: value` lines after a blank line. The subject (`type: summary`) is never one.
   let end = lines.length;
   while (end > 1 && TRAILER.test(lines[end - 1])) end -= 1;
