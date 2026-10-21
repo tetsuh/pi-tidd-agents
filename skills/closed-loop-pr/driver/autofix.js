@@ -19,7 +19,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { isUtf8 } = require('node:buffer');
 const { OPERATOR_CONFIG, Run, headFingerprints, targetMoved, roleLabel, ignoredInventory, ROLE, LANGUAGE_PROFILE, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
-const { gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
+const { gateLabel, ignoredDrift, readyGates, markCleared, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
 const { authorizedPaths } = require('./paths');
@@ -163,7 +163,8 @@ function arm(run, gate) {
   const evidence = recheck(run);
   if (!isUtf8(Buffer.from(evidence.diff))) end(run, 'BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly');
   // New external evidence restarts the sequence (ADV-208-SNAPSHOT-CAP).
-  if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s))) { s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; return arm(run, restartAt(s)); }
+  if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s))) { s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; markCleared(s); return arm(run, restartAt(s)); }
+  if (s.snapshotChanged) markCleared(s); // a change seen with convergence at its cap restarts nothing, yet clears it
   const requiredEvidence = s.requiredEvidence, fp = s.fingerprints;
   run.op('required_evidence_check', { cwd: s.workspace, requiredEvidence });
   s.invocations[gate] = (s.invocations[gate] || 0) + 1;
@@ -244,7 +245,7 @@ function authorized(run, open) {
 function launchWriter(run, open, subject) {
   recheck(run);
   // ...and before any mutation (CONV-208-SNAPSHOT-STALE-WRITER).
-  if (collectSnapshotEvidence(run, run.state.workspace).fresh) { run.state.invalidated = 'every gate verdict: the external snapshot changed before the writer'; return arm(run, restartAt(run.state)); }
+  if (collectSnapshotEvidence(run, run.state.workspace).fresh) { run.state.invalidated = 'every gate verdict: the external snapshot changed before the writer'; markCleared(run.state); return arm(run, restartAt(run.state)); }
   const s = run.state, t = s.target, paths = authorized(run, open), ids = open.map((e) => e.findingId);
   const message = writerMessage(s, open, subject), task = writerTask(s, open, paths, SELF, run.dir);
   s.batch = { findings: ids, authorizedPaths: paths, message, parentHead: t.headOid, preEdit: false, done: false, launchedAt: Date.now() };
@@ -341,6 +342,7 @@ function finish(run) {
   recheck(run);
   const { snapshot, fresh } = collectSnapshotEvidence(run, s.workspace);
   s.activeGate = 'external';
+  if (fresh) markCleared(s);
   if (fresh) { s.invalidated = 'every gate verdict: the external snapshot changed at final readiness'; return arm(run, restartAt(s)); }
   finalPolicy(run, snapshot, 'wait for the checks on this head, then a fresh run');
   s.invalidated = null;

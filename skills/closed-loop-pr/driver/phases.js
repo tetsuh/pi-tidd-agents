@@ -182,7 +182,10 @@ function ignoredDrift(saved, cwd) {
   const now = ignoredInventory(cwd), drift = [...now.filter((x) => !saved.includes(x)), ...saved.filter((x) => !now.includes(x))];
   return drift.length ? drift.slice(0, 5).join(', ') : null;
 }
-// The gates that returned MERGE on the head the run ends on, by label, for the MERGE_READY reason.
-function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.head === head && g.verdict === 'MERGE').map((g) => gateLabel(g.gate)))].join(' and '); }
+// The gates that returned MERGE on the head the run ends on, by label, for the MERGE_READY reason; a MERGE a snapshot
+// change cleared does not count (#316).
+function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.head === head && g.verdict === 'MERGE' && !g.cleared).map((g) => gateLabel(g.gate)))].join(' and '); }
+// A snapshot change invalidates every gate verdict so far: the log keeps them, marked cleared (#316).
+function markCleared(s) { for (const g of s.gateLog) g.cleared = true; }
 
-module.exports = { TRUSTED, failure, gateLabel, ignoredDrift, readyGates, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
+module.exports = { TRUSTED, failure, gateLabel, ignoredDrift, readyGates, markCleared, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
