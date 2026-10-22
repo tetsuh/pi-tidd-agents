@@ -60,6 +60,31 @@
       "requires": [
         "A normal commit follows Conventional Commits, carries the issue number, and states test provenance in its body when covered behaviour changes."
       ]
+    },
+    {
+      "id": "CL-D25-commit-shape",
+      "marker": "CL-D25",
+      "title": "The record states the bullet-list shape of a commit body and where it is checked",
+      "files": [
+        "contract/CL-D25.md"
+      ],
+      "requires": [
+        "Its body is a bullet list (#166): line 1 is the subject, line 2 is blank, and every line from line 3 on is a bullet, one claim per bullet, with the RED and GREEN measurements as their own bullets, each naming its exact command; trailers stay as trailers after a blank line.",
+        "The driver's correction commits take that shape, and this repository's own non-merge commits are checked for it from 2026-09-27, the day after the last non-conforming body."
+      ]
+    },
+    {
+      "id": "CL-D25-commit-check",
+      "marker": "CL-D25",
+      "title": "This repository's commit bodies are checked from the day after the last non-conforming body",
+      "files": [
+        "test/issue-166-commit-body.test.js"
+      ],
+      "requires": [
+        "const CHECKED_FROM = '2026-09-27T00:00:00+09:00';",
+        "const BULLET = /^\\s*- \\S/;",
+        "const TRAILER = /^(?:Co-Authored-By|Claude-Session|Signed-off-by): /i;"
+      ]
     }
   ]
 }
