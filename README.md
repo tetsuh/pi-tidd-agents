@@ -6,10 +6,41 @@ TiDD means **Ticket-Driven Development** here: review the ticket, preserve its d
 
 This package is intentionally small. It does not define a TiDD standard and it does not automate an issue tracker: **no workflow is forced by default**, and an opt-in closed-loop workflow is available for teams that want one. Everything else is a handful of practical agent definitions for teams that already develop from tickets and pull requests.
 
+## Quick start
+
+Four steps take a pull request through one review round. Nothing is posted until you run the last one.
+
+1. Install the subagent runtime, then this package:
+
+```bash
+pi install npm:pi-subagents
+pi install git:github.com/tetsuh/pi-tidd-agents
+```
+
+2. Tell the driver how to validate the repository under review. Commit a `.tidd.json` at the repository root of the base branch; the driver reads it at the pull request's base commit, never at its head (the *Reference* section names the other sources):
+
+```json
+{"validate": [["node", "--test"]]}
+```
+
+3. Check out the pull request's head commit with a clean tree, then start a round. The pull request body must reference the Issue it serves (`Closes #N`), and that Issue must carry an *Acceptance criteria* section:
+
+```text
+/tidd-pr 42
+```
+
+4. Read the result. The round ends with a `FINISHED comment=` line, a status block, and two drafted files in a temporary directory outside the repository: `review-comment.md`, the comment bound to the reviewed head, and `publish-review.sh`, the one command that posts it. The driver never runs the publication script; it prints the exact command and you decide:
+
+```bash
+bash "<path>/publish-review.sh"
+```
+
+Every gate is read-only; file edits need the `autofix` token (see *Commands*).
+
 ## Requirements
 
 - Pi
-- [pi-subagents](https://github.com/nicobailon/pi-subagents) **0.70.0 or newer** (0.70.0 validated for this package)
+- [pi-subagents](https://github.com/nicobailon/pi-subagents) **0.70.0 or newer** (the test suite was run against pi-subagents 0.70.0 and 0.78.0)
 - Access to the model identifiers used by the selected agents
 
 Requirements differ between the two ways of using this package:
@@ -33,16 +64,18 @@ pi install npm:pi-subagents
 
 ## Installation
 
-Install from a local checkout:
+From this repository:
+
+```bash
+pi install git:github.com/tetsuh/pi-tidd-agents
+```
+
+Without a ref, `pi install git:` installs the default branch; append `@<tag>` to pin a release tag.
+
+From a local checkout:
 
 ```bash
 pi install ~/git/pi-tidd-agents
-```
-
-After the repository is published, it can also be installed from Git:
-
-```bash
-pi install git:github.com/<owner>/pi-tidd-agents
 ```
 
 ## Included agents
@@ -55,7 +88,67 @@ pi install git:github.com/<owner>/pi-tidd-agents
 | `tidd-autofix-worker` | `gpt-6-luna` | Bounded sole-writer implementation and correction work |
 | `tidd-convergence-reviewer` | `gpt-6-luna` | Read-only preliminary convergence review before the formal gates (non-authoritative) |
 
-## Simple usage
+## Commands
+
+The closed-loop workflow is opt-in. Installing the package starts nothing and changes nothing.
+
+```text
+/tidd-issue <issue-ref>
+/tidd-pr <pr-ref> [autofix]
+```
+
+The same workflows are available directly as skills when skill commands are enabled in your Pi settings:
+
+```text
+/skill:closed-loop-issue <issue-ref>
+/skill:closed-loop-pr <pr-ref> [autofix]
+```
+
+An explicit target is always required; the workflow never infers a pull request from the current branch.
+
+```text
+/tidd-pr 42 autofix
+```
+
+The exact token `autofix`, lowercase, is the only way to permit file edits. Anything else — `Autofix`, `--autofix`, an extra argument — stops with usage rather than quietly downgrading. The operator branch must already be checked out, but it is never the writer workspace and the workflow never switches it.
+
+Review-only is the default:
+
+```text
+/tidd-pr 42
+```
+
+Reviews the pull request without editing files, changing git state, committing, pushing, posting to GitHub, or touching any external service. Replies and patches are drafted for you to review, not published.
+
+`/tidd-issue` reviews an Issue the same way and publishes nothing; the *Reference* section states both rounds in full.
+
+## What a round produces
+
+The driver prints the `FINISHED comment=` report, then one JSON line with the final state and the run directory. The report carries both drafted paths, the body digest, the head the comment is bound to, the publication command, and the status block: a ```` ```tidd-status ```` fence with the target, the mode, the state, the fingerprints, the rounds, the findings and the next action.
+
+The states of a review-only round:
+
+| State | Meaning |
+| --- | --- |
+| `MERGE_READY` | The final policy passed on the reviewed head; the reason line names the gates whose `MERGE` stands, or says that every gate's findings are recorded. |
+| `WAITING_FOR_OWNER` | A gate returned findings or needs a decision, validation failed, external review threads are unresolved, or five earlier rounds ended without `MERGE_READY`; `next_action` in the block says what is yours. |
+| `ROUND_LIMIT_REACHED` | A formal gate used its three rounds. Autofix reaches this state on its own counters too: gate runs, pushes, and rounds without progress. |
+| `WAITING_EXTERNAL_REVIEW` | External review items are still pending; the report prints the resume command, and this is the one state a run resumes from. |
+| `BLOCKED` | A precondition failed before or during the round; nothing was reviewed past that point. |
+
+`BLOCKED` reasons you meet first, as the review driver prints them (`N`, `X` and `Y` stand for the values it names):
+
+```text
+the pull request is open (draft)
+the checkout is at X, not the public head Y
+the PR body names no `Closes #N` issue and no --issue was given
+issue #N has no Acceptance criteria section with at least one criterion
+the diff is not valid UTF-8, so no gate can receive it exactly
+```
+
+`no validation commands configured` in the status block means the driver found no validation source; the *Reference* section names the sources and what each mode does without one. A changed head after the round needs a fresh run; the publication script rechecks the head binding before it posts.
+
+## Standalone usage
 
 Ask Pi to delegate in ordinary language:
 
@@ -69,7 +162,7 @@ Use tidd-autofix-worker to implement Issue #18 and create a pull request.
 
 For a typical Issue-to-pull-request workflow, use the following sequence.
 
-## Typical TiDD flow
+### Typical TiDD flow
 
 | Stage | Agent | Example prompt |
 | --- | --- | --- |
@@ -82,6 +175,26 @@ For a typical Issue-to-pull-request workflow, use the following sequence.
 | Address approved pull request findings | `tidd-autofix-worker` | `Use tidd-autofix-worker to address the approved findings on PR #42 and push the fixes.` |
 
 The reviewer roles remain read-only. The parent Pi session is responsible for any requested issue or pull-request comment.
+
+### Worker permissions
+
+Workers can edit files and run tests, but they do not commit, push, create branches or pull requests, rewrite history, post to GitHub, or resolve review threads unless the delegated task explicitly authorizes the relevant action.
+
+For example:
+
+```text
+Use tidd-autofix-worker to implement Issue #18.
+```
+
+This permits implementation and validation, but not a local commit.
+
+```text
+Use tidd-autofix-worker to implement Issue #18 and create a pull request.
+```
+
+This authorizes the parent workflow to delegate the required local commits, push, and pull-request creation. It does not authorize merging or history rewriting.
+
+## Roles, models, and overrides
 
 ### Roles and deployment (CL-D59)
 
@@ -102,25 +215,38 @@ Gate identities in the structured envelope (schema version 2) are `adversarial`,
 
 `tidd-convergence-reviewer` (CL-D62) is the non-authoritative preliminary reviewer that runs before the adversarial gate on the pull-request root (the Issue root runs none, CL-D121), once per candidate identity and snapshot fingerprint, with its own round budget; it has no alias, ships with the `gpt-6-luna` default, and can point at an economical model through the same override. In exact autofix its default reviews the writer's own patch, which is model-level self-review; the owner kept that default in #274, with Sol and Terra as the independent gates. Disable the agent through pi-subagents configuration to skip the stage.
 
-## Closed-loop workflow (opt-in)
+### Model overrides
+
+The included definitions use provider-unqualified model IDs. Pi resolves each ID through the active provider when that provider offers it. If a model is unavailable in your environment, copy or override the agent definition through `pi-subagents` configuration before running it.
+
+User and project agent definitions have higher discovery precedence than package-provided definitions with the same runtime name. Overrides are keyed by role name, for all five roles including `tidd-convergence-reviewer` (see *Roles and deployment*).
+
+### Language routing
+
+Language is chosen by destination, not by reviewer. Conversation follows the language you are using; GitHub issue and pull-request content defaults to English; an external site with no configured language stops and asks before anything is drafted for it. Source code, code comments, repository documentation, and commit messages always follow your project's own instructions.
+
+## Design
+
+- Workers use forked conversation context and inherit project instructions.
+- The adversarial and safety reviewers use fresh context; all reviewers have read-only tool allowlists.
+- The drift reviewer uses forked context to reconstruct inherited decisions and detect drift.
+- The convergence reviewer uses fresh context and is never readiness authority.
+- External side effects require explicit delegation.
+- Agent runtime names stay short and unqualified.
+
+## License
+
+MIT. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+## Reference (contract notes)
+
+This section keeps the paragraphs the contract records pin in this file, with the paragraphs that frame them; see [CONTRACT.md](CONTRACT.md). The sections above describe the workflow; these paragraphs state its rules.
+
+### Closed-loop workflow
 
 The closed-loop workflow runs the stages above as a loop: review, disposition every finding, apply only authorized fixes, and revalidate the evidence the change invalidated. It is opt-in. Installing the package starts nothing and changes nothing.
 
 The existing Sol review gate also runs an adversarial consistency check: it treats the exact issue/PR body, current authoritative decision record/comments, and applicable Skill assertions as claims to verify against authoritative files, not as context. The separate agent's primary benefit is model-family diversity; it may also add independent context, system-prompt, and failure boundaries. CL-D87 later placed the Sol and Terra roles on one model, so that diversity now separates the gates from the writer rather than from each other; the independent context, system-prompt, and failure boundaries remain. This adds no gate, agent, mode, verdict, status token, round budget, prompt, package, or agent-file change. Agent files remain frozen; CL-D35 approves one removal of an unloaded tool for Issue #49 and grants no standing permission to change them, and CL-D90 later added the packaged `outputSchema` to the four gate roles under its own decision. Under CL-D34, every blocking Sol finding is anchored to an acceptance criterion, contract clause, or fail-stop invariant; body-only absolute wording is a `reword` finding, and counterexamples outside the exact-autofix threat model are `follow-up` findings, so adversarial review bounds severity without weakening falsification.
-
-```text
-/tidd-issue <issue-ref>
-/tidd-pr <pr-ref> [autofix]
-```
-
-The same workflows are available directly as skills when skill commands are enabled in your Pi settings:
-
-```text
-/skill:closed-loop-issue <issue-ref>
-/skill:closed-loop-pr <pr-ref> [autofix]
-```
-
-An explicit target is always required; the workflow never infers a pull request from the current branch.
 
 ### How a round runs (CL-D104)
 
@@ -134,25 +260,13 @@ The driver runs the validation commands from the first source that exists (CL-D9
 
 `/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` are review-and-draft only: they never edit the Issue or post to GitHub (CL-D123). When a gate does not return `MERGE`, the round stops, the owner revises the Issue, and a fresh run reviews the revised text.
 
-### Review-only is the default
-
-```text
-/tidd-pr 42
-```
-
-Reviews the pull request without editing files, changing git state, committing, pushing, posting to GitHub, or touching any external service. Replies and patches are drafted for you to review, not published.
+### Review-only publication
 
 When a publishable aggregate summary is available, review-only may also draft `review-comment.md` and `publish-review.sh` in a temporary directory outside the repository. It prints the exact owner command `bash "<path>/publish-review.sh"`; review-only never executes it. The generated publisher rechecks the exact repository, an open non-draft PR, the reviewed head, the base OID and head repository and branch it first read, complete body digest, and all paginated duplicate-marker evidence before one owner-authorized `gh pr comment` operation. Any head change requires a fresh review, and failed or ambiguous publication is never retried automatically.
 
 ### Autofix
 
 Issue #42 isolated-workspace authority applies to exact autofix. Issue #47 helper protocol v1 packages bounded zero-dependency CommonJS helpers under `skills/closed-loop-pr/helpers/`; exact autofix invokes `node <installed-skill-dir>/helpers/cli.js` with a versioned JSON request and consumes one strict structured result. The helpers provide conservative complete-policy writability evaluation, deterministic CL-D9 fingerprints, bracketed paginated GitHub evidence, operator-checkout observation, and isolated workspace lifecycle operations. CL-D44 declares one input shape for each cross-operation field — the complete envelope, an operation's `data`, a run-owned receipt, or a structured gate output — and the packaged CLI rejects any other shape with `input_shape_mismatch` before the operation runs, instead of letting it surface later as an unrelated identity or capture failure; direct helper compatibility and operation semantics remain unchanged. CL-D42 adds one versioned evidence envelope and a read-only preflight verifier: each fingerprint carries its own domain label emitted by its `fingerprint_*` operation and carried unchanged into assembly; an unknown or absent schema version fails closed before any field is read, and a record placed in another domain's field, a moved capture bracket, incomplete pagination, or an identity differing from the expected target is rejected before a gate is invoked. They never reply, merge, or mutate GitHub, and commit and push only as the writer's packaged `commit_create` and `push_publish` (CL-D89); only isolated workspace creation and identity-guarded linked-worktree cleanup mutate Git administration, and clone fallback artifacts are retained and reported rather than deleted. Helper failure remains terminal with no automatic retry, and discrete filesystem observations do not claim continuous race immunity. CL-D68 packages the gate launch request and the designated-output read (`build_gate_launch`, `gate_result_read`), records the helper path, and blocks a helper resolved inside the target. CL-D81 packages the last hand-composed request, the exact-autofix writer launch (`build_writer_launch`): the parent supplies the created workspace and the task, the builder emits the agent, the cwd, the transport settings, and CL-D80's acceptance and time bounds, the built request goes to the subagent tool unchanged, and the regression drives the installed pi-subagents' own schema and validators over it. CL-D72 packages the focused validation itself: `validation_run` spawns the target's validation command as an argv at a Git toplevel under an explicit environment allowlist and reports `passed`, `validation_failed`, or `harness_failed` with distinct codes and phases, so a harness fault is never reported as a bad correction; `required_evidence_set` derives a gate's required-evidence set from the paths the change touches, the two authority files, and the identities the parent holds.
-
-```text
-/tidd-pr 42 autofix
-```
-
-The exact token `autofix`, lowercase, is the only way to permit file edits. Anything else — `Autofix`, `--autofix`, an extra argument — stops with usage rather than quietly downgrading. The operator branch must already be checked out, but it is never the writer workspace and the workflow never switches it.
 
 Exact PR `autofix` separates `OPERATOR_CHECKOUT@H` from `AUTOFIX_WORKSPACE@H`; initial `H` becomes immutable operator baseline `O`. `OPERATOR_CHECKOUT_UNCHANGED@O` guards pre-push boundaries; post-push `WORKSPACE_POST_PUSH(C, O)` permits only a sole-child remote-tracking chain from `O` to `C`, and only then may `operator_revalidate` receive `postPushHead: C`, with `priorPushHeads` naming every head the run pushed before `C`, oldest first, derived by `build_operator_revalidate` from the run's own post-push snapshots (CL-D79, CL-D86). The operator keeps clean tracked/index state and blocks every unexpected non-ignored untracked path; ignored paths use an opaque sorted ignored inventory explicitly enumerated as NUL-delimited normalized checkout-relative lexical paths plus no-follow kind, with stable re-enumeration and no contents, targets, sizes, timestamps, or hashes read. Exact `RUNTIME_ROOTS := { ".pi", ".pi-subagents" }` is excluded from that inventory and keeps independent no-follow rules. Runtime-root entries in candidate `HEAD`, index, correction, manifest, commit, or published tree fail closed; safe untracked churn is separately reclassified. A detached linked worktree at exact `H` is primary (`git worktree add --detach`); a temporary clone is fallback only after unavailable creation and proof of no side effect. Every Git command and all gates/writer/validation use exact isolated cwd, sanitized noninteractive execution, explicit config isolation, empty run-owned hooksPath, and no inherited helper/filter/fsmonitor/signing/pager/editor execution. The writer's commit and push are packaged operations (CL-D89): the commit carries the operator identity recorded at preflight, and the push names one credential helper, `gh auth git-credential`. Source/origin/fetch/push/repository/branch identity is bound; publication is normal non-force `HEAD:refs/heads/<verified-pr-branch>` without local PR-ref movement. `WORKSPACE_POST_COMMIT(C, P)` and `WORKSPACE_POST_PUSH(C, O)` are distinct. AFTER_COMMIT and BEFORE_PUSH independently reclassify every `RUNTIME_ROOTS` member. Validation-created ignored caches are frozen sandbox-only state and never enter correction/evidence/manifest/commit/publication. Every terminal result rechecks the operator; successful push reports the operator behind `C` without reconciliation. After success or failure, optional cleanup is exact identity-reverified non-force `git worktree remove` for a linked workspace only; never recovery, compensation, force, prune, recursive deletion, clean, clone deletion, or operator cleanup.
 
@@ -169,44 +283,3 @@ In exact `autofix` mode, `tidd-autofix-worker` is the sole writer/publisher for 
 ### Stop, status, and fresh runs (CL-D30)
 
 PR review-only retains the legacy resumable `tidd-status`, one malformed-verdict retry, and per-gate three-round accounting; it may report a next action and resume after fingerprint revalidation. Exact PR `autofix` ends on interruption, failure, owner decision, or limit: apart from the one bounded pre-writer recovery CL-D39 defines, it has no retry, resume, outbox, scheduler, quiet-period polling, or durable workflow artifact. Any later exact-autofix command is a fresh run with fresh counters and reconciliation. Issue behavior is governed by the Issue Skill, which publishes nothing (CL-D123).
-
-### Language routing
-
-Language is chosen by destination, not by reviewer. Conversation follows the language you are using; GitHub issue and pull-request content defaults to English; an external site with no configured language stops and asks before anything is drafted for it. Source code, code comments, repository documentation, and commit messages always follow your project's own instructions.
-
-## Worker permissions
-
-Workers can edit files and run tests, but they do not commit, push, create branches or pull requests, rewrite history, post to GitHub, or resolve review threads unless the delegated task explicitly authorizes the relevant action.
-
-For example:
-
-```text
-Use tidd-autofix-worker to implement Issue #18.
-```
-
-This permits implementation and validation, but not a local commit.
-
-```text
-Use tidd-autofix-worker to implement Issue #18 and create a pull request.
-```
-
-This authorizes the parent workflow to delegate the required local commits, push, and pull-request creation. It does not authorize merging or history rewriting.
-
-## Model overrides
-
-The included definitions use provider-unqualified model IDs. Pi resolves each ID through the active provider when that provider offers it. If a model is unavailable in your environment, copy or override the agent definition through `pi-subagents` configuration before running it.
-
-User and project agent definitions have higher discovery precedence than package-provided definitions with the same runtime name. Overrides are keyed by role name, for all five roles including `tidd-convergence-reviewer` (see *Roles and deployment*).
-
-## Design
-
-- Workers use forked conversation context and inherit project instructions.
-- The adversarial and safety reviewers use fresh context; all reviewers have read-only tool allowlists.
-- The drift reviewer uses forked context to reconstruct inherited decisions and detect drift.
-- The convergence reviewer uses fresh context and is never readiness authority.
-- External side effects require explicit delegation.
-- Agent runtime names stay short and unqualified.
-
-## License
-
-MIT. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
