@@ -1,0 +1,30 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D125-record",
+      "marker": "CL-D125",
+      "title": "CL-D125 records that the packaged driver collects no separate enterprise policy",
+      "files": [
+        "contract/CL-D125.md"
+      ],
+      "requires": [
+        "The packaged driver collects no enterprise policy of its own.",
+        "The helper relies on GitHub's repository ruleset listing including the rulesets configured at higher levels that apply to the repository (its `includes_parents` default), so a ruleset that targets the repository from above appears in that listing and is evaluated like every other one.",
+        "The driver's `writability` call passes `enterprisePolicyComplete: true, enterpriseRulesets: []`, which asserts that nothing applies beyond the repository and organization listings the helper reads.",
+        "A listing or ruleset detail the actor cannot read stops collection, and the driver ends `BLOCKED` before any gate runs."
+      ]
+    },
+    {
+      "id": "CL-D125-driver",
+      "marker": "CL-D125",
+      "title": "The driver passes the enterprise policy proof as a constant beside its one writability call",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "writability (CL-D125)",
+        "run.op('writability', { owner, repo, branchRef: `refs/heads/${target.headBranch}`, cwd: checkout, enterprisePolicyComplete: true, enterpriseRulesets: [] });"
+      ]
+    }
+  ]
+}

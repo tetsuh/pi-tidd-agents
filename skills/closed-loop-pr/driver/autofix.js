@@ -109,7 +109,7 @@ function start(opts) {
   const conv = readConvention(validation, () => validationCommands(checkout, target.baseOid, { repository, operator: true }));
   if (conv.problem) end(run, 'BLOCKED', conv.problem);
   Object.assign(s, { convention: conv.convention, conventionSource: conv.source });
-  // Preflight: the operator capture (identity and commit identity), writability, and the run-owned workspace.
+  // Preflight: the operator capture (identity and commit identity), writability (CL-D125), and the run-owned workspace.
   const identity = { repository, prNumber: number, lifecycle: 'open', baseOid: target.baseOid, publicHead: target.headOid, headRepository: target.headRepository, headBranch: target.headBranch,
     originFetch: git(checkout, ['remote', 'get-url', 'origin']).trim(), originPush: git(checkout, ['remote', 'get-url', '--push', 'origin']).trim() };
   s.captured = run.op('operator_capture', { cwd: checkout, identity });
