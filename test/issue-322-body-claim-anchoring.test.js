@@ -20,7 +20,7 @@ const REACH = 'A finding is `criterion-anchored` only when the text of the named
 const SECTION_REACH = `${REACH} \`reword\` whatever feature it concerns (CL-D126).`;
 const SECTION_REWORD = 'A claim that appears only in target-body prose and names none of the three is a `reword` finding: in a pull-request run, a `Minor` whose correction is a trusted conversation comment on the pull request that narrows or corrects the claim (CL-D108), never a code change, never a body edit and never an implementation blocker (CL-D126).';
 const BLOCK_RULE = `${REACH} a \`reword\` finding, a \`Minor\` whose correction is a trusted conversation comment that narrows or corrects the claim, not a code change and not a body edit (CL-D126).`;
-const SOL_RULE = 'a claim found only in target-body prose naming none of the three is a `reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows the claim, not an implementation blocker (CL-D126)';
+const SOL_RULE = 'a claim found only in target-body prose naming none of the three is a `reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows or corrects the claim, not an implementation blocker (CL-D126)';
 const RECORDS_RULE = '`reword` traces only to target-body prose; in a pull-request run it is a `Minor` whose disposition is `fixed`, meaning a trusted conversation comment narrows or corrects the claim (CL-D108), never a body edit, or `accepted-as-designed`; never an implementation blocker (CL-D126).';
 const REVIEW_SUFFIX = '`${x.proposedDisposition} (reword, recorded under CL-D85; judged afresh next run, CL-D126)`';
 const CLAUSES = 'contract/CL-D126.clauses.json';
@@ -114,9 +114,9 @@ test('Issue #322 AC4 the record, its clauses, the index, the re-pointed CL-D34 p
   for (const id of ['CL-D126-record', 'CL-D126-anchor', 'CL-D126-every-gate', 'CL-D126-sol', 'CL-D126-classes', 'CL-D126-validator', 'CL-D126-review', 'CL-D126-readme', 'CL-D126-tests']) assert.ok(ids.includes(id), `${id} is pinned`);
   const d34 = JSON.parse(readText('contract/CL-D34.clauses.json')).clauses;
   assert.ok(d34.find((c) => c.id === 'CL-D34-anchor').requires.includes('never a code change, never a body edit and never an implementation blocker'), 'CL-D34-anchor is re-pointed');
-  assert.ok(d34.find((c) => c.id === 'CL-D34-payload').requires.includes('`reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows the claim, not an implementation blocker'), 'CL-D34-payload is re-pointed');
+  assert.ok(d34.find((c) => c.id === 'CL-D34-payload').requires.includes('`reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows or corrects the claim, not an implementation blocker'), 'CL-D34-payload is re-pointed');
   for (const c of d34) for (const r of c.requires) assert.equal(/owner (body )?edit/.test(r), false, `${c.id} no longer pins a body edit`);
-  assert.ok(readText('README.md').includes('body-only absolute wording is a `reword` finding, a Minor whose correction is a trusted conversation comment that narrows the claim (CL-D126)'), 'the README sentence');
+  assert.ok(readText('README.md').includes('body-only absolute wording is a `reword` finding, a Minor whose correction is a trusted conversation comment that narrows or corrects the claim (CL-D126)'), 'the README sentence');
 });
 
 test('Issue #322 AC5 a recorded reword line is published with a suffix a later run does not carry as settled', () => {

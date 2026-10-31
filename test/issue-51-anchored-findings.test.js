@@ -46,7 +46,7 @@ test('Issue #51 Sol-only payload block carries the anchoring bound verbatim for 
   const sol = sectionOf(shared, '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)');
   assert.ok(sol);
   assert.match(sol, /Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant it falsifies, or that unavailable required evidence prevents verifying, matching the two finding bases CL-D29 admits/);
-  assert.match(sol, /a claim found only in target-body prose naming none of the three is a `reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows the claim, not an implementation blocker/);
+  assert.match(sol, /a claim found only in target-body prose naming none of the three is a `reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows or corrects the claim, not an implementation blocker/);
   assert.match(sol, /a counterexample requiring violation of an assumed operator condition declared cooperative by the selected mode's threat model is a `follow-up` finding with a proposed issue title, and is instead `criterion-anchored` at its own severity when a criterion, clause, or invariant names that condition/);
   assert.match(sol, /label every finding that is not an out-of-scope improvement with exactly one of the three anchoring classes `criterion-anchored`, `reword`, or `follow-up`, leaving the pre-existing out-of-scope residual label outside that set/);
   assert.match(sol, /names no acceptance criterion, contract clause, or fail-stop invariant is an out-of-scope improvement rather than a blocker/);
