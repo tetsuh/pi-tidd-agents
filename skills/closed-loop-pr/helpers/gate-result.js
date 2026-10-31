@@ -53,14 +53,16 @@ const issueFindingBase = (gate) => {
   const { headOid: _omit, ...properties } = findingBase(gate).properties;
   return closed({ ...properties, issueSpec: SHA256, workflowRecord: ISSUE_RECORD }, ISSUE_FINDING_REQ);
 };
-const finding = (gate, root = 'pr') => {
+const finding = (gate, root = 'pr', version = 2) => {
   const base = root === 'issue' ? issueFindingBase(gate) : findingBase(gate), REQ = base.required;
   const variant = (props, required = []) => ({ ...base, properties: { ...base.properties, ...props }, required: [...REQ, ...required] });
   const without = (key) => { const { [key]: _omit, ...rest } = base.properties; return rest; };
   const notOut = { outOfScope: { type: 'boolean', enum: [false] } };
   const node = { anyOf: [
     variant({ anchoring: choice(['criterion-anchored']), ...notOut }, ['anchoring', 'anchor']),
-    variant({ anchoring: choice(['reword']), severity: choice(['Major', 'Minor']), proposedDisposition: choice(['fixed', 'accepted-as-designed']), ...notOut }, ['anchoring']),
+    // A version-2 pull-request-root reword is Minor only (CL-D126); the Issue root keeps Major, where the body is the
+    // specification, and version 1 stays verbatim.
+    variant({ anchoring: choice(['reword']), severity: choice(version === 2 && root === 'pr' ? ['Minor'] : ['Major', 'Minor']), proposedDisposition: choice(['fixed', 'accepted-as-designed']), ...notOut }, ['anchoring']),
     variant({ anchoring: choice(['follow-up']), severity: choice(['Major', 'Minor']), proposedDisposition: choice(['deferred']), ...notOut }, ['anchoring', 'proposedIssueTitle']),
     { ...base, properties: { ...without('anchoring'), outOfScope: { type: 'boolean', enum: [true] }, severity: choice(['Minor']), proposedDisposition: choice(['accepted-as-designed', 'deferred', 'not-applicable']) }, required: [...REQ, 'outOfScope'] },
   ] };
@@ -78,12 +80,12 @@ const EVID = closed({ ...fields('source'), kind: choice(KINDS), readCompletely: 
 const ADV = closed({ ...fields('claim searched evidence findingId'), outcome: choice(OUTCOMES) }, words('claim searched outcome evidence'));
 // `parts` names the correlation, finding, and confirmation shapes of one root; the agents of a role that serves both
 // roots decode a union of the two, and nothing walks that union: each envelope is checked against its root's own.
-const PR_PARTS = { corr, finding: (gate) => [finding(gate)], confirm };
+const PR_PARTS = { corr, finding: (gate, version) => [finding(gate, 'pr', version)], confirm };
 const ISSUE_PARTS = { corr: issueCorr, finding: (gate) => [finding(gate, 'issue')], confirm: issueConfirm };
 const UNION_PARTS = { corr: (gate) => ({ anyOf: [corr(gate), issueCorr(gate)] }), finding: (gate) => [finding(gate), finding(gate, 'issue')].flatMap((x) => x.anyOf),
   confirm: (gate) => ({ anyOf: [confirm(gate), issueConfirm(gate)] }) };
 const schemaFor = (version, parts = PR_PARTS) => {
-  const gate = choice(GATES[version]), variants = parts.finding(gate);
+  const gate = choice(GATES[version]), variants = parts.finding(gate, version);
   return closed({ schemaVersion: { type: 'integer', const: version }, correlation: parts.corr(gate), verdict: choice(VERDICTS),
     evidenceRead: list(EVID), findings: list(variants.length === 1 ? variants[0] : { anyOf: variants }), confirmations: list(parts.confirm(gate)), decisions: list(DEC),
     adversarialResults: list(ADV) }, words('schemaVersion correlation verdict evidenceRead findings confirmations decisions adversarialResults'));
@@ -185,7 +187,8 @@ function checkWorkflowRecord(x, root, issue) {
   if (r.observedHeadOid !== x.headOid) bad('PR head mismatch');
   if (x.proposedDisposition === 'fixed' && !r.correctiveChange) bad('corrective change');
 }
-function checkFindings(findings, corr, assigned, prefix, root, issue) {
+// `minorReword`: a version-2 pull-request-root reword is Minor only (CL-D126); version 1 and the Issue root keep Major.
+function checkFindings(findings, corr, assigned, prefix, root, issue, minorReword) {
   const bad = (m) => fail('finding_records_invalid', m), ids = findings.map((x) => x.findingId), bind = issue ? 'issueSpec' : 'headOid';
   if (new Set(ids).size !== ids.length) bad('duplicate findingId');
   for (const x of findings) {
@@ -194,7 +197,7 @@ function checkFindings(findings, corr, assigned, prefix, root, issue) {
     const residual = x.outOfScope === true;
     if (residual === Boolean(x.anchoring)) bad(`${x.findingId}: classification`);
     if (x.anchoring === 'criterion-anchored' && !x.anchor) bad(`${x.findingId}: anchor`);
-    if (x.anchoring === 'reword' && (x.severity === 'Blocker' || !['fixed', 'accepted-as-designed'].includes(x.proposedDisposition))) bad(`${x.findingId}: reword`);
+    if (x.anchoring === 'reword' && (x.severity === 'Blocker' || (minorReword && x.severity !== 'Minor') || !['fixed', 'accepted-as-designed'].includes(x.proposedDisposition))) bad(`${x.findingId}: reword`);
     if (x.anchoring === 'follow-up' && (!x.proposedIssueTitle || x.proposedDisposition !== 'deferred' || x.severity === 'Blocker')) bad(`${x.findingId}: follow-up`);
     if (residual && (x.severity !== 'Minor' || !['accepted-as-designed', 'deferred', 'not-applicable'].includes(x.proposedDisposition))) bad(`${x.findingId}: out-of-scope`);
     if (x.origin === 'assigned') {
@@ -253,7 +256,7 @@ function validateGateResult(v, e) {
     if ('freshFindingIdPrefix' in e) fail('invalid_request', 'freshFindingIdPrefix is derived from the correlation; do not supply it');
     const prefix = `${PREFIX[v.correlation.gate]}-${v.correlation.number}-`;
     const material = checkEvidence(v, e.requiredEvidence, ADVERSARIAL[version]);
-    checkFindings(v.findings, v.correlation, assigned, prefix, e.workflow, issue);
+    checkFindings(v.findings, v.correlation, assigned, prefix, e.workflow, issue, version === 2 && root === 'pr');
     const confirmed = checkConfirmations(v.findings, v.confirmations, assigned, v.correlation, issue);
     checkVerdict(v, confirmed, material);
     return createResult('gate_result_validate', { verdict: v.verdict, correlation: v.correlation, evidenceRead: v.evidenceRead,

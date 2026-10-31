@@ -415,7 +415,7 @@ test('Issue #37 the verdict matrix rejects inconsistent states', () => {
 
   const followUp = freshFinding({ severity: 'Major', anchoring: 'follow-up', proposedIssueTitle: 'Track the cooperative race', proposedDisposition: 'deferred' });
   assert.equal(gateResult.validateGateResult(envelope({ findings: [followUp] }), expect()).ok, true, 'a deferred follow-up is non-blocking');
-  const confirmedReword = finding({ severity: 'Major', anchoring: 'reword' });
+  const confirmedReword = finding({ severity: 'Minor', anchoring: 'reword' }); // CL-D126: a pull-request-root reword is Minor only
   assert.equal(gateResult.validateGateResult(envelope({ findings: [confirmedReword], confirmations: [confirmation()] }), assigned).ok, true, 'a confirmed fixed reword is non-blocking');
   // An explicit `outOfScope: false` says what an omitted field says: this finding is not the residual. Two
   // review runs of PR #123 were lost when the validator rejected the value rather than reading it.

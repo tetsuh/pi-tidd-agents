@@ -139,7 +139,10 @@ function result(opts) {
   const settled = (x) => x.origin === 'assigned' && confirmed.has(x.findingId) && !['fixed', 'needs-owner-decision'].includes(x.proposedDisposition);
   const open = findings.filter((x) => !isRecorded(x) && !settled(x));
   for (const x of findings) s.findings = [...s.findings.filter((f) => f.findingId !== x.findingId), { findingId: x.findingId, gate, recorded: isRecorded(x) || settled(x), summary: String(x.correction || '').slice(0, 200),
-    disposition: settled(x) ? `${x.proposedDisposition} (confirmed by ${label(gate)})` : isRecorded(x) ? `${x.proposedDisposition} (recorded under CL-D85)` : `${x.proposedDisposition} (proposed; correction pending)` }];
+    // A reword is published with the CL-D126 non-carry form whether a gate confirmed it or CL-D85 recorded it (ADV-323-001).
+    // What defeats the carry is `reword,` as the first token after the parenthesis: phases.js SETTLED_LINE matches only a
+    // parenthesis that opens with `recorded under` or `confirmed by`.
+    disposition: x.anchoring === 'reword' && settled(x) ? `${x.proposedDisposition} (reword, confirmed by ${label(gate)}; judged afresh next run, CL-D126)` : x.anchoring === 'reword' && isRecorded(x) ? `${x.proposedDisposition} (reword, recorded under CL-D85; judged afresh next run, CL-D126)` : settled(x) ? `${x.proposedDisposition} (confirmed by ${label(gate)})` : isRecorded(x) ? `${x.proposedDisposition} (recorded under CL-D85)` : `${x.proposedDisposition} (proposed; correction pending)` }];
   const decisions = (envelope.decisions || []).filter((d) => d.status === 'pending').map((d) => d.decisionId);
   if (envelope.verdict === 'NEEDS DECISION' || decisions.length) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; run.stop('WAITING_FOR_OWNER', `${label(gate)} returned NEEDS DECISION`); }
   // gate-contract.md (CL-D62): convergence at its cap with findings open hands the candidate to Sol with those findings

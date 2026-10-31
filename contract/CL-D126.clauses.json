@@ -1,0 +1,134 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D126-record",
+      "marker": "CL-D126",
+      "title": "CL-D126 records the Minor reword and its timeline correction",
+      "files": [
+        "contract/CL-D126.md"
+      ],
+      "requires": [
+        "*Owner choice:* Option B",
+        "only a claim none of the three reaches is a Minor reword",
+        "its recorded reword line is not carried as settled; the next run judges the claim afresh",
+        "The validator and the version-2 pull-request schema admit a `reword` finding at `Minor` only",
+        "the Issue root keeps `Major`, because there the body is the specification, and version 1 stays verbatim",
+        "a reword line the autofix driver publishes still reads `(recorded under CL-D85)` and a later review-only run carries it",
+        "The Issue root is unchanged.",
+        "so the reader carries neither line"
+      ]
+    },
+    {
+      "id": "CL-D126-anchor",
+      "marker": "CL-D126",
+      "title": "The anchoring section states the reach test and the timeline correction",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "### Finding anchoring and threat-model bound (AC-ANCHOR, CL-D34)",
+      "requires": [
+        "in a pull-request run, a `Minor` whose correction is a trusted conversation comment on the pull request that narrows or corrects the claim (CL-D108), never a code change, never a body edit and never an implementation blocker (CL-D126)",
+        "A finding is `criterion-anchored` only when the text of the named acceptance criterion, contract clause or fail-stop invariant reaches the cited input; a counterexample the named text does not reach, which falsifies a sentence of the pull-request body, is `reword` whatever feature it concerns (CL-D126)."
+      ]
+    },
+    {
+      "id": "CL-D126-every-gate",
+      "marker": "CL-D126",
+      "title": "Every PR gate payload carries the reach test and the correction route",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Every-gate invariant payload block (CL-D2)",
+      "requires": [
+        "A finding is `criterion-anchored` only when the text of the named acceptance criterion, contract clause or fail-stop invariant reaches the cited input; a counterexample the named text does not reach, which falsifies a sentence of the pull-request body, is a `reword` finding, a `Minor` whose correction is a trusted conversation comment that narrows or corrects the claim, not a code change and not a body edit (CL-D126)."
+      ]
+    },
+    {
+      "id": "CL-D126-sol",
+      "marker": "CL-D126",
+      "title": "The Sol-only block agrees",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
+      "requires": [
+        "a claim found only in target-body prose naming none of the three is a `reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows or corrects the claim, not an implementation blocker (CL-D126)"
+      ]
+    },
+    {
+      "id": "CL-D126-classes",
+      "marker": "CL-D126",
+      "title": "The anchoring classes reference states the Minor and the timeline correction",
+      "files": [
+        "skills/closed-loop-shared/references/records.md"
+      ],
+      "section": "## Finding anchoring classes (AC-ANCHOR, CL-D34)",
+      "requires": [
+        "`reword` traces only to target-body prose; in a pull-request run it is a `Minor` whose disposition is `fixed`, meaning a trusted conversation comment narrows or corrects the claim (CL-D108), never a body edit, or `accepted-as-designed`; never an implementation blocker (CL-D126)."
+      ]
+    },
+    {
+      "id": "CL-D126-validator",
+      "marker": "CL-D126",
+      "title": "The pull-request schema and validator admit a reword at Minor only",
+      "files": [
+        "skills/closed-loop-pr/helpers/gate-result.js"
+      ],
+      "requires": [
+        "severity: choice(version === 2 && root === 'pr' ? ['Minor'] : ['Major', 'Minor'])",
+        "(minorReword && x.severity !== 'Minor')",
+        "checkFindings(v.findings, v.correlation, assigned, prefix, e.workflow, issue, version === 2 && root === 'pr');"
+      ]
+    },
+    {
+      "id": "CL-D126-review",
+      "marker": "CL-D126",
+      "title": "Review-only publishes a recorded or confirmed reword in a form the carry does not match",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "`${x.proposedDisposition} (reword, confirmed by ${label(gate)}; judged afresh next run, CL-D126)`",
+        "`${x.proposedDisposition} (reword, recorded under CL-D85; judged afresh next run, CL-D126)`"
+      ]
+    },
+    {
+      "id": "CL-D126-readme",
+      "marker": "CL-D126",
+      "title": "README states the Minor reword and its correction",
+      "files": [
+        "README.md"
+      ],
+      "requires": [
+        "body-only absolute wording is a `reword` finding, a Minor whose correction is a trusted conversation comment that narrows or corrects the claim (CL-D126)"
+      ]
+    },
+    {
+      "id": "CL-D126-forward",
+      "marker": "CL-D126",
+      "title": "CL-D108 and CL-D110 point forward to this record",
+      "files": [
+        "contract/CL-D108.md",
+        "contract/CL-D110.md"
+      ],
+      "requires": [
+        "CL-D126 later"
+      ]
+    },
+    {
+      "id": "CL-D126-tests",
+      "marker": "CL-D126",
+      "title": "The suite asserts the rule, the validator and the carry",
+      "files": [
+        "test/issue-322-body-claim-anchoring.test.js"
+      ],
+      "requires": [
+        "Issue #322 AC1",
+        "Issue #322 AC2",
+        "Issue #322 AC3",
+        "Issue #322 AC4",
+        "Issue #322 AC5"
+      ]
+    }
+  ]
+}
