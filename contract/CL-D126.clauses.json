@@ -52,7 +52,7 @@
       ],
       "section": "#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)",
       "requires": [
-        "a claim found only in target-body prose naming none of the three is a `reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows the claim, not an implementation blocker (CL-D126)"
+        "a claim found only in target-body prose naming none of the three is a `reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows or corrects the claim, not an implementation blocker (CL-D126)"
       ]
     },
     {
@@ -100,7 +100,7 @@
         "README.md"
       ],
       "requires": [
-        "body-only absolute wording is a `reword` finding, a Minor whose correction is a trusted conversation comment that narrows the claim (CL-D126)"
+        "body-only absolute wording is a `reword` finding, a Minor whose correction is a trusted conversation comment that narrows or corrects the claim (CL-D126)"
       ]
     },
     {
