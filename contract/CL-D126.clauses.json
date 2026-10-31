@@ -13,7 +13,7 @@
         "its recorded reword line is not carried as settled; the next run judges the claim afresh",
         "The validator and the version-2 pull-request schema admit a `reword` finding at `Minor` only",
         "the Issue root keeps `Major`, because there the body is the specification, and version 1 stays verbatim",
-        "a reword line the autofix driver publishes still reads `(recorded under CL-D85)` and a later review-only run carries it",
+        "CL-D127 later gave the autofix driver's recorded reword line the same form",
         "The Issue root is unchanged.",
         "so the reader carries neither line"
       ]

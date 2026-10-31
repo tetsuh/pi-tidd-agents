@@ -23,7 +23,7 @@
         "skills/closed-loop-pr/driver/autofix.js"
       ],
       "requires": [
-        "if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, summary });",
+        "if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: recordedLine(x), summary });",
         "const open = s.ledger.filter((e) => e.status === 'open');"
       ]
     },

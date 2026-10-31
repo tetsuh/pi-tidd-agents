@@ -101,6 +101,9 @@ function isRecorded(x) {
   return (x.severity === 'Minor' && (x.anchoring === 'reword' || x.anchoring === 'follow-up' || x.outOfScope === true))
     || (x.anchoring === 'follow-up' && x.proposedDisposition === 'deferred' && x.severity !== 'Blocker');
 }
+// A recorded finding's published line; a reword takes the review-only driver's non-carry form, so a later run judges
+// the claim afresh (CL-D127).
+function recordedLine(x) { return x.anchoring === 'reword' ? `${x.proposedDisposition} (reword, recorded under CL-D85; judged afresh next run, CL-D126)` : `${x.proposedDisposition} (recorded under CL-D85)`; }
 // The pending gate's result: a running gate prints WAIT and changes nothing; an unreadable one is relaunched once.
 // Returns the read data, or undefined after a relaunch. Exact autofix narrows the relaunch to CL-D51's key: its own
 // codes, a budget of its own, and a recheck before the launch is printed again.
@@ -188,4 +191,4 @@ function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.
 // A snapshot change invalidates every gate verdict so far: the log keeps them, marked cleared (#316).
 function markCleared(s) { for (const g of s.gateLog) g.cleared = true; }
 
-module.exports = { TRUSTED, failure, gateLabel, ignoredDrift, readyGates, markCleared, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };
+module.exports = { TRUSTED, failure, gateLabel, ignoredDrift, readyGates, markCleared, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, recordedLine, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };

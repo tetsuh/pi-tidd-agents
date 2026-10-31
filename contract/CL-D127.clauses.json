@@ -1,0 +1,67 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D127-record",
+      "marker": "CL-D127",
+      "title": "CL-D127 records the autofix driver's non-carry reword line",
+      "files": [
+        "contract/CL-D127.md"
+      ],
+      "requires": [
+        "*Owner choice:* Option 2.",
+        "so the earlier-rounds reader carries neither driver's reword line",
+        "A recorded finding that is not a reword keeps `<disposition> (recorded under CL-D85)`.",
+        "The autofix driver posts no conversation comment"
+      ]
+    },
+    {
+      "id": "CL-D127-driver",
+      "marker": "CL-D127",
+      "title": "The shared line gives a recorded reword the review-only driver's form",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "`${x.proposedDisposition} (reword, recorded under CL-D85; judged afresh next run, CL-D126)`"
+      ]
+    },
+    {
+      "id": "CL-D127-driver-sites",
+      "marker": "CL-D127",
+      "title": "Both settling sites of the autofix driver publish through the shared line",
+      "files": [
+        "skills/closed-loop-pr/driver/autofix.js"
+      ],
+      "requires": [
+        "if (isRecorded(x)) { Object.assign(entry, { status: 'settled', disposition: recordedLine(x), record: x }); continue; }",
+        "if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: recordedLine(x), summary });"
+      ]
+    },
+    {
+      "id": "CL-D127-forward",
+      "marker": "CL-D127",
+      "title": "CL-D110 and CL-D126 point forward to this record",
+      "files": [
+        "contract/CL-D110.md",
+        "contract/CL-D126.md"
+      ],
+      "requires": [
+        "CL-D127 later"
+      ]
+    },
+    {
+      "id": "CL-D127-tests",
+      "marker": "CL-D127",
+      "title": "The suite asserts the line, the carry and the record",
+      "files": [
+        "test/issue-326-autofix-reword-line.test.js"
+      ],
+      "requires": [
+        "Issue #326 AC1",
+        "Issue #326 AC2",
+        "Issue #326 AC3",
+        "Issue #326 AC4"
+      ]
+    }
+  ]
+}
