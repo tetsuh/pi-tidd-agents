@@ -51,9 +51,10 @@ function refused(result, code, message) {
   if (message) assert.match(result.error.message, message);
 }
 
-test('Issue #190 the pull-request schema keeps its bytes, and version 1 is unchanged', () => {
-  // The digests of the schemas as they were before CL-D120, measured on c6a659c.
-  assert.equal(digest(gateResult.SCHEMA), '755afc25cc0d295a489efc53b2294c7290518aaf45f43a1d17e2caa6de257703');
+test('Issue #190 the pull-request schema bytes are pinned (CL-D120, re-measured under CL-D126), and version 1 is unchanged', () => {
+  // The digests of the schemas as they were before CL-D120, measured on c6a659c; CL-D126 (#322) later narrowed the
+  // pull-request reword variant to Minor, and the pull-request digest below is the one measured on that change.
+  assert.equal(digest(gateResult.SCHEMA), '621e65b416a5b87139147fc1616f49c8832d0269e3450f32c8c466e0e3e8c358');
   assert.equal(digest(gateResult.SCHEMAS[1]), 'b1604ec180923d8e5ac2fa12bd605bd76f43acd7f6721c7100b0bd89dc76853b');
   assert.deepEqual(Object.keys(gateResult.SCHEMAS), ['1', '2']);
   assert.equal(gateResult.SCHEMAS[2], gateResult.SCHEMA);

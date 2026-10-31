@@ -21,7 +21,7 @@ test('Issue #51 shared gate contract anchors blocking findings to criteria, clau
   assert.ok(anchor, 'AC-ANCHOR section is missing from the shared gate contract');
   assert.match(anchor, /Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant/);
   assert.match(anchor, /appears only in target-body prose[^.]*`reword` finding/);
-  assert.match(anchor, /owner edit of the body, never an implementation blocker/);
+  assert.match(anchor, /never a code change, never a body edit and never an implementation blocker/);
   assert.match(anchor, /assumed operator condition declared cooperative by the selected mode's threat model[^.]*`follow-up` finding/);
   assert.match(anchor, /proposed issue title/);
   assert.match(anchor, /Bounding applies to severity and disposition only/);
@@ -46,7 +46,7 @@ test('Issue #51 Sol-only payload block carries the anchoring bound verbatim for 
   const sol = sectionOf(shared, '#### Sol-only adversarial invariant payload block (AC-ADVERSARIAL-payload, CL-D29)');
   assert.ok(sol);
   assert.match(sol, /Every `Blocker` or `Major` finding names the acceptance criterion, contract clause, or fail-stop invariant it falsifies, or that unavailable required evidence prevents verifying, matching the two finding bases CL-D29 admits/);
-  assert.match(sol, /a claim found only in target-body prose naming none of the three is a `reword` finding corrected by owner body edit, not an implementation blocker/);
+  assert.match(sol, /a claim found only in target-body prose naming none of the three is a `reword` finding, in a pull-request run a `Minor` corrected by a trusted conversation comment that narrows the claim, not an implementation blocker/);
   assert.match(sol, /a counterexample requiring violation of an assumed operator condition declared cooperative by the selected mode's threat model is a `follow-up` finding with a proposed issue title, and is instead `criterion-anchored` at its own severity when a criterion, clause, or invariant names that condition/);
   assert.match(sol, /label every finding that is not an out-of-scope improvement with exactly one of the three anchoring classes `criterion-anchored`, `reword`, or `follow-up`, leaving the pre-existing out-of-scope residual label outside that set/);
   assert.match(sol, /names no acceptance criterion, contract clause, or fail-stop invariant is an out-of-scope improvement rather than a blocker/);
@@ -65,7 +65,7 @@ test('Issue #51 records reference defines exactly three anchoring classes and ke
   assert.match(classes, /Label every finding that is not an out-of-scope improvement with exactly one anchoring class/);
   assert.match(classes, /`criterion-anchored` names the acceptance criterion, contract clause, or fail-stop invariant that the cited counterexample falsifies or that unavailable required evidence prevents verifying, covering both finding bases CL-D29 admits/);
   assert.match(classes, /`reword` traces only to target-body prose/);
-  assert.match(classes, /disposition `fixed` on the body revision or `accepted-as-designed`/);
+  assert.match(classes, /disposition is `fixed`, meaning a trusted conversation comment narrows or corrects the claim \(CL-D108\), never a body edit, or `accepted-as-designed`/);
   assert.match(classes, /`follow-up` requires violating an assumed operator condition/);
   assert.match(classes, /disposition `deferred` with a proposed issue title/);
   // SOL-53-001: out-of-scope improvements stay representable under the exactly-one rule.
