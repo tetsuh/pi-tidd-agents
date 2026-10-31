@@ -14,7 +14,8 @@
         "The validator and the version-2 pull-request schema admit a `reword` finding at `Minor` only",
         "the Issue root keeps `Major`, because there the body is the specification, and version 1 stays verbatim",
         "a reword line the autofix driver publishes still reads `(recorded under CL-D85)` and a later review-only run carries it",
-        "The Issue root is unchanged."
+        "The Issue root is unchanged.",
+        "so the reader carries neither line"
       ]
     },
     {
@@ -82,11 +83,12 @@
     {
       "id": "CL-D126-review",
       "marker": "CL-D126",
-      "title": "Review-only publishes a recorded reword with a suffix the carry does not match",
+      "title": "Review-only publishes a recorded or confirmed reword in a form the carry does not match",
       "files": [
         "skills/closed-loop-pr/driver/review.js"
       ],
       "requires": [
+        "`${x.proposedDisposition} (reword, confirmed by ${label(gate)}; judged afresh next run, CL-D126)`",
         "`${x.proposedDisposition} (reword, recorded under CL-D85; judged afresh next run, CL-D126)`"
       ]
     },
