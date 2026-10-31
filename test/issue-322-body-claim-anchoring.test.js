@@ -8,7 +8,7 @@
 // timeline comment, and a recorded reword line is not carried as settled into later runs (CL-D110 narrowed).
 //
 // TDD provenance: behavioural RED — the validator admits a Major reword, the driver carries a recorded reword line.
-const { test, assert, fs, path, drive, setup, state, setFixture, nextRequest, fakeGate, publishable, prComment } = require('./issue-196-review-driver.fixtures.js');
+const { test, assert, fs, path, crypto, drive, setup, state, setFixture, nextRequest, fakeGate, publishable, prComment } = require('./issue-196-review-driver.fixtures.js');
 const { SCHEMA, SCHEMAS, ISSUE_SCHEMA, ROLE_SCHEMAS, validateGateResult } = require('../skills/closed-loop-pr/helpers/gate-result');
 const { readText, sectionOf, readManifest, manifestSources, contractIndex, issueCorrelationOf } = require('./helpers');
 
@@ -34,6 +34,20 @@ function majorReword(correlation, prefix, bind) {
   const finding = { findingId: `${prefix}-322-X`, origin: 'fresh', gate: correlation.gate, ...bind, raisedAgainstFingerprint: SHA, severity: 'Major', anchoring: 'reword', proposedDisposition: 'fixed',
     evidence: 'e', impact: 'i', rationale: 'r', correction: 'c', transport: 'pending', workflowRecord: bind.issueSpec ? { revisedPassage: 'revised', snapshotAssignment: 'snapshot A' } : PR_RECORD };
   return { schemaVersion: 2, correlation, verdict: 'FIX BEFORE MERGE', evidenceRead: [{ source: 'CONTRACT.md', kind: 'file', readCompletely: true }], findings: [finding], confirmations: [], decisions: [], adversarialResults: [] };
+}
+// Sol confirms every assigned finding, reclassified as a body-only claim: a Minor reword, accepted as designed
+// (ADV-323-001, PR #323 round 3). The published line must still carry the CL-D126 non-carry suffix.
+function solConfirmingReword(runDir, runs) {
+  const st = state(runDir), expected = JSON.parse(fs.readFileSync(st.pending.expectationPath, 'utf8')), c = expected.correlation;
+  const findings = expected.assignedFindings.map((a) => ({ findingId: a.findingId, blockerKey: a.blockerKey, origin: 'assigned', gate: c.gate, headOid: c.headOid, raisedAgainstFingerprint: c.snapshotFingerprint, severity: 'Minor', anchoring: 'reword', proposedDisposition: 'accepted-as-designed',
+    evidence: 'the body sentence overstates', impact: 'none', rationale: 'body-only claim', correction: 'narrow the claim in a timeline comment', transport: 'pending', validationEvidence: 'n/a',
+    workflowRecord: { sourceKind: 'gate', sourceId: 'a.js:1', authorIdentity: 'g', authorType: 'Bot', observedHeadOid: c.headOid, fingerprint: c.snapshotFingerprint, semanticFingerprint: c.snapshotFingerprint } }));
+  const confirmations = expected.assignedFindings.map((a) => ({ findingId: a.findingId, gate: c.gate, headOid: c.headOid, confirmation: 'confirmed', evidence: 'body-only' }));
+  const envelope = { schemaVersion: 2, correlation: c, verdict: 'MERGE', evidenceRead: expected.requiredEvidence.map(({ source, kind }) => ({ source, kind, readCompletely: true })), findings, confirmations, decisions: [], adversarialResults: [{ claim: 'c', searched: 's', outcome: 'no-counterexample', evidence: 'e' }] };
+  const runId = crypto.randomUUID(), dir = path.join(runs, 'async-subagent-runs', runId, 'structured-output', 'fake'); fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'output.json'), JSON.stringify(envelope)); fs.writeFileSync(path.join(dir, 'schema.json'), JSON.stringify(SCHEMA));
+  fs.writeFileSync(path.join(runs, 'async-subagent-runs', runId, 'status.json'), JSON.stringify({ runId, state: 'complete', cwd: st.checkout, steps: [{ agent: 'tidd-adversarial-reviewer', status: 'complete', model: 'p/m:high', structuredOutputPath: path.join(dir, 'output.json'), structuredOutputSchemaPath: path.join(dir, 'schema.json') }] }));
+  return runId;
 }
 function rewordVariant(schema) {
   return schema.properties.findings.items.anyOf.find((v) => v.properties.anchoring && v.properties.anchoring.enum.join() === 'reword');
@@ -124,4 +138,26 @@ test('Issue #322 AC5 a recorded reword line is published with a suffix a later r
   const r = drive(t2.start, t2.e);
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', r.stdout + r.stderr);
   assert.deepEqual(settledOf(t2.runDir).map((x) => x.findingId), ['CONV-7-002'], 'only the CL-D85 line is carried');
+});
+
+test('Issue #322 AC5 a reword Sol confirms on an assigned finding is published with the non-carry suffix too', () => {
+  // ADV-323-001 (PR #323 round 3): `settled(x)` was tested before the reword branch, so a confirmed, accepted-as-designed
+  // reword was published as `(confirmed by sol)`, a line the settled pattern of `earlierRounds` matches.
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  // Convergence at its cap with an open finding hands the candidate to Sol with that finding assigned (CL-D62): two
+  // new conversation comments rerun convergence on the unchanged head (DEC-109), so the third invocation is the cap.
+  for (const n of [1, 2]) { setFixture(t, { prComments: Array.from({ length: n }, (_, i) => prComment(i + 1)) }); drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e); }
+  assert.equal(nextRequest(drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e).stdout)?.agent, 'tidd-adversarial-reviewer', 'the open convergence finding is assigned to Sol');
+  const sol = drive(['result', '--run-dir', t.runDir, '--run-id', solConfirmingReword(t.runDir, t.runs)], t.e);
+  assert.equal(nextRequest(sol.stdout)?.agent, 'tidd-safety-reviewer', `Sol confirmed the reclassified finding: ${sol.stdout}${sol.stderr}`);
+  drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
+  const { s, body } = publishable(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  const line = '  CONV-7-X: accepted-as-designed (reword, confirmed by sol; judged afresh next run, CL-D126)';
+  assert.ok(body.includes(`\n${line}\n`), `the published block carries the line:\n${body}`);
+  const t2 = setup();
+  setFixture(t2, { prComments: [prComment(502, { body, author_association: 'OWNER' })] });
+  assert.equal(nextRequest(drive(t2.start, t2.e).stdout)?.agent, 'tidd-convergence-reviewer');
+  assert.deepEqual(settledOf(t2.runDir).map((x) => x.findingId), [], 'the confirmed reword is not carried');
 });
