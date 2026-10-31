@@ -654,7 +654,10 @@ test('Issue #64 required_evidence_set fails closed as output_limit exactly beyon
       const drowned = helpers.requiredEvidenceSet({ cwd: noisy, baseOid: noisyBase, headOid: noisyHead, identities: [] });
       assert.equal(drowned.ok, false, 'a read drowned in Git warnings fails closed');
       assert.deepEqual([drowned.error.code, drowned.error.details.subcheck], ['output_limit', 'output_limit'], JSON.stringify(drowned.error));
-        assert.match(drowned.error.message, /Git wrote [0-9]+ bytes on its error stream while reading baseOid, beyond the 65536 bytes allowed/, `the refusal names the stream that overflowed and what it was reading: ${drowned.error.message}`);
+        // Which bounded read the warnings drown first depends on the Git version (#324): Git 2.56 prints the alternates
+        // warnings during the work-tree check, Git 2.43 during the baseOid read. The refusal names the stream and the read either way.
+        assert.match(drowned.error.message, /Git wrote [0-9]+ bytes on its error stream while reading [^,]+, beyond the 65536 bytes allowed/, `the refusal names the stream that overflowed and what it was reading: ${drowned.error.message}`);
+        assert.ok(['the work-tree check', 'baseOid'].includes(drowned.error.details.observed), `the drowned read is the first object read of either Git version: ${drowned.error.details.observed}`);
     } finally { fs.rmSync(noisy, { recursive: true, force: true }); }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
