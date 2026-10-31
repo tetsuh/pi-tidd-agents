@@ -139,7 +139,7 @@ function result(opts) {
   const settled = (x) => x.origin === 'assigned' && confirmed.has(x.findingId) && !['fixed', 'needs-owner-decision'].includes(x.proposedDisposition);
   const open = findings.filter((x) => !isRecorded(x) && !settled(x));
   for (const x of findings) s.findings = [...s.findings.filter((f) => f.findingId !== x.findingId), { findingId: x.findingId, gate, recorded: isRecorded(x) || settled(x), summary: String(x.correction || '').slice(0, 200),
-    disposition: settled(x) ? `${x.proposedDisposition} (confirmed by ${label(gate)})` : isRecorded(x) ? `${x.proposedDisposition} (recorded under CL-D85)` : `${x.proposedDisposition} (proposed; correction pending)` }];
+    disposition: settled(x) ? `${x.proposedDisposition} (confirmed by ${label(gate)})` : isRecorded(x) ? (x.anchoring === 'reword' ? `${x.proposedDisposition} (reword, recorded under CL-D85; judged afresh next run, CL-D126)` : `${x.proposedDisposition} (recorded under CL-D85)`) : `${x.proposedDisposition} (proposed; correction pending)` }];
   const decisions = (envelope.decisions || []).filter((d) => d.status === 'pending').map((d) => d.decisionId);
   if (envelope.verdict === 'NEEDS DECISION' || decisions.length) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; run.stop('WAITING_FOR_OWNER', `${label(gate)} returned NEEDS DECISION`); }
   // gate-contract.md (CL-D62): convergence at its cap with findings open hands the candidate to Sol with those findings

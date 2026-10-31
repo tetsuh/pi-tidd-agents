@@ -77,6 +77,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D78.md](contract/CL-D78.md) — A run reports the run roots it retained
 - [contract/CL-D79.md](contract/CL-D79.md) — The post-push guard accepts a sole-child chain of pushes
 - [contract/CL-D80.md](contract/CL-D80.md) — The exact-autofix writer launch carries no pi-subagents acceptance gate
+- [contract/CL-D126.md](contract/CL-D126.md) — A body-claim counterexample is a Minor reword corrected in the timeline
 - [contract/CL-D125.md](contract/CL-D125.md) — The packaged driver collects no separate enterprise policy
 - [contract/CL-D124.md](contract/CL-D124.md) — The version-2 Issue schema has no candidate field
 - [contract/CL-D123.md](contract/CL-D123.md) — The Issue root has no candidate publication route
