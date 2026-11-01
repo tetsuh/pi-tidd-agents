@@ -61,7 +61,9 @@ if (endpoint.startsWith('repos/o/r/rulesets/')) out((f.rulesets || []).find((r) 
 if (endpoint === 'repos/o/r/pulls/7') out(f.pull);
 if (endpoint === 'repos/o/r/issues/5') out(f.issue);
 if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [f.issueComments || []] : (f.issueComments || []));
-if (endpoint === 'repos/o/r') out({ owner: { type: 'User' }, default_branch: 'main' });
+if (endpoint === 'repos/o/r') out({ owner: { type: f.ownerType || 'User' }, default_branch: f.defaultBranch || 'main' });
+if (endpoint === 'orgs/o/rulesets') out((f.orgRulesets || []).map(({ id, updated_at, enforcement }) => ({ id, updated_at, enforcement })));
+if (endpoint.startsWith('orgs/o/rulesets/')) out((f.orgRulesets || []).find((r) => String(r.id) === endpoint.split('/').pop()));
 if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); process.stderr.write('HTTP 404'); process.exit(1); }
 if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
 if (endpoint.startsWith('repos/o/r/issues/7/comments?')) out(args.includes('--slurp') ? [f.prComments || []] : (f.prComments || []));

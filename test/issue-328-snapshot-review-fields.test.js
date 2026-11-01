@@ -46,15 +46,6 @@ test('Issue #328 AC1 a policy-only or mergeability-only change, before a later g
   assert.equal(state(t.runDir).invocations.convergence, 1);
 });
 
-test('Issue #328 AC2 a new human comment or a new review thread between gates still reruns convergence', () => {
-  for (const after of [{ prComments: [prComment(3)] }, { threads: [{ id: 't9', isResolved: false, isOutdated: false, path: 'a.js', line: 1, originalLine: 1, comments: { totalCount: 1, nodes: [{ id: 'c9', databaseId: 9, url: 'u', body: 'please change this', createdAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z', author: { login: 'h', __typename: 'User' } }], pageInfo: { endCursor: null, hasNextPage: false } } }] }]) {
-    const t = setup();
-    assert.equal(drive(t.start, t.e).status, 0);
-    setFixture(t, after);
-    assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-convergence-reviewer', JSON.stringify(after));
-  }
-});
-
 test('Issue #328 AC3 the final policy still reads the snapshot taken at final readiness', () => {
   const t = setup();
   assert.equal(drive(t.start, t.e).status, 0);
@@ -64,17 +55,6 @@ test('Issue #328 AC3 the final policy still reads the snapshot taken at final re
   const s = state(t.runDir);
   assert.equal(s.state, 'WAITING_EXTERNAL_REVIEW', s.reason);
   assert.equal(s.invocations.convergence, 1, 'the pending check waits; it reruns nothing');
-});
-
-test('Issue #328 AC1 and AC2 the exact autofix driver: a Bot comment clears nothing, a human comment reruns convergence', () => {
-  for (const [comments, agent] of [[[BOT(4)], 'tidd-adversarial-reviewer'], [[prComment(5)], 'tidd-convergence-reviewer']]) {
-    const t = autofix.setup();
-    assert.equal(autofix.drive(t.start, t.env).status, 0);
-    autofix.setFixture(t.bin, { prComments: comments });
-    const r = autofix.result(t);
-    assert.equal(autofix.nextRequest(r.stdout)?.agent, agent, `${comments[0].user.type}: ${r.stdout}${r.stderr}`);
-    if (agent === 'tidd-adversarial-reviewer') assert.equal(autofix.state(t.runDir).gateLog[0].cleared, undefined, 'the convergence MERGE is not cleared');
-  }
 });
 
 test('Issue #328 AC2 a run saved before the digest existed still reruns convergence on a new human comment', () => {
@@ -92,57 +72,105 @@ test('Issue #328 AC2 a run saved before the digest existed still reruns converge
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `${state(t.runDir).state} ${state(t.runDir).reason}`);
 });
 
-// CONV-331-AC1-EXCLUSION-TESTS (PR #331 round 1): each excluded field on its own, in both drivers, so a digest that
-// starts hashing any one of them fails here.
+// Each excluded field on its own, in both drivers, at every point the snapshot is read after the first gate: before Sol,
+// before Terra, and at final readiness. The field takes its variant, then its baseline, then its variant again, so each
+// read sees a change from the one before. CONV-331-AC1-EXCLUSION-TESTS (round 1), CONV-331-AC1-DRIVER-EXCLUSION-COVERAGE
+// (round 4) and CONV-331-AC1-BRANCH-POLICY-TEST (round 5) each named one field this table now holds.
+const RULESET = (id) => [{ id, updated_at: '2026-09-29T00:00:00Z', enforcement: 'evaluate', target: 'branch', rules: [], bypass_actors: [] }];
+const STATUS = (context) => [{ id: 11, context, state: 'success', target_url: null, description: 'ok', creator: { login: context === 'CodeRabbit' ? 'coderabbitai[bot]' : 'ci' }, created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z' }];
+// [label, variant, baseline, fixture before the run starts]
 const EXCLUDED = [
-  ['statuses', { statuses: [{ id: 11, context: 'lint', state: 'success', target_url: null, description: 'ok', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z' }] }],
-  ['check suites', { checkSuites: [{ id: 12, status: 'completed', conclusion: 'success', head_sha: 'x', app: { slug: 'ci' }, created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z' }] }],
-  ['annotations', { annotations: [{ path: 'a.js', start_line: 1, end_line: 1, annotation_level: 'warning', title: 't', message: 'm', raw_details: '' }] }],
-  ['policies', { rulesets: [{ id: 13, updated_at: '2026-09-29T00:00:00Z', enforcement: 'evaluate', target: 'branch', rules: [], bypass_actors: [] }] }],
+  ['check runs', { checkStatus: 'completed' }, { checkStatus: 'in_progress' }, { checkStatus: 'in_progress' }],
+  ['statuses', { statuses: STATUS('lint') }, { statuses: [] }],
+  ['check suites', { checkSuites: [{ id: 12, status: 'completed', conclusion: 'success', head_sha: 'x', app: { slug: 'ci' }, created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z' }] }, { checkSuites: [] }],
+  ['annotations', { annotations: [{ path: 'a.js', start_line: 1, end_line: 1, annotation_level: 'warning', title: 't', message: 'm', raw_details: '' }] }, { annotations: [] }],
+  ['rulesets', { rulesets: RULESET(13) }, { rulesets: [] }],
+  ['branch protection', { protection: { url: 'p', required_status_checks: { strict: true, contexts: ['ci'] } } }, { protection: null }],
+  ['organization rulesets', { orgRulesets: RULESET(14) }, { orgRulesets: [] }, { ownerType: 'Organization' }],
+  ['default branch', { defaultBranch: 'trunk' }, { defaultBranch: 'main' }],
+  ['external review', { statuses: STATUS('CodeRabbit') }, { statuses: [] }],
+  ['Bot comments', { prComments: [BOT(1)] }, { prComments: [] }],
+  ['reactions', { prComments: [prComment(3, { reactions: { url: 'x', total_count: 1, '+1': 1 } })] }, { prComments: [prComment(3)] }, { prComments: [prComment(3)] }],
+  ['pull.mergeable', { mergeable: false }, { mergeable: true }],
+  ['pull.mergeable_state', { mergeableState: 'unstable' }, { mergeableState: 'clean' }],
 ];
-test('Issue #328 AC1 each excluded field changing alone between convergence and Sol clears nothing in either driver', () => {
-  for (const [label, patch] of EXCLUDED) {
-    const t = setup();
-    assert.equal(drive(t.start, t.e).status, 0);
-    setFixture(t, patch);
-    assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-adversarial-reviewer', `review-only, ${label}: ${state(t.runDir).state} ${state(t.runDir).reason}`);
-    assert.equal(state(t.runDir).verdicts.convergence, 'MERGE', `review-only, ${label}`);
-    const a = autofix.setup();
-    assert.equal(autofix.drive(a.start, a.env).status, 0);
-    autofix.setFixture(a.bin, patch);
-    const r = autofix.result(a);
-    assert.equal(autofix.nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', `autofix, ${label}: ${r.stdout}${r.stderr}`);
-    assert.equal(autofix.state(a.runDir).gateLog[0].cleared, undefined, `autofix, ${label}`);
+// The review-only fake serves the pull request whole, so the mergeability knobs go into it.
+const reviewSet = (t, { mergeable, mergeableState, ...rest }) => setFixture(t, { ...rest, ...(mergeable === undefined && mergeableState === undefined ? {} : pullPatch(t, { ...(mergeable === undefined ? {} : { mergeable }), ...(mergeableState === undefined ? {} : { mergeable_state: mergeableState }) })) });
+const DRIVERS = {
+  'review-only': {
+    start(initial) { const t = setup(); if (initial) reviewSet(t, initial); assert.equal(drive(t.start, t.e).status, 0); return t; },
+    set: reviewSet, step: (t) => nextRequest(result(t).stdout)?.agent,
+    check(t, where) { const s = state(t.runDir); assert.equal(s.verdicts.convergence, 'MERGE', where); assert.equal(s.invocations.convergence, 1, where); return s; },
+    cleared: (t) => state(t.runDir).verdicts.convergence === undefined,
+  },
+  autofix: {
+    start(initial) { const a = autofix.setup(); if (initial) autofix.setFixture(a.bin, initial); assert.equal(autofix.drive(a.start, a.env).status, 0); return a; },
+    set: (a, patch) => autofix.setFixture(a.bin, patch), step: (a) => autofix.nextRequest(autofix.result(a).stdout)?.agent,
+    check(a, where) { const s = autofix.state(a.runDir); assert.ok(s.gateLog.every((g) => g.cleared === undefined), where); assert.equal(s.gateLog.filter((g) => g.gate === 'convergence').length, 1, where); return s; },
+    cleared: (a) => Boolean(autofix.state(a.runDir).gateLog.find((g) => g.gate === 'convergence').cleared),
+  },
+};
+test('Issue #328 AC1 each excluded field changing alone before Sol, before Terra and at final readiness clears nothing in either driver', () => {
+  for (const [label, variant, baseline, initial] of EXCLUDED) {
+    for (const [name, d] of Object.entries(DRIVERS)) {
+      const t = d.start(initial);
+      d.set(t, variant);
+      assert.equal(d.step(t), 'tidd-adversarial-reviewer', `${name}, ${label}, before Sol`);
+      d.check(t, `${name}, ${label}, before Sol`);
+      d.set(t, baseline);
+      assert.equal(d.step(t), 'tidd-safety-reviewer', `${name}, ${label}, before Terra`);
+      d.check(t, `${name}, ${label}, before Terra`);
+      d.set(t, variant);
+      assert.equal(d.step(t), undefined, `${name}, ${label}, at final readiness`);
+      const s = d.check(t, `${name}, ${label}, at final readiness`);
+      assert.equal(s.state, 'MERGE_READY', `${name}, ${label}: ${s.reason}`);
+    }
   }
 });
 
-// CONV-331-AC1-DRIVER-EXCLUSION-COVERAGE (PR #331 round 4): a check run completing in the exact autofix driver, and
-// `pull.mergeable` changing apart from `mergeable_state` in either driver, or `mergeable_state` alone in the exact autofix
-// driver, clear nothing.
-test('Issue #328 AC1 a check run completing in the exact autofix driver clears nothing', () => {
-  const a = autofix.setup();
-  autofix.setFixture(a.bin, { checkStatus: 'in_progress' });
-  assert.equal(autofix.drive(a.start, a.env).status, 0);
-  autofix.setFixture(a.bin, { checkStatus: 'completed' });
-  const r = autofix.result(a);
-  assert.equal(autofix.nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', `${r.stdout}${r.stderr}`);
-  assert.equal(autofix.state(a.runDir).gateLog[0].cleared, undefined, 'the convergence MERGE is not cleared');
+// AC2 in full, in both drivers: a new or edited review, review thread or trusted conversation comment between
+// convergence and Sol still clears the convergence verdict and reruns convergence.
+const REVIEW = (body) => ({ id: 21, user: { login: 'h', type: 'User' }, author_association: 'MEMBER', state: 'COMMENTED', body, commit_id: 'x', html_url: 'r21', submitted_at: '2026-09-29T00:00:00Z' });
+const THREAD = (body) => ({ id: 't9', isResolved: false, isOutdated: false, path: 'a.js', line: 1, originalLine: 1, comments: { totalCount: 1, nodes: [{ id: 'c9', databaseId: 9, url: 'u', body, createdAt: '2026-09-29T00:00:00Z', updatedAt: '2026-09-29T00:00:00Z', author: { login: 'h', __typename: 'User' } }], pageInfo: { endCursor: null, hasNextPage: false } } });
+// [label, fixture before the run starts, change]
+const REVIEWED = [
+  ['a new review', undefined, { reviews: [REVIEW('please change this')] }],
+  ['an edited review', { reviews: [REVIEW('looks fine')] }, { reviews: [REVIEW('please change this')] }],
+  ['a new review thread', undefined, { threads: [THREAD('please change this')] }],
+  ['an edited review thread', { threads: [THREAD('nit')] }, { threads: [THREAD('please change this')] }],
+  ['a new trusted comment', undefined, { prComments: [prComment(3)] }],
+  ['an edited trusted comment', { prComments: [prComment(3)] }, { prComments: [prComment(3, { body: 'please change this', updated_at: '2026-09-30T00:00:00Z' })] }],
+];
+test('Issue #328 AC2 a new or edited review, review thread or trusted comment between gates reruns convergence in either driver', () => {
+  for (const [label, initial, change] of REVIEWED) {
+    for (const [name, d] of Object.entries(DRIVERS)) {
+      const t = d.start(initial);
+      d.set(t, change);
+      assert.equal(d.step(t), 'tidd-convergence-reviewer', `${name}, ${label}`);
+      assert.ok(d.cleared(t), `${name}, ${label}: the convergence verdict is cleared`);
+    }
+  }
 });
 
-test('Issue #328 AC1 pull.mergeable changing alone in either driver, or mergeable_state alone in exact autofix, clears nothing', () => {
+// Every field the snapshot reader returns is either hashed or named by a row of EXCLUDED, so a field added to the
+// snapshot later fails here until it is classified (CONV-331-AC1-BRANCH-POLICY-TEST). `completeness` holds flags the
+// reader sets itself, which no fixture input changes, so it has no row.
+const HASHED = ['before', 'after', 'pull', 'comments', 'reviews', 'inline', 'threads'];
+const ROW = {
+  checks: 'check runs', statuses: 'statuses', checkSuites: 'check suites', annotations: 'annotations',
+  'policies.branchProtection': 'branch protection', 'policies.rulesets': 'rulesets', 'policies.organizationRulesets': 'organization rulesets',
+  'policies.defaultBranch': 'default branch', 'policies.checks': 'check runs', 'policies.externalReview': 'external review',
+  'pull.mergeable': 'pull.mergeable', 'pull.mergeable_state': 'pull.mergeable_state',
+};
+test('Issue #328 AC1 every snapshot field is hashed or named by a row of the exclusion table', () => {
   const t = setup();
   assert.equal(drive(t.start, t.e).status, 0);
-  setFixture(t, pullPatch(t, { mergeable: false }));
-  assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-adversarial-reviewer', `review-only: ${state(t.runDir).state} ${state(t.runDir).reason}`);
-  assert.equal(state(t.runDir).verdicts.convergence, 'MERGE', 'review-only');
-  for (const patch of [{ mergeable: false }, { mergeableState: 'unstable' }]) {
-    const a = autofix.setup();
-    assert.equal(autofix.drive(a.start, a.env).status, 0);
-    autofix.setFixture(a.bin, patch);
-    const r = autofix.result(a);
-    assert.equal(autofix.nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', `autofix, ${JSON.stringify(patch)}: ${r.stdout}${r.stderr}`);
-    assert.equal(autofix.state(a.runDir).gateLog[0].cleared, undefined, `autofix, ${JSON.stringify(patch)}`);
-  }
+  const file = fs.readdirSync(t.runDir).filter((f) => /-snapshot\.result\.json$/.test(f)).sort().pop();
+  const snapshot = JSON.parse(fs.readFileSync(require('node:path').join(t.runDir, file), 'utf8')).data;
+  const fields = [...Object.keys(snapshot).filter((k) => k !== 'policies'), ...Object.keys(snapshot.policies).map((k) => `policies.${k}`), ...['mergeable', 'mergeable_state'].filter((k) => k in snapshot.pull).map((k) => `pull.${k}`)];
+  const labels = new Set(EXCLUDED.map(([label]) => label));
+  for (const field of fields) assert.ok(HASHED.includes(field) || field === 'completeness' || labels.has(ROW[field]), `unclassified snapshot field ${field}`);
+  for (const field of Object.keys(ROW)) assert.ok(fields.includes(field), `classified field ${field} is no longer in the snapshot`);
 });
 
 test('Issue #328 AC5 the record, the index, the shared contract and CL-D62 agree', () => {
