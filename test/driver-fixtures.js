@@ -59,9 +59,12 @@ if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
 if (endpoint === 'repos/o/r') out({ id: 1, owner: { type: 'User' }, default_branch: 'main', permissions: { push: true } });
 if (endpoint === 'user') out({ login: 'operator' });
 if (endpoint.endsWith('/protection')) { process.stderr.write('HTTP 404'); process.exit(1); }
-if (endpoint.includes('/check-runs/1/annotations')) out([]);
+if (endpoint.includes('/check-runs/1/annotations')) out(f.annotations || []);
 if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }] });
-if (endpoint.includes('/check-suites')) out({ check_suites: [] });
+if (endpoint.includes('/check-suites')) out({ check_suites: f.checkSuites || [] });
+if (endpoint.includes('/statuses')) out(f.statuses || []);
+if (endpoint === 'repos/o/r/rulesets') out((f.rulesets || []).map(({ id, updated_at, enforcement }) => ({ id, updated_at, enforcement })));
+if (endpoint.startsWith('repos/o/r/rulesets/')) out((f.rulesets || []).find((r) => String(r.id) === endpoint.split('/').pop()));
 out([]);
 `, { mode: 0o755 });
   return bin;

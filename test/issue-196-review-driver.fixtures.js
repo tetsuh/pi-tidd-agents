@@ -66,9 +66,9 @@ if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); pro
 if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
 if (endpoint.startsWith('repos/o/r/issues/7/comments?')) out(args.includes('--slurp') ? [f.prComments || []] : (f.prComments || []));
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
-if (/\\/check-runs\\/\\d+\\/annotations/.test(endpoint)) out([]);
+if (/\\/check-runs\\/\\d+\\/annotations/.test(endpoint)) out(f.annotations || []);
 if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', started_at: '2026-09-29T00:00:00Z', ...(f.checkStatus && f.checkStatus !== 'completed' ? {} : { completed_at: '2026-09-29T00:00:00Z' }), status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : (f.checkConclusion || 'success') }, ...(f.extraChecks || [])] });
-if (endpoint.includes('/check-suites')) out({ check_suites: [] });
+if (endpoint.includes('/check-suites')) out({ check_suites: f.checkSuites || [] });
 out([]);
 `, { mode: 0o755 });
   return bin;

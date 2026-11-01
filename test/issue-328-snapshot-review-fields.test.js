@@ -92,6 +92,30 @@ test('Issue #328 AC2 a run saved before the digest existed still reruns converge
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `${state(t.runDir).state} ${state(t.runDir).reason}`);
 });
 
+// CONV-331-AC1-EXCLUSION-TESTS (PR #331 round 1): each excluded field on its own, in both drivers, so a digest that
+// starts hashing any one of them fails here.
+const EXCLUDED = [
+  ['statuses', { statuses: [{ id: 11, context: 'lint', state: 'success', target_url: null, description: 'ok', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z' }] }],
+  ['check suites', { checkSuites: [{ id: 12, status: 'completed', conclusion: 'success', head_sha: 'x', app: { slug: 'ci' }, created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z' }] }],
+  ['annotations', { annotations: [{ path: 'a.js', start_line: 1, end_line: 1, annotation_level: 'warning', title: 't', message: 'm', raw_details: '' }] }],
+  ['policies', { rulesets: [{ id: 13, updated_at: '2026-09-29T00:00:00Z', enforcement: 'evaluate', target: 'branch', rules: [], bypass_actors: [] }] }],
+];
+test('Issue #328 AC1 each excluded field changing alone between convergence and Sol clears nothing in either driver', () => {
+  for (const [label, patch] of EXCLUDED) {
+    const t = setup();
+    assert.equal(drive(t.start, t.e).status, 0);
+    setFixture(t, patch);
+    assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-adversarial-reviewer', `review-only, ${label}: ${state(t.runDir).state} ${state(t.runDir).reason}`);
+    assert.equal(state(t.runDir).verdicts.convergence, 'MERGE', `review-only, ${label}`);
+    const a = autofix.setup();
+    assert.equal(autofix.drive(a.start, a.env).status, 0);
+    autofix.setFixture(a.bin, patch);
+    const r = autofix.result(a);
+    assert.equal(autofix.nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', `autofix, ${label}: ${r.stdout}${r.stderr}`);
+    assert.equal(autofix.state(a.runDir).gateLog[0].cleared, undefined, `autofix, ${label}`);
+  }
+});
+
 test('Issue #328 AC5 the record, the index, the shared contract and CL-D62 agree', () => {
   const record = readText('contract/CL-D128.md');
   assert.match(record, /^## CL-D128 — /m);
