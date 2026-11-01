@@ -87,8 +87,8 @@ test('Issue #196 a reply added to an existing review thread is new evidence', ()
 });
 
 // Round 17 of PR #199: a required check pinned to an app is satisfied only by that app's check run
-// (ADV-199-REQUIRED-APP-ID), and the frozen ignored delta covers every descendant of an ignored directory by content
-// (ADV-199-IGNORED-DELTA-CHILDREN).
+// (ADV-199-REQUIRED-APP-ID), and the frozen ignored delta covers every descendant of an ignored directory
+// (ADV-199-IGNORED-DELTA-CHILDREN), by presence and type since CL-D129.
 test('Issue #196 a required check pinned to an app is satisfied only by that app\'s check run', () => {
   const { readiness } = require('../skills/closed-loop-pr/driver/run');
   const run = (appId) => ({ id: 1, name: 'build', status: 'completed', conclusion: 'success', app: { id: appId } });
@@ -106,7 +106,7 @@ test('Issue #196 a required check pinned to an app is satisfied only by that app
   assert.match(readiness(snapshot(ruleset(undefined), [], [status]), 'h'.repeat(40)).confirm.join(';'), /^ruleset 1 can gate the merge \(required_status_checks\)$/, 'a ruleset check is for a human to confirm');
 });
 
-test('Issue #196 the ignored inventory covers every descendant of an ignored directory by content', () => {
+test('Issue #196 the ignored inventory covers every descendant of an ignored directory by presence and type', () => {
   const { ignoredInventory } = require('../skills/closed-loop-pr/driver/run');
   const root = temp('i196-ignored-');
   git(root, ['init', '-q']);
@@ -119,7 +119,9 @@ test('Issue #196 the ignored inventory covers every descendant of an ignored dir
   fs.rmSync(path.join(root, 'scratch', 'deep', 'y'));
   assert.deepEqual(ignoredInventory(root), frozen, 'back to the frozen delta');
   fs.writeFileSync(path.join(root, 'scratch', 'x'), 'two');
-  assert.notDeepEqual(ignoredInventory(root), frozen, 'an edited ignored file');
+  assert.deepEqual(ignoredInventory(root), frozen, 'an edited ignored file is unchanged in presence and type (CL-D129)');
+  fs.rmSync(path.join(root, 'scratch', 'x')); fs.mkdirSync(path.join(root, 'scratch', 'x'));
+  assert.notDeepEqual(ignoredInventory(root), frozen, 'a retyped ignored path');
 });
 
 // Round 19 of PR #199: a missing or malformed runner status record is a missing result, relaunched once like a missing
