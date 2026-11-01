@@ -132,6 +132,12 @@ function describeExternal(snapshot) {
   const r = readiness(snapshot, snapshot.after.head);
   return `${(snapshot.comments || []).length} comments, ${(snapshot.reviews || []).length} reviews, ${(snapshot.threads || []).length} threads (${r.unresolved.length} unresolved), ${(snapshot.checks || []).length} checks and ${(snapshot.statuses || []).length} statuses (${r.failed.length} failing, ${r.pending.length} pending); external review: ${r.observed.join(', ') || 'none observed'}`;
 }
+// CL-D128: the snapshot fields a gate can act on: the target brackets, the pull request apart from its mergeability,
+// reviews, review threads, inline comments, and conversation comments not by a `Bot`; reactions are not review content.
+function reviewDigest(snapshot) {
+  const bare = (x) => { const { reactions, ...rest } = x || {}; return rest; }, { mergeable, mergeable_state: state, ...pull } = snapshot.pull || {};
+  return sha256(Buffer.from(JSON.stringify({ before: snapshot.before, after: snapshot.after, pull, reviews: snapshot.reviews || [], threads: snapshot.threads || [], inline: (snapshot.inline || []).map(bare), comments: (snapshot.comments || []).filter((c) => c.user?.type !== 'Bot').map(bare) }), 'utf8'));
+}
 // The snapshot, its fingerprint, the evidence envelope, and the required-evidence set, as of now; `cwd` holds the head.
 // Returns the snapshot and whether it carries external evidence the previous one did not.
 function collectSnapshotEvidence(run, cwd = run.state.checkout) {
@@ -140,9 +146,11 @@ function collectSnapshotEvidence(run, cwd = run.state.checkout) {
   const moved = targetMoved(t, { base: { sha: snapshot.after.base, ref: snapshot.after.baseBranch }, head: { sha: snapshot.after.head, ref: snapshot.after.headBranch, repo: { full_name: snapshot.after.headRepository } }, state: snapshot.after.state, draft: snapshot.after.draft });
   if (moved) run.stop('BLOCKED', moved);
   const snap = snapshotFingerprint(run, snapshot);
-  // Any change of the snapshot, not only a new record, invalidates the gate sequence (ADV-199-SNAPSHOT-INVALIDATION).
-  const previous = s.fingerprints.snapshot;
-  s.fingerprints.snapshot = snap.value; s.records.snapshot = snap.record; s.snapshotChanged = Boolean(previous) && previous !== snap.value;
+  // The gate sequence is invalidated by a change in the fields a gate can act on, not only a new record
+  // (ADV-199-SNAPSHOT-INVALIDATION, CL-D128); a state saved before the digest existed compares the full fingerprint once.
+  const previous = s.reviewSnapshot, legacy = s.fingerprints.snapshot, review = reviewDigest(snapshot);
+  s.fingerprints.snapshot = snap.value; s.records.snapshot = snap.record; s.reviewSnapshot = review;
+  s.snapshotChanged = previous ? previous !== review : Boolean(legacy) && legacy !== snap.value;
   const fresh = s.snapshotChanged;
   s.observedFrom = new Date().toISOString();
   s.external = `${describeExternal(snapshot)}; ${externalEvents(snapshot)}`;

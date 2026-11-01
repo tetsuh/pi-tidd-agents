@@ -151,7 +151,7 @@ function recheck(run) {
     if (JSON.stringify(spec.comments) !== JSON.stringify(JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')))) end(run, 'BLOCKED', 'issue comments changed after the run read them');
     now = headFingerprints(run, { cwd: s.workspace, baseOid: t.baseOid, headOid: t.headOid, ...spec });
   }
-  // The last snapshot's fingerprint is kept, so the next snapshot is compared with it.
+  // The last snapshot's fingerprint and review digest are kept, so the next snapshot is compared with them.
   Object.assign(s, { fingerprints: { ...now.values, snapshot: s.fingerprints?.snapshot }, records: { ...now.records, snapshot: s.records?.snapshot }, fingerprintHead: t.headOid });
   return now;
 }
@@ -327,7 +327,7 @@ function writerDone(opts) {
   s.pushHistory.push({ commit: b.commit, findings: b.findings });
   s.prevHead = s.target.headOid; s.target.headOid = b.commit;
   // A new head's first snapshot is not a change of the old head's.
-  s.fingerprints.snapshot = null;
+  s.fingerprints.snapshot = null; s.reviewSnapshot = null;
   s.invalidated = `every gate verdict before ${b.commit.slice(0, 12)}`;
   s.ignoredDelta = b.ignored; s.batch = null; s.pending = null; run.save();
   verifyWorkspace(run);
