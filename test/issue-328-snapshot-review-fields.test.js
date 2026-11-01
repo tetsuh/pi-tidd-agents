@@ -121,6 +121,9 @@ test('Issue #328 AC5 the record, the index, the shared contract and CL-D62 agree
   assert.match(record, /^## CL-D128 — /m);
   assert.ok(readText('CONTRACT.md').includes('- [contract/CL-D128.md](contract/CL-D128.md) — '), 'the index lists CL-D128');
   assert.match(record, /still records the full snapshot fingerprint/);
+  // CONV-331-AC3-BLOCKED-STATE (PR #331 round 2): the final policy is unchanged, so `blocked` is still named for a human.
+  assert.match(record, /a check, status, thread or `mergeable_state` the final policy fails or waits on stops the run as before, and `mergeable_state` `blocked` is still named for a human to confirm before merging \(CL-D100\)/);
+  assert.doesNotMatch(record, /a non-mergeable state stops the run/);
   assert.match(readText('skills/closed-loop-shared/references/gate-contract.md'), /a snapshot change counts only in the fields a gate can act on[^\n]*\(CL-D128\)/);
   assert.match(readText('contract/CL-D62.md'), /CL-D128 later/);
   const clauses = JSON.parse(readText('contract/CL-D128.clauses.json')).clauses;
