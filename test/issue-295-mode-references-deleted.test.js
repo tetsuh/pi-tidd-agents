@@ -86,7 +86,7 @@ test('Issue #295 CL-D119 records the change and every touched record carries its
   assert.ok(record, 'CL-D119 is in the contract');
   assert.match(record, /tetsuh\/pi-tidd-agents#295/);
   assert.match(record, /The four authority files measured 74,363 bytes on this change, so the ceiling falls to 81,000 bytes on the CL-D43 terms, leaving 6,637 bytes\./);
-  assert.match(readText('contract/CL-D38.md'), /where the definition observed presence only, recorded and not closed \(#249, CL-D119\)\./);
+  assert.match(readText('contract/CL-D38.md'), /a stop names the changed entries, where the definition observed presence only \(#249, CL-D119\); CL-D129 later closed it/);
   assert.match(readText('contract/AC-DECISION.md'), /its own pauses on dangerous operations and ship decisions lapsed with the prose path/);
   assert.match(readText('contract/AC-DISPOSITION.md'), /owner approval for merging without required deterministic coverage lapsed with the prose path/);
   assert.equal(readText('contract/CL-D96.md').includes('as autofix.md states it'), false, 'CL-D96 drops its pointer instead of taking a note');
