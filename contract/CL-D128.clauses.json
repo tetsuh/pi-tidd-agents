@@ -1,0 +1,68 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D128-record",
+      "marker": "CL-D128",
+      "title": "CL-D128 records which snapshot fields invalidate a gate result",
+      "files": [
+        "contract/CL-D128.md"
+      ],
+      "requires": [
+        "*Owner choice:* Option A.",
+        "clears no verdict and reruns nothing",
+        "A gate result still records the full snapshot fingerprint it observed",
+        "Final readiness still evaluates the final policy on a snapshot read at that moment"
+      ]
+    },
+    {
+      "id": "CL-D128-driver",
+      "marker": "CL-D128",
+      "title": "The shared snapshot reader invalidates on the review digest",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "comments: (snapshot.comments || []).filter((c) => c.user?.type !== 'Bot').map(bare)",
+        "{ mergeable, mergeable_state: state, ...pull } = snapshot.pull || {};",
+        "s.snapshotChanged = previous ? previous !== review : Boolean(legacy) && legacy !== snap.value;"
+      ]
+    },
+    {
+      "id": "CL-D128-contract",
+      "marker": "CL-D128",
+      "title": "The shared contract states the narrowed invalidation",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md"
+      ],
+      "requires": [
+        "a snapshot change counts only in the fields a gate can act on"
+      ]
+    },
+    {
+      "id": "CL-D128-forward",
+      "marker": "CL-D128",
+      "title": "CL-D62 points forward to this record",
+      "files": [
+        "contract/CL-D62.md"
+      ],
+      "requires": [
+        "CL-D128 later"
+      ]
+    },
+    {
+      "id": "CL-D128-tests",
+      "marker": "CL-D128",
+      "title": "The suite asserts the narrowed invalidation in both drivers",
+      "files": [
+        "test/issue-328-snapshot-review-fields.test.js"
+      ],
+      "requires": [
+        "Issue #328 AC1",
+        "Issue #328 AC2",
+        "Issue #328 AC3",
+        "Issue #328 AC4",
+        "Issue #328 AC5"
+      ]
+    }
+  ]
+}

@@ -200,7 +200,7 @@
     {
       "id": "CL-D30-snapshot-routing",
       "marker": "CL-D30",
-      "title": "A changed external snapshot invalidates every verdict and restarts the gates on the same head",
+      "title": "A changed external snapshot, in its review digest since CL-D128, invalidates every verdict and restarts the gates on the same head",
       "files": [
         "skills/closed-loop-pr/driver/autofix.js"
       ],

@@ -151,7 +151,7 @@ function recheck(run) {
     if (JSON.stringify(spec.comments) !== JSON.stringify(JSON.parse(fs.readFileSync(path.join(run.dir, 'issue-comments.json'), 'utf8')))) end(run, 'BLOCKED', 'issue comments changed after the run read them');
     now = headFingerprints(run, { cwd: s.workspace, baseOid: t.baseOid, headOid: t.headOid, ...spec });
   }
-  // The last snapshot's fingerprint is kept, so the next snapshot is compared with it.
+  // The last snapshot's fingerprint and review digest are kept, so the next snapshot is compared with them.
   Object.assign(s, { fingerprints: { ...now.values, snapshot: s.fingerprints?.snapshot }, records: { ...now.records, snapshot: s.records?.snapshot }, fingerprintHead: t.headOid });
   return now;
 }
@@ -162,7 +162,7 @@ function arm(run, gate) {
   if (gate !== 'convergence' && s.counters.gates >= CAP.gates) end(run, 'ROUND_LIMIT_REACHED', 'gate_limit');
   const evidence = recheck(run);
   if (!isUtf8(Buffer.from(evidence.diff))) end(run, 'BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly');
-  // New external evidence restarts the sequence (ADV-208-SNAPSHOT-CAP).
+  // A review-digest change restarts the sequence (ADV-208-SNAPSHOT-CAP).
   if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s))) { s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; markCleared(s); return arm(run, restartAt(s)); }
   if (s.snapshotChanged) markCleared(s); // a change seen with convergence at its cap restarts nothing, yet clears it
   const requiredEvidence = s.requiredEvidence, fp = s.fingerprints;
@@ -327,7 +327,7 @@ function writerDone(opts) {
   s.pushHistory.push({ commit: b.commit, findings: b.findings });
   s.prevHead = s.target.headOid; s.target.headOid = b.commit;
   // A new head's first snapshot is not a change of the old head's.
-  s.fingerprints.snapshot = null;
+  s.fingerprints.snapshot = null; s.reviewSnapshot = null;
   s.invalidated = `every gate verdict before ${b.commit.slice(0, 12)}`;
   s.ignoredDelta = b.ignored; s.batch = null; s.pending = null; run.save();
   verifyWorkspace(run);
@@ -335,7 +335,7 @@ function writerDone(opts) {
   arm(run, restartAt(s));
 }
 
-// Final readiness from a fresh snapshot on the same head: new external evidence reruns convergence within its cap, then
+// Final readiness from a fresh snapshot on the same head: a review-digest change reruns convergence within its cap, then
 // the review driver's final policy.
 function finish(run) {
   const s = run.state;

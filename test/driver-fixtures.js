@@ -52,16 +52,22 @@ const out = (v) => { process.stdout.write(JSON.stringify(v)); process.exit(0); }
 if (args[0] !== 'api') { process.stderr.write('unexpected gh ' + args.join(' ')); process.exit(9); }
 if (f.failEndpoint && endpoint.includes(f.failEndpoint)) { process.stderr.write('HTTP 502: bad gateway'); process.exit(1); }
 if (args[1] === 'graphql') out({ data: { repository: { pullRequest: { reviewThreads: { nodes: f.threads || [], pageInfo: { hasNextPage: false, endCursor: null } } } } } });
-if (endpoint === 'repos/o/r/pulls/7') out({ number: 7, state: f.prState || 'open', draft: f.prDraft || false, mergeable: true, mergeable_state: 'clean', title: 't', body: f.body, base: { sha: f.base, ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: head, ref: 'feature', repo: { full_name: f.headRepo || 'o/r' } } });
+if (endpoint === 'repos/o/r/pulls/7') out({ number: 7, state: f.prState || 'open', draft: f.prDraft || false, mergeable: f.mergeable === undefined ? true : f.mergeable, mergeable_state: f.mergeableState || 'clean', title: f.title || 't', body: f.body, base: { sha: f.base, ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: head, ref: 'feature', repo: { full_name: f.headRepo || 'o/r' } } });
 if (endpoint === 'repos/o/r/issues/5') out(f.issue);
 if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [f.issueComments || []] : (f.issueComments || []));
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);
-if (endpoint === 'repos/o/r') out({ id: 1, owner: { type: 'User' }, default_branch: 'main', permissions: { push: true } });
+if (endpoint === 'repos/o/r/pulls/7/reviews') out(f.reviews || []);
+if (endpoint === 'repos/o/r') out({ id: 1, owner: { type: f.ownerType || 'User' }, default_branch: f.defaultBranch || 'main', permissions: { push: true } });
+if (endpoint === 'orgs/o/rulesets') out((f.orgRulesets || []).map(({ id, updated_at, enforcement }) => ({ id, updated_at, enforcement })));
+if (endpoint.startsWith('orgs/o/rulesets/')) out((f.orgRulesets || []).find((r) => String(r.id) === endpoint.split('/').pop()));
 if (endpoint === 'user') out({ login: 'operator' });
-if (endpoint.endsWith('/protection')) { process.stderr.write('HTTP 404'); process.exit(1); }
-if (endpoint.includes('/check-runs/1/annotations')) out([]);
-if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', status: 'completed', conclusion: 'success', started_at: '2026-09-29T00:00:00Z', completed_at: '2026-09-29T00:00:00Z' }] });
-if (endpoint.includes('/check-suites')) out({ check_suites: [] });
+if (endpoint.endsWith('/protection')) { if (f.protection) out(f.protection); process.stderr.write('HTTP 404'); process.exit(1); }
+if (endpoint.includes('/check-runs/1/annotations')) out(f.annotations || []);
+if (endpoint.includes('/check-runs')) out({ check_runs: [{ id: 1, name: 'ci', started_at: '2026-09-29T00:00:00Z', ...(f.checkStatus && f.checkStatus !== 'completed' ? {} : { completed_at: '2026-09-29T00:00:00Z' }), status: f.checkStatus || 'completed', conclusion: f.checkStatus && f.checkStatus !== 'completed' ? null : 'success' }] });
+if (endpoint.includes('/check-suites')) out({ check_suites: f.checkSuites || [] });
+if (endpoint.includes('/statuses')) out(f.statuses || []);
+if (endpoint === 'repos/o/r/rulesets') out((f.rulesets || []).map(({ id, updated_at, enforcement }) => ({ id, updated_at, enforcement })));
+if (endpoint.startsWith('repos/o/r/rulesets/')) out((f.rulesets || []).find((r) => String(r.id) === endpoint.split('/').pop()));
 out([]);
 `, { mode: 0o755 });
   return bin;

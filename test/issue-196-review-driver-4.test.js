@@ -65,12 +65,11 @@ test('Issue #196 a stopped run resumes after recomputing its fingerprints, and r
   throughGates(t);
   assert.equal(state(t.runDir).state, 'WAITING_EXTERNAL_REVIEW');
   setFixture(t, { checkStatus: 'completed' });
-  // The completed check changed the snapshot, so the resumed run restarts at convergence (ADV-199-SNAPSHOT-INVALIDATION)
-  // and is ready once the gates pass again: nothing waits for a quiet period (CL-D100).
+  // The completed check is read by the final policy and clears no verdict (CL-D128), so the resumed run is ready at
+  // once: nothing waits for a quiet period (CL-D100).
   let r = drive(['resume', '--run-dir', t.runDir], t.e);
   assert.equal(r.status, 0, r.stderr + r.stdout);
-  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer');
-  throughGates(t);
+  assert.equal(nextRequest(r.stdout), null, r.stdout);
   assert.equal(state(t.runDir).state, 'MERGE_READY', state(t.runDir).reason);
   const moved = setup();
   setFixture(moved, { checkStatus: 'in_progress' });
