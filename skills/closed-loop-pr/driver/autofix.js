@@ -19,7 +19,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { isUtf8 } = require('node:buffer');
 const { OPERATOR_CONFIG, Run, headFingerprints, targetMoved, roleLabel, ignoredInventory, ROLE, LANGUAGE_PROFILE, die, parseArgs, git, gh, contractInput, acceptanceCriteria, validationCommands } = require('./run');
-const { gateLabel, ignoredDrift, readyGates, markCleared, bindTarget, guard, readIssue, trustedComments, isRecorded, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
+const { gateLabel, ignoredDrift, readyGates, markCleared, bindTarget, guard, readIssue, trustedComments, isRecorded, recordedLine, readGate, collectSnapshotEvidence, sameSpec, finalPolicy } = require('./phases');
 const { runSync, gitArgs } = require('../helpers/process');
 const { runsRoot } = require('../helpers/launch');
 const { authorizedPaths } = require('./paths');
@@ -185,7 +185,7 @@ function arm(run, gate) {
   process.exit(0);
 }
 
-// CL-D85's recorded findings advance (isRecorded); the correctable class is corrected; anything else is the owner's.
+// CL-D85's recorded findings advance (isRecorded, a reword's line per CL-D127); the correctable class is corrected; anything else is the owner's.
 // Only a formal gate's own finding is corrected (#196).
 function correctable(x) { return x.workflowRecord?.sourceKind === 'gate' && x.anchoring === 'criterion-anchored' && ['Major', 'Minor'].includes(x.severity) && ['fixed', 'deferred'].includes(x.proposedDisposition) && x.outOfScope !== true; }
 
@@ -211,7 +211,7 @@ function result(opts) {
     const countered = (envelope.adversarialResults || []).some((r) => r.findingId === x.findingId);
     // CONV-208-SETTLE-ONLY-AFTER-SOL
     if (!countered && confirmations.get(x.findingId)?.confirmation === 'confirmed' && x.proposedDisposition === 'fixed') { Object.assign(entry, gate === 'adversarial' ? { status: 'settled', disposition: 'fixed', confirmedBy: gate } : { status: 'confirmed', confirmedBy: gate, record: x }); continue; }
-    if (isRecorded(x)) { Object.assign(entry, { status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, record: x }); continue; }
+    if (isRecorded(x)) { Object.assign(entry, { status: 'settled', disposition: recordedLine(x), record: x }); continue; }
     entry.noProgress = (entry.noProgress || 0) + 1; entry.record = x; entry.status = 'open';
     if (entry.noProgress >= CAP.noProgress) end(run, 'ROUND_LIMIT_REACHED', `no_progress: ${x.findingId} observed unresolved ${entry.noProgress} times`);
   }
@@ -224,7 +224,7 @@ function result(opts) {
   const keys = fresh.length ? data(run.op('build_gate_assignments', { findings: fresh, settledKeys: s.ledger.filter((e) => e.status === 'settled').map((e) => e.blockerKey) })).assignedFindings : [];
   for (const x of fresh) {
     const blockerKey = keys.find((k) => k.findingId === x.findingId).blockerKey, summary = String(x.correction).slice(0, 200);
-    if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, summary });
+    if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: recordedLine(x), summary });
     else s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'open', record: x, noProgress: 0, summary });
   }
   run.save();

@@ -22,7 +22,7 @@ test('Issue #153 rule 1: a Minor that changes no file of the head is recorded, n
   assert.match(classes, /is recorded with its anchoring class and its disposition and does not stop the run, and readiness may be reported with such Minors recorded\./);
   assert.match(classes, /A finding that corrects a false safety claim changes what the contract promises, so it is not wording only and keeps its severity \(CL-D85\)\./);
   // #249 B4b (CL-D117): the autofix driver settles such a Minor once recorded.
-  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: `${x.proposedDisposition} (recorded under CL-D85)`, summary });"), 'a recorded Minor settles');
+  assert.ok(readText('skills/closed-loop-pr/driver/autofix.js').includes("if (isRecorded(x)) s.ledger.push({ findingId: x.findingId, blockerKey, gate, status: 'settled', disposition: recordedLine(x), summary });"), 'a recorded Minor settles');
 });
 
 test('Issue #153 rule 2: the chronology leaves the pull-request body', () => {
