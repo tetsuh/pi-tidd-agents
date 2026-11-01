@@ -103,9 +103,10 @@ test('Issue #196 a commit message carrying U+0001 fingerprints as itself', () =>
   assert.equal(state(runDir).fingerprints.pr_commits, prCommitsFingerprint(commits));
 });
 
-// Round 29 of PR #199: any change of the snapshot, not only a new record, invalidates the gate sequence, which restarts
-// at convergence (gate-contract.md, ADV-199-SNAPSHOT-INVALIDATION).
-// Issue #328 (CL-D128): a check completing no longer clears the verdicts; only the fields a gate can act on do.
+// Round 29 of PR #199: any change of the snapshot, not only a new record, invalidated the gate sequence, which restarts
+// at convergence (gate-contract.md, ADV-199-SNAPSHOT-INVALIDATION). Issue #328 (CL-D128) later narrowed it to a change in
+// the snapshot's review digest, the fields a gate can act on: a removed comment or a dismissed review still reruns
+// convergence, while a change confined to the fields CL-D128 excludes clears no verdict.
 test('Issue #196 a comment removed or a review dismissed between gates reruns convergence', () => {
   const review = (state) => [{ id: 3, user: { login: 'h', type: 'User' }, state, body: 'r', submitted_at: '2026-09-29T00:00:00Z', commit_id: 'x' }];
   for (const [before, after] of [[{ prComments: [prComment(1)] }, { prComments: [] }], [{ reviews: review('CHANGES_REQUESTED') }, { reviews: review('DISMISSED') }]]) {

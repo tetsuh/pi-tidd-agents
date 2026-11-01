@@ -205,6 +205,22 @@ test('Issue #328 AC5 the record, the index, the shared contract and CL-D62 agree
   // CONV-331-PR-BODY-FAILSTOP (PR #331 round 6): the record and the shared contract name the body and target stop.
   assert.match(record, /A change in the pull request's body or target \(its base and head, state or draft\) still stops the run `BLOCKED` \(CL-D27\), and a fresh run is needed\./);
   assert.doesNotMatch(record, /A change in the target brackets, the pull request apart from/);
+  // CONV-331-AC1-STALE-SNAPSHOT-COMMENTS (PR #331 round 7): the driver's own comment on clearing names the review digest.
+  const phases = readText('skills/closed-loop-pr/driver/phases.js');
+  assert.ok(phases.includes('// A change in the snapshot\'s review digest (CL-D128) invalidates every gate verdict so far: the log keeps them,'), 'markCleared names the review digest');
+  assert.ok(!phases.includes('// A snapshot change invalidates every gate verdict so far'), 'no comment says any snapshot change clears the verdicts');
+  // The records and docs that stated the earlier rule point forward, and no driver comment calls any new external
+  // evidence a restart.
+  assert.ok(readText('contract/CL-D93.md').includes('CL-D128 later narrowed the snapshot change that invalidates to the fields a gate can act on, so a check or status changing state clears no verdict (#328).'), 'CL-D93 points forward');
+  assert.ok(readText('contract/CL-D96.md').includes('the snapshot evidence with new review evidence (CL-D128) restarting the sequence'), 'CL-D96 names the review evidence');
+  assert.ok(readText('contract/CL-D100.md').includes("A change of the snapshot still reruns the gates (CL-D93) where CL-D128 lets it, and since #328 a provider's state alone, like any status, clears no verdict"), 'CL-D100 takes the provider state out');
+  assert.ok(readText('README.md').includes('with its own round budget (a new snapshot fingerprint reruns it only when the fields a gate can act on changed, CL-D128)'), 'the README narrows the convergence trigger');
+  const titles = JSON.parse(readText('contract/CL-D30.clauses.json')).clauses.map((c) => c.title);
+  assert.ok(titles.includes('A changed external snapshot, in its review digest since CL-D128, invalidates every verdict and restarts the gates on the same head'), 'the CL-D30 clause title names the digest');
+  for (const file of ['phases.js', 'review.js', 'autofix.js']) {
+    const text = readText(`skills/closed-loop-pr/driver/${file}`);
+    for (const stale of ['carries external evidence the previous one did not', 'new external evidence reruns convergence', 'New external evidence restarts the sequence']) assert.ok(!text.includes(stale), `${file} still says "${stale}"`);
+  }
   assert.match(readText('skills/closed-loop-shared/references/gate-contract.md'), /a change in the pull request's body or target still stopping the run `BLOCKED` \(CL-D27\)[^\n]*\(CL-D128\)/);
   assert.match(readText('skills/closed-loop-shared/references/gate-contract.md'), /a snapshot change counts only in the fields a gate can act on[^\n]*\(CL-D128\)/);
   assert.match(readText('contract/CL-D62.md'), /CL-D128 later/);
