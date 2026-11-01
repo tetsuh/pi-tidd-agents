@@ -172,7 +172,7 @@ function checkoutProblem(cwd, headOid) {
   return local === headOid ? dirtyCheckout(cwd) : `the checkout is at ${local}, not the public head ${headOid}`;
 }
 // The ignored paths outside the runtime roots and every descendant of an ignored directory, each with its type judged
-// without following a link and its content (a file's SHA-256, a link's target). Frozen after validation (the validation
+// without following a link, never its content (CL-D38, CL-D129). Frozen after validation (the validation
 // sandbox delta) and compared at every later boundary (CONV-199-IGNORED-DELTA-BOUNDARY, ADV-199-IGNORED-DELTA-CHILDREN).
 function ignoredInventory(cwd) {
   const entries = git(cwd, ['status', '--porcelain=v1', '-z', '--ignored=matching', '--untracked-files=all']).split('\0').filter((e) => e.startsWith('!! ')).map((e) => e.slice(3).replace(/\/$/, ''));
@@ -180,9 +180,9 @@ function ignoredInventory(cwd) {
   const visit = (rel) => {
     const abs = path.join(cwd, rel);
     let st; try { st = fs.lstatSync(abs); } catch { out.push(`${rel}:absent`); return; }
-    if (st.isSymbolicLink()) out.push(`${rel}:symlink:${fs.readlinkSync(abs)}`);
+    if (st.isSymbolicLink()) out.push(`${rel}:symlink`);
     else if (st.isDirectory()) { out.push(`${rel}:dir`); for (const name of fs.readdirSync(abs).sort()) visit(`${rel}/${name}`); }
-    else if (st.isFile()) out.push(`${rel}:file:${sha256(fs.readFileSync(abs))}`);
+    else if (st.isFile()) out.push(`${rel}:file`);
     else out.push(`${rel}:other`);
   };
   for (const p of entries.filter((e) => !RUNTIME_ROOTS.some((root) => e === root || e.startsWith(`${root}/`)))) visit(p);
