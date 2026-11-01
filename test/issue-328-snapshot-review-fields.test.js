@@ -116,6 +116,35 @@ test('Issue #328 AC1 each excluded field changing alone between convergence and 
   }
 });
 
+// CONV-331-AC1-DRIVER-EXCLUSION-COVERAGE (PR #331 round 4): a check run completing in the exact autofix driver, and
+// `pull.mergeable` changing apart from `mergeable_state` in either driver, or `mergeable_state` alone in the exact autofix
+// driver, clear nothing.
+test('Issue #328 AC1 a check run completing in the exact autofix driver clears nothing', () => {
+  const a = autofix.setup();
+  autofix.setFixture(a.bin, { checkStatus: 'in_progress' });
+  assert.equal(autofix.drive(a.start, a.env).status, 0);
+  autofix.setFixture(a.bin, { checkStatus: 'completed' });
+  const r = autofix.result(a);
+  assert.equal(autofix.nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', `${r.stdout}${r.stderr}`);
+  assert.equal(autofix.state(a.runDir).gateLog[0].cleared, undefined, 'the convergence MERGE is not cleared');
+});
+
+test('Issue #328 AC1 pull.mergeable changing alone in either driver, or mergeable_state alone in exact autofix, clears nothing', () => {
+  const t = setup();
+  assert.equal(drive(t.start, t.e).status, 0);
+  setFixture(t, pullPatch(t, { mergeable: false }));
+  assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-adversarial-reviewer', `review-only: ${state(t.runDir).state} ${state(t.runDir).reason}`);
+  assert.equal(state(t.runDir).verdicts.convergence, 'MERGE', 'review-only');
+  for (const patch of [{ mergeable: false }, { mergeableState: 'unstable' }]) {
+    const a = autofix.setup();
+    assert.equal(autofix.drive(a.start, a.env).status, 0);
+    autofix.setFixture(a.bin, patch);
+    const r = autofix.result(a);
+    assert.equal(autofix.nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer', `autofix, ${JSON.stringify(patch)}: ${r.stdout}${r.stderr}`);
+    assert.equal(autofix.state(a.runDir).gateLog[0].cleared, undefined, `autofix, ${JSON.stringify(patch)}`);
+  }
+});
+
 test('Issue #328 AC5 the record, the index, the shared contract and CL-D62 agree', () => {
   const record = readText('contract/CL-D128.md');
   assert.match(record, /^## CL-D128 — /m);
