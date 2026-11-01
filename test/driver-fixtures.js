@@ -52,7 +52,7 @@ const out = (v) => { process.stdout.write(JSON.stringify(v)); process.exit(0); }
 if (args[0] !== 'api') { process.stderr.write('unexpected gh ' + args.join(' ')); process.exit(9); }
 if (f.failEndpoint && endpoint.includes(f.failEndpoint)) { process.stderr.write('HTTP 502: bad gateway'); process.exit(1); }
 if (args[1] === 'graphql') out({ data: { repository: { pullRequest: { reviewThreads: { nodes: f.threads || [], pageInfo: { hasNextPage: false, endCursor: null } } } } } });
-if (endpoint === 'repos/o/r/pulls/7') out({ number: 7, state: f.prState || 'open', draft: f.prDraft || false, mergeable: f.mergeable === undefined ? true : f.mergeable, mergeable_state: f.mergeableState || 'clean', title: 't', body: f.body, base: { sha: f.base, ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: head, ref: 'feature', repo: { full_name: f.headRepo || 'o/r' } } });
+if (endpoint === 'repos/o/r/pulls/7') out({ number: 7, state: f.prState || 'open', draft: f.prDraft || false, mergeable: f.mergeable === undefined ? true : f.mergeable, mergeable_state: f.mergeableState || 'clean', title: f.title || 't', body: f.body, base: { sha: f.base, ref: 'main', repo: { full_name: 'o/r' } }, head: { sha: head, ref: 'feature', repo: { full_name: f.headRepo || 'o/r' } } });
 if (endpoint === 'repos/o/r/issues/5') out(f.issue);
 if (endpoint.startsWith('repos/o/r/issues/5/comments')) out(args.includes('--slurp') ? [f.issueComments || []] : (f.issueComments || []));
 if (endpoint === 'repos/o/r/issues/7/comments') out(f.prComments || []);

@@ -4,8 +4,9 @@
 // gate payload carries the snapshot only as its fingerprint. On tetsuh/sitometron PR #114, 11 of 33 kept runs reran
 // convergence on an unchanged head because check runs completed and a `Bot` posted a quality-gate comment; in 6 the
 // rerun on the same inputs turned a `MERGE` into `FIX BEFORE MERGE`. Owner choice A: only the fields a gate can act on
-// (reviews, review threads, inline comments, conversation comments not by a `Bot`, the pull request apart from its
-// mergeability, the target brackets) clear verdicts; the final policy still reads a snapshot taken at final readiness.
+// (reviews, review threads, inline comments, conversation comments not by a `Bot`, the pull request's fields apart from
+// its mergeability) clear verdicts, a body or target change still stopping the run `BLOCKED` (CL-D27); the final
+// policy still reads a snapshot taken at final readiness.
 //
 // TDD provenance: behavioural RED — a completed check between convergence and Sol reruns convergence.
 const { test, assert, fs, drive, setup, state, setFixture, throughGates, nextRequest, fakeGate, prComment } = require('./issue-196-review-driver.fixtures.js');
@@ -173,6 +174,26 @@ test('Issue #328 AC1 every snapshot field is hashed or named by a row of the exc
   for (const field of Object.keys(ROW)) assert.ok(fields.includes(field), `classified field ${field} is no longer in the snapshot`);
 });
 
+// CONV-331-PR-BODY-FAILSTOP (PR #331 round 6): of the pull request's own fields, a body or target change stops the run
+// `BLOCKED` (CL-D27) rather than rerunning convergence; the remaining ones, such as the title, rerun it.
+test('Issue #328 AC5 the record\'s pull-request clause: a title change reruns convergence, a body change stops BLOCKED first, in both drivers', () => {
+  for (const [field, expect] of [['title', 'rerun'], ['body', 'stop']]) {
+    const t = setup();
+    assert.equal(drive(t.start, t.e).status, 0);
+    const pull = JSON.parse(fs.readFileSync(t.fixture, 'utf8')).pull;
+    setFixture(t, pullPatch(t, { [field]: `${pull[field]}Edited.\n` }));
+    const next = nextRequest(result(t).stdout)?.agent, s = state(t.runDir);
+    if (expect === 'rerun') assert.equal(next, 'tidd-convergence-reviewer', `review-only, ${field}: ${s.state} ${s.reason}`);
+    else { assert.equal(s.state, 'BLOCKED', `review-only, ${field}`); assert.match(s.reason, /body changed/); }
+    const a = autofix.setup();
+    assert.equal(autofix.drive(a.start, a.env).status, 0);
+    autofix.setFixture(a.bin, { [field]: `${autofix.readFixture(a.bin)[field] || 't'}Edited.\n` });
+    const r = autofix.result(a), sa = autofix.state(a.runDir);
+    if (expect === 'rerun') assert.equal(autofix.nextRequest(r.stdout)?.agent, 'tidd-convergence-reviewer', `autofix, ${field}: ${sa.state} ${sa.reason}`);
+    else { assert.equal(sa.state, 'BLOCKED', `autofix, ${field}`); assert.match(sa.reason, /body changed/); }
+  }
+});
+
 test('Issue #328 AC5 the record, the index, the shared contract and CL-D62 agree', () => {
   const record = readText('contract/CL-D128.md');
   assert.match(record, /^## CL-D128 — /m);
@@ -181,6 +202,10 @@ test('Issue #328 AC5 the record, the index, the shared contract and CL-D62 agree
   // CONV-331-AC3-BLOCKED-STATE (PR #331 round 2): the final policy is unchanged, so `blocked` is still named for a human.
   assert.match(record, /a check, status, thread or `mergeable_state` the final policy fails or waits on stops the run as before, and `mergeable_state` `blocked` is still named for a human to confirm before merging \(CL-D100\)/);
   assert.doesNotMatch(record, /a non-mergeable state stops the run/);
+  // CONV-331-PR-BODY-FAILSTOP (PR #331 round 6): the record and the shared contract name the body and target stop.
+  assert.match(record, /A change in the pull request's body or target \(its base and head, state or draft\) still stops the run `BLOCKED` \(CL-D27\), and a fresh run is needed\./);
+  assert.doesNotMatch(record, /A change in the target brackets, the pull request apart from/);
+  assert.match(readText('skills/closed-loop-shared/references/gate-contract.md'), /a change in the pull request's body or target still stopping the run `BLOCKED` \(CL-D27\)[^\n]*\(CL-D128\)/);
   assert.match(readText('skills/closed-loop-shared/references/gate-contract.md'), /a snapshot change counts only in the fields a gate can act on[^\n]*\(CL-D128\)/);
   assert.match(readText('contract/CL-D62.md'), /CL-D128 later/);
   const clauses = JSON.parse(readText('contract/CL-D128.clauses.json')).clauses;
