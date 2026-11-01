@@ -139,7 +139,7 @@ function reviewDigest(snapshot) {
   return sha256(Buffer.from(JSON.stringify({ before: snapshot.before, after: snapshot.after, pull, reviews: snapshot.reviews || [], threads: snapshot.threads || [], inline: (snapshot.inline || []).map(bare), comments: (snapshot.comments || []).filter((c) => c.user?.type !== 'Bot').map(bare) }), 'utf8'));
 }
 // The snapshot, its fingerprint, the evidence envelope, and the required-evidence set, as of now; `cwd` holds the head.
-// Returns the snapshot and whether it carries external evidence the previous one did not.
+// Returns the snapshot and whether its review digest (CL-D128) differs from the previous one's.
 function collectSnapshotEvidence(run, cwd = run.state.checkout) {
   const s = run.state, t = s.target, [owner, repo] = t.repository.split('/');
   const snapshot = run.op('snapshot', { owner, repo, number: t.number, cwd: s.checkout }).data;
@@ -196,7 +196,8 @@ function ignoredDrift(saved, cwd) {
 // The gates that returned MERGE on the head the run ends on, by label, for the MERGE_READY reason; a MERGE a snapshot
 // change cleared does not count (#316).
 function readyGates(gateLog, head) { return [...new Set(gateLog.filter((g) => g.head === head && g.verdict === 'MERGE' && !g.cleared).map((g) => gateLabel(g.gate)))].join(' and '); }
-// A snapshot change invalidates every gate verdict so far: the log keeps them, marked cleared (#316).
+// A change in the snapshot's review digest (CL-D128) invalidates every gate verdict so far: the log keeps them,
+// marked cleared (#316).
 function markCleared(s) { for (const g of s.gateLog) g.cleared = true; }
 
 module.exports = { TRUSTED, failure, gateLabel, ignoredDrift, readyGates, markCleared, bindTarget, guard, readIssue, earlierRounds, trustedComments, isRecorded, recordedLine, readGate, collectSnapshotEvidence, sameSpec, finalPolicy };

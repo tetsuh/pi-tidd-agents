@@ -162,7 +162,7 @@ function arm(run, gate) {
   if (gate !== 'convergence' && s.counters.gates >= CAP.gates) end(run, 'ROUND_LIMIT_REACHED', 'gate_limit');
   const evidence = recheck(run);
   if (!isUtf8(Buffer.from(evidence.diff))) end(run, 'BLOCKED', 'the diff is not valid UTF-8, so no gate can receive it exactly');
-  // New external evidence restarts the sequence (ADV-208-SNAPSHOT-CAP).
+  // A review-digest change restarts the sequence (ADV-208-SNAPSHOT-CAP).
   if (collectSnapshotEvidence(run, s.workspace).fresh && GATES.indexOf(gate) > GATES.indexOf(restartAt(s))) { s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; markCleared(s); return arm(run, restartAt(s)); }
   if (s.snapshotChanged) markCleared(s); // a change seen with convergence at its cap restarts nothing, yet clears it
   const requiredEvidence = s.requiredEvidence, fp = s.fingerprints;
@@ -335,7 +335,7 @@ function writerDone(opts) {
   arm(run, restartAt(s));
 }
 
-// Final readiness from a fresh snapshot on the same head: new external evidence reruns convergence within its cap, then
+// Final readiness from a fresh snapshot on the same head: a review-digest change reruns convergence within its cap, then
 // the review driver's final policy.
 function finish(run) {
   const s = run.state;

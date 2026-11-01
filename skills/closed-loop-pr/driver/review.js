@@ -100,6 +100,7 @@ function launch(run, gate, { fresh = false } = {}) {
   if (!fresh) {
     revalidate(run);
     // New external evidence before a later gate reruns convergence first (DEC-109-CONV-SNAPSHOT-001).
+    // Evidence counts only in the snapshot's review digest (CL-D128).
     if (collectSnapshotEvidence(run).fresh && gate !== 'convergence') { s.verdicts = {}; s.invalidated = 'every gate verdict: the external snapshot changed before a later gate'; return launch(run, 'convergence', { fresh: true }); }
   }
   // gate-contract.md: convergence at its cap hands the candidate to Sol; ROUND_LIMIT_REACHED is the formal gates'.
@@ -158,7 +159,7 @@ function result(opts) {
   return finalReadiness(run);
 }
 
-// Final readiness from a fresh snapshot on the same head: new external evidence reruns convergence
+// Final readiness from a fresh snapshot on the same head: a review-digest change (CL-D128) reruns convergence
 // (DEC-109-CONV-SNAPSHOT-001); an unresolved review thread is an external finding for the owner; then the final policy.
 function finalReadiness(run) {
   const s = run.state;
