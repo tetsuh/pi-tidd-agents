@@ -145,6 +145,9 @@ function collectSnapshotEvidence(run, cwd = run.state.checkout) {
   const snapshot = run.op('snapshot', { owner, repo, number: t.number, cwd: s.checkout }).data;
   const moved = targetMoved(t, { base: { sha: snapshot.after.base, ref: snapshot.after.baseBranch }, head: { sha: snapshot.after.head, ref: snapshot.after.headBranch, repo: { full_name: snapshot.after.headRepository } }, state: snapshot.after.state, draft: snapshot.after.draft });
   if (moved) run.stop('BLOCKED', moved);
+  // Before the first gate, a merge conflict or a head behind its base needs a new head: the run stops (CL-D130).
+  const merge = snapshot.pull?.mergeable_state;
+  if (!s.gateLog.length && (merge === 'dirty' || merge === 'behind')) { s.nextAction = 'the author resolves the merge conflict or updates the branch, then a fresh run'; run.stop('BLOCKED', `the pull request's mergeable_state is ${merge} before the first gate (${merge === 'dirty' ? 'a merge conflict' : 'its head is behind its base'})`); }
   const snap = snapshotFingerprint(run, snapshot);
   // The gate sequence is invalidated by a change in the fields a gate can act on, not only a new record
   // (ADV-199-SNAPSHOT-INVALIDATION, CL-D128); a state saved before the digest existed compares the full fingerprint once.
