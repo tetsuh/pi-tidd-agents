@@ -14,7 +14,7 @@
         "The role block's heading and its two role lines are byte-identical, because `helpers/launch.js` reads them on every gate launch",
         "Both drivers' `CONTRACT_INPUT_FILES` name the PR Skill and the two shared references alone",
         "The four authority files measured 74,363 bytes on this change, so the ceiling falls to 81,000 bytes on the CL-D43 terms, leaving 6,637 bytes.",
-        "recorded and not closed (#249, CL-D119)"
+        "observed presence only (#249, CL-D119); CL-D129 later closed it"
       ]
     },
     {

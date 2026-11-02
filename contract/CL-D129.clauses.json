@@ -1,0 +1,58 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D129-record",
+      "marker": "CL-D129",
+      "title": "CL-D129 records the presence-and-type inventory and closes CL-D119's divergence",
+      "files": [
+        "contract/CL-D129.md"
+      ],
+      "requires": [
+        "*Owner choice:* Option A.",
+        "each entry records its path and its type (`dir`, `file`, `symlink`, `other` or `absent`), never a file's hash or a link's target",
+        "This closes the divergence CL-D119 recorded."
+      ]
+    },
+    {
+      "id": "CL-D129-driver",
+      "marker": "CL-D129",
+      "title": "The inventory records a file and a link by type alone",
+      "files": [
+        "skills/closed-loop-pr/driver/run.js"
+      ],
+      "requires": [
+        "// without following a link, never its content (CL-D38, CL-D129).",
+        "if (st.isSymbolicLink()) out.push(`${rel}:symlink`);",
+        "else if (st.isFile()) out.push(`${rel}:file`);"
+      ]
+    },
+    {
+      "id": "CL-D129-forward",
+      "marker": "CL-D129",
+      "title": "CL-D38, CL-D93 and CL-D119 point forward to this record",
+      "files": [
+        "contract/CL-D38.md",
+        "contract/CL-D93.md",
+        "contract/CL-D119.md"
+      ],
+      "requires": [
+        "CL-D129 later"
+      ]
+    },
+    {
+      "id": "CL-D129-tests",
+      "marker": "CL-D129",
+      "title": "The suite asserts the inventory, both drivers and the record",
+      "files": [
+        "test/issue-332-ignored-presence.test.js"
+      ],
+      "requires": [
+        "Issue #332 AC1",
+        "Issue #332 AC2",
+        "Issue #332 AC3",
+        "Issue #332 AC4",
+        "Issue #332 AC5"
+      ]
+    }
+  ]
+}

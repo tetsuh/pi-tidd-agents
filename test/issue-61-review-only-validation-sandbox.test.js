@@ -19,7 +19,7 @@ test('Issue #61 the drivers freeze the validation sandbox delta, and CL-D38 reco
   const phases = readText('skills/closed-loop-pr/driver/phases.js');
   assert.ok(phases.includes('// Ignored paths a validation, a gate, or a writer changed since the run took them (CL-D38): a list'));
   assert.ok(phases.includes('const now = ignoredInventory(cwd), drift = [...now.filter((x) => !saved.includes(x)), ...saved.filter((x) => !now.includes(x))];'));
-  assert.match(readText('contract/CL-D38.md'), /that inventory hashes each ignored file's content and a stop names the changed entries, where the definition observed presence only, recorded and not closed \(#249, CL-D119\)\./);
+  assert.match(readText('contract/CL-D38.md'), /CL-D129 later closed it: the inventory records presence and type only \(#332\)\./);
   // The definition's rules stand in the record, beside the divergence it records.
   const d38 = readText('contract/CL-D38.md');
   assert.match(d38, /never read, followed, deleted, pruned, or restored/);
