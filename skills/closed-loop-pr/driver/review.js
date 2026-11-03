@@ -139,6 +139,8 @@ function result(opts) {
   const confirmed = new Set((envelope.confirmations || []).filter((c) => c.confirmation === 'confirmed').map((c) => c.findingId));
   const settled = (x) => x.origin === 'assigned' && confirmed.has(x.findingId) && !['fixed', 'needs-owner-decision'].includes(x.proposedDisposition);
   const open = findings.filter((x) => !isRecorded(x) && !settled(x));
+  // A convergence result replaces an earlier open finding a snapshot change superseded (CL-D131, ADV-335).
+  if (gate === 'convergence') s.findings = s.findings.filter((f) => f.recorded);
   for (const x of findings) s.findings = [...s.findings.filter((f) => f.findingId !== x.findingId), { findingId: x.findingId, gate, recorded: isRecorded(x) || settled(x), summary: String(x.correction || '').slice(0, 200),
     // A reword is published with the CL-D126 non-carry form whether a gate confirmed it or CL-D85 recorded it (ADV-323-001).
     // What defeats the carry is `reword,` as the first token after the parenthesis: phases.js SETTLED_LINE matches only a
