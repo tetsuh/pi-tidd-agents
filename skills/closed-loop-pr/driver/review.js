@@ -148,11 +148,16 @@ function result(opts) {
   if (envelope.verdict === 'NEEDS DECISION' || decisions.length) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; run.stop('WAITING_FOR_OWNER', `${label(gate)} returned NEEDS DECISION`); }
   // gate-contract.md (CL-D62): convergence at its cap with findings open hands the candidate to Sol with those findings
   // assigned, and convergence is not invoked again; earlier rounds stop for the author as before.
+  if (gate === 'convergence') Object.assign(s, { solAfterFix: null, assigned: [], unresolved: [] });
   if (open.length && gate === 'convergence' && p.invocation >= ROUND_CAP) {
     s.assigned = run.op('build_gate_assignments', { findings: open, settledKeys: [] }).data.assignedFindings;
     s.unresolved = open.map((x) => ({ ...x, blockerKey: s.assigned.find((a) => a.findingId === x.findingId).blockerKey }));
     return launch(run, 'adversarial');
   }
+  // CL-D131: a convergence FIX with no Blocker still has Sol review this head, convergence's open findings as unresolved
+  // history, not assigned; the run then stops for the author with both gates' findings, before Terra.
+  if (open.length && gate === 'convergence' && !open.some((x) => x.severity === 'Blocker')) { s.unresolved = open; s.solAfterFix = open.map((x) => x.findingId); return launch(run, 'adversarial'); }
+  if (gate === 'adversarial' && s.solAfterFix) { s.nextAction = 'the author applies the smallest correction, then a fresh run'; s.invalidated = 'all head-bound evidence once a correction is pushed'; run.stop('WAITING_FOR_OWNER', `${label('convergence')} returned FIX BEFORE MERGE with open finding(s): ${s.solAfterFix.join(', ')}; ${label(gate)} returned ${envelope.verdict}${open.length ? ` with open finding(s): ${open.map((x) => x.findingId).join(', ')}` : ''}`); }
   if (open.length) { s.nextAction = 'the author applies the smallest correction, then a fresh run'; s.invalidated = 'all head-bound evidence once a correction is pushed'; run.stop('WAITING_FOR_OWNER', `${label(gate)} returned ${envelope.verdict} with open finding(s): ${open.map((x) => x.findingId).join(', ')}`); }
   const next = GATES[GATES.indexOf(gate) + 1];
   if (next) return launch(run, next);

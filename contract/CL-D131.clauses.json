@@ -1,0 +1,66 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D131-record",
+      "marker": "CL-D131",
+      "title": "CL-D131 records the review-only order after a convergence FIX",
+      "files": [
+        "contract/CL-D131.md"
+      ],
+      "requires": [
+        "*Owner choice:* Option A.",
+        "Sol is launched on the same head in the same run, with convergence's open findings as unresolved history, not as assigned findings",
+        "The exact autofix driver's order is unchanged"
+      ]
+    },
+    {
+      "id": "CL-D131-driver",
+      "marker": "CL-D131",
+      "title": "The review-only driver launches Sol after a convergence FIX with no Blocker and stops before Terra",
+      "files": [
+        "skills/closed-loop-pr/driver/review.js"
+      ],
+      "requires": [
+        "if (open.length && gate === 'convergence' && !open.some((x) => x.severity === 'Blocker')) { s.unresolved = open; s.solAfterFix = open.map((x) => x.findingId); return launch(run, 'adversarial'); }",
+        "if (gate === 'adversarial' && s.solAfterFix) {"
+      ]
+    },
+    {
+      "id": "CL-D131-forward",
+      "marker": "CL-D131",
+      "title": "CL-D62 points forward to this record",
+      "files": [
+        "contract/CL-D62.md"
+      ],
+      "requires": [
+        "CL-D131 later has review-only run Sol after a convergence `FIX BEFORE MERGE` with no `Blocker` (#329)."
+      ]
+    },
+    {
+      "id": "CL-D131-shared",
+      "marker": "CL-D131",
+      "title": "The shared gate contract and the README state the review-only order",
+      "files": [
+        "skills/closed-loop-shared/references/gate-contract.md",
+        "README.md"
+      ],
+      "requires": [
+        "(CL-D131)"
+      ]
+    },
+    {
+      "id": "CL-D131-tests",
+      "marker": "CL-D131",
+      "title": "The suite asserts the order, the stop, the exceptions and the record",
+      "files": [
+        "test/issue-329-sol-after-convergence-fix.test.js"
+      ],
+      "requires": [
+        "Issue #329 AC1",
+        "Issue #329 AC2",
+        "Issue #329 AC3",
+        "Issue #329 AC5"
+      ]
+    }
+  ]
+}
