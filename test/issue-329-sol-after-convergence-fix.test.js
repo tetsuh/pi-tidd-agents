@@ -204,7 +204,12 @@ test('Issue #329 AC5 CL-D131 records the review-only order, CL-D62 points forwar
   assert.match(record, /At the cap, CL-D62's hand-off is unchanged: convergence's open findings go to Sol as assigned findings whatever their severity, convergence is not invoked again, and the run goes on to Terra if Sol confirms them/);
   assert.ok(readText('README.md').includes('in review-only, a convergence `FIX BEFORE MERGE` before its cap with no `Blocker` still has Sol review the same head before the run stops for the author (CL-D131)'));
   assert.ok(readText('CONTRACT.md').includes('- [contract/CL-D131.md](contract/CL-D131.md) — Review-only runs Sol after a convergence FIX BEFORE MERGE with no Blocker'));
-  assert.ok(readText('contract/CL-D62.md').includes('CL-D131 later has review-only run Sol after a convergence `FIX BEFORE MERGE` with no `Blocker` (#329).'));
+  // Round 3 of PR #335 (CONV-335-CLD62-STALE-STOP): the qualification stands beside the stop it qualifies, as CL-D85's does.
+  assert.ok(readText('contract/CL-D62.md').includes('Review-only stops at `WAITING_FOR_OWNER` on a preliminary `FIX BEFORE MERGE` before Sol runs. (CL-D85 later qualifies this for pull-request runs: a result whose only open findings are Minors recorded under CL-D85 advances to Sol instead of stopping. Before convergence\'s cap, CL-D131 later has review-only run Sol after a convergence `FIX BEFORE MERGE` with no `Blocker` (#329).)'));
+  assert.ok(JSON.parse(readText('contract/CL-D62.clauses.json')).clauses.find((c) => c.id === 'CL-D62-pr-record').requires.includes('CL-D131 later has review-only run Sol after a convergence `FIX BEFORE MERGE` with no `Blocker` (#329).'));
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On PR review-only before the cap, a convergence `FIX BEFORE MERGE` whose open findings include no `Blocker` still hands the candidate to the adversarial gate, those findings carried as unresolved history rather than assigned, and the run then stops `WAITING_FOR_OWNER` with both gates\' findings before the safety gate (CL-D131).'));
   assert.equal(readText('skills/closed-loop-pr/driver/autofix.js').includes('solAfterFix'), false, 'the autofix driver is unchanged');
+  // The other statements of the earlier-round stop name the new path too.
+  assert.ok(readText('contract/CL-D93.md').includes('an earlier round with findings open stops for the author, after Sol when none is a `Blocker` (CL-D131).'));
+  assert.ok(readText('skills/closed-loop-pr/driver/review.js').includes('// assigned, and convergence is not invoked again; before the cap, CL-D131 below applies.'));
 });

@@ -316,6 +316,7 @@ const MANIFEST = (() => {
     'CL-D62-pr-record': [
       `Review-only stops at \`WAITING_FOR_OWNER\` on a preliminary \`FIX BEFORE MERGE\` before ${S} runs.`,
       `a result whose only open findings are Minors recorded under CL-D85 advances to ${S} instead of stopping`,
+      `CL-D131 later has review-only run ${S} after a convergence \`FIX BEFORE MERGE\` with no \`Blocker\` (#329).`,
     ],
     // #249 B4b (CL-D117): the exact-autofix stage and flow are pinned in the driver, gate names derived.
     'CL-D62-autofix': [
