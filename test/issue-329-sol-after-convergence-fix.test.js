@@ -160,12 +160,49 @@ test('Issue #329 recorded findings keep their published lines through a converge
   for (const id of ['CONV-7-X', 'ADV-7-X']) assert.match(comment, new RegExp(`^  ${id}: deferred \\(recorded under CL-D85\\)$`, 'm'), id);
 });
 
+// Round 2 of PR #335 (CONV-335-CAP-ORDER, Option A): at convergence's cap, CL-D62's hand-off is unchanged, so even a
+// Blocker goes to Sol as an assigned finding instead of stopping the run.
+test('Issue #329 AC1 AC3 at the cap a convergence Blocker is handed to Sol assigned, as CL-D62 states', () => {
+  const t = started();
+  const comment = (id) => ({ ...comment9, id, html_url: `u${id}`, body: `comment ${id}` });
+  for (const n of [1, 2]) {
+    setFixture(t, { prComments: Array.from({ length: n }, (_, i) => comment(i + 1)) });
+    assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-convergence-reviewer');
+  }
+  assert.equal(state(t.runDir).invocations.convergence, 3);
+  const r = convergenceFix(t, 'Blocker');
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  assert.equal(nextRequest(r.stdout)?.agent, 'tidd-adversarial-reviewer');
+  const s = state(t.runDir);
+  assert.deepEqual(JSON.parse(fs.readFileSync(s.pending.expectationPath, 'utf8')).assignedFindings.map((x) => x.findingId), ['CONV-7-X']);
+  assert.equal(s.solAfterFix, null, 'not the before-cap path');
+});
+
+test('Issue #329 AC3 at the cap a convergence NEEDS DECISION still stops before Sol', () => {
+  const t = started();
+  const comment = (id) => ({ ...comment9, id, html_url: `u${id}`, body: `comment ${id}` });
+  for (const n of [1, 2]) {
+    setFixture(t, { prComments: Array.from({ length: n }, (_, i) => comment(i + 1)) });
+    assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-convergence-reviewer');
+  }
+  assert.equal(state(t.runDir).invocations.convergence, 3);
+  const r = result(t, needsDecision(t));
+  assert.notEqual(r.status, 0, r.stderr + r.stdout);
+  assert.equal(state(t.runDir).reason, 'convergence returned NEEDS DECISION');
+  assert.equal(state(t.runDir).invocations.adversarial, undefined, 'Sol is not launched');
+});
+
 test('Issue #329 AC5 CL-D131 records the review-only order, CL-D62 points forward, and the autofix driver is unchanged', () => {
   const record = sectionOf(readContract(), '## CL-D131 — Review-only runs Sol after a convergence FIX BEFORE MERGE with no Blocker');
   assert.ok(record, 'CL-D131 is in the contract');
   assert.match(record, /tetsuh\/pi-tidd-agents#329/);
   assert.match(record, /Sol is launched on the same head in the same run, with convergence's open findings as unresolved history, not as assigned findings/);
   assert.match(record, /The exact autofix driver's order is unchanged/);
+  // CONV-335-CAP-ORDER: the record states the before-cap path and the unchanged cap hand-off.
+  assert.match(record, /when convergence returns `FIX BEFORE MERGE` before its cap and none of its open findings is a `Blocker`/);
+  assert.match(record, /Before the cap, a convergence `Blocker` still stops the run before Sol; a `NEEDS DECISION` verdict or a finding that needs an owner decision stops it before Sol at any invocation\./);
+  assert.match(record, /At the cap, CL-D62's hand-off is unchanged: convergence's open findings go to Sol as assigned findings whatever their severity, convergence is not invoked again, and the run goes on to Terra if Sol confirms them/);
+  assert.ok(readText('README.md').includes('in review-only, a convergence `FIX BEFORE MERGE` before its cap with no `Blocker` still has Sol review the same head before the run stops for the author (CL-D131)'));
   assert.ok(readText('CONTRACT.md').includes('- [contract/CL-D131.md](contract/CL-D131.md) — Review-only runs Sol after a convergence FIX BEFORE MERGE with no Blocker'));
   assert.ok(readText('contract/CL-D62.md').includes('CL-D131 later has review-only run Sol after a convergence `FIX BEFORE MERGE` with no `Blocker` (#329).'));
   assert.ok(readText('skills/closed-loop-shared/references/gate-contract.md').includes('On PR review-only before the cap, a convergence `FIX BEFORE MERGE` whose open findings include no `Blocker` still hands the candidate to the adversarial gate, those findings carried as unresolved history rather than assigned, and the run then stops `WAITING_FOR_OWNER` with both gates\' findings before the safety gate (CL-D131).'));
