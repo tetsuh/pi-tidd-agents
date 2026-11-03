@@ -80,6 +80,7 @@ Each record is its own file under `contract/`, listed here in order. The contrac
 - [contract/CL-D128.md](contract/CL-D128.md) — Only the snapshot fields a gate can act on invalidate its result
 - [contract/CL-D127.md](contract/CL-D127.md) — The autofix driver publishes a recorded reword in the non-carry form
 - [contract/CL-D129.md](contract/CL-D129.md) — The ignored-path inventory records presence and type only, as CL-D38 defines
+- [contract/CL-D130.md](contract/CL-D130.md) — A merge conflict or a branch behind its base stops a run before its first gate
 - [contract/CL-D126.md](contract/CL-D126.md) — A body-claim counterexample is a Minor reword corrected in the timeline
 - [contract/CL-D125.md](contract/CL-D125.md) — The packaged driver collects no separate enterprise policy
 - [contract/CL-D124.md](contract/CL-D124.md) — The version-2 Issue schema has no candidate field

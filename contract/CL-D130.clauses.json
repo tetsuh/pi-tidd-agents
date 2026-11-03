@@ -1,0 +1,52 @@
+{
+  "clauses": [
+    {
+      "id": "CL-D130-record",
+      "marker": "CL-D130",
+      "title": "CL-D130 records the check before the first gate",
+      "files": [
+        "contract/CL-D130.md"
+      ],
+      "requires": [
+        "When the snapshot taken before the first gate reports `mergeable_state` `dirty` or `behind`, both drivers stop the run `BLOCKED` before any gate is launched",
+        "Any other state, a null or `unknown` one while GitHub computes it and `blocked` included, proceeds, and the final policy is unchanged."
+      ]
+    },
+    {
+      "id": "CL-D130-driver",
+      "marker": "CL-D130",
+      "title": "The shared snapshot collection stops on dirty or behind while the gate log is empty",
+      "files": [
+        "skills/closed-loop-pr/driver/phases.js"
+      ],
+      "requires": [
+        "// Before the first gate, a merge conflict or a head behind its base needs a new head: the run stops (CL-D130).",
+        "if (!s.gateLog.length && (merge === 'dirty' || merge === 'behind'))"
+      ]
+    },
+    {
+      "id": "CL-D130-forward",
+      "marker": "CL-D130",
+      "title": "CL-D100 points forward to this record",
+      "files": [
+        "contract/CL-D100.md"
+      ],
+      "requires": [
+        "CL-D130 later stops a run `BLOCKED` before its first gate on `dirty` or `behind` (#330)."
+      ]
+    },
+    {
+      "id": "CL-D130-tests",
+      "marker": "CL-D130",
+      "title": "The suite asserts both drivers and the record",
+      "files": [
+        "test/issue-330-mergeable-precheck.test.js"
+      ],
+      "requires": [
+        "Issue #330 AC1",
+        "Issue #330 AC2",
+        "Issue #330 AC4"
+      ]
+    }
+  ]
+}
