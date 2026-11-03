@@ -38,13 +38,14 @@
     {
       "id": "CL-D62-pr-record",
       "marker": "CL-D62",
-      "title": "The record states the preliminary stop and its CL-D85 qualification",
+      "title": "The record states the preliminary stop and its CL-D85 and CL-D131 qualifications",
       "files": [
         "contract/CL-D62.md"
       ],
       "requires": [
         "Review-only stops at `WAITING_FOR_OWNER` on a preliminary `FIX BEFORE MERGE` before Sol runs.",
-        "a result whose only open findings are Minors recorded under CL-D85 advances to Sol instead of stopping"
+        "a result whose only open findings are Minors recorded under CL-D85 advances to Sol instead of stopping",
+        "CL-D131 later has review-only run Sol after a convergence `FIX BEFORE MERGE` with no `Blocker` (#329)."
       ]
     },
     {

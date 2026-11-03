@@ -149,7 +149,7 @@ function result(opts) {
   const decisions = (envelope.decisions || []).filter((d) => d.status === 'pending').map((d) => d.decisionId);
   if (envelope.verdict === 'NEEDS DECISION' || decisions.length) { s.pendingDecisions = decisions; s.nextAction = 'the owner records the decision, then a fresh run'; run.stop('WAITING_FOR_OWNER', `${label(gate)} returned NEEDS DECISION`); }
   // gate-contract.md (CL-D62): convergence at its cap with findings open hands the candidate to Sol with those findings
-  // assigned, and convergence is not invoked again; earlier rounds stop for the author as before.
+  // assigned, and convergence is not invoked again; before the cap, CL-D131 below applies.
   if (gate === 'convergence') Object.assign(s, { solAfterFix: null, assigned: [], unresolved: [] });
   if (open.length && gate === 'convergence' && p.invocation >= ROUND_CAP) {
     s.assigned = run.op('build_gate_assignments', { findings: open, settledKeys: [] }).data.assignedFindings;
