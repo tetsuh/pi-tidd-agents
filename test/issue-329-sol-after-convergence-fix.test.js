@@ -105,6 +105,61 @@ test('Issue #329 a snapshot change on the way to Sol reruns convergence, and a l
   assert.equal(nextRequest(r.stdout)?.agent, 'tidd-safety-reviewer', 'Sol MERGE goes on to Terra');
 });
 
+// Round 1 of PR #335 (ADV-335-STALE-CONVERGENCE-PUBLICATION): a convergence rerun after a snapshot change replaces
+// the superseded convergence finding in the published ledger, whether the rerun returns MERGE or a different FIX.
+const comment9 = { id: 9, html_url: 'u', user: { login: 'someone', type: 'User' }, author_association: 'NONE', created_at: '2026-09-29T00:00:00Z', updated_at: '2026-09-29T00:00:00Z', body: 'a new comment' };
+function renamed(t, findingId) {
+  const runId = fakeGate(t.runDir, t.runs, { verdict: 'FIX' });
+  const file = path.join(t.runs, 'async-subagent-runs', runId, 'structured-output', 'fake', 'output.json');
+  const out = JSON.parse(fs.readFileSync(file, 'utf8')); out.findings[0].findingId = findingId; fs.writeFileSync(file, JSON.stringify(out));
+  return runId;
+}
+
+test('Issue #329 a rerun MERGE after a snapshot change drops the superseded convergence finding from MERGE_READY', () => {
+  const t = started();
+  setFixture(t, { prComments: [comment9] });
+  assert.equal(nextRequest(convergenceFix(t).stdout)?.agent, 'tidd-convergence-reviewer');
+  assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-adversarial-reviewer');
+  assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-safety-reviewer');
+  const r = result(t);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  assert.equal(s.findings.some((f) => f.findingId === 'CONV-7-X'), false, 'the ledger drops it');
+  assert.doesNotMatch(fs.readFileSync(s.publication.comment, 'utf8'), /CONV-7-X: /, 'the publication drops it');
+});
+
+test('Issue #329 a rerun FIX with a different finding after a snapshot change publishes only the new one', () => {
+  const t = started();
+  setFixture(t, { prComments: [comment9] });
+  assert.equal(nextRequest(convergenceFix(t).stdout)?.agent, 'tidd-convergence-reviewer');
+  assert.equal(nextRequest(result(t, renamed(t, 'CONV-7-Y')).stdout)?.agent, 'tidd-adversarial-reviewer');
+  const r = result(t);
+  assert.notEqual(r.status, 0);
+  const s = state(t.runDir);
+  assert.equal(s.reason, 'convergence returned FIX BEFORE MERGE with open finding(s): CONV-7-Y; sol returned MERGE');
+  const comment = fs.readFileSync(s.publication.comment, 'utf8');
+  assert.match(comment, /^  CONV-7-Y: fixed \(proposed; correction pending\)$/m, 'the current finding');
+  assert.doesNotMatch(comment, /CONV-7-X: /, 'not the superseded one');
+});
+
+test('Issue #329 recorded findings keep their published lines through a convergence rerun', () => {
+  const t = started();
+  const recorded = { verdict: 'MERGE_WITH', severity: 'Minor', anchoring: 'follow-up', disposition: 'deferred' };
+  assert.equal(nextRequest(result(t, recorded).stdout)?.agent, 'tidd-adversarial-reviewer');
+  assert.equal(nextRequest(result(t, recorded).stdout)?.agent, 'tidd-safety-reviewer');
+  setFixture(t, { prComments: [comment9] });
+  assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-convergence-reviewer', 'final readiness reruns convergence');
+  assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-adversarial-reviewer');
+  assert.equal(nextRequest(result(t).stdout)?.agent, 'tidd-safety-reviewer');
+  const r = result(t);
+  assert.equal(r.status, 0, r.stderr + r.stdout);
+  const s = state(t.runDir);
+  assert.equal(s.state, 'MERGE_READY', s.reason);
+  const comment = fs.readFileSync(s.publication.comment, 'utf8');
+  for (const id of ['CONV-7-X', 'ADV-7-X']) assert.match(comment, new RegExp(`^  ${id}: deferred \\(recorded under CL-D85\\)$`, 'm'), id);
+});
+
 test('Issue #329 AC5 CL-D131 records the review-only order, CL-D62 points forward, and the autofix driver is unchanged', () => {
   const record = sectionOf(readContract(), '## CL-D131 — Review-only runs Sol after a convergence FIX BEFORE MERGE with no Blocker');
   assert.ok(record, 'CL-D131 is in the contract');
