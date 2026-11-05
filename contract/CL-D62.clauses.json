@@ -23,7 +23,7 @@
     {
       "id": "CL-D62-pr",
       "marker": "CL-D62",
-      "title": "The review-only driver runs convergence first, stops before Sol on an open finding, and accounts convergence rounds separately",
+      "title": "The review-only driver runs convergence first, stops on an open finding (before Sol only on a convergence Blocker or decision since CL-D131), and accounts convergence rounds separately",
       "files": [
         "skills/closed-loop-pr/driver/review.js"
       ],
@@ -38,13 +38,14 @@
     {
       "id": "CL-D62-pr-record",
       "marker": "CL-D62",
-      "title": "The record states the preliminary stop and its CL-D85 qualification",
+      "title": "The record states the preliminary stop and its CL-D85 and CL-D131 qualifications",
       "files": [
         "contract/CL-D62.md"
       ],
       "requires": [
         "Review-only stops at `WAITING_FOR_OWNER` on a preliminary `FIX BEFORE MERGE` before Sol runs.",
-        "a result whose only open findings are Minors recorded under CL-D85 advances to Sol instead of stopping"
+        "a result whose only open findings are Minors recorded under CL-D85 advances to Sol instead of stopping",
+        "CL-D131 later has review-only run Sol after a convergence `FIX BEFORE MERGE` with no `Blocker` (#329)."
       ]
     },
     {

@@ -127,7 +127,7 @@ test('Issue #196 an early stop still drafts publishable artifacts, with the full
 test('Issue #196 an open finding is reported as proposed, not as fixed', () => {
   const t = setup();
   assert.equal(drive(t.start, t.e).status, 0);
-  drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
+  drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX', severity: 'Blocker' })], t.e);
   assert.match(state(t.runDir).statusBlock, /^  CONV-7-X: fixed \(proposed; correction pending\)$/m);
 });
 
@@ -171,7 +171,7 @@ test('Issue #196 a pull request whose head repository is gone fails before any r
 test('Issue #196 a stop drafts exactly the two CL-D33 artifacts and no status-block file', () => {
   const t = setup();
   assert.equal(drive(t.start, t.e).status, 0);
-  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX', severity: 'Blocker' })], t.e);
   const s = state(t.runDir);
   assert.deepEqual(fs.readdirSync(path.dirname(s.publication.comment)).sort(), ['publish-review.sh', 'review-comment.md']);
   assert.equal(fs.existsSync(path.join(t.runDir, 'status-block.md')), false);

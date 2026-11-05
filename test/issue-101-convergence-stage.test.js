@@ -171,11 +171,12 @@ test('Issue #101 the pull-request root runs convergence before the adversarial g
   assert.match(pr, /`tidd-convergence-reviewer` is required in both modes for the CL-D62 convergence stage unless it is explicitly disabled: a disabled role skips the stage and reports `convergence: disabled`; a missing, unresolved, or write-capable resolution is `BLOCKED` under the shared rule/);
   assert.doesNotMatch(pr, /when it resolves and is skipped when disabled/);
   assert.match(pr, /Every convergence invocation in either mode composes the shared Every-gate invariant payload block verbatim and the volatile envelope\/history projection, returns the packaged schema declared by its agent definition, with no `outputSchema` in the launch, and receives neither the Sol-only adversarial block nor a formal role-authority block \(CL-D62\)/);
-  // #249 B2 (CL-D113): the review-only root is the packaged driver: convergence first, a stop before Sol on an open
-  // finding, convergence at its cap handing to Sol with its findings assigned, and the status lines rendered from state.
+  // #249 B2 (CL-D113): the review-only root is the packaged driver: convergence first, a stop on an open finding (before
+  // Sol on a convergence Blocker since CL-D131), convergence at its cap handing to Sol with its findings assigned, and the
+  // status lines rendered from state.
   const review = readText('skills/closed-loop-pr/driver/review.js');
   assert.ok(review.includes("const GATES = ['convergence', 'adversarial', 'safety'];"), 'convergence runs first');
-  assert.ok(review.includes("run.stop('WAITING_FOR_OWNER', `${label(gate)} returned ${envelope.verdict} with open finding(s): ${open.map((x) => x.findingId).join(', ')}`)"), 'an open finding stops before Sol');
+  assert.ok(review.includes("run.stop('WAITING_FOR_OWNER', `${label(gate)} returned ${envelope.verdict} with open finding(s): ${open.map((x) => x.findingId).join(', ')}`)"), 'an open finding stops the run');
   assert.ok(review.includes("if (open.length && gate === 'convergence' && p.invocation >= ROUND_CAP) {"), 'convergence at its cap hands to Sol');
   assert.ok(review.includes("s.assigned = run.op('build_gate_assignments', { findings: open, settledKeys: [] }).data.assignedFindings;"), 'with its open findings assigned');
   assert.ok(review.includes('`${label(g)} ${s.invocations[g] || 0}/${ROUND_CAP}`'), 'rounds are accounted per gate');

@@ -9,7 +9,8 @@ test('Issue #196 an open finding stops review-only WAITING_FOR_OWNER with the fi
   const t = setup();
   const r0 = drive(t.start, t.e);
   assert.equal(r0.status, 0, r0.stderr);
-  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX' })], t.e);
+  // A convergence Blocker stops before Sol; another open convergence finding has Sol review the head first (CL-D131).
+  const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX', severity: 'Blocker' })], t.e);
   assert.notEqual(r.status, 0);
   const s = state(t.runDir);
   assert.equal(s.state, 'WAITING_FOR_OWNER');
@@ -55,9 +56,12 @@ test('Issue #196 a criterion-anchored Minor stays open whatever disposition it p
   for (const disposition of ['accepted-as-designed', 'deferred']) {
     const t = setup();
     assert.equal(drive(t.start, t.e).status, 0);
-    const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX', severity: 'Minor', disposition })], t.e);
+    // Sol reviews the head after the convergence FIX (CL-D131); the Minor is still open when the run stops.
+    assert.equal(drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs, { verdict: 'FIX', severity: 'Minor', disposition })], t.e).status, 0, disposition);
+    const r = drive(['result', '--run-dir', t.runDir, '--run-id', fakeGate(t.runDir, t.runs)], t.e);
     assert.notEqual(r.status, 0, disposition);
     assert.equal(state(t.runDir).state, 'WAITING_FOR_OWNER', disposition);
+    assert.match(state(t.runDir).reason, /^convergence returned FIX BEFORE MERGE with open finding\(s\): CONV-7-X; /, disposition);
   }
 });
 
