@@ -256,6 +256,8 @@ The existing Sol review gate also runs an adversarial consistency check: it trea
 
 The driver runs the validation commands from the first source that exists (CL-D97): `.tidd.json` at the base commit (`{"validate": [["node", "--test"]]}`); otherwise `--validate`, a JSON list of argv lists, only when you start the driver directly (`/tidd-pr` never passes it); otherwise the operator's own `$XDG_CONFIG_HOME/tidd/<owner>/<repo>.json` (`~/.config` when unset or relative) in the same format. The pull request's head is never a source. With none, review-only runs `git diff --check` alone and reports "no validation commands configured". Autofix with none stops `BLOCKED` before it changes anything, because its writer commits and pushes.
 
+The driver writes each gate's payload in its run directory and refuses to launch a gate when that directory is not inside the temporary directory Node reports (`os.tmpdir()`, read from `TMPDIR`, `TMP` or `TEMP`), with `payload_location_invalid`. So the driver must run with a `TMPDIR` (and `TEMP`/`TMP`) that contains its run directory; without `--run-dir` it makes its run directory there. A scratch temporary directory for the project's tests belongs in the validation command's own environment, for example `["env", "TMPDIR=/path/to/scratch", "node", "--test"]`, not in the driver process's.
+
 ### Issue review publishes nothing
 
 `/tidd-issue <issue-ref>` and `/skill:closed-loop-issue <issue-ref>` are review-and-draft only: they never edit the Issue or post to GitHub (CL-D123). When a gate does not return `MERGE`, the round stops, the owner revises the Issue, and a fresh run reviews the revised text.

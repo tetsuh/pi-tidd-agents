@@ -351,7 +351,7 @@ class Run {
   }
   // Print the one call the parent makes, and the command that reads its result.
   next(request, command) {
-    process.stdout.write(`NEXT: make exactly this subagent call, then run: node ${command} --run-dir ${this.dir} --run-id <runId>\n${jsonLine(request)}\n`);
+    process.stdout.write(`NEXT: make exactly this subagent call (pass the next line verbatim; top-level fields, async too, stay top-level), then run: node ${command} --run-dir ${this.dir} --run-id <runId>\n${jsonLine(request)}\n`);
   }
 }
 
