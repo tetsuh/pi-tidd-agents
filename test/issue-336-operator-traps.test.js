@@ -9,7 +9,7 @@ const { test, assert, readText } = R;
 const { Run } = require('../skills/closed-loop-pr/driver/run');
 const { sectionOf } = require('./helpers');
 
-const NEXT = 'NEXT: make exactly this subagent call (pass the next line verbatim; top-level fields, async too, stay top-level), then run: ';
+const NEXT = 'NEXT: make exactly this subagent call (pass the next line verbatim, every field at its level, async too); whether it succeeds or fails, then run: '; // reworded by #340
 
 function printed(request, command, dir) {
   const write = process.stdout.write, out = [];
