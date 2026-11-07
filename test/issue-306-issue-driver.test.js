@@ -357,7 +357,7 @@ test('Issue #306 the Issue Skill runs its review-and-draft round through the dri
   assert.ok(skill.includes('The review-and-draft round runs through the packaged Issue driver (CL-D122): from the checkout\'s top-level directory, run `node <skill-dir>/../closed-loop-pr/driver/issue.js start --issue <number> --repo <owner/name>`'));
   assert.ok(skill.includes('The packaged Issue driver derives the Issue `contractInput` and `snapshotFingerprint` (CL-D122).'));
   assert.equal(skill.includes('the parent supplies both until the Issue driver does'), false);
-  assert.ok(skill.includes('If the call is refused or returns no run id, report it and stop. Commands inside the JSON object are the subagent\'s, never yours. A line beginning `WAIT:` means the gate run is still going: wait for it, then run the command that line names.'));
+  assert.ok(skill.includes('If the call is refused or returns no run id, report it and stop. That is the only stop here: a run that ends failed, partial or without structured output still has a run id and is finished the same way, by that command with its run id. Commands inside the JSON object are the subagent\'s, never yours. A line beginning `WAIT:` means the gate run is still going: wait for it, then run the command that line names.'));
   assert.ok(skill.includes('The driver stops at `WAITING_FOR_OWNER` at the first result that is not `MERGE`,'));
   assert.ok(skill.includes('or when the Issue closes or answers with another number, kind or repository,'));
   // #310 (CL-D123) retired the candidate phase, so the driver's round is the Issue root's only one.
