@@ -10,7 +10,8 @@
       "requires": [
         "*Owner choice:* Option A.",
         "Sol is launched on the same head in the same run, with convergence's open findings as unresolved history, not as assigned findings",
-        "The exact autofix driver's order is unchanged"
+        "The exact autofix driver's order is unchanged",
+        "That is also why the two sides of the cap differ: Sol's confirmation settles only an assigned finding, so before the cap, convergence's findings, carried as history, stay open for the author whatever Sol returns, while at the cap CL-D62 has the stage fail open toward the authority and its assigned findings no longer hold the run once Sol confirms them."
       ]
     },
     {
