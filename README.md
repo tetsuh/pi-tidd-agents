@@ -40,7 +40,7 @@ Every gate is read-only; file edits need the `autofix` token (see *Commands*).
 ## Requirements
 
 - Pi
-- [pi-subagents](https://github.com/nicobailon/pi-subagents) **0.70.0 or newer** (the test suite was run against pi-subagents 0.70.0 and 0.78.0)
+- [pi-subagents](https://github.com/nicobailon/pi-subagents) **0.70.0 or newer**; see [Runtime compatibility checks](#runtime-compatibility-checks) for the tested versions and scope.
 - Access to the model identifiers used by the selected agents
 
 Requirements differ between the two ways of using this package:
@@ -61,6 +61,20 @@ Install `pi-subagents` first (the package was validated with 0.70.0; do not assu
 ```bash
 pi install npm:pi-subagents
 ```
+
+### Runtime compatibility checks
+
+CI installs real, pinned packages for each combination below, separately from the dependency-free `npm test` jobs:
+
+| Node.js | Pi | pi-subagents |
+| --- | --- | --- |
+| 22 and 24 | 1.6.1 | 0.70.0, 0.78.0, and 0.90.0 |
+
+These checks exercise the writer and gate launch requests against the receiver's schemas, option flattening and validators, TypeBox resolution, Pi Skill discovery, and package contents. They are not live-model end-to-end tests: they make no model calls and do not exercise authentication, model availability, or a complete review round. Testing these versions does not guarantee every intermediate or future runtime version works.
+
+From a repository checkout with Pi installed globally through npm and pi-subagents installed through Pi, run `npm run test:compat`. Unlike `npm test`, this command fails if either runtime is absent. It prints the installed versions; optional `TIDD_EXPECT_PI_VERSION` and `TIDD_EXPECT_SUBAGENTS_VERSION` environment variables require exact matches (CI sets both). Some fixture checks are intentionally skipped when the receiver supplies its own TypeBox.
+
+Earlier full-suite runs covered pi-subagents 0.70.0 and 0.78.0. The current full suite also passed locally with Node.js 24.18.0, Pi 1.6.1, and pi-subagents 0.90.0. The matrix above runs the focused compatibility checks, not the full suite in every combination. Changing a runtime pin should include this check and a full-suite run before a release; it does not change the minimum requirement by itself.
 
 ## Installation
 
