@@ -54,7 +54,10 @@ test('Issue #320 AC4 requirements keep the minimum and state the versions the su
   const requirements = sectionOf(README(), '## Requirements');
   assert.ok(requirements.includes('**0.70.0 or newer**'));
   assert.ok(requirements.includes('do not assume support for older versions'));
-  assert.ok(requirements.includes('the test suite was run against pi-subagents 0.70.0 and 0.78.0'));
+  const compatibility = sectionOf(requirements, '### Runtime compatibility checks');
+  assert.ok(compatibility);
+  assert.ok(compatibility.includes('Earlier full-suite runs covered pi-subagents 0.70.0 and 0.78.0.'));
+  assert.ok(compatibility.includes('Node.js 24.18.0, Pi 1.6.1, and pi-subagents 0.90.0'));
 });
 
 test('Issue #320 AC5 the quick start walks from install to publication', () => {

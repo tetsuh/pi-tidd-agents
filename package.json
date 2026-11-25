@@ -11,7 +11,8 @@
   ],
   "license": "MIT",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:compat": "node scripts/compatibility.js"
   },
   "files": [
     "agents",

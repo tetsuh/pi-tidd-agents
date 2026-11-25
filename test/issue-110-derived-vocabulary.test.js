@@ -514,7 +514,12 @@ test('Issue #110 the version 1 window and the marker gate vocabulary derive from
 // comparison names the missing line and refuses to guess between two blocks.
 test('Issue #110 one run names every simultaneous surface gap', () => {
   const overlay = new Map();
-  overlay.set('README.md', readText('README.md').split('\n').filter((line) => !/^\| `tidd-(?:drift|safety)-reviewer` \|/.test(line)).join('\n').replace('\n| --- | --- | --- |\n', '\n| --- | --- | --- |\n| `tidd-legacy-reviewer` | `gpt-5.6-legacy` | stale |\n'));
+  // Mutate the agents section, not the first three-column table in the README:
+  // the runtime compatibility matrix can precede it without changing this fixture.
+  const readme = readText('README.md'), agents = sectionOf(readme, '## Included agents');
+  assert.ok(agents);
+  const brokenAgents = agents.split('\n').filter((line) => !/^\| `tidd-(?:drift|safety)-reviewer` \|/.test(line)).join('\n').replace('\n| --- | --- | --- |\n', '\n| --- | --- | --- |\n| `tidd-legacy-reviewer` | `gpt-5.6-legacy` | stale |\n');
+  overlay.set('README.md', readme.replace(agents, brokenAgents));
   overlay.set('skills/closed-loop-pr/driver/review.js', readText('skills/closed-loop-pr/driver/review.js').replace("const GATES = ['convergence', 'adversarial', 'safety'];", "const GATES = ['convergence', 'adversarial', 'decision-drift', 'safety'];"));
   const issueSkill = readText('skills/closed-loop-issue/SKILL.md');
   overlay.set('skills/closed-loop-issue/SKILL.md', `${issueSkill.replace(/^(specification → .*)$/m, '$1 → tidd-adversarial-reviewer gate').replace('`tidd-adversarial-reviewer` and `tidd-drift-reviewer`. If one does not resolve', '`tidd-adversarial-reviewer`, `tidd-safety-reviewer`, and `tidd-drift-reviewer`. If one does not resolve')}\n${issueSkill.match(/```tidd-status\n[\s\S]*?```\n/)[0]}`);
